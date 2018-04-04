@@ -9,8 +9,8 @@ if (NOT DEFINED PROTOBUF_PROTOC_EXECUTABLE)
     set(PROTOBUF_PROTOC_EXECUTABLE protoc)
 endif()
 
-if (NOT DEFINED PREFIX_DIR)
-    set(PREFIX_DIR /usr/local/)
+if (NOT DEFINED CMAKE_PREFIX_PATH)
+    set(CMAKE_PREFIX_PATH /usr/local/)
 endif()
 
 set(PROTO_DIR ${PROJECT_SOURCE_DIR}/proto)
@@ -49,9 +49,9 @@ set(TEST_FLIP_FILES
         src/test_flip.cpp
     )
 
-find_library(PROTOBUF_LIBRARY protobuf HINTS ${PREFIX_DIR}/lib)
-find_library(GLOG_LIBRARY glog HINTS ${PREFIX_DIR}/lib)
-include_directories(${PREFIX_DIR}/include)
+find_library(PROTOBUF_LIBRARY protobuf HINTS ${CMAKE_PREFIX_PATH}/lib)
+find_library(GLOG_LIBRARY glog HINTS ${CMAKE_PREFIX_PATH}/lib)
+include_directories(${CMAKE_PREFIX_PATH}/include ${PROTO_GEN_DIR})
 
 add_library(flip ${FLIP_LIB_FILES})
 target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY})
