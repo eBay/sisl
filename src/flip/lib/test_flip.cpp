@@ -22,7 +22,7 @@ void create_flip_spec(flip::FlipSpec *fspec) {
     fspec->mutable_returns()->set_string_value("Error simulated");
 
     auto freq = fspec->mutable_flip_frequency();
-    freq->set_count(1);
+    freq->set_count(2);
     freq->set_percent(100);
 }
 
@@ -35,6 +35,9 @@ int main(int argc, char *argv[]) {
 
     int my_cmd = 1;
     std::string my_coll = "item_shipping";
+    if (flip.test_flip("fail_cmd", my_cmd, my_coll)) {
+        std::cout << "flip hit " << "\n";
+    }
     auto result = flip.get_test_flip<std::string>("fail_cmd", my_cmd, my_coll);
     if (result) {
         std::cout << "flip returned " << result.get() << "\n";
