@@ -4,7 +4,7 @@
 #ifndef FLIP_FLIP_HPP
 #define FLIP_FLIP_HPP
 
-#include "proto/flip_spec.pb.h"
+#include "flip_spec.pb.h"
 #include <atomic>
 #include <tuple>
 #include <functional>

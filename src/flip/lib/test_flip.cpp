@@ -2,7 +2,7 @@
 // Created by Kadayam, Hari on 28/03/18.
 //
 
-#include "proto/flip_spec.pb.h"
+#include "flip_spec.pb.h"
 #include "flip.hpp"
 
 void create_flip_spec(flip::FlipSpec *fspec) {
