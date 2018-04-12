@@ -277,7 +277,7 @@ private:
         if (freq.every_nth() != 0) {
             return ((hit_count % freq.every_nth()) == 0);
         } else {
-            return ((rand() % 100) < freq.percent());
+            return ((rand() % 100) < (int)freq.percent());
         }
     }
 
