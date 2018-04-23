@@ -8,8 +8,7 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 
-#ifndef LIB_LOGGING_H_
-#define LIB_LOGGING_H_
+#pragma once
 
 // The following constexpr's are used to extract the filename
 // from the full path during compile time.
@@ -44,5 +43,3 @@ constexpr const char* file_name(const char* str) {
 namespace sds_logging {
 extern std::shared_ptr<spdlog::logger> GetLogger() __attribute__((weak));
 }
-
-#endif // LIB_LOGGING_H_
