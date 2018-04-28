@@ -4,8 +4,6 @@ project(flip)
 set(CMAKE_CXX_STANDARD 17)
 
 find_library(GFLAGS_LIBRARY gflags HINTS ${CMAKE_PREFIX_PATH}/lib)
-add_library(flip ${FLIP_LIB_FILES})
-target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY})
 #set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
 
 if (NOT DEFINED PROTOBUF_PROTOC_EXECUTABLE)
@@ -57,7 +55,7 @@ find_library(GLOG_LIBRARY glog HINTS ${CMAKE_PREFIX_PATH}/lib)
 include_directories(${CMAKE_PREFIX_PATH}/include ${PROTO_GEN_DIR})
 
 add_library(flip ${FLIP_LIB_FILES})
-target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY})
+target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY})
 
 add_executable(test_flip ${TEST_FLIP_FILES})
 target_link_libraries(test_flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} pthread)
