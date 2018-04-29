@@ -12,8 +12,13 @@
 #include <boost/variant.hpp>
 #include <glog/logging.h>
 #include <shared_mutex>
+#include <boost/asio.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <cstdlib>
 
 namespace flip {
+static thread_local boost::asio::io_service g_io;
+
 template <
         size_t Index = 0, // start iteration at 0 index
         typename TTuple,  // the tuple type
@@ -113,10 +118,11 @@ struct val_converter<bool> {
 
 class Flip {
 public:
-    Flip() {
+    Flip() : m_flip_enabled(false) {
     }
 
     bool add(const FlipSpec &fspec) {
+        m_flip_enabled = true;
         auto inst = flip_instance(fspec);
 
         // TODO: Add verification to see if the flip is already scheduled, any errors etc..
@@ -154,6 +160,7 @@ public:
         LOG(INFO)  << "Flip " << flip_name << " matches and hits";
         return true;
 #endif
+        if (!m_flip_enabled) return false;
         auto ret = __test_flip<bool, false>(flip_name, std::forward< Args >(args)...);
         return (ret != boost::none);
     }
@@ -187,14 +194,35 @@ public:
 
         return val_converter< T >()(fspec.returns());
 #endif
+        if (!m_flip_enabled) return boost::none;
+
         auto ret = __test_flip<T, true>(flip_name, std::forward< Args >(args)...);
         if (ret == boost::none) return boost::none;
         return boost::optional<T>(boost::get<T>(ret.get()));
     }
 
+    template< class... Args >
+    bool delay_flip(std::string flip_name, const std::function<void()> &closure, Args &&... args) {
+        if (!m_flip_enabled) return false;
+
+        auto ret = __test_flip<bool, false>(flip_name, std::forward< Args >(args)...);
+        if (ret != boost::none) {
+            uint64_t delay_usec = boost::get<uint64_t>(ret.get());
+            auto io = std::make_shared<boost::asio::io_service>();
+            boost::asio::deadline_timer t(*io, boost::posix_time::milliseconds(delay_usec/1000));
+            t.async_wait([closure, io](const boost::system::error_code& e) {
+                closure();
+            });
+            auto ret = io->run();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
 private:
     template< typename T, bool ValueNeeded, class... Args >
-    boost::optional< boost::variant<T, bool> > __test_flip(std::string flip_name, Args &&... args) {
+    boost::optional< boost::variant<T, bool, uint64_t> > __test_flip(std::string flip_name, Args &&... args) {
         bool exec_completed = false; // If all the exec for the flip is completed.
         flip_instance *inst = nullptr;
 
@@ -220,11 +248,26 @@ private:
             LOG(INFO) << "Flip " << flip_name << " matches and hits";
         }
 
-        boost::variant<T, bool> val_ret;
-        if (ValueNeeded) {
-            val_ret = val_converter< T >()(inst->m_fspec.returns());
-        } else {
+        boost::variant<T, bool, uint64_t> val_ret ;
+        switch (inst->m_fspec.flip_action().action_case()) {
+        case FlipAction::kReturns:
+            if (ValueNeeded) {
+                val_ret = val_converter< T >()(inst->m_fspec.flip_action().returns().return_());
+            } else {
+                val_ret = true;
+            }
+            break;
+
+        case FlipAction::kNoAction:
             //static_assert(!std::is_same<ValueNeeded, true>::value || std::is_same<T, bool>::value, "__test_flip without value should be called with bool as type");
+            val_ret = true;
+            break;
+
+        case FlipAction::kDelays:
+            val_ret = inst->m_fspec.flip_action().delays().delay_in_usec();
+            break;
+
+        default:
             val_ret = true;
         }
 
@@ -277,7 +320,7 @@ private:
         if (freq.every_nth() != 0) {
             return ((hit_count % freq.every_nth()) == 0);
         } else {
-            return ((rand() % 100) < freq.percent());
+            return ((uint32_t)(rand() % 100) < freq.percent());
         }
     }
 
@@ -313,6 +356,7 @@ private:
 private:
     std::multimap< std::string, flip_instance, flip_name_compare > m_flip_specs;
     std::shared_mutex m_mutex;
+    bool m_flip_enabled;
 };
 
 } // namespace flip
