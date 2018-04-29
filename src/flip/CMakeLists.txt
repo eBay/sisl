@@ -51,13 +51,14 @@ set(TEST_FLIP_FILES
 
 find_library(PROTOBUF_LIBRARY protobuf HINTS ${CMAKE_PREFIX_PATH}/lib)
 find_library(GLOG_LIBRARY glog HINTS ${CMAKE_PREFIX_PATH}/lib)
+find_library(GFLAGS_LIBRARY gflags HINTS ${CMAKE_PREFIX_PATH}/lib)
 include_directories(${CMAKE_PREFIX_PATH}/include ${PROTO_GEN_DIR})
 
 add_library(flip ${FLIP_LIB_FILES})
-target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY})
+target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY})
 
 add_executable(test_flip ${TEST_FLIP_FILES})
-target_link_libraries(test_flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} pthread)
+target_link_libraries(test_flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} pthread boost_system)
 
 install(TARGETS flip DESTINATION ${CMAKE_PREFIX_PATH}/lib)
 install(FILES src/flip.hpp proto/flip_spec.proto ${PROTO_GEN_DIR}/flip_spec.pb.h DESTINATION ${CMAKE_PREFIX_PATH}/include/flip)
