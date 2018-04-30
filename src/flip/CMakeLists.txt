@@ -54,8 +54,8 @@ find_library(PROTOBUF_LIBRARY protobuf HINTS ${CMAKE_PREFIX_PATH}/lib)
 find_library(GLOG_LIBRARY glog HINTS ${CMAKE_PREFIX_PATH}/lib)
 include_directories(${CMAKE_PREFIX_PATH}/include ${PROTO_GEN_DIR})
 
-add_library(flip ${FLIP_LIB_FILES})
-target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY})
+#add_library(flip ${FLIP_LIB_FILES})
+#target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GFLAGS_LIBRARY} ${GLOG_LIBRARY})
 
 add_executable(test_flip ${TEST_FLIP_FILES})
 target_link_libraries(test_flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} pthread)
