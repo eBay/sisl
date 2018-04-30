@@ -3,8 +3,12 @@ project(flip)
 
 set(CMAKE_CXX_STANDARD 17)
 
+set (CMAKE_DEPENDENT_MODULES_DIR ../../deps_prefix)
+include(find_gflags.cmake)
+
+
 #set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-find_library(GFLAGS_LIBRARY gflags HINTS ${CMAKE_PREFIX_PATH}/lib)
+#find_library(GFLAGS_LIBRARY gflags HINTS ${CMAKE_PREFIX_PATH}/lib)
 
 if (NOT DEFINED PROTOBUF_PROTOC_EXECUTABLE)
     set(PROTOBUF_PROTOC_EXECUTABLE protoc)
@@ -52,7 +56,7 @@ set(TEST_FLIP_FILES
 
 find_library(PROTOBUF_LIBRARY protobuf HINTS ${CMAKE_PREFIX_PATH}/lib)
 find_library(GLOG_LIBRARY glog HINTS ${CMAKE_PREFIX_PATH}/lib)
-find_library(GFLAGS_LIBRARY gflags HINTS ${CMAKE_PREFIX_PATH}/lib)
+#find_library(GFLAGS_LIBRARY gflags HINTS ${CMAKE_PREFIX_PATH}/lib)
 include_directories(${CMAKE_PREFIX_PATH}/include ${PROTO_GEN_DIR})
 
 add_library(flip ${FLIP_LIB_FILES})
