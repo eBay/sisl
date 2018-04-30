@@ -70,6 +70,22 @@ message FlipCondition {
     ParamValue value = 3;
 }
 
+message FlipAction {
+    message ActionReturns {
+        ParamValue return = 1;
+    }
+
+    message ActionDelays {
+        uint64 delay_in_usec = 1;
+    }
+
+    oneof action {
+        bool no_action = 1;
+        ActionReturns returns = 2;
+        ActionDelays delays = 3;
+    }
+}
+
 message FlipFrequency {
     uint32 count = 1;          // How many faults to generate, Default no limit
 
@@ -82,7 +98,7 @@ message FlipFrequency {
 message FlipSpec {
     string flip_name = 1;
     repeated FlipCondition conditions = 2;
-    ParamValue returns = 3;
+    FlipAction flip_action = 3;
     FlipFrequency flip_frequency = 4;
 }
 
