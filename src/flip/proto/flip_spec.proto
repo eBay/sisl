@@ -79,10 +79,16 @@ message FlipAction {
         uint64 delay_in_usec = 1;
     }
 
+    message ActionDelayedReturns {
+        uint64 delay_in_usec = 1;
+        ParamValue return = 2;
+    }
+
     oneof action {
         bool no_action = 1;
         ActionReturns returns = 2;
         ActionDelays delays = 3;
+        ActionDelayedReturns delay_returns = 4;
     }
 }
 
