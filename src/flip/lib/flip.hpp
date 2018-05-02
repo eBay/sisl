@@ -15,6 +15,7 @@
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstdlib>
+#include <string>
 
 namespace flip {
 static thread_local boost::asio::io_service g_io;
@@ -116,6 +117,25 @@ struct val_converter<bool> {
     }
 };
 
+template< typename T >
+struct delayed_return_param {
+    uint64_t delay_usec;
+    T        val;
+};
+
+template <typename T>
+struct val_converter<delayed_return_param<T>> {
+    delayed_return_param<T> operator()(const ParamValue &val) {
+        delayed_return_param<T> dummy;
+        return dummy;
+    }
+};
+
+#define TEST_ONLY      0
+#define RETURN_VAL     1
+#define SET_DELAY      2
+#define DELAYED_RETURN 3
+
 class Flip {
 public:
     Flip() : m_flip_enabled(false) {
@@ -161,7 +181,7 @@ public:
         return true;
 #endif
         if (!m_flip_enabled) return false;
-        auto ret = __test_flip<bool, false>(flip_name, std::forward< Args >(args)...);
+        auto ret = __test_flip<bool, TEST_ONLY>(flip_name, std::forward< Args >(args)...);
         return (ret != boost::none);
     }
 
@@ -196,7 +216,7 @@ public:
 #endif
         if (!m_flip_enabled) return boost::none;
 
-        auto ret = __test_flip<T, true>(flip_name, std::forward< Args >(args)...);
+        auto ret = __test_flip<T, RETURN_VAL>(flip_name, std::forward< Args >(args)...);
         if (ret == boost::none) return boost::none;
         return boost::optional<T>(boost::get<T>(ret.get()));
     }
@@ -205,24 +225,40 @@ public:
     bool delay_flip(std::string flip_name, const std::function<void()> &closure, Args &&... args) {
         if (!m_flip_enabled) return false;
 
-        auto ret = __test_flip<bool, false>(flip_name, std::forward< Args >(args)...);
-        if (ret != boost::none) {
-            uint64_t delay_usec = boost::get<uint64_t>(ret.get());
-            auto io = std::make_shared<boost::asio::io_service>();
-            boost::asio::deadline_timer t(*io, boost::posix_time::milliseconds(delay_usec/1000));
-            t.async_wait([closure, io](const boost::system::error_code& e) {
-                closure();
-            });
-            auto ret = io->run();
-            return true;
-        } else {
-            return false;
-        }
+        auto ret = __test_flip<bool, SET_DELAY>(flip_name, std::forward< Args >(args)...);
+        if (ret == boost::none) return false; // Not a hit
+
+        uint64_t delay_usec = boost::get<uint64_t>(ret.get());
+        auto io = std::make_shared<boost::asio::io_service>();
+        boost::asio::deadline_timer t(*io, boost::posix_time::milliseconds(delay_usec/1000));
+        t.async_wait([closure, io](const boost::system::error_code& e) {
+            closure();
+        });
+        io->run();
+        return true;
+    }
+
+    template<typename T, class... Args >
+    bool get_delay_flip(std::string flip_name, const std::function<void(T)> &closure, Args &&... args) {
+        if (!m_flip_enabled) return false;
+
+        auto ret = __test_flip<T, DELAYED_RETURN>(flip_name, std::forward< Args >(args)...);
+        if (ret == boost::none) return false; // Not a hit
+
+        auto param = boost::get<delayed_return_param<T>>(ret.get());
+
+        auto io = std::make_shared<boost::asio::io_service>();
+        boost::asio::deadline_timer t(*io, boost::posix_time::milliseconds(param.delay_usec/1000));
+        t.async_wait([closure, io, param](const boost::system::error_code& e) {
+            closure(param.val);
+        });
+        io->run();
+        return true;
     }
 
 private:
-    template< typename T, bool ValueNeeded, class... Args >
-    boost::optional< boost::variant<T, bool, uint64_t> > __test_flip(std::string flip_name, Args &&... args) {
+    template< typename T, int ActionType, class... Args >
+    boost::optional< boost::variant<T, bool, uint64_t, delayed_return_param<T>> > __test_flip(std::string flip_name, Args &&... args) {
         bool exec_completed = false; // If all the exec for the flip is completed.
         flip_instance *inst = nullptr;
 
@@ -248,10 +284,10 @@ private:
             LOG(INFO) << "Flip " << flip_name << " matches and hits";
         }
 
-        boost::variant<T, bool, uint64_t> val_ret ;
+        boost::variant<T, bool, uint64_t, delayed_return_param<T>> val_ret ;
         switch (inst->m_fspec.flip_action().action_case()) {
         case FlipAction::kReturns:
-            if (ValueNeeded) {
+            if (ActionType == RETURN_VAL) {
                 val_ret = val_converter< T >()(inst->m_fspec.flip_action().returns().return_());
             } else {
                 val_ret = true;
@@ -265,6 +301,18 @@ private:
 
         case FlipAction::kDelays:
             val_ret = inst->m_fspec.flip_action().delays().delay_in_usec();
+            break;
+
+        case FlipAction::kDelayReturns:
+            if (ActionType == DELAYED_RETURN) {
+                auto &flip_dr = inst->m_fspec.flip_action().delay_returns();
+                delayed_return_param<T> dr;
+                dr.delay_usec = flip_dr.delay_in_usec();
+                dr.val = val_converter< T >()(flip_dr.return_());
+                val_ret = dr;
+            } else {
+                val_ret = true;
+            }
             break;
 
         default:
