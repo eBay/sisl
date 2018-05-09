@@ -111,6 +111,13 @@ struct val_converter<std::string> {
 };
 
 template <>
+struct val_converter<const char *> {
+    const char *operator()(const ParamValue &val) {
+        return (val.kind_case() == ParamValue::kStringValue) ? val.string_value().c_str() : nullptr;
+    }
+};
+
+template <>
 struct val_converter<bool> {
     bool operator()(const ParamValue &val) {
         return (val.kind_case() == ParamValue::kBoolValue) ? val.bool_value() : 0;
@@ -128,6 +135,68 @@ struct val_converter<delayed_return_param<T>> {
     delayed_return_param<T> operator()(const ParamValue &val) {
         delayed_return_param<T> dummy;
         return dummy;
+    }
+};
+
+template< typename T >
+struct compare_val {
+    bool operator()(const T &val1, const T &val2, Operator oper) {
+        switch (oper) {
+        case Operator::DONT_CARE:
+            return true;
+
+        case Operator::EQUAL:
+            return (val1 == val2);
+
+        case Operator::NOT_EQUAL:
+            return (val1 != val2);
+
+        case Operator::GREATER_THAN:
+            return (val1 > val2);
+
+        case Operator::LESS_THAN:
+            return (val1 < val2);
+
+        case Operator::GREATER_THAN_OR_EQUAL:
+            return (val1 >= val2);
+
+        case Operator::LESS_THAN_OR_EQUAL:
+            return (val1 <= val2);
+
+        default:
+            return false;
+        }
+    }
+};
+
+template<>
+struct compare_val<const char *> {
+    bool operator()(const char *&val1, const char *&val2, Operator oper) {
+        switch (oper) {
+        case Operator::DONT_CARE:
+            return true;
+
+        case Operator::EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) == 0)) || (!val1 && !val2);
+
+        case Operator::NOT_EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) != 0)) || (!val1 && val2) || (val1 && !val2);
+
+        case Operator::GREATER_THAN:
+            return (val1 && val2 && (strcmp(val1, val2) > 0)) || (val1 && !val2);
+
+        case Operator::LESS_THAN:
+            return (val1 && val2 && (strcmp(val1, val2) < 0)) || (!val1 && val2);
+
+        case Operator::GREATER_THAN_OR_EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) >= 0)) || (val1 && !val2) || (!val1 && !val2);
+
+        case Operator::LESS_THAN_OR_EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) <= 0)) || (!val1 && val2) || (!val1 && !val2);
+
+        default:
+            return false;
+        }
     }
 };
 
@@ -154,32 +223,6 @@ public:
 
     template< class... Args >
     bool test_flip(std::string flip_name, Args &&... args) {
-#if 0
-        std::shared_lock<std::shared_mutex> lock(m_mutex);
-
-        auto inst = match_flip(flip_name, std::forward< Args >(args)...);
-        if (inst == nullptr) {
-            //LOG(INFO) << "Flip " << flip_name << " either not exist or conditions not match";
-            return false;
-        }
-        auto &fspec = inst->m_fspec;
-
-        // Have we already executed this enough times
-        auto count = fspec.flip_frequency().count();
-        if (count && (inst->m_remain_exec_count.load(std::memory_order_acquire) >= count)) {
-            LOG(INFO)  << "Flip " << flip_name << " matches, but it reached max count = " << count;
-            return false;
-        }
-
-        if (!handle_hits(fspec.flip_frequency(), inst)) {
-            LOG(INFO)  << "Flip " << flip_name << " matches, but it is rate limited";
-            return false;
-        }
-
-        inst->m_remain_exec_count.fetch_add(1, std::memory_order_acq_rel);
-        LOG(INFO)  << "Flip " << flip_name << " matches and hits";
-        return true;
-#endif
         if (!m_flip_enabled) return false;
         auto ret = __test_flip<bool, TEST_ONLY>(flip_name, std::forward< Args >(args)...);
         return (ret != boost::none);
@@ -187,33 +230,6 @@ public:
 
     template< typename T, class... Args >
     boost::optional< T > get_test_flip(std::string flip_name, Args &&... args) {
-#if 0
-        std::shared_lock<std::shared_mutex> lock(m_mutex);
-
-        auto inst = match_flip(flip_name, std::forward< Args >(args)...);
-        if (inst == nullptr) {
-            //LOG(INFO) << "Flip " << flip_name << " either not exist or conditions not match";
-            return boost::none;
-        }
-        auto &fspec = inst->m_fspec;
-
-        // Have we already executed this enough times
-        if (inst->m_remain_exec_count.load(std::memory_order_acquire) >= fspec.flip_frequency().count()) {
-            LOG(INFO)  << "Flip " << flip_name << " matches, but it reached max count = "
-                      << fspec.flip_frequency().count();
-            return boost::none;
-        }
-
-        if (!handle_hits(fspec.flip_frequency(), inst)) {
-            LOG(INFO)  << "Flip " << flip_name << " matches, but it is rate limited";
-            return boost::none;
-        }
-
-        inst->m_remain_exec_count.fetch_add(1, std::memory_order_acq_rel);
-        LOG(INFO)  << "Flip " << flip_name << " matches and hits";
-
-        return val_converter< T >()(fspec.returns());
-#endif
         if (!m_flip_enabled) return boost::none;
 
         auto ret = __test_flip<T, RETURN_VAL>(flip_name, std::forward< Args >(args)...);
@@ -278,8 +294,12 @@ private:
             }
 
             // Have we already executed this enough times
-            if (inst->m_remain_exec_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
+            auto remain_count = inst->m_remain_exec_count.fetch_sub(1, std::memory_order_acq_rel) - 1;
+            if (remain_count == 0) {
                 exec_completed = true;
+            } else if (remain_count < 0) {
+                LOG(INFO) << "Flip " << flip_name << " matches, but reaches max count";
+                return boost::none;
             }
             LOG(INFO) << "Flip " << flip_name << " matches and hits";
         }
@@ -360,7 +380,7 @@ private:
     template< typename T >
     bool condition_matches(const FlipCondition &cond, T &comp_val) {
         auto val1 = val_converter< T >()(cond.value());
-        return compare_val< T >(val1, comp_val, cond.oper());
+        return compare_val< T >()(val1, comp_val, cond.oper());
     }
 
     bool handle_hits(const FlipFrequency &freq, flip_instance *inst) {
@@ -372,6 +392,7 @@ private:
         }
     }
 
+#if 0
     template< typename T >
     bool compare_val(T &val1, T &val2, Operator oper) {
         switch (oper) {
@@ -401,6 +422,35 @@ private:
         }
     }
 
+    template<>
+    bool compare_val(const char *&val1, const char *&val2, Operator oper) {
+        switch (oper) {
+        case Operator::DONT_CARE:
+            return true;
+
+        case Operator::EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) == 0)) || (!val1 && !val2);
+
+        case Operator::NOT_EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) != 0)) || (!val1 && val2) || (val1 && !val2);
+
+        case Operator::GREATER_THAN:
+            return (val1 && val2 && (strcmp(val1, val2) > 0)) || (val1 && !val2);
+
+        case Operator::LESS_THAN:
+            return (val1 && val2 && (strcmp(val1, val2) < 0)) || (!val1 && val2);
+
+        case Operator::GREATER_THAN_OR_EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) >= 0)) || (val1 && !val2) || (!val1 && !val2);
+
+        case Operator::LESS_THAN_OR_EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) <= 0)) || (!val1 && val2) || (!val1 && !val2);
+
+        default:
+            return false;
+        }
+    }
+#endif
 private:
     std::multimap< std::string, flip_instance, flip_name_compare > m_flip_specs;
     std::shared_mutex m_mutex;
