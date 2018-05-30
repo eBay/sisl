@@ -32,13 +32,13 @@ constexpr const char* file_name(const char* str) {
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
 
-#define LEVELCHECK(lvl) if (LOGGER->should_log(lvl))
-#define LOGTRACE(msg, ...)     if (auto l = LOGGER) LEVELCHECK(spdlog::level::level_enum::trace) l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGDEBUG(msg, ...)     if (auto l = LOGGER) LEVELCHECK(spdlog::level::level_enum::debug) l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGINFO(msg, ...)      if (auto l = LOGGER) LEVELCHECK(spdlog::level::level_enum::info) l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGWARN(msg, ...)      if (auto l = LOGGER) LEVELCHECK(spdlog::level::level_enum::warn) l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGERROR(msg, ...)     if (auto l = LOGGER) LEVELCHECK(spdlog::level::level_enum::err) l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGCRITICAL(msg, ...)  if (auto l = LOGGER) LEVELCHECK(spdlog::level::level_enum::critical) l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+#define LEVELCHECK(l, lvl) if (l->should_log(lvl))
+#define LOGTRACE(msg, ...)     if (auto l = LOGGER) LEVELCHECK(l, spdlog::level::level_enum::trace) l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+#define LOGDEBUG(msg, ...)     if (auto l = LOGGER) LEVELCHECK(l, spdlog::level::level_enum::debug) l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+#define LOGINFO(msg, ...)      if (auto l = LOGGER) LEVELCHECK(l, spdlog::level::level_enum::info) l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+#define LOGWARN(msg, ...)      if (auto l = LOGGER) LEVELCHECK(l, spdlog::level::level_enum::warn) l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+#define LOGERROR(msg, ...)     if (auto l = LOGGER) LEVELCHECK(l, spdlog::level::level_enum::err) l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+#define LOGCRITICAL(msg, ...)  if (auto l = LOGGER) LEVELCHECK(l, spdlog::level::level_enum::critical) l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
 
 namespace sds_logging {
 extern std::shared_ptr<spdlog::logger> GetLogger() __attribute__((weak));
