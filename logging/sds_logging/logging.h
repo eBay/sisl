@@ -27,7 +27,8 @@ constexpr const char* file_name(const char* str) {
     return str_slant(str) ? r_slant(str_end(str)) : str;
 }
 
-#define LOGGER sds_logging::GetLogger()
+thread_local std::shared_ptr<spdlog::logger> sds_thread_logger;
+#define LOGGER sds_thread_logger ? sds_thread_logger : sds_thread_logger = sds_logging::GetLogger()
 
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
