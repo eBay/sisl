@@ -27,8 +27,7 @@ constexpr const char* file_name(const char* str) {
     return str_slant(str) ? r_slant(str_end(str)) : str;
 }
 
-thread_local std::shared_ptr<spdlog::logger> sds_thread_logger;
-#define LOGGER sds_thread_logger ? sds_thread_logger : sds_thread_logger = sds_logging::GetLogger()
+#define LOGGER sds_logging::sds_thread_logger ? sds_logging::sds_thread_logger : sds_logging::sds_thread_logger = sds_logging::GetLogger()
 
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
@@ -42,5 +41,20 @@ thread_local std::shared_ptr<spdlog::logger> sds_thread_logger;
 #define LOGCRITICAL(msg, ...)  if (auto l = LOGGER) LEVELCHECK(l, spdlog::level::level_enum::critical) l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
 
 namespace sds_logging {
+extern thread_local std::shared_ptr<spdlog::logger> sds_thread_logger;
 extern std::shared_ptr<spdlog::logger> GetLogger() __attribute__((weak));
+extern void SetLogger(std::shared_ptr<spdlog::logger>) __attribute__((weak));
 }
+
+#define SDS_LOGGING_INIT \
+   static std::shared_ptr<spdlog::logger> logger_; \
+   \
+   namespace sds_logging { \
+   thread_local std::shared_ptr<spdlog::logger> sds_thread_logger; \
+   std::shared_ptr<spdlog::logger> GetLogger() { \
+       return logger_; \
+   } \
+   void SetLogger(std::shared_ptr<spdlog::logger> logger) { \
+       logger_ = logger; sds_thread_logger = logger; \
+   }\
+   }
