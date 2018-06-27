@@ -80,7 +80,6 @@ extern void SetLogger(shared<spdlog::logger>) __attribute__((weak));
                                                  sinks.begin(),     \
                                                  sinks.end());      \
        l->set_level(logger_->level());                              \
-       l->set_level(logger_->level());                              \
        spdlog::register_logger(l);                                  \
    }                                                                \
                                                                     \
