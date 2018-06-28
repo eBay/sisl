@@ -94,11 +94,9 @@ extern void SetLogger(shared<spdlog::logger>) __attribute__((weak));
               module_loggers.end() != it) {                         \
            return it->second;                                       \
        }                                                            \
-       if (auto logger = spdlog::get(name)) {                       \
-           module_loggers.emplace(std::make_pair(name, logger));    \
-           return logger;                                           \
-       }                                                            \
-       return nullptr;                                              \
+       auto logger = spdlog::get(name) ;                            \
+       module_loggers.emplace(std::make_pair(name, logger));        \
+       return logger;                                               \
    }                                                                \
                                                                     \
    void SetLogger(std::shared_ptr<spdlog::logger> logger) {         \
