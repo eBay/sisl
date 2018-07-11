@@ -17,9 +17,6 @@
 
 #pragma once
 
-SDS_OPTION_GROUP(logging, (verbosity, "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level"),
-                          (synclog, "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""))
-
 // The following constexpr's are used to extract the filename
 // from the full path during compile time.
 constexpr const char* str_end(const char *str) {
@@ -92,6 +89,8 @@ MODLEVELDEC(_, _, base)
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_TUPLE_TO_SEQ((__VA_ARGS__)))
 
 #define SDS_LOGGING_INIT(...)                                                   \
+   SDS_OPTION_GROUP(logging, (verbosity, "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level"), \
+                             (synclog, "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), "")) \
    SDS_OPTIONS_ENABLE(logging)                                                  \
    static std::shared_ptr<spdlog::logger> logger_;                              \
                                                                                 \
