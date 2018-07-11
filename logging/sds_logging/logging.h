@@ -13,7 +13,12 @@
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
 
+#include <sds_options/options.h>
+
 #pragma once
+
+SDS_OPTION_GROUP(logging, (verbosity, "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level"),
+                          (synclog, "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""))
 
 // The following constexpr's are used to extract the filename
 // from the full path during compile time.
@@ -84,12 +89,13 @@ MODLEVELDEC(_, _, base)
     }
 
 #define SDS_LOGGING_DECL(...)                                                   \
-   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
+   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_TUPLE_TO_SEQ((__VA_ARGS__)))
 
 #define SDS_LOGGING_INIT(...)                                                   \
+   SDS_OPTIONS_ENABLE(logging)                                                  \
    static std::shared_ptr<spdlog::logger> logger_;                              \
                                                                                 \
-   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)) \
+   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::off, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT((__VA_ARGS__), base))) \
    namespace sds_logging {                                                      \
    thread_local shared<spdlog::logger> sds_thread_logger;                       \
                                                                                 \
@@ -97,10 +103,17 @@ MODLEVELDEC(_, _, base)
        return logger_;                                                          \
    }                                                                            \
                                                                                 \
-   void SetLogger(shared<spdlog::logger> logger,                                \
-                  spdlog::level::level_enum const lvl = spdlog::level::level_enum::off) { \
+   void SetLogger(int argc, char** argv, shared<spdlog::logger> logger) {       \
+       SDS_OPTIONS_LOAD(argc, argv, logging);                                   \
        if (logger) {                                                            \
             logger->set_level(spdlog::level::level_enum::trace);                \
+            auto lvl = spdlog::level::level_enum::info;                         \
+            if (SDS_OPTIONS.count("verbosity")) {                               \
+               lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as<uint32_t>(); \
+            }                                                                   \
+            if (SDS_OPTIONS.count("synclog")) {                                 \
+               spdlog::set_sync_mode();                                         \
+            }                                                                   \
             module_level_base = lvl;                                            \
        }                                                                        \
        logger_ = logger; sds_thread_logger = logger;                            \
