@@ -14,6 +14,8 @@
 #include <boost/preprocessor/tuple/rem.hpp>
 #include <boost/preprocessor/tuple/remove.hpp>
 #include <boost/preprocessor/tuple/to_seq.hpp>
+#include <boost/preprocessor/variadic/to_seq.hpp>
+#include <boost/preprocessor/variadic/to_tuple.hpp>
 #include <cxxopts/cxxopts.hpp>
 
 namespace sds_options {
@@ -44,7 +46,7 @@ struct SdsOption {
 #define SDS_OPTION_GROUP(group, ...) \
 namespace sds_options { \
    struct BOOST_PP_CAT(options_module_, group) { \
-      BOOST_PP_SEQ_FOR_EACH(SDS_OPTION, (group), BOOST_PP_TUPLE_TO_SEQ((__VA_ARGS__))); \
+      BOOST_PP_SEQ_FOR_EACH(SDS_OPTION, (group), BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)); \
    }; \
    extern BOOST_PP_CAT(options_module_, group)* BOOST_PP_CAT(load_options_, group)() { return new BOOST_PP_CAT(options_module_, group)(); } \
 }
@@ -57,7 +59,7 @@ namespace sds_options { \
    static BOOST_PP_CAT(sds_options::options_module_, group) const * BOOST_PP_CAT(options_group_, group);
 
 #define SDS_OPTIONS_ENABLE(...) \
-   BOOST_PP_SEQ_FOR_EACH(SDS_OPTION_ENABLE, _, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT((__VA_ARGS__), main))) \
+   BOOST_PP_SEQ_FOR_EACH(SDS_OPTION_ENABLE, _, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), main))) \
    static sds_options::shared_opt options_; \
       namespace sds_options { \
       shared_opt GetOptions() {                                         \
@@ -75,7 +77,7 @@ namespace sds_options { \
 
 #define SDS_OPTIONS_LOAD(argc, argv, ...) \
    sds_options::SetOptions(std::make_shared<cxxopts::Options>(argv[0])); \
-   BOOST_PP_SEQ_FOR_EACH(SDS_OPTION_LOAD, _, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT((__VA_ARGS__), main))) \
+   BOOST_PP_SEQ_FOR_EACH(SDS_OPTION_LOAD, _, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), main))) \
    SDS_OPTIONS.parse(argc, argv); \
    if (SDS_OPTIONS.count("help")) { \
       std::cout << SDS_OPTIONS.help({}) << std::endl; \
