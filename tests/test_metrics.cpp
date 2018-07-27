@@ -1,4 +1,4 @@
-#include "src/metrics.hpp"
+#include "metrics.hpp"
 #include <fstream>
 
 int main() {

@@ -5,6 +5,10 @@ GLOG_RELEASE=0.3.5
 GTEST_RELEASE=1.8.0
 LIBGFLAGS_VERSION=2.2.0
 PROMETHEUS_CPP_CLIENT_TAG=v0.1.2
+NLOHMANN_JSON_VERSION=3.1.2
+GLOG_RELEASE=0.3.5
+URCU_RELEASE_TAG=0.9.4
+LIBGFLAGS_VERSION=2.2.0
 
 # Parse args
 JOBS=8
@@ -161,4 +165,36 @@ prometheus-cpp () {
 }
 library prometheus-cpp ${PROMETHEUS_CPP_CLIENT_TAG} https://github.com/jupp0r/prometheus-cpp.git ${PROMETHEUS_CPP_CLIENT_TAG}
 
+#nlohmann_json_commit=91e003285312167ad8365f387438ea371b465a7e
+nlohmann_json () {
+  mkdir -p $deps_prefix/include/nlohmann
+  cp -a json.hpp $deps_prefix/include/nlohmann
+}
+library nlohmann_json ${NLOHMANN_JSON_VERSION} https://github.com/nlohmann/json/releases/download/v${NLOHMANN_JSON_VERSION}/json.hpp
+
+glog () {
+    echo "Applying change patches"
+    patch -p1 -f < $project_dir/patches/glog/custom_log.patch
+    patch -p1 -f < $project_dir/patches/glog/fix_race.patch
+
+
+    do-cmake
+    #aclocal
+    #automake --add-missing
+    #do-configure
+    #do-make
+}
+library glog ${GLOG_RELEASE} https://github.com/google/glog/archive/v${GLOG_RELEASE}.tar.gz
+
+userspace-rcu () {
+    ./bootstrap
+    CFLAGS="-m64 -g -O2" do-configure
+    do-make
+}
+library userspace-rcu ${URCU_RELEASE_TAG} https://github.com/urcu/userspace-rcu/archive/v${URCU_RELEASE_TAG}.tar.gz
+
+gflags() {
+    do-cmake
+}
+library gflags ${LIBGFLAGS_VERSION} https://github.com/gflags/gflags/archive/v${LIBGFLAGS_VERSION}.tar.gz
 

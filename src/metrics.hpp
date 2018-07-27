@@ -5,7 +5,6 @@
 
 #include <vector>
 #include <tuple>
-#include <nlohmann/json.hpp>
 #include <memory>
 #include <string>
 #include <cassert>
@@ -15,6 +14,7 @@
 #include "libutils/fds/thread/thread_buffer.hpp"
 #include "libutils/fds/utility/urcu_helper.hpp"
 #include "monitor/include/metrics_monitor.hpp"
+#include "nlohmann/json.hpp"
 
 namespace metrics {
 
