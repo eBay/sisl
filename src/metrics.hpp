@@ -11,16 +11,18 @@
 #include <chrono>
 #include <atomic>
 
-#include "libutils/fds/thread/thread_buffer.hpp"
-#include "libutils/fds/utility/urcu_helper.hpp"
-#include "monitor/include/metrics_monitor.hpp"
+#include "urcu_api.hpp"
 #include "nlohmann/json.hpp"
 
 namespace metrics {
 
+#define ARR_BLOCK 8
+
 class _counter {
 public:
-    explicit _counter(int64_t init_value) : m_value(init_value) {}
+    _counter() = default;
+
+    void initVal(int64_t value) { m_value = value; }
 
     void increment(int64_t value = 1)  { m_value += value; }
 
@@ -34,12 +36,14 @@ public:
     }
 
 private:
-    int64_t m_value;
+    int64_t m_value = 0;
 };
 
 class _gauge {
 public:
-    explicit _gauge(int64_t init_value) : m_value(init_value) {}
+    _gauge() = default;
+
+    void initVal(int64_t value) { m_value = value; }
 
     void update(int64_t value) {
         auto ts = std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -60,82 +64,136 @@ public:
     }
 
 private:
-    int64_t m_value;
-    int64_t m_ts = 0;
+    int64_t m_value = 0;
+    uint64_t m_ts = 0;
 };
 
 class _histogram {
 public:
-    _histogram(std::vector<uint64_t> buckets) : m_buckets(buckets) {
-        m_freqs.assign(buckets.size() + 1, 0);
+    _histogram() = default;
+
+    void init ( std::vector<uint64_t> buckets ) {
+        m_bucket_cnt = buckets.size();
+        m_buckets = new uint64_t[m_bucket_cnt];
+        m_freqs = new int64_t[m_bucket_cnt+1];
+        for (auto i = 0U; i < m_bucket_cnt; i++) {
+            m_buckets[i] = buckets[i];
+            m_freqs[i] = 0;
+        }
+        m_freqs[m_bucket_cnt] = 0;
     }
 
     void observe(int64_t value) {
-        auto lower = std::lower_bound(m_buckets.begin(), m_buckets.end(), value);
-        auto bkt_idx = lower - m_buckets.begin();
-        m_freqs[bkt_idx]++;
+        unsigned int index = 0;
+        while ( index < m_bucket_cnt && m_buckets[index] < value ) index++;
+        m_freqs[index]++;
         m_sum += value;
     }
 
     void merge(const _histogram& other) {
-        for (auto i = 0U; i < other.m_freqs.size(); i++) {
+        for (auto i = 0U; i < other.m_bucket_cnt+1; i++) {
             m_freqs[i] += other.m_freqs[i];
         }
         m_sum += other.m_sum;
     }
 
-    const std::vector<uint64_t> getBuckets() const { return m_buckets; }
+    const uint64_t* getBuckets() { return m_buckets; }
 
-    std::vector<int64_t> getFreqs() { return m_freqs; }
+    const int64_t* getFreqs() { return m_freqs; }
+
+    uint64_t getBucketCnt() { return m_bucket_cnt; }
 
     int64_t getSum() { return m_sum; }
 
 private:
-    std::vector<int64_t>    m_freqs;
-    std::vector<uint64_t>   m_buckets;
-    int64_t                 m_sum = 0;
+    int64_t*    m_freqs = nullptr;
+    uint64_t*   m_buckets = nullptr;
+    uint64_t    m_bucket_cnt = 0;
+    int64_t     m_sum = 0;
 };
 
 class Metrics {
 public:
-    Metrics() = default;
+    Metrics() {
+        m_counters   = new _counter[ARR_BLOCK];
+        m_gauges     = new _gauge[ARR_BLOCK];
+        m_histograms = new _histogram[ARR_BLOCK];
+    }
 
-    void registerCounter(int64_t init_val ) { m_counters.emplace_back(init_val); }
+    void addCounter(int64_t init_val ) {
+        /* If size extension is needed */
+        if ( m_counter_cnt && m_counter_cnt % ARR_BLOCK == 0 ) {
+            auto temp = (_counter *) realloc(m_counters, (m_counter_cnt + ARR_BLOCK) * sizeof(_counter));
+            assert(temp);
+            m_counters = temp;
+        }
+        m_counters[m_counter_cnt++].initVal(init_val);
+    }
 
-    void registerGauge(int64_t init_val) { m_gauges.emplace_back(init_val); }
+    void addGauge(int64_t init_val) {
+        /* If size extension is needed */
+        if ( m_gauge_cnt && m_gauge_cnt % ARR_BLOCK == 0 ) {
+            auto temp = (_gauge *) realloc(m_gauges, (m_gauge_cnt + ARR_BLOCK) * sizeof(_gauge));
+            assert(temp);
+            m_gauges = temp;
+        }
+        m_gauges[m_gauge_cnt++].initVal(init_val);
+    }
 
-    void registerHistogram(std::vector<uint64_t> buckets) { m_histograms.emplace_back(buckets); }
+    void addHistogram(std::vector<uint64_t> buckets) {
+        /* If size extension is needed */
+        if ( m_histogram_cnt && m_histogram_cnt % ARR_BLOCK == 0 ) {
+            auto temp = (_histogram *) realloc(m_histograms, (m_histogram_cnt + ARR_BLOCK) * sizeof(_histogram));
+            assert(temp);
+            m_histograms = temp;
+        }
+        m_histograms[m_histogram_cnt++].init(buckets);
+    }
 
     _counter fetchCounter(uint64_t index) {
-        assert(index < m_counters.size());
+        assert(index < m_counter_cnt);
         return m_counters[index];
     }
 
     _gauge fetchGauge(uint64_t index) {
-        assert(index < m_gauges.size());
+        assert(index < m_gauge_cnt);
         return m_gauges[index];
     }
 
     _histogram fetchHistogram(uint64_t index) {
-        assert(index < m_histograms.size());
+        assert(index < m_histogram_cnt);
         return m_histograms[index];
     }
 
+    uint64_t numCounters() { return m_counter_cnt; }
+
+    uint64_t numGauges() { return m_gauge_cnt; }
+
+    uint64_t numHistograms() { return m_histogram_cnt; }
+
 private:
-    std::vector<_counter>   m_counters;
-    std::vector<_gauge>     m_gauges;
-    std::vector<_histogram> m_histograms;
+    _counter*   m_counters = nullptr;
+    uint64_t    m_counter_cnt = 0;
+
+    _gauge*     m_gauges = nullptr;
+    uint64_t    m_gauge_cnt = 0;
+
+    _histogram* m_histograms = nullptr;
+    uint64_t    m_histogram_cnt = 0;
 };
 
 class MetricsController {
 public:
-    MetricsController() = default;
-    urcu_ptr<Metrics> fetchMetrics() { return m_metrics_data.get(); }
+    MetricsController() {
+        m_metrics_data = new urcu::urcu_data(new Metrics());
+    }
 
-    void swap() { m_metrics_data.make_and_exchange(); }
+    Metrics* fetchMetrics() { return *m_metrics_data->get()->get(); }
+
+    void swap() { m_metrics_data->make_and_exchange(); }
 
 private:
-    urcu_data<Metrics> m_metrics_data;
+    urcu::urcu_data<Metrics*>* m_metrics_data;
 };
 
 class ReportCounter {
@@ -146,8 +204,9 @@ public:
                     int64_t init_val    ) :
             m_name(name),
             m_desc(desc),
-            m_sub_type(sub_type),
-            m_counter(init_val) {
+            m_sub_type(sub_type) {
+
+        m_counter.initVal(init_val);
 
         if (name != "none") {
             if (sub_type != "") {
@@ -189,8 +248,9 @@ public:
                     int64_t init_val    ) :
             m_name(name),
             m_desc(desc),
-            m_sub_type(sub_type),
-            m_gauge(init_val) {
+            m_sub_type(sub_type) {
+
+        m_gauge.initVal(init_val);
 
         if (name != "none") {
             if (sub_type != "") {
@@ -230,8 +290,9 @@ public:
                     std::vector<uint64_t> buckets   ) :
             m_name(name),
             m_desc(desc),
-            m_sub_type(sub_type),
-            m_histogram(buckets) {
+            m_sub_type(sub_type) {
+ 
+        m_histogram.init(buckets);
 
         if (name != "none") {
             if (sub_type != "") {
@@ -245,9 +306,9 @@ public:
 
     double percentile(float pcntl) {
         auto freqs = m_histogram.getFreqs();
-        std::vector<int64_t> cum_freq(0, freqs.size());
+        std::vector<int64_t> cum_freq( 0, m_histogram.getBucketCnt()+1 );
         int64_t fcount = 0;
-        for (auto i = 0U; i < freqs.size(); i++) {
+        for (auto i = 0U; i < cum_freq.size(); i++) {
             fcount += freqs[i];
             cum_freq[i] = fcount;
         }
@@ -266,7 +327,9 @@ public:
 
     double average() {
         int64_t fcount = 0;
-        for (auto freq : m_histogram.getFreqs()) { fcount += freq; }
+        for (auto i = 0U; i < m_histogram.getBucketCnt()+1; i++) {
+            fcount += (m_histogram.getFreqs())[i];
+        }
         return (fcount ? m_histogram.getSum()/fcount : 0);
     }
 
@@ -279,7 +342,7 @@ public:
     const std::string getSubType() { return m_sub_type; }
 
     void publish() {
-        std::vector<double> vec(std::begin(m_histogram.getFreqs()), std::end(m_histogram.getFreqs()));
+        //std::vector<double> vec(std::begin(m_histogram.getFreqs()), std::end(m_histogram.getFreqs()));
         //m_prometheus_hist->Update(vec, m_histogram.m_sum);
     }
 
@@ -291,54 +354,75 @@ private:
 
 class ReportMetrics {
 public:
-    ReportMetrics() = default;
+    ReportMetrics() {
+        urcu::urcu_ctl::register_rcu();
+    }
 
-    uint64_t registerCounter(std::string name, std::string desc, std::string sub_type, int64_t init_val) {
+    ~ReportMetrics() {
+        urcu::urcu_ctl::unregister_rcu();
+    }
+
+    uint64_t registerCounter( std::string name, std::string desc, std::string sub_type, int64_t init_val ) {
         m_counters.emplace_back(name, desc, sub_type, init_val);
-        m_buffer.get()->fetchMetrics()->registerCounter(init_val);
+        m_controller.fetchMetrics()->addCounter(init_val);
         return m_counters.size()-1;
     }
  
-    uint64_t registerGauge(std::string name, std::string desc, std::string sub_type, int64_t init_val) {
+    uint64_t registerGauge( std::string name, std::string desc, std::string sub_type, int64_t init_val ) {
+
         m_gauges.emplace_back(name, desc, sub_type, init_val);
-        m_buffer.get()->fetchMetrics()->registerGauge(init_val);
+        m_controller.fetchMetrics()->addGauge(init_val);
         return m_gauges.size()-1;
     }
  
-    uint64_t registerHistogram(std::string name, std::string desc, std::string sub_type,
+    uint64_t registerHistogram( std::string name, std::string desc, std::string sub_type,
             std::vector<uint64_t> buckets =
                 {   300,    450,    750,    1000,   3000,   5000,    7000,    9000,    11000,
                     13000,  15000,  17000,  19000,  21000,  32000,   45000,   75000,   110000,
                     160000, 240000, 360000, 540000, 800000, 1200000, 1800000, 2700000, 4000000  } ) {
+
         m_histograms.emplace_back(name, desc, sub_type, buckets);
-        m_buffer.get()->fetchMetrics()->registerHistogram(buckets);
+        m_controller.fetchMetrics()->addHistogram(buckets);
         return m_histograms.size()-1;
     }
 
-    _counter fetchCounter(uint64_t index) { return m_buffer.get()->fetchMetrics()->fetchCounter(index); }
-
-    _gauge fetchGauge(uint64_t index) { return m_buffer.get()->fetchMetrics()->fetchGauge(index); }
-
-    _histogram fetchHistogram(uint64_t index) { return m_buffer.get()->fetchMetrics()->fetchHistogram(index); }
-
-    void gather() {
-        for (auto i = 0U; i < m_counters.size(); i++) {
-            m_counters[i].merge(fetchCounter(i));
-        }
-
-        for (auto i = 0U; i < m_gauges.size(); i++) {
-            m_gauges[i].merge(fetchGauge(i));
-        }
-
-        for (auto i = 0U; i < m_histograms.size(); i++) {
-            m_histograms[i].merge(fetchHistogram(i));
-        }
-
-        /* replace new metrics instance */
-        m_buffer.get()->swap();
+    _counter getCounter(uint64_t index) {
+        return m_controller.fetchMetrics()->fetchCounter(index);
     }
 
-    std::string get_json() {
+    _gauge getGauge(uint64_t index) {
+        return m_controller.fetchMetrics()->fetchGauge(index);
+    }
+
+    _histogram getHistogram(uint64_t index) {
+        return m_controller.fetchMetrics()->fetchHistogram(index);
+    }
+
+    /* This method gathers the metrics from all the threads, merge them to the base metrics and use base metrics
+     * prometheus to update promethues metrics and send it */
+    void gather() {
+        auto metrics = m_controller.fetchMetrics();
+        for (auto i = 0U; i < metrics->numCounters(); i++) {
+            m_counters[i].merge(metrics->fetchCounter(i));
+        }
+        for (auto i = 0U; i < metrics->numGauges(); i++) {
+            m_gauges[i].merge(metrics->fetchGauge(i));
+        }
+        for (auto i = 0U; i < metrics->numHistograms(); i++) {
+            m_histograms[i].merge(metrics->fetchHistogram(i));
+        }
+        /* replace new metrics instance */
+        m_controller.swap();
+        urcu::urcu_ctl::declare_quiscent_state();
+    }
+
+    void publish() {
+        for (auto i : m_counters)     { i.publish(); }
+        for (auto i : m_gauges)       { i.publish(); }
+        for (auto i : m_histograms)   { i.publish(); }
+    }
+
+    std::string getJSON() {
         nlohmann::json json;
         nlohmann::json counter_entries;
         for (auto i : m_counters) {
@@ -373,17 +457,11 @@ public:
         return json.dump();
     }
 
-    void publish() {
-        for (auto i : m_counters) { i.publish(); }
-        for (auto i : m_gauges) { i.publish(); }
-        for (auto i : m_histograms) { i.publish(); }
-    }
-
 private:
-    std::vector<ReportCounter>              m_counters;
-    std::vector<ReportGauge>                m_gauges;
-    std::vector<ReportHistogram>            m_histograms;
-    fds::ThreadBuffer<MetricsController>    m_buffer;
+    std::vector<ReportCounter>      m_counters;
+    std::vector<ReportGauge>        m_gauges;
+    std::vector<ReportHistogram>    m_histograms;
+    MetricsController               m_controller;
 };
 
 }

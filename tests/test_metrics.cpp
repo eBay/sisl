@@ -1,22 +1,31 @@
 #include "metrics.hpp"
 #include <fstream>
 
+class TestMetrics {
+public:
+    TestMetrics() = default;
+    metrics::ReportMetrics getMetrics() { return m_report_metrics; }
+
+private:
+    static metrics::ReportMetrics m_report_metrics;
+};
+
 int main() {
-    metrics::ReportMetrics report;
-    auto a_cindx = report.registerCounter("counter1", "counter for test1", "", 0);
-    auto a_gindx = report.registerGauge("gauge1", "gauge for test2", "", 3);
+    TestMetrics report;
+    auto a_cindx = report.getMetrics().registerCounter( "counter1", "counter for test1", "", 0 );
+    auto a_gindx = report.getMetrics().registerGauge( "gauge1", "gauge for test2", "", 3 );
 
-    report.fetchCounter(a_cindx).increment();
-    report.fetchCounter(a_cindx).increment();
+    report.getMetrics().getCounter(a_cindx).increment();
+    report.getMetrics().getCounter(a_cindx).increment();
 
-    report.fetchCounter(a_gindx).increment();
+    report.getMetrics().getGauge(a_gindx).update(2);
 
-    report.fetchCounter(a_cindx).increment();
-    report.fetchCounter(a_cindx).decrement();
+    report.getMetrics().getCounter(a_cindx).decrement();
 
-    report.gather();
+    report.getMetrics().gather();
+
     std::ofstream ofs ("test.txt", std::ofstream::out);
-    ofs << report.get_json();
+    ofs << report.getMetrics().getJSON();
     ofs.close();
 
     return 0;
