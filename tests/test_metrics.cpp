@@ -7,7 +7,7 @@ public:
     metrics::ReportMetrics getMetrics() { return m_report_metrics; }
 
 private:
-    static metrics::ReportMetrics m_report_metrics;
+    metrics::ReportMetrics m_report_metrics;
 };
 
 int main() {

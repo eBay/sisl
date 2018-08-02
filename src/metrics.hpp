@@ -11,7 +11,7 @@
 #include <chrono>
 #include <atomic>
 
-#include "urcu_api.hpp"
+#include "urcu_helper.hpp"
 #include "nlohmann/json.hpp"
 
 namespace metrics {
@@ -184,16 +184,14 @@ private:
 
 class MetricsController {
 public:
-    MetricsController() {
-        m_metrics_data = new urcu::urcu_data(new Metrics());
-    }
+    MetricsController() {}
 
-    Metrics* fetchMetrics() { return *m_metrics_data->get()->get(); }
+    urcu::urcu_ptr<Metrics> fetchMetrics() { return m_metrics_data.get(); }
 
-    void swap() { m_metrics_data->make_and_exchange(); }
+    void swap() { m_metrics_data.make_and_exchange(); }
 
 private:
-    urcu::urcu_data<Metrics*>* m_metrics_data;
+    urcu::urcu_data<Metrics> m_metrics_data;
 };
 
 class ReportCounter {
