@@ -1,5 +1,10 @@
-#include "metrics.hpp"
+#include <iostream>
+#include <thread>
+#include <chrono>
 #include <fstream>
+#include "metrics.hpp"
+
+#define ITERATIONS 6
 
 class TestMetrics {
 public:
@@ -17,25 +22,56 @@ private:
     metrics::ReportMetrics* m_report_metrics;
 };
 
+void seqA (TestMetrics *report) {
+    auto c1_addr = report->getMetrics()->getCounter(0);
+    auto c2_addr = report->getMetrics()->getCounter(1);
+    auto g1_addr = report->getMetrics()->getGauge(0);
+
+    std::this_thread::sleep_for (std::chrono::seconds(1));
+    c1_addr->increment();
+    std::this_thread::sleep_for (std::chrono::seconds(1));
+    c2_addr->increment();
+    c2_addr->decrement();
+    g1_addr->update(2);
+}
+
+void seqB (TestMetrics *report) {
+    auto c1_addr = report->getMetrics()->getCounter(0);
+    auto c2_addr = report->getMetrics()->getCounter(1);
+    auto g1_addr = report->getMetrics()->getGauge(0);
+
+    c1_addr->increment();
+    c2_addr->increment();
+    std::this_thread::sleep_for (std::chrono::seconds(1));
+    c2_addr->decrement();
+    std::this_thread::sleep_for (std::chrono::seconds(1));
+    g1_addr->update(5);
+}
+
+void gather (TestMetrics *report) {
+    for (auto i = 0U; i < ITERATIONS; i++) {
+        report->getMetrics()->gather();
+        std::string filename = "iter" + std::to_string(i) +".json";
+        std::ofstream ofs (filename, std::ofstream::out);
+        ofs << report->getMetrics()->getJSON();
+        ofs.close();
+        std::this_thread::sleep_for (std::chrono::seconds(1));
+    }
+}
+
 int main() {
     TestMetrics *report = new TestMetrics();
-    auto a_cindx = report->getMetrics()->registerCounter( "counter1", "counter for test1", "", 0 );
-    auto a_gindx = report->getMetrics()->registerGauge( "gauge1", "gauge for test2", "", 3 );
+    auto c1 = report->getMetrics()->registerCounter( "counter1", "counter1 for test", "", 1 );
+    auto g1 = report->getMetrics()->registerGauge( "gauge1", "gauge1 for test", "", 3 );
+    auto c2 = report->getMetrics()->registerCounter( "counter2", "counter2 for test", "", 10 );
 
-    report->getMetrics()->getCounter(a_cindx).increment();
-    report->getMetrics()->getCounter(a_cindx).increment();
+    std::thread th1 (seqA, report);
+    std::thread th2 (seqB, report);
+    std::thread th3 (gather, report);
 
-    report->getMetrics()->getGauge(a_gindx).update(2);
-
-    report->getMetrics()->getCounter(a_cindx).decrement();
-
-    report->getMetrics()->gather();
-
-    std::ofstream ofs ("test.txt", std::ofstream::out);
-    ofs << report->getMetrics()->getJSON();
-    ofs.close();
+    th1.join();
+    th2.join();
+    th3.join();
 
     delete report;
-
-    return 0;
 }

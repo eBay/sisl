@@ -22,15 +22,15 @@ class _counter {
 public:
     _counter() = default;
 
-    void initVal(int64_t value) { m_value = value; }
+    void init (int64_t value) { m_value = value; }
 
-    void increment(int64_t value = 1)  { m_value += value; }
+    void increment (int64_t value = 1)  { m_value += value; }
 
-    void decrement(int64_t value = 1)  { m_value -= value; }
+    void decrement (int64_t value = 1)  { m_value -= value; }
 
     int64_t get() { return m_value; }
 
-    int64_t merge(const _counter &other) {
+    int64_t merge (const _counter &other) {
         m_value += other.m_value;
         return m_value;
     }
@@ -43,9 +43,9 @@ class _gauge {
 public:
     _gauge() = default;
 
-    void initVal(int64_t value) { m_value = value; }
+    void init (int64_t value) { m_value = value; }
 
-    void update(int64_t value) {
+    void update (int64_t value) {
         auto ts = std::chrono::duration_cast<std::chrono::nanoseconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count();
         if (m_ts >= ts) return;
@@ -55,7 +55,7 @@ public:
 
     int64_t get() { return m_value; }
 
-    int64_t merge(const _gauge& other) {
+    int64_t merge (const _gauge& other) {
         if (m_ts < other.m_ts) {
             m_value = other.m_value;
             m_ts = other.m_ts;
@@ -83,14 +83,14 @@ public:
         m_freqs[m_bucket_cnt] = 0;
     }
 
-    void observe(int64_t value) {
+    void update (int64_t value) {
         unsigned int index = 0;
         while ( index < m_bucket_cnt && m_buckets[index] < value ) index++;
         m_freqs[index]++;
         m_sum += value;
     }
 
-    void merge(const _histogram& other) {
+    void merge (const _histogram& other) {
         for (auto i = 0U; i < other.m_bucket_cnt+1; i++) {
             m_freqs[i] += other.m_freqs[i];
         }
@@ -127,7 +127,7 @@ public:
             assert(temp);
             m_counters = temp;
         }
-        m_counters[m_counter_cnt++].initVal(init_val);
+        m_counters[m_counter_cnt++].init(init_val);
     }
 
     void addGauge(int64_t init_val) {
@@ -137,7 +137,7 @@ public:
             assert(temp);
             m_gauges = temp;
         }
-        m_gauges[m_gauge_cnt++].initVal(init_val);
+        m_gauges[m_gauge_cnt++].init(init_val);
     }
 
     void addHistogram(std::vector<uint64_t> buckets) {
@@ -150,19 +150,19 @@ public:
         m_histograms[m_histogram_cnt++].init(buckets);
     }
 
-    _counter fetchCounter(uint64_t index) {
+    _counter* fetchCounter (uint64_t index) {
         assert(index < m_counter_cnt);
-        return m_counters[index];
+        return &m_counters[index];
     }
 
-    _gauge fetchGauge(uint64_t index) {
+    _gauge* fetchGauge (uint64_t index) {
         assert(index < m_gauge_cnt);
-        return m_gauges[index];
+        return &m_gauges[index];
     }
 
-    _histogram fetchHistogram(uint64_t index) {
+    _histogram* fetchHistogram(uint64_t index) {
         assert(index < m_histogram_cnt);
-        return m_histograms[index];
+        return &m_histograms[index];
     }
 
     uint64_t numCounters() { return m_counter_cnt; }
@@ -204,7 +204,7 @@ public:
             m_desc(desc),
             m_sub_type(sub_type) {
 
-        m_counter.initVal(init_val);
+        m_counter.init(init_val);
 
         if (name != "none") {
             if (sub_type != "") {
@@ -248,7 +248,7 @@ public:
             m_desc(desc),
             m_sub_type(sub_type) {
 
-        m_gauge.initVal(init_val);
+        m_gauge.init(init_val);
 
         if (name != "none") {
             if (sub_type != "") {
@@ -384,15 +384,15 @@ public:
         return m_histograms.size()-1;
     }
 
-    _counter getCounter(uint64_t index) {
+    _counter* getCounter(uint64_t index) {
         return m_controller.fetchMetrics()->fetchCounter(index);
     }
 
-    _gauge getGauge(uint64_t index) {
+    _gauge* getGauge(uint64_t index) {
         return m_controller.fetchMetrics()->fetchGauge(index);
     }
 
-    _histogram getHistogram(uint64_t index) {
+    _histogram* getHistogram(uint64_t index) {
         return m_controller.fetchMetrics()->fetchHistogram(index);
     }
 
@@ -401,16 +401,16 @@ public:
     void gather() {
         auto metrics = m_controller.fetchMetrics();
         for (auto i = 0U; i < metrics->numCounters(); i++) {
-            m_counters[i].merge(metrics->fetchCounter(i));
+            m_counters[i].merge(*metrics->fetchCounter(i));
         }
         for (auto i = 0U; i < metrics->numGauges(); i++) {
-            m_gauges[i].merge(metrics->fetchGauge(i));
+            m_gauges[i].merge(*metrics->fetchGauge(i));
         }
         for (auto i = 0U; i < metrics->numHistograms(); i++) {
-            m_histograms[i].merge(metrics->fetchHistogram(i));
+            m_histograms[i].merge(*metrics->fetchHistogram(i));
         }
         /* replace new metrics instance */
-        m_controller.swap();
+        //m_controller.swap();
         urcu::urcu_ctl::declare_quiscent_state();
     }
 
