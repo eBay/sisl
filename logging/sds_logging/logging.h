@@ -90,11 +90,15 @@ MODLEVELDEC(_, _, base)
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define SDS_LOGGING_INIT(...)                                                   \
-   SDS_OPTION_GROUP(logging, (verbosity, "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level"), \
-                             (synclog, "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), "")) \
+   SDS_OPTION_GROUP(logging, (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
+                             (log_name,   "l", "logfile", "Log to Log File", ::cxxopts::value<std::string>(), "logfile"), \
+                             (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
+                             (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
+                             (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
+                             (verbosity,  "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level")) \
    static std::shared_ptr<spdlog::logger> logger_;                              \
                                                                                 \
-   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::off, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
+   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::warn, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
    namespace sds_logging {                                                      \
    thread_local shared<spdlog::logger> sds_thread_logger;                       \
                                                                                 \
@@ -111,6 +115,11 @@ MODLEVELDEC(_, _, base)
             }                                                                   \
             if (SDS_OPTIONS.count("synclog")) {                                 \
                spdlog::set_sync_mode();                                         \
+            } else {                                                            \
+               spdlog::set_async_mode(SDS_OPTIONS["log_queue"].as<uint32_t>(),      \
+                                      spdlog::async_overflow_policy::block_retry,   \
+                                      nullptr,                                      \
+                                      std::chrono::seconds(2));                     \
             }                                                                   \
             module_level_base = lvl;                                            \
        }                                                                        \
