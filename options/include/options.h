@@ -27,8 +27,10 @@ template <typename T>
 using shared = std::shared_ptr<T>;
 
 using shared_opt = shared<cxxopts::Options>;
+using shared_opt_res = shared<cxxopts::ParseResult>;
 
 extern shared_opt GetOptions() __attribute__((weak));
+extern shared_opt_res GetResults() __attribute__((weak));
 struct SdsOption {
    template<class... Args>
    explicit SdsOption(std::string const& group, Args... args)
@@ -58,29 +60,34 @@ namespace sds_options { \
    } \
    static BOOST_PP_CAT(sds_options::options_module_, group) const * BOOST_PP_CAT(options_group_, group);
 
-#define SDS_OPTIONS_ENABLE(...) \
+#define SDS_OPTIONS_ENABLE(...)                 \
    BOOST_PP_SEQ_FOR_EACH(SDS_OPTION_ENABLE, _, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), main))) \
-   static sds_options::shared_opt options_; \
-      namespace sds_options { \
-      shared_opt GetOptions() {                                         \
-          return options_;                                                          \
-      }                                                                            \
-                                                                                   \
-      void SetOptions(shared_opt&& options) { \
-          options_ = std::move(options); \
-      }                                                                            \
+   static sds_options::shared_opt options_;     \
+   static sds_options::shared_opt_res results_; \
+      namespace sds_options {                   \
+      shared_opt GetOptions() {                 \
+          return options_;                      \
+      }                                         \
+      shared_opt_res GetResults() {             \
+          return results_;                      \
+      }                                         \
+                                                \
+      void SetOptions(shared_opt&& options) {   \
+          options_ = std::move(options);        \
+      }                                         \
    }
 
-#define SDS_OPTIONS (*sds_options::GetOptions())
+#define SDS_OPTIONS (*sds_options::GetResults())
+#define SDS_PARSER (*sds_options::GetOptions())
 
 #define SDS_OPTION_LOAD(r, _, group) BOOST_PP_CAT(options_group_, group) = BOOST_PP_CAT(sds_options::load_options_, group)();
 
 #define SDS_OPTIONS_LOAD(argc, argv, ...) \
    sds_options::SetOptions(std::make_shared<cxxopts::Options>(argv[0])); \
    BOOST_PP_SEQ_FOR_EACH(SDS_OPTION_LOAD, _, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), main))) \
-   SDS_OPTIONS.parse(argc, argv); \
+   results_ = std::make_shared<cxxopts::ParseResult>(SDS_PARSER.parse(argc, argv)); \
    if (SDS_OPTIONS.count("help")) { \
-      std::cout << SDS_OPTIONS.help({}) << std::endl; \
+      std::cout << SDS_PARSER.help({}) << std::endl; \
       exit(0); \
    }
 
