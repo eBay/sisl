@@ -101,6 +101,11 @@ public:
 
     const int64_t* getFreqs() { return m_freqs; }
 
+    void resetFreqs() {
+        memset(m_freqs, 0, m_bucket_cnt+1);
+        m_sum = 0;
+    }
+
     uint64_t getBucketCnt() { return m_bucket_cnt; }
 
     int64_t getSum() { return m_sum; }
@@ -218,6 +223,8 @@ public:
 
     int64_t get() { return m_counter.get(); }
 
+    void reset() { m_counter.init(0); }
+
     int64_t merge(const _counter &other) { return m_counter.merge(other); }
 
     const std::string getName() { return m_name; }
@@ -302,6 +309,8 @@ public:
         }
     }
 
+    void reset() { m_histogram.resetFreqs(); }
+
     double percentile(float pcntl) {
         auto freqs = m_histogram.getFreqs();
         std::vector<int64_t> cum_freq( 0, m_histogram.getBucketCnt()+1 );
@@ -361,14 +370,14 @@ public:
     }
 
     uint64_t registerCounter( std::string name, std::string desc, std::string sub_type, int64_t init_val ) {
-        m_counters.emplace_back(name, desc, sub_type, init_val);
+        m_counters.emplace_back(name, desc, sub_type, 0);
         m_controller.fetchMetrics()->addCounter(init_val);
         return m_counters.size()-1;
     }
  
     uint64_t registerGauge( std::string name, std::string desc, std::string sub_type, int64_t init_val ) {
 
-        m_gauges.emplace_back(name, desc, sub_type, init_val);
+        m_gauges.emplace_back(name, desc, sub_type, 0);
         m_controller.fetchMetrics()->addGauge(init_val);
         return m_gauges.size()-1;
     }
@@ -400,13 +409,16 @@ public:
      * prometheus to update promethues metrics and send it */
     void gather() {
         auto metrics = m_controller.fetchMetrics();
+
         for (auto i = 0U; i < metrics->numCounters(); i++) {
+            m_counters[i].reset();
             m_counters[i].merge(*metrics->fetchCounter(i));
         }
         for (auto i = 0U; i < metrics->numGauges(); i++) {
             m_gauges[i].merge(*metrics->fetchGauge(i));
         }
         for (auto i = 0U; i < metrics->numHistograms(); i++) {
+            m_histograms[i].reset();
             m_histograms[i].merge(*metrics->fetchHistogram(i));
         }
         /* replace new metrics instance */
