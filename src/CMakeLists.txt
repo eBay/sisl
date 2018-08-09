@@ -1,5 +1,5 @@
 set(CMAKE_CXX_STANDARD 17)
-set (CPP_FLAGS "-lurcu-qsbr")
+set (CPP_FLAGS "-lthread -lurcu-qsbr")
 set(CPP_WARNINGS "-Wall -Wextra -Werror")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_FLAGS} ${CPP_WARNINGS} -DPACKAGE_NAME=${CONAN_PACKAGE_NAME} -DPACKAGE_VERSION=${CONAN_PACKAGE_VERSION}")
 
@@ -22,4 +22,4 @@ add_executable(functionality_test ${FUNCTIONALITY_TEST_SOURCES})
 target_link_libraries(functionality_test metrics ${CONAN_LIBS})
 add_test(NAME FunctionalityTest COMMAND functionality_test)
 
-add_subdirectory (monitor)
+#add_subdirectory (monitor)

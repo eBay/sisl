@@ -13,8 +13,8 @@ class MetricsConan(ConanFile):
                "fPIC": ['True', 'False']}
     default_options = 'shared=False', 'fPIC=True'
 
-    requires = (("sds_logging/2.1.3@sds/stable"),
-                ("gtest/1.8.0@bincrafters/stable"))
+    #requires = (("sds_logging/2.1.3@sds/stable"),
+    #            ("gtest/1.8.0@bincrafters/stable"))
 
     generators = "cmake"
     exports_sources = "CMakeLists.txt", "cmake/*", "src/*"
