@@ -2,7 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
-#include "metrics.hpp"
+#include "include/metrics.hpp"
 
 #define ITERATIONS 6
 
