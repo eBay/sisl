@@ -13,7 +13,6 @@ COPY conanfile.py /tmp/source/
 COPY cmake/ /tmp/source/cmake
 COPY CMakeLists.txt /tmp/source/
 COPY src/ /tmp/source/src
-COPY test_package/ /tmp/source/test_package
 
 RUN conan create /tmp/source "${CONAN_USER}"/"${CONAN_CHANNEL}"
 RUN conan create -pr debug /tmp/source "${CONAN_USER}"/"${CONAN_CHANNEL}"
@@ -26,3 +25,4 @@ CMD set -eux; \
     conan user -r origin -p "${CONAN_PASS}" sds; \
     conan upload ${PKG_NAME}/"${PKG_VERSION}"@"${CONAN_USER}"/"${CONAN_CHANNEL}" --all -r origin;
 # ##########   #######   ############
+
