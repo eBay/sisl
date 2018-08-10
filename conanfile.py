@@ -1,7 +1,7 @@
 from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
-    name = "metrics"
+    name = "sds_metrics"
     version = "0.1.0"
 
     license = "Proprietary"
@@ -13,8 +13,8 @@ class MetricsConan(ConanFile):
                "fPIC": ['True', 'False']}
     default_options = 'shared=False', 'fPIC=True'
 
-    #requires = (("sds_logging/2.1.3@sds/stable"),
-    #            ("gtest/1.8.0@bincrafters/stable"))
+    requires = (("sds_logging/2.1.3@sds/stable"),
+                ("evhtp/1.2.16@oss/stable"))
 
     generators = "cmake"
     exports_sources = "CMakeLists.txt", "cmake/*", "src/*"
@@ -26,7 +26,7 @@ class MetricsConan(ConanFile):
         cmake.test()
 
     def package(self):
-        self.copy("*.hpp", src="src/include", dst="include/{}".format(self.name), keep_path=False)
+        self.copy("*.hpp", src="src/api", dst="include/{}".format(self.name), keep_path=False)
         self.copy("*.a", dst="lib/", keep_path=False)
         self.copy("*.lib", dst="lib/", keep_path=False)
         self.copy("*.so", dst="lib/", keep_path=False)

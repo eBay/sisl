@@ -1,9 +1,10 @@
-#include <common/logging.hpp>
 #include "evhtp.h"
 #include "prometheus/serializer.h"
 #include "prometheus/json_serializer.h"
 #include "prometheus/text_serializer.h"
 #include "prometheus/protobuf_delimited_serializer.h"
+
+#include <sds_logging/logging.h>
 
 #include "evhtp_handler.hpp"
 #include "expo_format.hpp"
