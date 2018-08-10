@@ -7,7 +7,7 @@
  */
 #pragma once
 
-#include <urcu-qsbr.h>
+#include <urcu/urcu-qsbr.h>
 
 namespace urcu {
 
