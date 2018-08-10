@@ -15,7 +15,8 @@ class MetricsConan(ConanFile):
 
     requires = (("sds_logging/2.1.3@sds/stable"),
                 ("evhtp/1.2.16@oss/stable"),
-                ("prometheus-cpp/0.4.2@oss/stable"))
+                ("prometheus-cpp/0.4.2@oss/stable"),
+                ("jsonformoderncpp/3.1.2@vthiery/stable"))
 
     generators = "cmake"
     exports_sources = "CMakeLists.txt", "cmake/*", "src/*"
