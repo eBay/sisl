@@ -16,7 +16,7 @@ class MetricsConan(ConanFile):
     requires = (("sds_logging/2.1.3@sds/stable"),
                 ("evhtp/1.2.16@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"),
-                ("prometheus-cpp/0.4.2@oss/stable"),
+                ("prometheus-cpp/0.1.2@oss/stable"),
                 ("userspace-rcu/0.9.5@oss/stable"))
 
 
