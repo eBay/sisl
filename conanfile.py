@@ -14,7 +14,8 @@ class MetricsConan(ConanFile):
     default_options = 'shared=False', 'fPIC=True'
 
     requires = (("sds_logging/2.1.3@sds/stable"),
-                ("evhtp/1.2.16@oss/stable"))
+                ("evhtp/1.2.16@oss/stable"),
+                ("prometheus-cpp/0.4.2@oss/stable"))
 
     generators = "cmake"
     exports_sources = "CMakeLists.txt", "cmake/*", "src/*"
