@@ -7,6 +7,9 @@
 #include <cstdio>
 #include <memory>
 #include <unordered_map>
+#include <spdlog/async.h>
+#include <spdlog/sinks/rotating_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 
 #include <boost/preprocessor/cat.hpp>
@@ -94,6 +97,7 @@ MODLEVELDEC(_, _, base)
                              (log_name,   "l", "logfile", "Log to Log File", ::cxxopts::value<std::string>(), "logfile"), \
                              (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
                              (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
+                             (standout,   "c", "stdout", "Stdout Logging", ::cxxopts::value<bool>(), ""), \
                              (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
                              (verbosity,  "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level")) \
    static std::shared_ptr<spdlog::logger> logger_;                              \
@@ -106,24 +110,27 @@ MODLEVELDEC(_, _, base)
        return logger_;                                                          \
    }                                                                            \
                                                                                 \
-   void SetLogger(shared<spdlog::logger> _logger) {                             \
-       if (_logger) {                                                           \
-            _logger->set_level(spdlog::level::level_enum::trace);               \
-            auto lvl = spdlog::level::level_enum::info;                         \
-            if (SDS_OPTIONS.count("verbosity")) {                               \
-               lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as<uint32_t>(); \
-            }                                                                   \
-            if (SDS_OPTIONS.count("synclog")) {                                 \
-               spdlog::set_sync_mode();                                         \
-            } else {                                                            \
-               spdlog::set_async_mode(SDS_OPTIONS["log_queue"].as<uint32_t>(),      \
-                                      spdlog::async_overflow_policy::block_retry,   \
-                                      nullptr,                                      \
-                                      std::chrono::seconds(2));                     \
-            }                                                                   \
-            module_level_base = lvl;                                            \
+   void SetLogger(std::string const& name) {                                    \
+       std::string const path = "./" + name + "_log";                           \
+       if (SDS_OPTIONS.count("synclog") && SDS_OPTIONS.count("stdout")) {       \
+          logger_ = spdlog::stdout_color_mt(name);                              \
+       } else if (SDS_OPTIONS.count("synclog")) {                               \
+          logger_ = spdlog::rotating_logger_mt(name, path, 10 * 1024 * 1024, 3); \
+       } else {                                                                 \
+          spdlog::init_thread_pool(SDS_OPTIONS["log_queue"].as<uint32_t>(), 1); \
+          if (SDS_OPTIONS.count("stdout")) {                                    \
+            logger_ = spdlog::stdout_color_mt<spdlog::async_factory>(name);     \
+          } else {                                                              \
+             logger_ = spdlog::rotating_logger_mt<spdlog::async_factory>(name, path, 10 * 1024 * 1024, 3); \
+          }                                                                     \
        }                                                                        \
-       logger_ = _logger; sds_thread_logger = logger_;                          \
+       logger_->set_level(spdlog::level::level_enum::trace);                    \
+       auto lvl = spdlog::level::level_enum::info;                              \
+       if (SDS_OPTIONS.count("verbosity")) {                                    \
+          lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as<uint32_t>(); \
+       }                                                                        \
+       module_level_base = lvl;                                                 \
+       sds_thread_logger = logger_;                                             \
    }                                                                            \
    }
 
