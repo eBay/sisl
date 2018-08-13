@@ -30,7 +30,7 @@ class MetricsConan(ConanFile):
         cmake.test()
 
     def package(self):
-        self.copy("*.hpp", src="src/api", dst="include/{}".format(self.name), keep_path=False)
+        self.copy("*.hpp", src="src/include", dst="include", keep_path=False)
         self.copy("*.a", dst="lib/", keep_path=False)
         self.copy("*.lib", dst="lib/", keep_path=False)
         self.copy("*.so", dst="lib/", keep_path=False)

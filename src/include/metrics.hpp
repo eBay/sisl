@@ -11,7 +11,7 @@
 #include <chrono>
 #include <atomic>
 
-#include "api/urcu_helper.hpp"
+#include "urcu_helper.hpp"
 #include "nlohmann/json.hpp"
 
 namespace metrics {

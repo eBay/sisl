@@ -5,7 +5,3 @@ function (handle_common_unit_tests targetname srcname binname)
   add_test(NAME ${targetname} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${binname})
   install (TARGETS ${targetname} DESTINATION /tmp/bin/test/unit COMPONENT test)
 endfunction()
-
-add_subdirectory(unit)
-add_subdirectory(integration)
-
