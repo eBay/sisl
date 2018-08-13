@@ -2,7 +2,7 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
-#include "include/metrics.hpp"
+#include "api/metrics.hpp"
 
 #define ITERATIONS 6
 
@@ -25,10 +25,10 @@ private:
 void seqA (TestMetrics *report) {
     auto c1_addr = report->getMetrics()->getCounter(0);
     auto c2_addr = report->getMetrics()->getCounter(1);
-    auto c3_addr = report->getMetrics()->getCounter(2);
+    assert(report->getMetrics()->getCounter(2));
 
     auto g1_addr = report->getMetrics()->getGauge(0);
-    auto g2_addr = report->getMetrics()->getGauge(1);
+    assert(report->getMetrics()->getGauge(1));
 
     auto h_addr = report->getMetrics()->getHistogram(0);
 
@@ -48,12 +48,12 @@ void seqA (TestMetrics *report) {
 void seqB (TestMetrics *report) {
     auto c1_addr = report->getMetrics()->getCounter(0);
     auto c2_addr = report->getMetrics()->getCounter(1);
-    auto c3_addr = report->getMetrics()->getCounter(2);
+    assert(report->getMetrics()->getCounter(2));
 
     auto g1_addr = report->getMetrics()->getGauge(0);
-    auto g2_addr = report->getMetrics()->getGauge(1);
+    assert(report->getMetrics()->getGauge(1));
 
-    auto h_addr = report->getMetrics()->getHistogram(0);
+    assert(report->getMetrics()->getHistogram(0));
 
     c1_addr->increment();
     c2_addr->increment();
@@ -82,14 +82,14 @@ void gather (TestMetrics *report) {
 int main() {
     TestMetrics *report = new TestMetrics();
 
-    auto c1 = report->getMetrics()->registerCounter( "counter1", "counter1 for test", "", 5 );
-    auto c2 = report->getMetrics()->registerCounter( "counter2", "counter2 for test", "", -2 );
-    auto c3 = report->getMetrics()->registerCounter( "counter3", "counter3 for test", "", 0 );
+    report->getMetrics()->registerCounter( "counter1", "counter1 for test", "", 5 );
+    report->getMetrics()->registerCounter( "counter2", "counter2 for test", "", -2 );
+    report->getMetrics()->registerCounter( "counter3", "counter3 for test", "", 0 );
 
-    auto g1 = report->getMetrics()->registerGauge( "gauge1", "gauge1 for test", "", 3 );
-    auto g2 = report->getMetrics()->registerGauge( "gauge2", "gauge2 for test", "", -2 );
+    report->getMetrics()->registerGauge( "gauge1", "gauge1 for test", "", 3 );
+    report->getMetrics()->registerGauge( "gauge2", "gauge2 for test", "", -2 );
 
-    auto h = report->getMetrics()->registerHistogram( "hist", "histogram for test", "");
+    report->getMetrics()->registerHistogram( "hist", "histogram for test", "");
 
     std::thread th1 (seqA, report);
     std::thread th2 (seqB, report);

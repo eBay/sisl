@@ -1,6 +1,5 @@
 #include "metrics_monitor.hpp"
 
-#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -135,10 +134,6 @@ TEST (MetricsDefinitions, updateGauge) {
 
 // Call RUN_ALL_TESTS() in main()
 int main (int argc, char ** argv) {
-  //with main, we can attach some google test related hooks.
-  google::InitGoogleLogging(argv[0]);
-  google::InstallFailureSignalHandler() ;
-
   ::testing::InitGoogleTest(&argc, argv);
 
   return RUN_ALL_TESTS();

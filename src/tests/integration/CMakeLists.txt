@@ -11,5 +11,4 @@ endfunction()
 
 add_common_test(test_detailed_metrics)
 add_common_test(test_metrics_with_callbacks)
-add_common_test(test_evhtp_prometheus)
 

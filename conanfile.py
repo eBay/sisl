@@ -17,7 +17,7 @@ class MetricsConan(ConanFile):
                 ("evhtp/1.2.16@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"),
                 ("prometheus-cpp/0.1.2@oss/stable"),
-                ("userspace-rcu/0.9.5@oss/stable"))
+                ("userspace-rcu/0.10.1@oss/stable"))
 
 
     generators = "cmake"

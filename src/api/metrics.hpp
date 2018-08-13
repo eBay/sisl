@@ -65,7 +65,7 @@ public:
 
 private:
     int64_t m_value = 0;
-    uint64_t m_ts = 0;
+    int64_t m_ts = 0;
 };
 
 class _histogram {
@@ -74,7 +74,7 @@ public:
 
     void init ( std::vector<uint64_t> buckets ) {
         m_bucket_cnt = buckets.size();
-        m_buckets = new uint64_t[m_bucket_cnt];
+        m_buckets = new int64_t[m_bucket_cnt];
         m_freqs = new int64_t[m_bucket_cnt+1];
         for (auto i = 0U; i < m_bucket_cnt; i++) {
             m_buckets[i] = buckets[i];
@@ -84,7 +84,7 @@ public:
     }
 
     void update (int64_t value) {
-        unsigned int index = 0;
+        int64_t index = 0;
         while ( index < m_bucket_cnt && m_buckets[index] < value ) index++;
         m_freqs[index]++;
         m_sum += value;
@@ -97,7 +97,7 @@ public:
         m_sum += other.m_sum;
     }
 
-    const uint64_t* getBuckets() { return m_buckets; }
+    const int64_t* getBuckets() { return m_buckets; }
 
     const int64_t* getFreqs() { return m_freqs; }
 
@@ -112,8 +112,8 @@ public:
 
 private:
     int64_t*    m_freqs = nullptr;
-    uint64_t*   m_buckets = nullptr;
-    uint64_t    m_bucket_cnt = 0;
+    int64_t*    m_buckets = nullptr;
+    int64_t     m_bucket_cnt = 0;
     int64_t     m_sum = 0;
 };
 
