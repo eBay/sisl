@@ -14,7 +14,6 @@ endif()
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
   if (NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "clang" AND NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "apple-clang")
     include (cmake/debug_flags.cmake)
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${REALLY_NO_OPTIMIZATION_FLAGS}")
   endif()
 endif()
 
