@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
@@ -10,8 +12,9 @@ class MetricsConan(ConanFile):
 
     settings = "arch", "os", "compiler", "build_type"
     options = {"shared": ['True', 'False'],
-               "fPIC": ['True', 'False']}
-    default_options = 'shared=False', 'fPIC=True'
+               "fPIC": ['True', 'False'],
+               "coverage": ['True', 'False']}
+    default_options = 'shared=False', 'fPIC=True', 'coverage=False'
 
     requires = (("sds_logging/3.0.1@sds/stable"),
                 ("evhtp/1.2.16@oss/stable"),
@@ -19,17 +22,25 @@ class MetricsConan(ConanFile):
                 ("prometheus-cpp/0.1.2@oss/stable"),
                 ("userspace-rcu/0.10.1@oss/stable"))
 
-
     generators = "cmake"
     exports_sources = "CMakeLists.txt", "cmake/*", "src/*"
 
+    def configure(self):
+        if not self.settings.compiler == "gcc":
+            del self.options.coverage
+
     def build(self):
         cmake = CMake(self)
-        cmake.configure()
-        cmake.build()
+
+        definitions = {'CONAN_BUILD_COVERAGE': 'OFF'}
         test_target = None
-        if self.settings.build_type == "Debug":
-            test_target = "coverage"
+
+        if self.options.coverage == 'True':
+            definitions['CONAN_BUILD_COVERAGE'] = 'ON'
+            test_target = 'coverage'
+
+        cmake.configure(defs=definitions)
+        cmake.build()
         cmake.test(target=test_target)
 
     def package(self):
@@ -42,3 +53,5 @@ class MetricsConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
+        if self.options.coverage == 'True':
+            self.cpp_info.libs.append('gcov')
