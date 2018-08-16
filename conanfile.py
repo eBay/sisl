@@ -13,7 +13,7 @@ class MetricsConan(ConanFile):
                "fPIC": ['True', 'False']}
     default_options = 'shared=False', 'fPIC=True'
 
-    requires = (("sds_logging/3.0.0@sds/stable"),
+    requires = (("sds_logging/3.0.1@sds/stable"),
                 ("evhtp/1.2.16@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"),
                 ("prometheus-cpp/0.1.2@oss/stable"),
