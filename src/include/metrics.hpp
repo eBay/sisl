@@ -314,30 +314,38 @@ public:
     double percentile(float pcntl) {
         auto freqs = m_histogram.getFreqs();
         std::vector<int64_t> cum_freq( 0, m_histogram.getBucketCnt()+1 );
-        int64_t fcount = 0;
+        int64_t cnt = 0;
         for (auto i = 0U; i < cum_freq.size(); i++) {
-            fcount += freqs[i];
-            cum_freq[i] = fcount;
+            cnt += freqs[i];
+            cum_freq[i] = cnt;
         }
 
         /* Formula:
-            Yp = lower bound of i-th bucket + ( ( (pn - cumfreq[i-1]) * i )/freq[i] )
+            Yp = lower bound of i-th bucket + ((pn - cumfreq[i-1]) * i ) / freq[i]
             where
-                pn = fcount * percentile/100
+                pn = (cnt * percentile)/100
                 i  = matched index of pnum in cum_freq
-        */
-        int64_t pnum = fcount * pcntl/100;
+         */
+        int64_t pnum = (cnt * pcntl) / 100;
         auto i = (std::lower_bound(cum_freq.begin(), cum_freq.end(), pnum)) - cum_freq.begin();
-        if (!i || !freqs[i]) return 0;
-        return (m_histogram.getBuckets())[i-1] + ((pnum - cum_freq[i-1]) * i) / freqs[i];
+        if (!freqs[i]) return 0;
+        auto Yl = !i ? 0 : (m_histogram.getBuckets())[i-1];
+        auto ith_cum_freq = !i ? 0 : cum_freq[i-1];
+        double Yp = Yl + ((pnum - ith_cum_freq) * i)/freqs[i];
+        return Yp;
+    }
+
+    int64_t count() {
+        int64_t cnt = 0;
+        for (auto i = 0U; i < m_histogram.getBucketCnt()+1; i++) {
+            cnt += (m_histogram.getFreqs())[i];
+        }
+        return cnt;
     }
 
     double average() {
-        int64_t fcount = 0;
-        for (auto i = 0U; i < m_histogram.getBucketCnt()+1; i++) {
-            fcount += (m_histogram.getFreqs())[i];
-        }
-        return (fcount ? m_histogram.getSum()/fcount : 0);
+        auto cnt = count();
+        return (cnt ? m_histogram.getSum()/cnt : 0);
     }
 
     void merge(const _histogram &other) { m_histogram.merge(other); }
@@ -453,7 +461,8 @@ public:
         nlohmann::json hist_entries;
         for (auto i : m_histograms) {
             std::stringstream ss;
-            ss  << i.average()      << " / "
+            ss  << i.count()        << " / "
+                << i.average()      << " / "
                 << i.percentile(50) << " / "
                 << i.percentile(95) << " / "
                 << i.percentile(99);
@@ -462,7 +471,7 @@ public:
             if (i.getSubType() != "") desc += " - " + i.getSubType();
             hist_entries[desc] = ss.str();
         }
-        json["Histograms percentiles (usecs) avg/50/95/99"] = hist_entries;
+        json["Histograms:count/avg/percentile-50/95/99"] = hist_entries;
 
         return json.dump();
     }
