@@ -6,33 +6,19 @@
 
 #define ITERATIONS 6
 
-class TestMetrics {
-public:
-    TestMetrics() {
-        m_report_metrics = new metrics::ReportMetrics();
-    }
+void seqA () {
+    auto report = metrics::ReportMetrics::getInstance();
 
-    ~TestMetrics() {
-        delete m_report_metrics;
-    }
+    auto c1_addr = report->getCounter(0);
+    auto c2_addr = report->getCounter(1);
+    assert(report->getCounter(2));
+    auto c8_addr = report->getCounter(7);
+    auto c9_addr = report->getCounter(8);
 
-    metrics::ReportMetrics* getMetrics() { return m_report_metrics; }
+    auto g1_addr = report->getGauge(0);
+    assert(report->getGauge(1));
 
-private:
-    metrics::ReportMetrics* m_report_metrics;
-};
-
-void seqA (TestMetrics *report) {
-    auto c1_addr = report->getMetrics()->getCounter(0);
-    auto c2_addr = report->getMetrics()->getCounter(1);
-    assert(report->getMetrics()->getCounter(2));
-    auto c8_addr = report->getMetrics()->getCounter(7);
-    auto c9_addr = report->getMetrics()->getCounter(8);
-
-    auto g1_addr = report->getMetrics()->getGauge(0);
-    assert(report->getMetrics()->getGauge(1));
-
-    auto h_addr = report->getMetrics()->getHistogram(0);
+    auto h_addr = report->getHistogram(0);
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
@@ -49,15 +35,17 @@ void seqA (TestMetrics *report) {
     g1_addr->update(2);
 }
 
-void seqB (TestMetrics *report) {
-    auto c1_addr = report->getMetrics()->getCounter(0);
-    auto c2_addr = report->getMetrics()->getCounter(1);
-    assert(report->getMetrics()->getCounter(2));
+void seqB () {
+    auto report = metrics::ReportMetrics::getInstance();
 
-    auto g1_addr = report->getMetrics()->getGauge(0);
-    assert(report->getMetrics()->getGauge(1));
+    auto c1_addr = report->getCounter(0);
+    auto c2_addr = report->getCounter(1);
+    assert(report->getCounter(2));
 
-    assert(report->getMetrics()->getHistogram(0));
+    auto g1_addr = report->getGauge(0);
+    assert(report->getGauge(1));
+
+    assert(report->getHistogram(0));
 
     c1_addr->increment();
     c2_addr->increment();
@@ -72,42 +60,44 @@ void seqB (TestMetrics *report) {
     g1_addr->update(5);
 }
 
-void gather (TestMetrics *report) {
+void gather () {
+    auto report = metrics::ReportMetrics::getInstance();
+
     std::string filename = "result.json";
     std::ofstream ofs (filename, std::ofstream::out);
     for (auto i = 0U; i < ITERATIONS; i++) {
-        report->getMetrics()->gather();
-        ofs << report->getMetrics()->getJSON() << std::endl;
+        report->gather();
+        ofs << report->getJSON() << std::endl;
         std::this_thread::sleep_for (std::chrono::seconds(1));
     }
     ofs.close();
 }
 
 int main() {
-    TestMetrics *report = new TestMetrics();
+    auto report = metrics::ReportMetrics::getInstance();
 
-    report->getMetrics()->registerCounter( "counter1", "counter1 for test", "", 5 );
-    report->getMetrics()->registerCounter( "counter2", "counter2 for test", "", -2 );
-    report->getMetrics()->registerCounter( "counter3", "counter3 for test", "", 0 );
-    report->getMetrics()->registerCounter( "counter4", "counter4 for test", "", 0 );
-    report->getMetrics()->registerCounter( "counter5", "counter5 for test", "", 0 );
-    report->getMetrics()->registerCounter( "counter6", "counter6 for test", "", 0 );
-    report->getMetrics()->registerCounter( "counter7", "counter7 for test", "", 0 );
-    report->getMetrics()->registerCounter( "counter8", "counter8 for test", "", 0 );
-    report->getMetrics()->registerCounter( "counter9", "counter9 for test", "", 5 );
+    report->registerCounter( "counter1", "counter1 for test", "", 5 );
+    report->registerCounter( "counter2", "counter2 for test", "", -2 );
+    report->registerCounter( "counter3", "counter3 for test", "", 0 );
+    report->registerCounter( "counter4", "counter4 for test", "", 0 );
+    report->registerCounter( "counter5", "counter5 for test", "", 0 );
+    report->registerCounter( "counter6", "counter6 for test", "", 0 );
+    report->registerCounter( "counter7", "counter7 for test", "", 0 );
+    report->registerCounter( "counter8", "counter8 for test", "", 0 );
+    report->registerCounter( "counter9", "counter9 for test", "", 5 );
 
-    report->getMetrics()->registerGauge( "gauge1", "gauge1 for test", "", 3 );
-    report->getMetrics()->registerGauge( "gauge2", "gauge2 for test", "", -2 );
+    report->registerGauge( "gauge1", "gauge1 for test", "", 3 );
+    report->registerGauge( "gauge2", "gauge2 for test", "", -2 );
 
-    report->getMetrics()->registerHistogram( "hist", "histogram for test", "");
+    report->registerHistogram( "hist", "histogram for test", "");
 
-    std::thread th1 (seqA, report);
-    std::thread th2 (seqB, report);
-    std::thread th3 (gather, report);
+    std::thread th1 (seqA);
+    std::thread th2 (seqB);
+    std::thread th3 (gather);
 
     th1.join();
     th2.join();
     th3.join();
 
-    delete report;
+    metrics::ReportMetrics::deleteInstance();
 }

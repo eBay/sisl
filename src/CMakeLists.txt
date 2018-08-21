@@ -6,6 +6,15 @@ find_package (Threads REQUIRED)
 
 include_directories(BEFORE .)
 
+file(GLOB API_HEADERS include/*.hpp)
+file(GLOB LIB_HEADERS lib/*.hpp)
+file(GLOB LIB_SOURCES lib/*.cpp)
+
+add_library(sds_template
+  ${API_HEADERS}
+  ${LIB_SOURCES}
+)
+
 set(FUNCTIONALITY_TEST_SOURCES tests/functionality_test.cpp)
 add_executable(functionality_test ${FUNCTIONALITY_TEST_SOURCES})
 target_link_libraries(functionality_test ${CONAN_LIBS})
