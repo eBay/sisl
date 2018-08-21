@@ -1,7 +1,0 @@
-function (handle_common_unit_tests targetname srcname binname)
-  add_executable(${targetname} ${CMAKE_CURRENT_SOURCE_DIR}/${srcname}.cpp)
-  set_target_properties(${targetname} PROPERTIES OUTPUT_NAME ${binname})
-  target_link_libraries(${targetname} ${GTEST_LIBRARY})
-  add_test(NAME ${targetname} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${binname})
-  install (TARGETS ${targetname} DESTINATION /tmp/bin/test/unit COMPONENT test)
-endfunction()
