@@ -367,9 +367,13 @@ private:
 
 class ReportMetrics {
 public:
-    static ReportMetrics* getInstance();
+    ReportMetrics() {
+        urcu::urcu_ctl::register_rcu();
+    }
 
-    static void deleteInstance();
+    ~ReportMetrics() {
+        urcu::urcu_ctl::unregister_rcu();
+    }
 
     uint64_t registerCounter(   std::string name,
                                 std::string desc,
@@ -480,20 +484,10 @@ public:
     }
 
 private:
-    ReportMetrics() {
-        urcu::urcu_ctl::register_rcu();
-    }
-
-    ~ReportMetrics() {
-        urcu::urcu_ctl::unregister_rcu();
-    }
-
     std::vector<ReportCounter>      m_counters;
     std::vector<ReportGauge>        m_gauges;
     std::vector<ReportHistogram>    m_histograms;
     MetricsController               m_controller;
-
-    static ReportMetrics*           m_instance;
 };
 
 }
