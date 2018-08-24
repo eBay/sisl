@@ -6,19 +6,19 @@
 
 #define ITERATIONS 6
 
-metrics::ReportMetrics report;
+CREATE_REPORT;
 
 void seqA () {
-    auto c1_addr = report.getCounter(0);
-    auto c2_addr = report.getCounter(1);
-    assert(report.getCounter(2));
-    auto c8_addr = report.getCounter(7);
-    auto c9_addr = report.getCounter(8);
+    auto c1_addr = REPORT.getCounter(0);
+    auto c2_addr = REPORT.getCounter(1);
+    assert(REPORT.getCounter(2));
+    auto c8_addr = REPORT.getCounter(7);
+    auto c9_addr = REPORT.getCounter(8);
 
-    auto g1_addr = report.getGauge(0);
-    assert(report.getGauge(1));
+    auto g1_addr = REPORT.getGauge(0);
+    assert(REPORT.getGauge(1));
 
-    auto h_addr = report.getHistogram(0);
+    auto h_addr = REPORT.getHistogram(0);
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
@@ -36,14 +36,14 @@ void seqA () {
 }
 
 void seqB () {
-    auto c1_addr = report.getCounter(0);
-    auto c2_addr = report.getCounter(1);
-    assert(report.getCounter(2));
+    auto c1_addr = REPORT.getCounter(0);
+    auto c2_addr = REPORT.getCounter(1);
+    assert(REPORT.getCounter(2));
 
-    auto g1_addr = report.getGauge(0);
-    assert(report.getGauge(1));
+    auto g1_addr = REPORT.getGauge(0);
+    assert(REPORT.getGauge(1));
 
-    assert(report.getHistogram(0));
+    assert(REPORT.getHistogram(0));
 
     c1_addr->increment();
     c2_addr->increment();
@@ -62,28 +62,28 @@ void gather () {
     std::string filename = "result.json";
     std::ofstream ofs (filename, std::ofstream::out);
     for (auto i = 0U; i < ITERATIONS; i++) {
-        report.gather();
-        ofs << report.getJSON() << std::endl;
+        REPORT.gather();
+        ofs << REPORT.getJSON() << std::endl;
         std::this_thread::sleep_for (std::chrono::seconds(1));
     }
     ofs.close();
 }
 
 int main() {
-    report.registerCounter( "counter1", "counter1 for test", "", 5 );
-    report.registerCounter( "counter2", "counter2 for test", "", -2 );
-    report.registerCounter( "counter3", "counter3 for test", "", 0 );
-    report.registerCounter( "counter4", "counter4 for test", "", 0 );
-    report.registerCounter( "counter5", "counter5 for test", "", 0 );
-    report.registerCounter( "counter6", "counter6 for test", "", 0 );
-    report.registerCounter( "counter7", "counter7 for test", "", 0 );
-    report.registerCounter( "counter8", "counter8 for test", "", 0 );
-    report.registerCounter( "counter9", "counter9 for test", "", 5 );
+    REPORT.registerCounter( "counter1", "counter1 for test", "", 5 );
+    REPORT.registerCounter( "counter2", "counter2 for test", "", -2 );
+    REPORT.registerCounter( "counter3", "counter3 for test", "", 0 );
+    REPORT.registerCounter( "counter4", "counter4 for test", "", 0 );
+    REPORT.registerCounter( "counter5", "counter5 for test", "", 0 );
+    REPORT.registerCounter( "counter6", "counter6 for test", "", 0 );
+    REPORT.registerCounter( "counter7", "counter7 for test", "", 0 );
+    REPORT.registerCounter( "counter8", "counter8 for test", "", 0 );
+    REPORT.registerCounter( "counter9", "counter9 for test", "", 5 );
 
-    report.registerGauge( "gauge1", "gauge1 for test", "", 3 );
-    report.registerGauge( "gauge2", "gauge2 for test", "", -2 );
+    REPORT.registerGauge( "gauge1", "gauge1 for test", "", 3 );
+    REPORT.registerGauge( "gauge2", "gauge2 for test", "", -2 );
 
-    report.registerHistogram( "hist", "histogram for test", "");
+    REPORT.registerHistogram( "hist", "histogram for test", "");
 
     std::thread th1 (seqA);
     std::thread th2 (seqB);

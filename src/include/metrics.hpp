@@ -9,10 +9,16 @@
 #include <chrono>
 #include <atomic>
 
-#include "lib/urcu_helper.hpp"
+#include "urcu_helper.hpp"
 #include "nlohmann/json.hpp"
 
 namespace metrics {
+
+class ReportMetrics;
+extern ReportMetrics report;
+
+#define CREATE_REPORT metrics::ReportMetrics report
+#define REPORT report
 
 #define ARR_BLOCK 8
 
