@@ -1,20 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from conans import ConanFile, CMake, tools
+from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
     name = "sds_metrics"
-    version = "0.2.0"
+    version = "0.2.1"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/SDS/metrics"
     description = "Metrics collection project for eBay SDS"
 
-    settings = "arch", "os", "compiler", "build_type"
-    options = {"shared": ['True', 'False'],
-               "fPIC": ['True', 'False'],
-               "coverage": ['True', 'False']}
-    default_options = 'shared=False', 'fPIC=True', 'coverage=False'
+    settings = "compiler"
+    options = {"coverage": ['True', 'False']}
+    default_options = 'coverage=False'
 
     requires = (("sds_logging/3.0.1@sds/stable"),
                 ("evhtp/1.2.16@oss/stable"),
@@ -52,6 +50,5 @@ class MetricsConan(ConanFile):
         self.copy("*.dylib", dst="lib/", keep_path=False)
 
     def package_info(self):
-        self.cpp_info.libs = tools.collect_libs(self)
         if self.options.coverage == 'True':
             self.cpp_info.libs.append('gcov')

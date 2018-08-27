@@ -11,10 +11,8 @@ else()
     return()
 endif()
 
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-  if (NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "clang" AND NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "apple-clang")
-    include (cmake/debug_flags.cmake)
-  endif()
+if (NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "clang" AND NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "apple-clang")
+  include (cmake/debug_flags.cmake)
 endif()
 
 find_program(CCACHE_FOUND ccache)

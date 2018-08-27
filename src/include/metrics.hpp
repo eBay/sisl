@@ -1,6 +1,4 @@
-//
-// Created by Gupta, Sounak on 07/15/18.
-//
+/* Author: Sounak Gupta, July/Aug 2018 */
 #pragma once
 
 #include <vector>
@@ -15,6 +13,12 @@
 #include "nlohmann/json.hpp"
 
 namespace metrics {
+
+class ReportMetrics;
+extern ReportMetrics report;
+
+#define CREATE_REPORT metrics::ReportMetrics report
+#define REPORT report
 
 #define ARR_BLOCK 8
 
@@ -377,21 +381,30 @@ public:
         urcu::urcu_ctl::unregister_rcu();
     }
 
-    uint64_t registerCounter( std::string name, std::string desc, std::string sub_type, int64_t init_val ) {
+    uint64_t registerCounter(   std::string name,
+                                std::string desc,
+                                std::string sub_type,
+                                int64_t init_val ) {
+
         m_counters.emplace_back(name, desc, sub_type, 0);
         m_controller.fetchMetrics()->addCounter(init_val);
         return m_counters.size()-1;
     }
  
-    uint64_t registerGauge( std::string name, std::string desc, std::string sub_type, int64_t init_val ) {
+    uint64_t registerGauge(     std::string name,
+                                std::string desc,
+                                std::string sub_type,
+                                int64_t init_val ) {
 
         m_gauges.emplace_back(name, desc, sub_type, 0);
         m_controller.fetchMetrics()->addGauge(init_val);
         return m_gauges.size()-1;
     }
  
-    uint64_t registerHistogram( std::string name, std::string desc, std::string sub_type,
-            std::vector<uint64_t> buckets =
+    uint64_t registerHistogram( std::string name,
+                                std::string desc,
+                                std::string sub_type,
+                                std::vector<uint64_t> buckets =
                 {   300,    450,    750,    1000,   3000,   5000,    7000,    9000,    11000,
                     13000,  15000,  17000,  19000,  21000,  32000,   45000,   75000,   110000,
                     160000, 240000, 360000, 540000, 800000, 1200000, 1800000, 2700000, 4000000  } ) {
