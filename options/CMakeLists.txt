@@ -17,4 +17,4 @@ add_library(sds_options
 set(BASIC_TEST_SOURCES tests/basic.cpp)
 add_executable(basic_test ${BASIC_TEST_SOURCES})
 target_link_libraries(basic_test sds_options ${CONAN_LIBS})
-add_test(NAME BasicTest COMMAND basic_test)
+add_test(NAME BasicTest COMMAND basic_test --gtest_output=xml:test_basic.xml)
