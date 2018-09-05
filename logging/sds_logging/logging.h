@@ -94,11 +94,6 @@ MODLEVELDEC(_, _, base)
         spdlog::level::level_enum BOOST_PP_CAT(module_level_, module) {l}; \
     }
 
-#ifndef Ki
-#define Ki 1024
-#define Mi Ki * Ki
-#endif
-
 #define SDS_LOGGING_DECL(...)                                                   \
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
@@ -130,7 +125,7 @@ MODLEVELDEC(_, _, base)
                                     SDS_OPTIONS["logfile"].as<std::string>() :      \
                                     "./" + name + "_log");                          \
          auto rotating_sink = std::make_shared<sinks::rotating_file_sink_mt>(path,  \
-                                   SDS_OPTIONS["logfile_size"].as<uint32_t>() * Mi, \
+                                   SDS_OPTIONS["logfile_size"].as<uint32_t>() * (1024 * 1024), \
                                    SDS_OPTIONS["logfile_cnt"].as<uint32_t>());      \
          mysinks.push_back(std::move(rotating_sink));                               \
        }                                                                            \
