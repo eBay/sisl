@@ -99,13 +99,13 @@ MODLEVELDEC(_, _, base)
 
 #define SDS_LOGGING_INIT(...)                                                       \
    SDS_OPTION_GROUP(logging, (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
-                             (log_name,   "l", "logfile", "Log to Log File", ::cxxopts::value<std::string>(), "logfile"), \
+                             (log_name,   "l", "logfile", "Full path to logfile", ::cxxopts::value<std::string>()->default_value("./<prog_name>_log"), "logfile"), \
                              (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
                              (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
-                             (standout,   "c", "stdout", "Stdout Logging", ::cxxopts::value<bool>(), ""), \
+                             (standout,   "c", "stdout", "Stdout logging only", ::cxxopts::value<bool>(), ""), \
                              (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
                              (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
-                             (verbosity,  "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level")) \
+                             (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level")) \
    static std::shared_ptr<spdlog::logger> logger_;                                  \
                                                                                     \
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::warn, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
