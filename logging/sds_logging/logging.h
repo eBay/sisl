@@ -171,7 +171,7 @@ MODLEVELDEC(_, _, base)
                 } \
                 LOGINFO("Enabled logging for: {} level[{}]", module_name, *mod_level); \
              } else { \
-                LOGWARN("Could not load module logger: {}", module_name); \
+                LOGWARN("Could not load module logger: {}\n{}", module_name, dlerror()); \
              } \
           } \
        } \
