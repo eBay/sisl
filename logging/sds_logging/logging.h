@@ -120,10 +120,12 @@ MODLEVELDEC(_, _, base)
    void SetLogger(std::string const& name) {                                        \
        std::vector<spdlog::sink_ptr> mysinks { };                                   \
        if (!SDS_OPTIONS.count("stdout")) {                                          \
-         std::string const path = "./" + name + "_log";                             \
+         std::string const path = (0 < SDS_OPTIONS.count("logfile") ?               \
+                                    SDS_OPTIONS["logfile"].as<std::string>() :      \
+                                    "./" + name + "_log");                          \
          auto rotating_sink = std::make_shared<sinks::rotating_file_sink_mt>(path,  \
-                                                                           10 * Mi, \
-                                                                             3);    \
+                                   SDS_OPTIONS["logfile_size"].as<uint32_t>() * Mi, \
+                                   SDS_OPTIONS["logfile_cnt"].as<uint32_t>());      \
          mysinks.push_back(std::move(rotating_sink));                               \
        }                                                                            \
        if (SDS_OPTIONS.count("stdout") || (!SDS_OPTIONS.count("quiet"))) {          \
