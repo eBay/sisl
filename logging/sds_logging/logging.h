@@ -6,6 +6,13 @@
 
 #include <cstdio>
 #include <memory>
+#include <regex>
+#include <sstream>
+#include <string>
+#include <vector>
+extern "C" {
+#include <dlfcn.h>
+}
 #include <spdlog/async.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -36,7 +43,7 @@ constexpr const char* file_name(const char* str) {
     return str_slant(str) ? r_slant(str_end(str)) : str;
 }
 
-#define LEVELCHECK(l, mod, lvl) (l && sds_logging::module_level_##mod <= (lvl))
+#define LEVELCHECK(l, mod, lvl) (l && module_level_##mod <= (lvl))
 
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
@@ -77,13 +84,13 @@ extern shared<spdlog::logger> GetLogger() __attribute__((weak));
 }
 
 #define MODLEVELDEC(r, _, module) \
-    namespace sds_logging { \
+    extern "C" {                  \
         extern spdlog::level::level_enum BOOST_PP_CAT(module_level_, module); \
     }
 MODLEVELDEC(_, _, base)
 
 #define MODLEVELDEF(r, l, module) \
-    namespace sds_logging { \
+    extern "C" {                  \
         spdlog::level::level_enum BOOST_PP_CAT(module_level_, module) {l}; \
     }
 
@@ -96,7 +103,8 @@ MODLEVELDEC(_, _, base)
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define SDS_LOGGING_INIT(...)                                                       \
-   SDS_OPTION_GROUP(logging, (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
+   SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable", ::cxxopts::value<std::string>(), "mod[:level][,mod2[:level2],...]"), \
+                             (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
                              (log_name,   "l", "logfile", "Full path to logfile", ::cxxopts::value<std::string>()->default_value("./<prog_name>_log"), "logfile"), \
                              (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
                              (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
@@ -104,7 +112,7 @@ MODLEVELDEC(_, _, base)
                              (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
                              (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
                              (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level")) \
-   static std::shared_ptr<spdlog::logger> logger_;                                  \
+   static sds_logging::shared<spdlog::logger> logger_;                              \
                                                                                     \
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::warn, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
    namespace sds_logging {                                                          \
@@ -148,7 +156,31 @@ MODLEVELDEC(_, _, base)
        }                                                                            \
        module_level_base = lvl;                                                     \
        sds_thread_logger = logger_;                                                 \
+       if (SDS_OPTIONS.count("log_mods")) {                                      \
+          std::regex re("[\\s,]+");  \
+          auto s = SDS_OPTIONS["log_mods"].as<std::string>(); \
+          std::sregex_token_iterator it(s.begin(), s.end(), re, -1); \
+          std::sregex_token_iterator reg_end; \
+          for (; it != reg_end; ++it) { \
+             auto mod_stream = std::istringstream(it->str()); \
+             std::string module_name, module_level; \
+             getline(mod_stream, module_name, ':'); \
+             auto sym = "module_level_" + module_name; \
+             if (auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT,  \
+                                                                    sym.c_str());  \
+                       nullptr != mod_level) {                                     \
+                if (getline(mod_stream, module_level, ':')) { \
+                  *mod_level = (spdlog::level::level_enum)atoi(module_level.c_str()); \
+                } else { \
+                  *mod_level = lvl; \
+                } \
+                LOGINFO("Enabled logging for: {} level[{}]", module_name, *mod_level); \
+             } else { \
+                LOGWARN("Could not load module logger: {}", module_name); \
+             } \
+          } \
+       } \
    }                                                                                \
    }
 
-#define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(sds_logging::module_level_, mod) = (lvl);
+#define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(module_level_, mod) = (lvl);
