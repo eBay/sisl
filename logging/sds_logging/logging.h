@@ -89,49 +89,66 @@ MODLEVELDEC(_, _, base)
         spdlog::level::level_enum BOOST_PP_CAT(module_level_, module) {l}; \
     }
 
+#ifndef Ki
+#define Ki 1024
+#define Mi Ki * Ki
+#endif
+
 #define SDS_LOGGING_DECL(...)                                                   \
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
-#define SDS_LOGGING_INIT(...)                                                   \
+#define SDS_LOGGING_INIT(...)                                                       \
    SDS_OPTION_GROUP(logging, (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
                              (log_name,   "l", "logfile", "Log to Log File", ::cxxopts::value<std::string>(), "logfile"), \
                              (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
                              (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
                              (standout,   "c", "stdout", "Stdout Logging", ::cxxopts::value<bool>(), ""), \
+                             (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
                              (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
                              (verbosity,  "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>(), "level")) \
-   static std::shared_ptr<spdlog::logger> logger_;                              \
-                                                                                \
+   static std::shared_ptr<spdlog::logger> logger_;                                  \
+                                                                                    \
    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::warn, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
-   namespace sds_logging {                                                      \
-   thread_local shared<spdlog::logger> sds_thread_logger;                       \
-                                                                                \
-   shared<spdlog::logger> GetLogger() {                                         \
-       return logger_;                                                          \
-   }                                                                            \
-                                                                                \
-   void SetLogger(std::string const& name) {                                    \
-       std::string const path = "./" + name + "_log";                           \
-       if (SDS_OPTIONS.count("synclog") && SDS_OPTIONS.count("stdout")) {       \
-          logger_ = spdlog::stdout_color_mt(name);                              \
-       } else if (SDS_OPTIONS.count("synclog")) {                               \
-          logger_ = spdlog::rotating_logger_mt(name, path, 10 * 1024 * 1024, 3); \
-       } else {                                                                 \
-          spdlog::init_thread_pool(SDS_OPTIONS["log_queue"].as<uint32_t>(), 1); \
-          if (SDS_OPTIONS.count("stdout")) {                                    \
-            logger_ = spdlog::stdout_color_mt<spdlog::async_factory>(name);     \
-          } else {                                                              \
-             logger_ = spdlog::rotating_logger_mt<spdlog::async_factory>(name, path, 10 * 1024 * 1024, 3); \
-          }                                                                     \
-       }                                                                        \
-       logger_->set_level(spdlog::level::level_enum::trace);                    \
-       auto lvl = spdlog::level::level_enum::info;                              \
-       if (SDS_OPTIONS.count("verbosity")) {                                    \
+   namespace sds_logging {                                                          \
+   thread_local shared<spdlog::logger> sds_thread_logger;                           \
+                                                                                    \
+   shared<spdlog::logger> GetLogger() {                                             \
+       return logger_;                                                              \
+   }                                                                                \
+                                                                                    \
+   namespace sinks = spdlog::sinks;                                                 \
+   void SetLogger(std::string const& name) {                                        \
+       std::vector<spdlog::sink_ptr> mysinks { };                                   \
+       if (!SDS_OPTIONS.count("stdout")) {                                          \
+         std::string const path = "./" + name + "_log";                             \
+         auto rotating_sink = std::make_shared<sinks::rotating_file_sink_mt>(path,  \
+                                                                           10 * Mi, \
+                                                                             3);    \
+         mysinks.push_back(std::move(rotating_sink));                               \
+       }                                                                            \
+       if (SDS_OPTIONS.count("stdout") || (!SDS_OPTIONS.count("quiet"))) {          \
+          mysinks.push_back(std::make_shared<sinks::stdout_color_sink_mt>());       \
+       }                                                                            \
+       if (SDS_OPTIONS.count("synclog") && SDS_OPTIONS.count("stdout")) {           \
+          logger_ = std::make_shared<spdlog::logger>(name,                          \
+                                                     mysinks.begin(),               \
+                                                     mysinks.end());                \
+       } else {                                                                     \
+          spdlog::init_thread_pool(SDS_OPTIONS["log_queue"].as<uint32_t>(), 1);     \
+          logger_ = std::make_shared<spdlog::async_logger>(name,                    \
+                                                           mysinks.begin(),         \
+                                                           mysinks.end(),           \
+                                                           spdlog::thread_pool());  \
+       }                                                                            \
+       logger_->set_level(spdlog::level::level_enum::trace);                        \
+       spdlog::register_logger(logger_);                                            \
+       auto lvl = spdlog::level::level_enum::info;                                  \
+       if (SDS_OPTIONS.count("verbosity")) {                                        \
           lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as<uint32_t>(); \
-       }                                                                        \
-       module_level_base = lvl;                                                 \
-       sds_thread_logger = logger_;                                             \
-   }                                                                            \
+       }                                                                            \
+       module_level_base = lvl;                                                     \
+       sds_thread_logger = logger_;                                                 \
+   }                                                                                \
    }
 
 #define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(sds_logging::module_level_, mod) = (lvl);
