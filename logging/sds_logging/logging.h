@@ -108,7 +108,7 @@ MODLEVELDEC(_, _, base)
 #define SDS_LOGGING_INIT(...)                                                           \
    SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable", ::cxxopts::value<std::string>(), "mod[:level][,mod2[:level2],...]"), \
                              (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
-                             (log_name,   "l", "logfile", "Full path to logfile", ::cxxopts::value<std::string>()->default_value("./<prog_name>_log"), "logfile"), \
+                             (log_name,   "l", "logfile", "Full path to logfile", ::cxxopts::value<std::string>(), "logfile"), \
                              (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
                              (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
                              (standout,   "c", "stdout", "Stdout logging only", ::cxxopts::value<bool>(), ""), \
@@ -131,7 +131,7 @@ MODLEVELDEC(_, _, base)
        if (!SDS_OPTIONS.count("stdout")) {                                              \
          std::string const path = (0 < SDS_OPTIONS.count("logfile") ?                   \
                                     SDS_OPTIONS["logfile"].as<std::string>() :          \
-                                    "./" + name + "_log");                              \
+                                    "./" + std::string(file_name(name.c_str())) + "_log");                              \
          auto rotating_sink = std::make_shared<sinks::rotating_file_sink_mt>(path,      \
                                    SDS_OPTIONS["logfile_size"].as<uint32_t>() * (1024 * 1024), \
                                    SDS_OPTIONS["logfile_cnt"].as<uint32_t>());          \
