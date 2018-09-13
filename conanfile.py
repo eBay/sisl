@@ -15,6 +15,7 @@ class MetricsConan(ConanFile):
     default_options = 'coverage=False'
 
     requires = (("sds_logging/3.0.1@sds/stable"),
+                ("boost_dynamic_bitset/1.66.0@bincrafters/stable"),
                 ("evhtp/1.2.16@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"),
                 ("prometheus-cpp/0.1.2@oss/stable"),
