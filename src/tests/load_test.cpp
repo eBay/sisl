@@ -14,61 +14,42 @@ RCU_REGISTER_INIT;
 
 void seqA () {
     REPORT.startMetrics();
-    auto c1_addr = REPORT.getCounter(0);
-    auto c2_addr = REPORT.getCounter(1);
-    assert(REPORT.getCounter(2));
-    auto c8_addr = REPORT.getCounter(7);
-    auto c9_addr = REPORT.getCounter(8);
-
-    auto g1_addr = REPORT.getGauge(0);
-    assert(REPORT.getGauge(1));
-
-    auto h_addr = REPORT.getHistogram(0);
-    c1_addr->increment();
+    REPORT.getCounter(0)->increment();
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
-    c1_addr->increment();
-    c1_addr->increment();
-    c1_addr->increment();
-    c9_addr->increment(3);
-    h_addr->update(2);
-    h_addr->update(5);
+    REPORT.getCounter(0)->increment();
+    REPORT.getCounter(0)->increment();
+    REPORT.getCounter(0)->increment();
+    REPORT.getCounter(8)->increment(3);
+    REPORT.getHistogram(0)->update(2);
+    REPORT.getHistogram(0)->update(5);
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
-    c1_addr->increment();
-    c1_addr->increment();
-    c8_addr->increment(2);
-    h_addr->update(5);
-    c2_addr->increment();
-    g1_addr->update(2);
+    REPORT.getCounter(0)->increment();
+    REPORT.getCounter(0)->increment();
+    REPORT.getCounter(7)->increment(2);
+    REPORT.getHistogram(0)->update(5);
+    REPORT.getCounter(1)->increment();
+    REPORT.getGauge(0)->update(2);
 }
 
 void seqB () {
     REPORT.startMetrics();
-    auto c1_addr = REPORT.getCounter(0);
-    auto c2_addr = REPORT.getCounter(1);
-    assert(REPORT.getCounter(2));
-
-    auto g1_addr = REPORT.getGauge(0);
-    assert(REPORT.getGauge(1));
-
-    assert(REPORT.getHistogram(0));
-
-    c1_addr->increment();
-    c1_addr->increment(2);
-    c2_addr->increment();
+    REPORT.getCounter(0)->increment();
+    REPORT.getCounter(0)->increment(2);
+    REPORT.getCounter(1)->increment();
 
     std::this_thread::sleep_for (std::chrono::seconds(1));
 
-    c1_addr->increment();
-    c1_addr->decrement(2);
-    c2_addr->decrement();
+    REPORT.getCounter(1)->increment();
+    REPORT.getCounter(0)->decrement(2);
+    REPORT.getCounter(1)->decrement();
 
     std::this_thread::sleep_for (std::chrono::seconds(3));
 
-    g1_addr->update(5);
+    REPORT.getGauge(0)->update(5);
 }
 
 void gather () {

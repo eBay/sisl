@@ -40,8 +40,8 @@ public:
     void decrement (int64_t value = 1)  { m_value -= value; }
     int64_t get() { return m_value; }
     int64_t merge (const _counter& other) {
-        m_value += other.m_value;
-        return m_value;
+        this->m_value += other.m_value;
+        return this->m_value;
     }
 private:
     int64_t m_value = 0;
@@ -61,8 +61,8 @@ public:
     int64_t get() { return m_value; }
     int64_t merge (const _gauge& other) {
         if (m_ts < other.m_ts) {
-            m_value = other.m_value;
-            m_ts = other.m_ts;
+            this->m_value = other.m_value;
+            this->m_ts = other.m_ts;
         }
         return m_value;
     }
@@ -74,7 +74,7 @@ private:
 class _histogram {
 public:
     _histogram() { init(); }
-    void init() { std::fill(m_freqs, m_freqs+HIST_BKT_SIZE, 0); }
+    void init() { std::fill(m_freqs, m_freqs+HIST_BKT_SIZE, 0); m_sum = 0; }
     void update (int64_t value) {
         auto lower = std::lower_bound(g_histogram_bucket_specs.begin(),
                                     g_histogram_bucket_specs.end(), value);
@@ -84,9 +84,9 @@ public:
     }
     void merge (const _histogram& other) {
         for (auto i = 0U; i < HIST_BKT_SIZE; i++) {
-            m_freqs[i] += other.m_freqs[i];
+            this->m_freqs[i] += other.m_freqs[i];
         }
-        m_sum += other.m_sum;
+        this->m_sum += other.m_sum;
     }
     const int64_t* getFreqs() { return m_freqs; }
     int64_t getSum() { return m_sum; }
@@ -123,9 +123,9 @@ public:
     _histogram* getHistogram (uint64_t index) { return &m_histograms[index]; }
 
 private:
-    _counter   *m_counters;
-    _gauge     *m_gauges;
-    _histogram *m_histograms;
+    _counter   *m_counters   = nullptr;
+    _gauge     *m_gauges     = nullptr;
+    _histogram *m_histograms = nullptr;
 };
 
 class Metrics {
