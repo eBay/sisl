@@ -1,5 +1,5 @@
 # ##########   #######   ############
-FROM ecr.vip.ebayc3.com/sds/sds_cpp_base:1.7
+FROM ecr.vip.ebayc3.com/sds/sds_cpp_base:1.12
 LABEL description="Automated SDS compilation"
 
 ARG CONAN_CHANNEL
@@ -10,16 +10,17 @@ ENV CONAN_CHANNEL=${CONAN_CHANNEL:-testing}
 ENV CONAN_PASS=${CONAN_PASS:-password}
 ENV SOURCE_PATH=/tmp/source/
 
-COPY conanfile.py /tmp/source/
-COPY cmake/ /tmp/source/cmake
-COPY CMakeLists.txt /tmp/source/
-COPY src/ /tmp/source/src
+COPY conanfile.py ${SOURCE_PATH}
+COPY cmake/ ${SOURCE_PATH}cmake
+COPY CMakeLists.txt ${SOURCE_PATH}
+COPY src/ ${SOURCE_PATH}src
 
 WORKDIR /output
 RUN set -eux; \
     eval $(grep 'name =' ${SOURCE_PATH}conanfile.py | sed 's, ,,g' | sed 's,name,PKG_NAME,'); \
     conan create -o ${PKG_NAME}:coverage=True -pr debug ${SOURCE_PATH} "${CONAN_USER}"/"${CONAN_CHANNEL}"; \
-    find ~/.conan/data/${PKG_NAME} -name 'coverage.xml' -exec mv -v {} . \;
+    find ~/.conan/data/${PKG_NAME} -name 'coverage.xml' -exec mv -v {} . \; ; \
+    conan remove -f "${PKG_NAME}*"
 RUN conan create -pr debug ${SOURCE_PATH} "${CONAN_USER}"/"${CONAN_CHANNEL}"
 RUN conan create ${SOURCE_PATH} "${CONAN_USER}"/"${CONAN_CHANNEL}"
 
