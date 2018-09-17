@@ -107,4 +107,6 @@ public:
         rcu_unregister_thread();
     }
 };
+
+#define RCU_REGISTER_INIT thread_local bool urcu::urcu_ctl::_rcu_registered_already = false
 }
