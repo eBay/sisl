@@ -4,6 +4,8 @@
  * Copyright (c) 2018 by eBay Corporation
  */
 
+#pragma once
+
 #include <cstdio>
 #include <memory>
 #include <numeric>
@@ -24,8 +26,6 @@ extern "C" {
 #include <boost/preprocessor/variadic/to_tuple.hpp>
 
 #include <sds_options/options.h>
-
-#pragma once
 
 // The following constexpr's are used to extract the filename
 // from the full path during compile time.
