@@ -13,7 +13,6 @@ THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
 void seqA () {
-    REPORT.startMetrics();
     REPORT.getCounter(0)->increment();
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
@@ -36,7 +35,6 @@ void seqA () {
 }
 
 void seqB () {
-    REPORT.startMetrics();
     REPORT.getCounter(0)->increment();
     REPORT.getCounter(0)->increment(2);
     REPORT.getCounter(1)->increment();
@@ -77,8 +75,6 @@ int main() {
     REPORT.registerGauge( "gauge2", "gauge2 for test", "" );
 
     REPORT.registerHistogram( "hist", "histogram for test", "" );
-
-    REPORT.startMetrics();
 
     std::thread th1 (seqA);
     std::thread th2 (seqB);

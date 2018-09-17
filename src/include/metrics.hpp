@@ -99,14 +99,15 @@ class SafeMetrics {
 public:
     SafeMetrics() = default;
     ~SafeMetrics() {
-        free(m_counters);
-        free(m_gauges);
-        free(m_histograms);
+        delete [] m_counters;
+        delete [] m_gauges;
+        delete [] m_histograms;
     }
+    bool needsInit() { return !(m_counters && m_gauges && m_histograms); }
     void init( uint64_t num_cntrs, uint64_t num_gauges, uint64_t num_hists ) {
-        m_counters   = (_counter*) malloc(sizeof(_counter) * num_cntrs);
-        m_gauges     = (_gauge*) malloc(sizeof(_gauge) * num_gauges);
-        m_histograms = (_histogram*) malloc(sizeof(_histogram) * num_hists);
+        m_counters = new _counter[num_cntrs];
+        m_gauges = new _gauge[num_gauges];
+        m_histograms = new _histogram[num_hists];
 
         for (auto i = 0U; i < num_cntrs; i++) {
             m_counters[i].init();
@@ -288,13 +289,18 @@ public:
         m_histograms.emplace_back(name, desc, sub_type);
         return m_histograms.size()-1;
     }
-    void startMetrics() {
-        m_buffer->getSafe()->init(
-            m_counters.size(), m_gauges.size(), m_histograms.size() );
+    _counter *getCounter(uint64_t index) {
+        if (m_buffer->getSafe()->needsInit()) { startMetrics(); }
+        return m_buffer->getSafe()->getCounter(index);
     }
-    _counter *getCounter(uint64_t index) { return m_buffer->getSafe()->getCounter(index); }
-    _gauge *getGauge(uint64_t index) { return m_buffer->getSafe()->getGauge(index); }
-    _histogram *getHistogram(uint64_t index) { return m_buffer->getSafe()->getHistogram(index); }
+    _gauge *getGauge(uint64_t index) {
+        if (m_buffer->getSafe()->needsInit()) { startMetrics(); }
+        return m_buffer->getSafe()->getGauge(index);
+    }
+    _histogram *getHistogram(uint64_t index) {
+        if (m_buffer->getSafe()->needsInit()) { startMetrics(); }
+        return m_buffer->getSafe()->getHistogram(index);
+    }
     std::unique_ptr<MetricsResult> gather() {
         return std::make_unique<MetricsResult>(this, m_buffer);
     }
@@ -302,7 +308,13 @@ public:
     std::vector<ReportCounter>      m_counters;
     std::vector<ReportGauge>        m_gauges;
     std::vector<ReportHistogram>    m_histograms;
+
+private:
     fds::ThreadBuffer<Metrics>      m_buffer;
+    void startMetrics() {
+        m_buffer->getSafe()->init(
+            m_counters.size(), m_gauges.size(), m_histograms.size() );
+    }
 };
 
 class MetricsResult {

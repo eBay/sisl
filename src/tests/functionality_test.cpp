@@ -13,7 +13,6 @@ THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
 void seqA () {
-    REPORT.startMetrics();
     std::this_thread::sleep_for (std::chrono::seconds(2));
     REPORT.getCounter(0)->increment();
     REPORT.getHistogram(0)->update(2);
@@ -27,7 +26,6 @@ void seqA () {
 }
 
 void seqB () {
-    REPORT.startMetrics();
     REPORT.getCounter(0)->increment();
     REPORT.getCounter(1)->increment();
 
@@ -42,7 +40,6 @@ void seqB () {
 }
 
 void gather () {
-    //REPORT.startMetrics();
     std::string filename = "result.json";
     std::ofstream ofs (filename, std::ofstream::out);
     for (auto i = 0U; i < ITERATIONS; i++) {
@@ -61,8 +58,6 @@ int main() {
     REPORT.registerGauge( "gauge2", "gauge2 for test", "" );
 
     REPORT.registerHistogram( "hist", "histogram for test", "" );
-
-    REPORT.startMetrics();
 
     std::thread th1 (seqA);
     std::thread th2 (seqB);
