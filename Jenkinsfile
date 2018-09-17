@@ -21,6 +21,7 @@ pipeline {
                 sh "docker cp ${PROJECT}_coverage:/output/coverage.xml coverage.xml"
                 sh "docker rm -f ${PROJECT}_coverage"
                 cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '0, 0, 0', fileCoverageTargets: '0, 0, 0', lineCoverageTargets: '0, 0, 0', maxNumberOfBuilds: 0, sourceEncoding: 'ASCII', zoomCoverageChart: false
+                xunit testTimeMargin: '3000', thresholdMode: 1, thresholds: [], tools: [JUnit(deleteOutputFiles: true, failIfNotNew: true, pattern: 'test*.xml', skipNoTestFiles: false, stopProcessingIfError: true)]
             }
         }
 
