@@ -16,10 +16,13 @@ endif ()
 set(SDS_GRPC_LIBS ${CONAN_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 
 
-set (SDS_GRPC_SOURCE  )
+set (SDS_GRPC_SOURCE
+    lib/client.cpp
+    lib/utils.cpp
+)
 
 
-add_library(sds_grpc INTERFACE)
+add_library(sds_grpc ${SDS_GRPC_SOURCE})
 
  
 add_subdirectory(tests)
