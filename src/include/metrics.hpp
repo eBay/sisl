@@ -359,14 +359,16 @@ public:
         nlohmann::json json;
         nlohmann::json counter_entries;
         for (auto &c : m_factory->m_counters) {
-            std::string desc = c.desc() + " - " + c.subType();
+            std::string desc = c.name() + c.desc();
+            if (!c.subType().empty()) desc = desc + " - " + c.subType();
             counter_entries[desc] = c.get();
         }
         json["Counters"] = counter_entries;
 
         nlohmann::json gauge_entries;
         for (auto &g : m_factory->m_gauges) {
-            std::string desc = g.desc() + " - " + g.subType();
+            std::string desc = g.name() + g.desc();
+            if (!g.subType().empty()) desc = desc + " - " + g.subType();
             gauge_entries[desc] = g.get();
         }
         json["Gauges"] = gauge_entries;
@@ -376,7 +378,8 @@ public:
             std::stringstream ss;
             ss << h.average() << " / " << h.percentile(50) << " / " << h.percentile(95)
                                 << " / " << h.percentile(99);
-            std::string desc = h.desc() + " - " + h.subType();
+            std::string desc = h.name() + h.desc();
+            if (!h.subType().empty()) desc = desc + " - " + h.subType();
             hist_entries[desc] = ss.str();
         }
         json["Histograms percentiles (usecs) avg/50/95/99"] = hist_entries;

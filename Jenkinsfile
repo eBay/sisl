@@ -12,7 +12,7 @@ pipeline {
         stage('Get Version') {
             steps {
                 script {
-                    TAG = sh(script: "grep 'version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
+                    TAG = sh(script: "grep -m 1 'version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
                 }
             }
         }
@@ -44,8 +44,8 @@ pipeline {
 
     post {
         always {
-            sh "docker rm -f ${PROJECT}-${TAG}_coverage"
             sh "docker rmi -f ${PROJECT}-${TAG}"
+            sh "docker rm -f ${PROJECT}-${TAG}_coverage"
         }
     }
 }

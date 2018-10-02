@@ -61,20 +61,20 @@ void gather () {
 }
 
 int main() {
-    REPORT.registerCounter( "counter1", "counter1 for test", "" );
-    REPORT.registerCounter( "counter2", "counter2 for test", "" );
-    REPORT.registerCounter( "counter3", "counter3 for test", "" );
-    REPORT.registerCounter( "counter4", "counter4 for test", "" );
-    REPORT.registerCounter( "counter5", "counter5 for test", "" );
-    REPORT.registerCounter( "counter6", "counter6 for test", "" );
-    REPORT.registerCounter( "counter7", "counter7 for test", "" );
-    REPORT.registerCounter( "counter8", "counter8 for test", "" );
-    REPORT.registerCounter( "counter9", "counter9 for test", "" );
+    REPORT.registerCounter( "counter1", " for test", "" );
+    REPORT.registerCounter( "counter2", " for test", "" );
+    REPORT.registerCounter( "counter3", " for test", "" );
+    REPORT.registerCounter( "counter4", " for test", "" );
+    REPORT.registerCounter( "counter5", " for test", "" );
+    REPORT.registerCounter( "counter6", " for test", "" );
+    REPORT.registerCounter( "counter7", " for test", "" );
+    REPORT.registerCounter( "counter8", " for test", "" );
+    REPORT.registerCounter( "counter9", " for test", "" );
 
-    REPORT.registerGauge( "gauge1", "gauge1 for test", "" );
-    REPORT.registerGauge( "gauge2", "gauge2 for test", "" );
+    REPORT.registerGauge( "gauge1", " for test", "" );
+    REPORT.registerGauge( "gauge2", " for test", "" );
 
-    REPORT.registerHistogram( "hist", "histogram for test", "" );
+    REPORT.registerHistogram( "hist", " for test", "" );
 
     std::thread th1 (seqA);
     std::thread th2 (seqB);
