@@ -25,9 +25,8 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh "docker rm -f ${PROJECT}_coverage"
-                sh "docker create --name ${PROJECT}_coverage ${PROJECT}-${TAG}"
-                sh "docker cp ${PROJECT}_coverage:/output/coverage.xml coverage.xml"
+                sh "docker create --name ${PROJECT}-${TAG}_coverage ${PROJECT}-${TAG}"
+                sh "docker cp ${PROJECT}-${TAG}_coverage:/output/coverage.xml coverage.xml"
                 cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '0, 0, 0', fileCoverageTargets: '0, 0, 0', lineCoverageTargets: '0, 0, 0', maxNumberOfBuilds: 0, sourceEncoding: 'ASCII', zoomCoverageChart: false
             }
         }
@@ -46,7 +45,7 @@ pipeline {
     post {
         always {
             sh "docker rmi -f ${PROJECT}-${TAG}"
-            sh "docker rm -f ${PROJECT}_coverage"
+            sh "docker rm -f ${PROJECT}-${TAG}_coverage"
         }
     }
 }

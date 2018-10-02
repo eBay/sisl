@@ -10,10 +10,10 @@ ENV CONAN_CHANNEL=${CONAN_CHANNEL:-testing}
 ENV CONAN_PASS=${CONAN_PASS:-password}
 ENV SOURCE_PATH=/tmp/source/
 
-COPY conanfile.py /tmp/source/
-COPY cmake/ /tmp/source/cmake
-COPY CMakeLists.txt /tmp/source/
-COPY src/ /tmp/source/src
+COPY conanfile.py ${SOURCE_PATH}
+COPY cmake/ ${SOURCE_PATH}cmake
+COPY CMakeLists.txt ${SOURCE_PATH}
+COPY src/ ${SOURCE_PATH}src
 
 WORKDIR /output
 RUN set -eux; \
