@@ -12,7 +12,11 @@ else()
 endif()
 
 if (NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "clang" AND NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "apple-clang")
-  include (cmake/debug_flags.cmake)
+    include (cmake/debug_flags.cmake)
+endif()
+
+if  (${MEMORY_SANITIZER_ON})
+    include (cmake/mem_sanitizer.cmake)
 endif()
 
 find_program(CCACHE_FOUND ccache)
