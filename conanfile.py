@@ -4,7 +4,7 @@ from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
     name = "sds_metrics"
-    version = "0.2.2"
+    version = "0.3.0"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/SDS/metrics"
