@@ -7,10 +7,14 @@
 #include <memory>
 #include <string>
 #include <list>
-#include  <chrono>
+#include <chrono>
 #include <thread>
+#include <mutex>
+#include <type_traits>
+#include <boost/assert.hpp>
 
-#include <grpc++/grpc++.h>
+#include <boost/core/noncopyable.hpp>
+#include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/async_unary_call.h>
 #include <grpc/support/log.h>
 #include <sds_logging/logging.h>
@@ -28,10 +32,9 @@ using ::grpc::Status;
 using namespace ::std::chrono;
 
 /**
- * ClientCallMethod : Stores the response handler and method name of the rpc
- *
+ * A interface for handling gRPC async response
  */
-class ClientCallMethod {
+class ClientCallMethod : private boost::noncopyable {
   public:
     virtual ~ClientCallMethod() {}
 
@@ -40,7 +43,8 @@ class ClientCallMethod {
 
 
 /**
- * The specialized 'ClientCallMethod' per-response type.
+ * The specialized 'ClientCallMethod' per gRPC call, it stores
+ * the response handler function
  *
  */
 template<typename TREQUEST, typename TREPLY>
@@ -52,10 +56,17 @@ class ClientCallData final : public ClientCallMethod {
     using ResponseReaderType = std::unique_ptr<
                                ::grpc::ClientAsyncResponseReaderInterface<TREPLY>>;
 
-  public:
+  private:
+
+    /* Sllow GrpcAsyncClient and its inner classes to use
+     * ClientCallData.
+     */
+    friend class GrpcAsyncClient;
+
     ClientCallData(handle_response_cb_t handle_response_cb)
         : handle_response_cb_(handle_response_cb) { }
 
+    // TODO: support time in any time unit -- lhuang8
     void set_deadline(uint32_t seconds) {
         system_clock::time_point deadline = system_clock::now() +
                                             std::chrono::seconds(seconds);
@@ -78,7 +89,6 @@ class ClientCallData final : public ClientCallMethod {
         return context_;
     }
 
-
     virtual void handle_response() override {
         handle_response_cb_(reply_, status_);
     }
@@ -89,222 +99,260 @@ class ClientCallData final : public ClientCallMethod {
     ClientContext context_;
     Status status_;
     ResponseReaderType response_reader_;
-
 };
 
 
 /**
- * A gRPC connection, holds a gRPC Service's stub which used to send gRPC request.
+ * A GrpcBaseClient takes care of establish a channel to grpc
+ * server. The channel can be used by any number of grpc
+ * generated stubs.
  *
  */
-template<typename TSERVICE>
-class GrpcConnection {
-  public:
-
-    const std::string& server_addr_;
-    const std::string& target_domain_;
+class GrpcBaseClient {
+  protected:
+    const std::string server_addr_;
+    const std::string target_domain_;
     const std::string ssl_cert_;
 
-    uint32_t  dead_line_;
     std::shared_ptr<::grpc::ChannelInterface> channel_;
-    CompletionQueue*  completion_queue_;
-    std::unique_ptr<typename TSERVICE::StubInterface> stub_;
-
-
-    GrpcConnection(const std::string& server_addr, uint32_t dead_line,
-                   CompletionQueue* cq, const std::string& target_domain,
-                   const std::string& ssl_cert)
-        : server_addr_(server_addr), target_domain_(target_domain),
-          ssl_cert_(ssl_cert), dead_line_(dead_line),
-          completion_queue_(cq) {
-
-    }
-
-    virtual ~GrpcConnection() { }
-
-    typename TSERVICE::StubInterface* stub() {
-        return stub_.get();
-    }
-
-    virtual bool init() {
-        if (!init_channel()) {
-            return false;
-        }
-
-        init_stub();
-        return true;
-    }
-
-    CompletionQueue*  completion_queue() {
-        return completion_queue_;
-    }
-
-
-  protected:
-
-    virtual bool init_channel() {
-
-        ::grpc::SslCredentialsOptions ssl_opts;
-
-        if (!ssl_cert_.empty()) {
-
-            if (load_ssl_cert(ssl_cert_, ssl_opts.pem_root_certs)) {
-                ::grpc::ChannelArguments channel_args;
-                channel_args.SetSslTargetNameOverride(target_domain_);
-                channel_ = ::grpc::CreateCustomChannel(server_addr_,
-                                                       ::grpc::SslCredentials(ssl_opts),
-                                                       channel_args);
-            } else {
-                // TODO: add log -- lhuang8
-                return false;
-            }
-        } else {
-            channel_ = ::grpc::CreateChannel(server_addr_,
-                                             ::grpc::InsecureChannelCredentials());
-        }
-
-        return true;
-    }
-
-    virtual void init_stub() {
-        stub_ = TSERVICE::NewStub(channel_);
-    }
-
-
-    virtual bool load_ssl_cert(const std::string& ssl_cert, std::string content) {
-        return ::sds::grpc::get_file_contents(ssl_cert, content);;
-    }
-
-    virtual bool is_connection_ready() {
-        if (channel_->GetState(true) == grpc_connectivity_state::GRPC_CHANNEL_READY)
-            return true;
-        else
-            return false;
-    }
-
-    virtual void wait_for_connection_ready() {
-        grpc_connectivity_state state;
-        int count = 0;
-        while ((state = channel_->GetState(true)) != GRPC_CHANNEL_READY && count++ < 5000) {
-            usleep(10000);
-        }
-    }
-
-};
-
-
-/**
- *
- * Use GrpcConnectionFactory::Make() to create instance of
- * GrpcConnection.
- *
- * TODO: This factory is not good enough, should be refactored
- *       with GrpcConnection and GrpcClient later -- lhuang8
- *
- */
-class GrpcConnectionFactory {
 
   public:
-    template<typename T>
-    static std::unique_ptr<T> Make(
-        const std::string& server_addr, uint32_t dead_line,
-        CompletionQueue* cq, const std::string& target_domain,
-        const std::string& ssl_cert) {
-
-        std::unique_ptr<T> ret(new T(server_addr, dead_line, cq,
-                                     target_domain, ssl_cert));
-        if (!ret->init()) {
-            ret.reset(nullptr);
-        }
-
-        return ret;
+    GrpcBaseClient(const std::string& server_addr,
+                   const std::string& target_domain = "",
+                   const std::string& ssl_cert = "")
+        : server_addr_(server_addr),
+          target_domain_(target_domain),
+          ssl_cert_(ssl_cert) {
     }
 
+    virtual ~GrpcBaseClient() {};
+
+    virtual bool init();
+    virtual bool is_connection_ready();
+
+  private:
+    virtual bool init_channel();
+
+    virtual bool load_ssl_cert(const std::string& ssl_cert, std::string& content);
 };
 
 
+class GrpcSyncClient : public GrpcBaseClient {
+  public:
+
+    using GrpcBaseClient::GrpcBaseClient;
+
+    template<typename TSERVICE>
+    std::unique_ptr<typename TSERVICE::StubInterface> MakeStub() {
+        return TSERVICE::NewStub(channel_);
+    }
+};
+
+
+
 /**
- * TODO: inherit GrpcConnection and implement as async client -- lhuang8
- * TODO: When work as a async responses handling worker, it's can be hidden from
- *       user of this lib.
+ *  One GrpcBaseClient can have multiple stub
  *
- * The gRPC client, it owns a CompletionQueue and one or more threads, it's only
- * used for handling asynchronous responses.
+ * The gRPC client worker, it owns a CompletionQueue and one or more threads,
+ * it's only used for handling asynchronous responses.
  *
  * The CompletionQueue is used to send asynchronous request, then the
- * response will be handled on this client's threads.
+ * response will be handled on worker threads.
  *
  */
-class GrpcClient {
+class GrpcAyncClientWorker final {
+
+    enum class State {
+        VOID,
+        INIT,
+        RUNNING,
+        SHUTTING_DOWN,
+        TERMINATED
+    };
+
   public:
-    GrpcClient() : shutdown_(true) {}
 
-    virtual ~GrpcClient() {
-        shutdown();
-        for (auto& it : threads_) {
-            it->join();
-        }
-    }
+    using UPtr = std::unique_ptr<GrpcAyncClientWorker>;
 
-    void shutdown() {
-        if (!shutdown_) {
-            completion_queue_.Shutdown();
-            shutdown_ = true;
-        }
-    }
+    GrpcAyncClientWorker();
+    ~GrpcAyncClientWorker();
 
-    bool run(uint32_t num_threads) {
-        if (num_threads == 0) {
-            return false;
-        }
 
-        shutdown_ = false;
-        for (uint32_t i = 0; i < num_threads; ++i) {
-            // TODO: no need to call async_complete_rpc for sync calls;
-            std::shared_ptr<std::thread> t = std::shared_ptr<std::thread>(
-                                                 new std::thread(&GrpcClient::async_complete_rpc, this));
-            threads_.push_back(t);
-        }
-
-        return true;
-    }
+    bool run(uint32_t num_threads);
 
     CompletionQueue& cq() {
         return completion_queue_;
     }
 
+    /**
+     * Create a GrpcAyncClientWorker.
+     *
+     */
+    static bool create_worker(const char * name, int num_thread);
+
+    /**
+     *
+     * Get a pointer of GrpcAyncClientWorker by name.
+     */
+    static GrpcAyncClientWorker * get_worker(const char * name);
+
+    /**
+     * Must be called explicitly before program exit if any worker created.
+     */
+    static void shutdown_all();
+
   private:
 
-    void async_complete_rpc() {
-        void* tag;
-        bool ok = false;
-        while (completion_queue_.Next(&tag, &ok)) {
-            if (!ok) {
-                // Client-side StartCallit not going to the wire. This
-                // would happen if the channel is either permanently broken or
-                // transiently broken but with the fail-fast option.
-                continue;
-            }
+    /*
+     * Shutdown CompletionQueue and threads.
+     *
+     * For now, workers can only by shutdown by
+     * GrpcAyncClientWorker::shutdown_all().
+     */
+    void shutdown();
 
-            // The tag was set by ::grpc::ClientAsyncResponseReader<>::Finish(),
-            // it must be a instance of ClientCallMethod.
-            //
-            // TODO: user of this lib should not have change to set the tag,
-            //       need to hide tag from user totally -- lhuang8
-            ClientCallMethod* cm = static_cast<ClientCallMethod*>(tag);
-            cm->handle_response();
-        }
-    }
+    void async_complete_rpc();
 
-  protected:
+    static std::mutex mutex_workers;
+    static std::unordered_map<const char *, GrpcAyncClientWorker::UPtr> workers;
+
+    State state_ = State::VOID;
     CompletionQueue completion_queue_;
-
-  private:
-    bool shutdown_;
     std::list<std::shared_ptr<std::thread>> threads_;
+
 };
 
 
+class GrpcAsyncClient : public GrpcBaseClient {
+  public:
 
+    template<typename TSERVICE>
+    using StubPtr = std::unique_ptr<typename TSERVICE::StubInterface>;
+
+
+    /**
+     * AsyncStub is a wrapper of generated service stub.
+     *
+     * An AsyncStub is created with a GrpcAyncClientWorker, all responses
+     * of grpc async calls made on it will be handled on the
+     * GrpcAyncClientWorker's threads.
+     *
+     * Please use GrpcAsyncClient::make_stub() to create AsyncStub.
+     *
+     */
+    template<typename TSERVICE>
+    struct AsyncStub {
+        using UPtr = std::unique_ptr<AsyncStub>;
+
+        AsyncStub(StubPtr<TSERVICE> stub, GrpcAyncClientWorker * worker) :
+            stub_(std::move(stub)), worker_(worker) {
+        }
+
+        using stub_t = typename TSERVICE::StubInterface;
+
+        /* unary call helper */
+        template<typename TRESPONSE>
+        using unary_call_return_t =
+            std::unique_ptr<
+            ::grpc::ClientAsyncResponseReaderInterface<TRESPONSE>>;
+
+        template<typename TREQUEST, typename TRESPONSE>
+        using unary_call_t =
+            unary_call_return_t<TRESPONSE> (stub_t::*) (
+                ::grpc::ClientContext*,
+                const TREQUEST&,
+                ::grpc::CompletionQueue*);
+
+        template<typename TREQUEST, typename TRESPONSE>
+        using unary_callback_t =
+            std::function<void(TRESPONSE&, ::grpc::Status& status)>;
+
+        /**
+         * Make a unary call.
+         *
+         * @param request - a request of this unary call.
+         * @param call - a pointer to a member function in grpc service stub
+         *     which used to make an aync call. If service name is
+         *     "EchoService" and an unary rpc is defined as:
+         *     `    rpc Echo (EchoRequest) returns (EchoReply) {}`
+         *     then the member function used here should be:
+         *     `EchoService::StubInterface::AsyncEcho`.
+         * @param callback - the response handler function, which will be
+         *     called after response received asynchronously.
+         *
+         */
+        template<typename TREQUEST, typename TRESPONSE>
+        void call_unary(
+            const TREQUEST& request,
+            unary_call_t<TREQUEST, TRESPONSE> call,
+            unary_callback_t<TREQUEST, TRESPONSE> callback) {
+
+            auto data = new ClientCallData<TREQUEST, TRESPONSE>(callback);
+            data->responder_reader() = (stub_.get()->*call)(&data->context(), request, cq());
+            data->responder_reader()->Finish(&data->reply(), &data->status(), (void*)data);
+
+            return;
+        }
+
+
+        StubPtr<TSERVICE> stub_;
+        GrpcAyncClientWorker * worker_;
+
+        const StubPtr<TSERVICE>& stub() {
+            return stub_;
+        }
+
+        CompletionQueue* cq() {
+            return &worker_->cq();
+        }
+
+    };
+
+
+    template<typename T, typename... Ts>
+    static auto make(Ts&&... params) {
+        std::unique_ptr<T> ret;
+
+        if (!std::is_base_of<GrpcAsyncClient, T>::value) {
+            return ret;
+        }
+
+        ret = std::make_unique<T>(std::forward<Ts>(params)...);
+        if (!ret->init()) {
+            ret.reset(nullptr);
+            return ret;
+        }
+
+        return ret;
+    }
+
+    template<typename TSERVICE>
+    auto make_stub(const char * worker) {
+
+        typename AsyncStub<TSERVICE>::UPtr ret;
+
+        auto w = GrpcAyncClientWorker::get_worker(worker);
+        BOOST_ASSERT(w);
+        if (!w) {
+            return ret; // null
+        }
+
+        auto stub = TSERVICE::NewStub(channel_);
+        ret = std::make_unique<AsyncStub<TSERVICE>>(std::move(stub), w);
+        return ret;
+    }
+
+    GrpcAsyncClient(
+        const std::string& server_addr,
+        const std::string& target_domain = "",
+        const std::string& ssl_cert = "")
+        : GrpcBaseClient(server_addr, target_domain, ssl_cert) {
+    }
+
+    virtual ~GrpcAsyncClient() {
+    }
+
+
+};
 
 } // end of namespace sds::grpc

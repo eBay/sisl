@@ -25,62 +25,98 @@ using namespace ::sds_grpc_test;
 using namespace std::placeholders;
 
 
-
-class EchoSyncClient : public GrpcConnection<EchoService> {
+class EchoAndPingClient : public GrpcSyncClient {
 
   public:
-    EchoSyncClient(const std::string& server_addr, uint32_t dead_line,
-                   ::grpc::CompletionQueue* cq,
-                   const std::string& target_domain,
-                   const std::string& ssl_cert)
-        : GrpcConnection<EchoService>(server_addr, dead_line, cq, target_domain, ssl_cert) {
+
+    using GrpcSyncClient::GrpcSyncClient;
+
+    virtual bool init() {
+        if (!GrpcSyncClient::init()) {
+            return false;
+        }
+
+        echo_stub_ = MakeStub<EchoService>();
+        ping_stub_ = MakeStub<PingService>();
+
+        return true;
     }
+
+    const std::unique_ptr<EchoService::StubInterface>& echo_stub() {
+        return echo_stub_;
+    }
+
+    const std::unique_ptr<PingService::StubInterface>& ping_stub() {
+        return ping_stub_;
+    }
+
+  private:
+
+    std::unique_ptr<EchoService::StubInterface> echo_stub_;
+    std::unique_ptr<PingService::StubInterface> ping_stub_;
 
 };
 
 
 #define GRPC_CALL_COUNT 10
 
-
 int RunClient(const std::string& server_address) {
 
-    GrpcClient* fix_this_name = new GrpcClient();
-
-    auto client = GrpcConnectionFactory::Make<EchoSyncClient>(
-                      server_address, 5, &(fix_this_name->cq()), "", "");
-    if (!client) {
-        std::cout << "Create echo client failed." << std::endl;
+    auto client = std::make_unique<EchoAndPingClient>(server_address, "", "");
+    if (!client || !client->init()) {
+        std::cout << "Create grpc sync client failed." << std::endl;
         return -1;
     }
 
     int ret = 0;
-
     for (int i = 0; i < GRPC_CALL_COUNT; i++) {
         ClientContext context;
-        EchoRequest  request;
-        EchoReply reply;
 
-        request.set_message(std::to_string(i));
+        if (i % 2 == 0) {
+            EchoRequest  request;
+            EchoReply reply;
 
-        Status status = client->stub()->Echo(&context, request, &reply);
-        if (!status.ok()) {
+            request.set_message(std::to_string(i));
+            Status status = client->echo_stub()->Echo(&context, request, &reply);
+            if (!status.ok()) {
+                std::cout << "echo request " << request.message() <<
+                          " failed, status " << status.error_code() <<
+                          ": " << status.error_message() << std::endl;
+                continue;
+            }
+
             std::cout << "echo request " << request.message() <<
-                      " failed, status " << status.error_code() <<
-                      ": " << status.error_message() << std::endl;
-            continue;
-        }
+                      " reply " << reply.message() << std::endl;
 
-        std::cout << "echo request " << request.message() <<
-                  " reply " << reply.message() << std::endl;
+            if (request.message() == reply.message()) {
+                ret++;
+            }
+        } else {
+            PingRequest  request;
+            PingReply reply;
 
-        if (request.message() == reply.message()) {
-            ret++;
+            request.set_seqno(i);
+            Status status = client->ping_stub()->Ping(&context, request, &reply);
+            if (!status.ok()) {
+                std::cout << "ping request " << request.seqno() <<
+                          " failed, status " << status.error_code() <<
+                          ": " << status.error_message() << std::endl;
+                continue;
+            }
+
+            std::cout << "ping request " << request.seqno() <<
+                      " reply " << reply.seqno() << std::endl;
+
+            if (request.seqno() == reply.seqno()) {
+                ret++;
+            }
         }
 
     }
 
     return ret;
 }
+
 
 int main(int argc, char** argv) {
 
