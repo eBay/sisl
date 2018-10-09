@@ -33,13 +33,8 @@ public:
             ::grpc::CompletionQueue* cq,
             const std::string& target_domain,
             const std::string& ssl_cert)
-    : GrpcConnection<Echo>(server_addr, dead_line, cq, target_domain, ssl_cert) {
-    }
-
-    // TODO: sync mode client doesn't need this method, but must define it because it's pure
-    //       virtual -- lhuang8
-    void on_message(ClientCallMethod* cm) {
-        // not needed for sync calls.
+        : GrpcConnection<Echo>(server_addr, dead_line, cq, target_domain, ssl_cert)
+    {
     }
 
 };
@@ -49,7 +44,7 @@ int RunClient(const std::string& server_address) {
 
     GrpcClient* fix_this_name = new GrpcClient();
 
-    EchoSyncClient* client = GrpcConnectionFactory::Make<EchoSyncClient>(
+    auto client = GrpcConnectionFactory::Make<EchoSyncClient>(
                         server_address, 5, &(fix_this_name->cq()), "", "");
     if (!client)
     {
@@ -93,7 +88,7 @@ int main(int argc, char** argv) {
     std::string server_address("0.0.0.0:50051");
 
 
-  return RunClient(server_address);
+    return RunClient(server_address);
 }
 
 

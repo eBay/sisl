@@ -7,19 +7,18 @@
 #include <memory>
 #include <string>
 #include <list>
+#include  <chrono>
+#include <thread>
 
 #include <grpc++/grpc++.h>
+#include <grpcpp/impl/codegen/async_unary_call.h>
 #include <grpc/support/log.h>
 #include <sds_logging/logging.h>
-#include <thread>
 
 #include "utils.h"
 
 namespace sds::grpc
 {
-
-class CallbackHandler;
-class ClientCallMethod;
 
 using ::grpc::Channel;
 using ::grpc::ClientAsyncResponseReader;
@@ -27,88 +26,76 @@ using ::grpc::ClientContext;
 using ::grpc::CompletionQueue;
 using ::grpc::Status;
 
-
+using namespace ::std::chrono;
 
 /**
- * ClientCallMethod : Stores the callback handler and method name of the rpc
+ * ClientCallMethod : Stores the response handler and method name of the rpc
  *
- * TODO: rename as BaseClientCallData
  */
 class ClientCallMethod {
 public:
-    ClientCallMethod(CallbackHandler* handler, const std::string& methodName) :
-        cb_handler_(handler), method_name_(methodName)
-    {}
-
     virtual ~ClientCallMethod() {}
 
-    const std::string&  call_method_name() { return method_name_; }
-    CallbackHandler*    cb_handler() { return cb_handler_; }
-
-protected:
-
-private:
-    CallbackHandler*    cb_handler_;
-    std::string         method_name_;
+    virtual void handle_response() = 0;
 };
 
 
 /**
  * The specialized 'ClientCallMethod' per-response type.
  *
- *
  */
 template<typename TREQUEST, typename TREPLY>
-class ClientCallData : public ClientCallMethod {
+class ClientCallData final : public ClientCallMethod {
+
+    using handle_response_cb_t = std::function<
+            void(TREPLY&, ::grpc::Status& status)>;
+
+    using ResponseReaderType = std::unique_ptr<
+            ::grpc::ClientAsyncResponseReaderInterface<TREPLY>>;
+
 public:
-    ClientCallData(CallbackHandler* handler, const std::string& methodName,
-    		uint32_t deadlineSeconds)
-        : ClientCallMethod(handler, methodName) {
-        std::chrono::system_clock::time_point deadline = std::chrono::system_clock::now() + 
-            std::chrono::seconds(deadlineSeconds);
+    ClientCallData(handle_response_cb_t handle_response_cb)
+        : handle_response_cb_(handle_response_cb) { }
+
+    void set_deadline(uint32_t seconds)
+    {
+        system_clock::time_point deadline = system_clock::now() +
+                                    std::chrono::seconds(seconds);
         context_.set_deadline(deadline);
     }
 
-    Status& rpc_status() { return rpc_status_; }
-
-    TREPLY& reply() { return reply_; }
-    ClientContext& context() { return context_; }
-
-    std::unique_ptr<::grpc::ClientAsyncResponseReader<TREPLY>>& responder_reader() {
+    ResponseReaderType& responder_reader() {
     	return response_reader_;
     }
 
+    Status & status() { return status_; }
+
+    TREPLY & reply() { return reply_; }
+
+    ClientContext & context() { return context_; }
+
+
+    virtual void handle_response() override
+    {
+        handle_response_cb_(reply_, status_);
+    }
+
 private:
-    TREPLY                      reply_;
-    ClientContext               context_;
-    Status                      rpc_status_;
-    std::unique_ptr<ClientAsyncResponseReader<TREPLY>> response_reader_;
+    handle_response_cb_t handle_response_cb_;
+    TREPLY reply_;
+    ClientContext context_;
+    Status status_;
+    ResponseReaderType response_reader_;
+
 };
-
-
-/**
- * A callback interface for handling gRPC response
- *
- *
- */
-class CallbackHandler {
-public:
-	virtual void on_message(ClientCallMethod* cm) = 0;
-	virtual ~CallbackHandler() {}
-};
-
-
 
 
 /**
  * A gRPC connection, holds a gRPC Service's stub which used to send gRPC request.
  *
- * it implements CallbackHandler interface.
- *
- *
  */
 template<typename TSERVICE>
-class GrpcConnection : public CallbackHandler {
+class GrpcConnection {
 public:
 
     const std::string& server_addr_;
@@ -133,8 +120,8 @@ public:
 
     ~GrpcConnection() { }
 
-    std::unique_ptr<typename TSERVICE::StubInterface>& stub() {
-        return stub_;
+    typename TSERVICE::StubInterface* stub() {
+        return stub_.get();
     }
 
     virtual bool init()
@@ -146,6 +133,9 @@ public:
         init_stub();
         return true;
     }
+
+    CompletionQueue*  completion_queue() { return completion_queue_; }
+
 
 protected:
 
@@ -199,33 +189,43 @@ protected:
         }
     }
 
-
 };
 
 
+/**
+ *
+ * Use GrpcConnectionFactory::Make() to create instance of
+ * GrpcConnection.
+ *
+ * TODO: This factory is not good enough, should be refactored
+ *       with GrpcConnection and GrpcClient later -- lhuang8
+ *
+ */
 class GrpcConnectionFactory {
 
 public:
     template<typename T>
-    static T* Make(const std::string& server_addr, uint32_t dead_line,
+    static std::unique_ptr<T> Make(
+            const std::string& server_addr, uint32_t dead_line,
             CompletionQueue* cq, const std::string& target_domain,
             const std::string& ssl_cert) {
 
-        T* ret = new T(server_addr, dead_line, cq, target_domain, ssl_cert);
-        if (ret->init())
-            return ret;
+        std::unique_ptr<T> ret(new T(server_addr, dead_line, cq,
+                                     target_domain, ssl_cert));
+        if (!ret->init()) {
+            ret.reset(nullptr);
+        }
 
-        return nullptr;
+        return ret;
     }
 
 };
 
 
 /**
- * TODO: rename to gRPC client worker -- lhuang8
+ * TODO: inherit GrpcConnection and implement as async client -- lhuang8
  * TODO: When work as a async responses handling worker, it's can be hidden from
  *       user of this lib.
- *
  *
  * The gRPC client, it owns a CompletionQueue and one or more threads, it's only
  * used for handling asynchronous responses.
@@ -240,7 +240,7 @@ public:
 
     ~GrpcClient() {
         shutdown();
-        for (auto& it : t_) {
+        for (auto& it : threads_) {
             it->join();
         }
     }
@@ -262,7 +262,7 @@ public:
             // TODO: no need to call async_complete_rpc for sync calls;
             std::shared_ptr<std::thread> t = std::shared_ptr<std::thread>(
             		new std::thread(&GrpcClient::async_complete_rpc, this));
-            t_.push_back(t);
+            threads_.push_back(t);
         }
 
         return true;
@@ -271,25 +271,26 @@ public:
     CompletionQueue& cq() { return completion_queue_; }
 
 private:
-    void sync_complete_rpc() {  // TODO: looks unuseful, remove it
 
-    }
     void async_complete_rpc() {
-        void* got_tag;
+        void* tag;
         bool ok = false;
-        while (completion_queue_.Next(&got_tag, &ok)) {
+        while (completion_queue_.Next(&tag, &ok)) {
             if (!ok) {
+                // Client-side StartCallit not going to the wire. This
+                // would happen if the channel is either permanently broken or
+                // transiently broken but with the fail-fast option.
                 continue;
             }
 
-            ClientCallMethod* cm = static_cast<ClientCallMethod*>(got_tag);
-            process(cm);
+            // The tag was set by ::grpc::ClientAsyncResponseReader<>::Finish(),
+            // it must be a instance of ClientCallMethod.
+            //
+            // TODO: user of this lib should not have change to set the tag,
+            //       need to hide tag from user totally -- lhuang8
+            ClientCallMethod* cm = static_cast<ClientCallMethod*>(tag);
+            cm->handle_response();
         }
-    }
-
-    virtual void process(ClientCallMethod * cm) {
-        CallbackHandler* cb = cm->cb_handler();
-        cb->on_message(cm);
     }
 
 protected:
@@ -297,10 +298,10 @@ protected:
 
 private:
     bool shutdown_;
-    std::list<std::shared_ptr<std::thread>> t_;
+    std::list<std::shared_ptr<std::thread>> threads_;
 };
 
 
 
 
-} // end of namespace sds::common::grpc
+} // end of namespace sds::grpc

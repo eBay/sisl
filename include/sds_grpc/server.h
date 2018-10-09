@@ -298,6 +298,8 @@ void GrpcServer<TSERVICE>::handle_rpcs() {
 
     while (completion_queue_->Next(&tag, &ok)) {
         if (!ok) {
+            // the server has been Shutdown before this particular
+            // call got matched to an incoming RPC.
             continue;
         }
 

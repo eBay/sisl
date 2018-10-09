@@ -21,3 +21,8 @@ add_dependencies(echo_sync_client sds_grpc test_proto)
 target_link_libraries(echo_sync_client ${FUNCTION_TEST_LIBS} )
 
 
+# build echo_async_client
+add_executable(echo_async_client echo_async_client.cpp)
+add_dependencies(echo_async_client sds_grpc test_proto)
+target_link_libraries(echo_async_client ${FUNCTION_TEST_LIBS} )
+
