@@ -4,15 +4,16 @@ from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
     name = "sds_metrics"
-    version = "0.2.2"
+    version = "0.3.0"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/SDS/metrics"
     description = "Metrics collection project for eBay SDS"
 
     settings = "compiler"
-    options = {"coverage": ['True', 'False']}
-    default_options = 'coverage=False'
+    options = {"coverage": ['True', 'False'],
+               "sanitize": ['True', 'False']}
+    default_options = 'coverage=False', 'sanitize=False'
 
     requires = (("sds_logging/3.0.1@sds/stable"),
                 ("boost_dynamic_bitset/1.66.0@bincrafters/stable"),
@@ -31,12 +32,16 @@ class MetricsConan(ConanFile):
     def build(self):
         cmake = CMake(self)
 
-        definitions = {'CONAN_BUILD_COVERAGE': 'OFF'}
+        definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
+                       'MEMORY_SANITIZER_ON': 'OFF'}
         test_target = None
 
         if self.options.coverage == 'True':
             definitions['CONAN_BUILD_COVERAGE'] = 'ON'
             test_target = 'coverage'
+
+        if self.options.sanitize == 'True':
+            definitions['MEMORY_SANITIZER_ON'] = 'ON'
 
         cmake.configure(defs=definitions)
         cmake.build()
