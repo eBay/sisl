@@ -11,7 +11,7 @@
 #include <algorithm>
 
 #include "thread_buffer.hpp"
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 namespace metrics {
 
@@ -105,8 +105,11 @@ public:
     }
     bool needsInit() { return !(m_counters && m_gauges && m_histograms); }
     void init( uint64_t num_cntrs, uint64_t num_gauges, uint64_t num_hists ) {
-        m_counters = new _counter[num_cntrs];
-        m_gauges = new _gauge[num_gauges];
+        m_num_cntrs  = num_cntrs;
+        m_num_gauges = num_gauges;
+        m_num_hists  = num_hists;
+        m_counters   = new _counter[num_cntrs];
+        m_gauges     = new _gauge[num_gauges];
         m_histograms = new _histogram[num_hists];
 
         for (auto i = 0U; i < num_cntrs; i++) {
@@ -123,10 +126,16 @@ public:
     _gauge* getGauge (uint64_t index) { return &m_gauges[index]; }
     _histogram* getHistogram (uint64_t index) { return &m_histograms[index]; }
 
+    uint64_t numCounters() { return m_num_cntrs; }
+    uint64_t numGauges() { return m_num_gauges; }
+    uint64_t numHistograms() { return m_num_hists; }
 private:
     _counter   *m_counters   = nullptr;
     _gauge     *m_gauges     = nullptr;
     _histogram *m_histograms = nullptr;
+    uint64_t    m_num_cntrs  = 0;
+    uint64_t    m_num_gauges = 0;
+    uint64_t    m_num_hists  = 0;
 };
 
 class Metrics {
@@ -308,7 +317,6 @@ public:
     std::vector<ReportCounter>      m_counters;
     std::vector<ReportGauge>        m_gauges;
     std::vector<ReportHistogram>    m_histograms;
-
 private:
     fds::ThreadBuffer<Metrics>      m_buffer;
     void startMetrics() {
@@ -324,13 +332,13 @@ public:
         all_buf.access_all_threads([factory](Metrics *m) {
             /* get current metrics instance */
             auto metrics = m->getSafe();
-            for (auto i = 0U; i < factory->m_counters.size(); i++) {
+            for (auto i = 0U; i < metrics->numCounters(); i++) {
                 factory->m_counters[i].merge(metrics->getCounter(i));
             }
-            for (auto i = 0U; i < factory->m_gauges.size(); i++) {
+            for (auto i = 0U; i < metrics->numGauges(); i++) {
                 factory->m_gauges[i].merge(metrics->getGauge(i));
             }
-            for (auto i = 0U; i < factory->m_histograms.size(); i++) {
+            for (auto i = 0U; i < metrics->numHistograms(); i++) {
                 factory->m_histograms[i].merge(metrics->getHistogram(i));
             }
             /* replace new metrics instance */
