@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <fstream>
 
 #include <grpc++/grpc++.h>
 #include <grpc/support/log.h>
