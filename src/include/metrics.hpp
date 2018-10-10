@@ -9,6 +9,7 @@
 #include <chrono>
 #include <atomic>
 #include <algorithm>
+#include <mutex>
 
 #include "thread_buffer.hpp"
 #include <nlohmann/json.hpp>
@@ -399,4 +400,44 @@ private:
     MetricsFactory* m_factory;
 };
 
+class MetricsFarm {
+public:
+    static MetricsFarm *getInstance() {
+        if (!m_instance) {
+            m_instance = new MetricsFarm();
+        }
+    }
+    void registerFactory( MetricsFactory *factory ) {
+        if (!factory) return;
+        m_lock.lock();
+        m_factories.insert(factory);
+        m_lock.unlock();
+    }
+    void deregisterFactory( MetricsFactory *factory ) {
+        if (!factory) return;
+        m_lock.lock();
+        m_factories.erase(factory);
+        m_lock.unlock();
+    }
+    std::string gather() {
+        nlohmann::json json;
+        m_lock.lock();
+        for (auto factory : m_factories) {
+            std::stringstream ss;
+            ss << factory;
+            std::string label = ss.str();
+            json[label] = factory->gather();
+        }
+        m_lock.unlock();
+        return json.dump();
+    }
+    MetricsFarm( MetricsFarm const& )       = delete;
+    void operator=( MetricsFarm const& )    = delete;
+
+private:
+    static MetricsFarm *m_instance;
+    std::set<MetricsFactory*> m_factories;
+    std::mutex m_lock;
+    MetricsFarm() = default;
+};
 }
