@@ -6,6 +6,8 @@
 
 #pragma once
 
+#define FMT_STRING_ALIAS 1
+
 #include <cstdio>
 #include <memory>
 #include <numeric>
@@ -199,3 +201,4 @@ MODLEVELDEC(_, _, base)
    }
 
 #define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(module_level_, mod) = (lvl);
+#undef FMT_STRING_ALIAS
