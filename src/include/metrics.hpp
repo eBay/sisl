@@ -399,6 +399,7 @@ public:
 
 private:
     MetricsFactory* m_factory;
+    friend class MetricsFarm;
 };
 
 class MetricsFarm {
@@ -423,14 +424,41 @@ public:
     }
     std::string gather() {
         nlohmann::json json;
+        nlohmann::json counter_entries, gauge_entries, hist_entries;
+
         m_lock.lock();
+        /* For each registered factory */
         for (auto factory : m_factories) {
-            std::stringstream ss;
-            ss << factory;
-            std::string label = ss.str();
-            json[label] = factory->gather()->getJSON();
+            auto result = factory->gather();
+            /* For each registered counter inside the factory */
+            for (auto &c : result->m_factory->m_counters) {
+                std::string desc = c.name() + c.desc();
+                if (!c.subType().empty()) desc = desc + " - " + c.subType();
+                counter_entries[desc] = c.get();
+            }
+            /* For each registered gauge inside the factory */
+            for (auto &g : result->m_factory->m_gauges) {
+                std::string desc = g.name() + g.desc();
+                if (!g.subType().empty()) desc = desc + " - " + g.subType();
+                gauge_entries[desc] = g.get();
+            }
+            /* For each registered histogram inside the factory */
+            for (auto &h : result->m_factory->m_histograms) {
+                std::stringstream ss;
+                ss << h.average()   << " / " << h.percentile(50)
+                                    << " / " << h.percentile(95)
+                                    << " / " << h.percentile(99);
+                std::string desc = h.name() + h.desc();
+                if (!h.subType().empty()) desc = desc + " - " + h.subType();
+                hist_entries[desc] = ss.str();
+            }
         }
         m_lock.unlock();
+
+        json["Counters"] = counter_entries;
+        json["Gauges"] = gauge_entries;
+        json["Histograms percentiles (usecs) avg/50/95/99"] = hist_entries;
+
         return json.dump();
     }
     MetricsFarm( MetricsFarm const& )       = delete;
