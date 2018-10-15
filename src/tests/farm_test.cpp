@@ -25,11 +25,12 @@ void userA () {
     std::this_thread::sleep_for (std::chrono::seconds(2));
     factory.getCounter(1)->increment();
 
+    std::this_thread::sleep_for (std::chrono::seconds(2));
     metrics::MetricsFarm::getInstance()->deregisterFactory(&factory);
 }
 
 void userB () {
-    std::this_thread::sleep_for (std::chrono::seconds(4));
+    std::this_thread::sleep_for (std::chrono::seconds(3));
 
     metrics::MetricsFactory factory;
     metrics::MetricsFarm::getInstance()->registerFactory(&factory);
@@ -43,6 +44,7 @@ void userB () {
     std::this_thread::sleep_for (std::chrono::seconds(3));
     factory.getGauge(0)->update(3);
 
+    std::this_thread::sleep_for (std::chrono::seconds(1));
     metrics::MetricsFarm::getInstance()->deregisterFactory(&factory);
 }
 
