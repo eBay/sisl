@@ -10,6 +10,7 @@
 #include <atomic>
 #include <algorithm>
 #include <mutex>
+#include <set>
 
 #include "thread_buffer.hpp"
 #include <nlohmann/json.hpp>
@@ -406,6 +407,7 @@ public:
         if (!m_instance) {
             m_instance = new MetricsFarm();
         }
+        return m_instance;
     }
     void registerFactory( MetricsFactory *factory ) {
         if (!factory) return;
@@ -426,7 +428,7 @@ public:
             std::stringstream ss;
             ss << factory;
             std::string label = ss.str();
-            json[label] = factory->gather();
+            json[label] = factory->gather()->getJSON();
         }
         m_lock.unlock();
         return json.dump();
@@ -440,4 +442,5 @@ private:
     std::mutex m_lock;
     MetricsFarm() = default;
 };
+MetricsFarm *MetricsFarm::m_instance = nullptr;
 }
