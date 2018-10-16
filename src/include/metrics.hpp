@@ -10,6 +10,7 @@
 #include <atomic>
 #include <algorithm>
 #include <mutex>
+#include <thread>
 #include <set>
 
 #include "thread_buffer.hpp"
@@ -40,7 +41,7 @@ public:
     void init() { m_value = 0; }
     void increment (int64_t value = 1)  { m_value += value; }
     void decrement (int64_t value = 1)  { m_value -= value; }
-    int64_t get() { return m_value; }
+    int64_t get() const { return m_value; }
     int64_t merge (const _counter& other) {
         this->m_value += other.m_value;
         return this->m_value;
@@ -60,7 +61,7 @@ public:
         m_value = value;
         m_ts = ts;
     }
-    int64_t get() { return m_value; }
+    int64_t get() const { return m_value; }
     int64_t merge (const _gauge& other) {
         if (m_ts < other.m_ts) {
             this->m_value = other.m_value;
@@ -90,8 +91,8 @@ public:
         }
         this->m_sum += other.m_sum;
     }
-    const int64_t* getFreqs() { return m_freqs; }
-    int64_t getSum() { return m_sum; }
+    const int64_t* getFreqs() const { return m_freqs; }
+    int64_t getSum() const { return m_sum; }
 private:
     int64_t m_freqs[HIST_BKT_SIZE];
     int64_t m_sum = 0;
@@ -168,11 +169,11 @@ public:
         }
     }
 
-    int64_t get() { return m_counter.get(); }
+    int64_t get() const { return m_counter.get(); }
     int64_t merge(_counter *other) { return m_counter.merge(*other); }
-    const std::string name() { return m_name; }
-    const std::string desc() { return m_desc; }
-    const std::string subType() { return m_sub_type; }
+    std::string name() const { return m_name; }
+    std::string desc() const { return m_desc; }
+    std::string subType() const { return m_sub_type; }
     void publish() {
         //m_prometheus_counter->Update((double) m_counter.get());
     }
@@ -203,11 +204,11 @@ public:
         }
     }
 
-    uint64_t get() { return m_gauge.get(); };
+    uint64_t get() const { return m_gauge.get(); };
     int64_t merge(_gauge *other) { return m_gauge.merge(*other); }
-    const std::string name() { return m_name; }
-    const std::string desc() { return m_desc; }
-    const std::string subType() { return m_sub_type; }
+    std::string name() const { return m_name; }
+    std::string desc() const { return m_desc; }
+    std::string subType() const { return m_sub_type; }
     void publish() {
         //m_prometheus_gauge->Set((double) m_gauge.get());
     }
@@ -235,7 +236,7 @@ public:
             }
         }
     }
-    double percentile(float pcntl) {
+    double percentile( float pcntl ) const {
         std::array<int64_t, HIST_BKT_SIZE> cum_freq;
         int64_t fcount = 0;
         for (auto i = 0U; i < HIST_BKT_SIZE; i++) {
@@ -259,21 +260,21 @@ public:
                 i  = matched index of pnum in cum_freq
          */
     }
-    int64_t count() {
+    int64_t count() const {
         int64_t cnt = 0;
         for (auto i = 0U; i < HIST_BKT_SIZE; i++) {
             cnt += (m_histogram.getFreqs())[i];
         }
         return cnt;
     }
-    double average() {
+    double average() const {
         auto cnt = count();
         return (cnt ? m_histogram.getSum()/cnt : 0);
     }
     void merge(_histogram *other) { m_histogram.merge(*other); }
-    const std::string name() { return m_name; }
-    const std::string desc() { return m_desc; }
-    const std::string subType() { return m_sub_type; }
+    std::string name() const { return m_name; }
+    std::string desc() const { return m_desc; }
+    std::string subType() const { return m_sub_type; }
     void publish() {
         //std::vector<double> vec(std::begin(m_histogram.getFreqs()), std::end(m_histogram.getFreqs()));
         //m_prometheus_hist->Update(vec, m_histogram.m_sum);
@@ -402,21 +403,20 @@ private:
     friend class MetricsFarm;
 };
 
+std::once_flag is_farm_present;
 class MetricsFarm {
 public:
     static MetricsFarm *getInstance() {
-        if (!m_instance) {
-            m_instance = new MetricsFarm();
-        }
+        std::call_once(is_farm_present, [](){ m_instance = new MetricsFarm(); });
         return m_instance;
     }
-    void registerFactory( MetricsFactory *factory ) {
+    void registerFactory( std::shared_ptr<MetricsFactory> factory ) {
         if (!factory) return;
         m_lock.lock();
         m_factories.insert(factory);
         m_lock.unlock();
     }
-    void deregisterFactory( MetricsFactory *factory ) {
+    void deregisterFactory( std::shared_ptr<MetricsFactory> factory ) {
         if (!factory) return;
         m_lock.lock();
         m_factories.erase(factory);
@@ -427,23 +427,26 @@ public:
         nlohmann::json counter_entries, gauge_entries, hist_entries;
 
         m_lock.lock();
+        auto factories = m_factories;
+        m_lock.unlock();
+
         /* For each registered factory */
-        for (auto factory : m_factories) {
+        for (auto factory : factories) {
             auto result = factory->gather();
             /* For each registered counter inside the factory */
-            for (auto &c : result->m_factory->m_counters) {
+            for (auto const &c : result->m_factory->m_counters) {
                 std::string desc = c.name() + c.desc();
                 if (!c.subType().empty()) desc = desc + " - " + c.subType();
                 counter_entries[desc] = c.get();
             }
             /* For each registered gauge inside the factory */
-            for (auto &g : result->m_factory->m_gauges) {
+            for (auto const &g : result->m_factory->m_gauges) {
                 std::string desc = g.name() + g.desc();
                 if (!g.subType().empty()) desc = desc + " - " + g.subType();
                 gauge_entries[desc] = g.get();
             }
             /* For each registered histogram inside the factory */
-            for (auto &h : result->m_factory->m_histograms) {
+            for (auto const &h : result->m_factory->m_histograms) {
                 std::stringstream ss;
                 ss << h.average()   << " / " << h.percentile(50)
                                     << " / " << h.percentile(95)
@@ -453,8 +456,6 @@ public:
                 hist_entries[desc] = ss.str();
             }
         }
-        m_lock.unlock();
-
         json["Counters"] = counter_entries;
         json["Gauges"] = gauge_entries;
         json["Histograms percentiles (usecs) avg/50/95/99"] = hist_entries;
@@ -466,7 +467,7 @@ public:
 
 private:
     static MetricsFarm *m_instance;
-    std::set<MetricsFactory*> m_factories;
+    std::set<std::shared_ptr<MetricsFactory>> m_factories;
     std::mutex m_lock;
     MetricsFarm() = default;
 };
