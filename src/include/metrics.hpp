@@ -125,9 +125,9 @@ public:
             m_histograms[i].init();
         }
     }
-    _counter* getCounter (uint64_t index) { return &m_counters[index]; }
-    _gauge* getGauge (uint64_t index) { return &m_gauges[index]; }
-    _histogram* getHistogram (uint64_t index) { return &m_histograms[index]; }
+    _counter& getCounter (uint64_t index) { return m_counters[index]; }
+    _gauge& getGauge (uint64_t index) { return m_gauges[index]; }
+    _histogram& getHistogram (uint64_t index) { return m_histograms[index]; }
 
     uint64_t numCounters() { return m_num_cntrs; }
     uint64_t numGauges() { return m_num_gauges; }
@@ -170,7 +170,7 @@ public:
     }
 
     int64_t get() const { return m_counter.get(); }
-    int64_t merge(_counter *other) { return m_counter.merge(*other); }
+    int64_t merge(const _counter& other) { return m_counter.merge(other); }
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
     std::string subType() const { return m_sub_type; }
@@ -205,7 +205,7 @@ public:
     }
 
     uint64_t get() const { return m_gauge.get(); };
-    int64_t merge(_gauge *other) { return m_gauge.merge(*other); }
+    int64_t merge(const _gauge& other) { return m_gauge.merge(other); }
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
     std::string subType() const { return m_sub_type; }
@@ -271,7 +271,7 @@ public:
         auto cnt = count();
         return (cnt ? m_histogram.getSum()/cnt : 0);
     }
-    void merge(_histogram *other) { m_histogram.merge(*other); }
+    void merge(const _histogram& other) { m_histogram.merge(other); }
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
     std::string subType() const { return m_sub_type; }
@@ -301,15 +301,15 @@ public:
         m_histograms.emplace_back(name, desc, sub_type);
         return m_histograms.size()-1;
     }
-    _counter *getCounter(uint64_t index) {
+    _counter& getCounter(uint64_t index) {
         if (m_buffer->getSafe()->needsInit()) { startMetrics(); }
         return m_buffer->getSafe()->getCounter(index);
     }
-    _gauge *getGauge(uint64_t index) {
+    _gauge& getGauge(uint64_t index) {
         if (m_buffer->getSafe()->needsInit()) { startMetrics(); }
         return m_buffer->getSafe()->getGauge(index);
     }
-    _histogram *getHistogram(uint64_t index) {
+    _histogram& getHistogram(uint64_t index) {
         if (m_buffer->getSafe()->needsInit()) { startMetrics(); }
         return m_buffer->getSafe()->getHistogram(index);
     }
