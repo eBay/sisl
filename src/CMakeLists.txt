@@ -11,11 +11,6 @@ add_executable(functionality_test ${FUNCTIONALITY_TEST_SOURCES})
 target_link_libraries(functionality_test ${CONAN_LIBS})
 add_test(NAME FunctionalityTest COMMAND functionality_test)
 
-set(LOAD_TEST_SOURCES tests/load_test.cpp)
-add_executable(load_test ${LOAD_TEST_SOURCES})
-target_link_libraries(load_test ${CONAN_LIBS})
-add_test(NAME LoadTest COMMAND load_test)
-
 set(FARM_TEST_SOURCES tests/farm_test.cpp)
 add_executable(farm_test ${FARM_TEST_SOURCES})
 target_link_libraries(farm_test ${CONAN_LIBS})
