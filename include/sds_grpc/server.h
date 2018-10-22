@@ -8,7 +8,6 @@
 #pragma once
 
 #include <fstream>
-
 #include <grpc++/grpc++.h>
 #include <grpc/support/log.h>
 #include <sds_logging/logging.h>
@@ -49,14 +48,11 @@ public:
 
     void proceed() {
         if (status_ == CREATE){
-
-            do_create();
             status_ = PROCESS;
-
+            do_create();
         } else if (status_ == PROCESS) {
-
-            do_process();
             status_ = FINISH;
+            do_process();
         } else {
             do_finish();
         }
