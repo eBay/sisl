@@ -22,44 +22,39 @@ using namespace ::sds_grpc_test;
 using namespace std::placeholders;
 
 
-class RequestDispatcher {
+class EchoServiceImpl {
 
 public:
-    virtual ~RequestDispatcher() = default;
+    virtual ~EchoServiceImpl() = default;
 
-    virtual EchoReply echo_request(EchoRequest& request) {
-        EchoReply reply;
-
-        reply.set_message(request.message());
-
+    virtual ::grpc::Status echo_request(EchoRequest& request, EchoReply& response) {
         std::cout << "receive echo request " << request.message() << std::endl;
-
-        return reply;
+        response.set_message(request.message());
+        return ::grpc::Status::OK;
     }
+
+
 };
 
+using EchoAsyncService = ::sds_grpc_test::EchoService::AsyncService;
 
-class EchoServer : public GrpcServer<Echo::AsyncService> {
+class EchoServer : public GrpcServer<EchoAsyncService> {
 
 public:
-    EchoServer(RequestDispatcher* dispatcher)
-        : GrpcServer<sds_grpc_test::Echo::AsyncService>(),
-          dispatcher_(dispatcher) {
+    EchoServer(EchoServiceImpl* impl)
+        : GrpcServer<EchoAsyncService>(),
+          impl_(impl) {
     }
 
     void ready() {
 
-        (new ServerCallData<Echo::AsyncService, EchoRequest, EchoReply>
-        (&service_, completion_queue_.get(), "echo",
-                &Echo::AsyncService::RequestEcho,
-                std::bind(&RequestDispatcher::echo_request, dispatcher_, _1)))->proceed();
+        std::cout << "register rpc calls" << std::endl;
+        register_rpc<EchoAsyncService, EchoRequest, EchoReply>(
+                &EchoAsyncService::RequestEcho,
+                std::bind(&EchoServiceImpl::echo_request, impl_, _1, _2));
     }
 
-    void process(ServerCallMethod * cm) {
-        cm->proceed();
-    }
-
-    RequestDispatcher* dispatcher_;
+    EchoServiceImpl* impl_;
 
 };
 
@@ -68,8 +63,8 @@ void RunServer() {
 
     std::string server_address("0.0.0.0:50051");
 
-    RequestDispatcher * dispatcher = new RequestDispatcher();
-    EchoServer* server = new EchoServer(dispatcher);
+    EchoServiceImpl * impl = new EchoServiceImpl();
+    EchoServer* server = new EchoServer(impl);
     server->run("", "", server_address, 4);
     std::cout << "Server listening on " << server_address << std::endl;
 

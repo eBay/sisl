@@ -25,14 +25,14 @@ using namespace ::sds_grpc_test;
 using namespace std::placeholders;
 
 
-class EchoAsyncClient : public GrpcConnection<::sds_grpc_test::Echo>
+class EchoAsyncClient : public GrpcConnection<::sds_grpc_test::EchoService>
 {
 public:
     EchoAsyncClient(const std::string& server_addr, uint32_t dead_line,
             ::grpc::CompletionQueue* cq,
             const std::string& target_domain,
             const std::string& ssl_cert)
-        : GrpcConnection<::sds_grpc_test::Echo>(
+        : GrpcConnection<::sds_grpc_test::EchoService>(
                 server_addr, dead_line, cq, target_domain, ssl_cert)
     {
 

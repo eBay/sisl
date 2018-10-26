@@ -18,6 +18,7 @@ set(SDS_GRPC_LIBS ${CONAN_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 
 set (SDS_GRPC_SOURCE
     lib/client.cpp
+    lib/server.cpp
     lib/utils.cpp
 )
 

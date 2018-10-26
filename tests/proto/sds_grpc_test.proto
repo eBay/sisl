@@ -3,7 +3,7 @@ syntax = "proto3";
 
 package sds_grpc_test;
 
-service Echo {
+service EchoService {
   rpc Echo (EchoRequest) returns (EchoReply) {}
 }
 

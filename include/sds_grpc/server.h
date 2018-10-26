@@ -28,128 +28,126 @@ using ::grpc::Status;
 
 
 /**
- * ServerCallMethod : Stores the incoming request callback handler and method name of the rpc
+ * Defines the life cycle of handling a gRPC call.
  *
- * TODO: rename as BaseServerCallData
  */
-class ServerCallMethod {
+class BaseServerCallData {
 public:
 	enum CallStatus { CREATE, PROCESS, FINISH };
 
+    CallStatus& status() { return status_; }
+
 public:
-	ServerCallMethod(const std::string& method_name):
-		method_name_(method_name), status_(CREATE) {
-	}
 
-	virtual ~ServerCallMethod(){}
-
-	const std::string& method_name() { return method_name_; }
-	CallStatus& status() { return status_; }
-
-    void proceed() {
-        if (status_ == CREATE){
-            status_ = PROCESS;
-            do_create();
-        } else if (status_ == PROCESS) {
-            status_ = FINISH;
-            do_process();
-        } else {
-            do_finish();
-        }
-    }
-
+    /**
+     * During the life cycle of this object, this method should be called
+     * 3 times with different status:
+     *  - CREATE is the initial status, the object was just created, it request
+     *    that the gRPC server start processing async requests. In this request,
+     *    "this" is used as tag for uniquely identifying the request, so that
+     *    different CallData instances can serve different requests
+     *    concurrently.
+     *  - PROCESS is for handling the request, e.g. the incoming request can be
+     *    routed to a callback function. Once the handling is done, the gRPC
+     *    runtime should be informed, e.g for unary calls,
+     *    ServerAsyncResponseWriter<T>::Finish() should be called.
+     *  - FINISH is for destroy this object, gRPC server has sent the
+     *    appropriate signals to the client to end the call.
+     */
+    void proceed();
 
 protected:
 
-    virtual void do_create() = 0;
-    virtual void do_process() = 0;
-
-    virtual void do_finish(){
-        GPR_ASSERT(status_ == FINISH);
-        // Once in the FINISH state, deallocate ourselves
-        delete this;
+    BaseServerCallData() : status_(CREATE) {
     }
 
+    virtual ~BaseServerCallData() {}
 
-	std::string         method_name_; // TODO: looks like not useful -- lhuang8
-	CallStatus          status_;
+    /**
+     * See BaseServerCallData::proceed() for semantics.
+     */
+    virtual void do_create() = 0;
 
+    /**
+     * See BaseServerCallData::proceed() for semantics.
+     */
+    virtual void do_process() = 0;
+
+    /**
+     * See BaseServerCallData::proceed() for semantics.
+     */
+    virtual void do_finish();
+
+	CallStatus status_;
 };
 
 
 /**
- * Once a new instance's proceed() method being called, it will begin to wait for
- * one request.
- *
- * Each instance only handles one request, after that it will be  destroyed;
+ * Each instance only handles one request, after that it will be destroyed;
  * a new instance will be created automatically for handling next request.
  *
  */
-template<typename TSERVICE, typename TREQUEST, typename TREPLY>
-class ServerCallData final : public ServerCallMethod {
-
+template<typename TSERVICE, typename TREQUEST, typename TRESPONSE>
+class ServerCallData final : public BaseServerCallData {
 
     typedef std::function<void(TSERVICE*,
-                ::grpc::ServerContext*, TREQUEST*,
-                ::grpc::ServerAsyncResponseWriter<TREPLY>*,
-                ::grpc::CompletionQueue*, ::grpc::ServerCompletionQueue*,
-                 void *)> wait_request_cb_t;
+                              ::grpc::ServerContext*,
+                              TREQUEST*,
+                              ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
+                              ::grpc::CompletionQueue*,
+                              ::grpc::ServerCompletionQueue*,
+                              void *)> request_call_func_t;
 
-    typedef std::function<TREPLY(TREQUEST&)> handle_request_cb_t;
+    typedef std::function<::grpc::Status(TREQUEST&, TRESPONSE&)> handle_call_func_t;
 
-    typedef ServerCallData<TSERVICE, TREQUEST, TREPLY> T;
+    typedef ServerCallData<TSERVICE, TREQUEST, TRESPONSE> T;
 
-public:
+private:
+    template<typename T>
+    friend class GrpcServer;
+
     ServerCallData(TSERVICE * service,
                    ::grpc::ServerCompletionQueue *cq,
-                   const std::string& method_name,
-                   wait_request_cb_t wait_request,
-                   handle_request_cb_t handle_request):
-        ServerCallMethod(method_name),
+                   request_call_func_t wait_request,
+                   handle_call_func_t handle_request):
+        BaseServerCallData(),
         service_(service), cq_(cq), responder_(&context_),
-        wait_request_cb_(wait_request), handle_request_cb_(handle_request) {
-
+        wait_request_func_(wait_request),
+        handle_request_func_(handle_request) {
     }
 
-    ServerContext& context() { return context_; }
-    TREQUEST& request() { return request_; }
-    TREPLY& reply() { return reply_; }
-    ::grpc::ServerAsyncResponseWriter<TREPLY>& responder() { return responder_; }
+    ::grpc::ServerAsyncResponseWriter<TRESPONSE>& responder() { return responder_; }
 
 protected:
 
+    ServerContext context_;
 
-    ServerContext   context_;
-
-    TSERVICE *      service_;
+    TSERVICE * service_;
     // The producer-consumer queue where for asynchronous server notifications.
     ::grpc::ServerCompletionQueue* cq_;
 
-    TREQUEST        request_;
-    TREPLY          reply_;
-    ::grpc::ServerAsyncResponseWriter<TREPLY> responder_;
+    TREQUEST request_;
+    TRESPONSE reponse_;
+    ::grpc::ServerAsyncResponseWriter<TRESPONSE> responder_;
 
-    wait_request_cb_t wait_request_cb_;
-    handle_request_cb_t handle_request_cb_;
-
-
+    request_call_func_t wait_request_func_;
+    handle_call_func_t handle_request_func_;
 
     void do_create()
     {
-        wait_request_cb_(service_, &context_, &request_, &responder_,
+        wait_request_func_(service_, &context_, &request_, &responder_,
                 cq_, cq_, this);
     }
 
     void do_process()
     {
-        (new T(service_, cq_, method_name_,
-                wait_request_cb_, handle_request_cb_))->proceed();
+        (new T(service_, cq_,
+               wait_request_func_, handle_request_func_))->proceed();
         //LOGDEBUGMOD(GRPC, "receive {}", request_.GetTypeName());
 
-        reply_ = handle_request_cb_(request_);
-        responder_.Finish(reply_, Status::OK, this);
+        ::grpc::Status status = handle_request_func_(request_, reponse_);
+        responder_.Finish(reponse_, status, this);
     }
-
 
 };
 
@@ -158,6 +156,9 @@ protected:
 template<typename TSERVICE>
 class GrpcServer {
 public:
+
+    typedef TSERVICE ServiceType;
+
     GrpcServer();
     virtual ~GrpcServer();
 
@@ -166,17 +167,42 @@ public:
     bool run(const std::string& ssl_key, const std::string& ssl_cert,
             const std::string& listen_addr, uint32_t threads = 1);
 
+    /**
+     * Currently, user need to inherit GrpcServer and register rpc calls.
+     * This will be changed by "SDSTOR-464 sds_grpc: make single
+     * sds_grpc::GrpcServer instance supports multiple gRPC services"
+     */
     virtual void ready() = 0;
-    virtual void process(ServerCallMethod * cm) = 0;
 
 
     ::grpc::ServerCompletionQueue * completion_queue() {
         return completion_queue_.get();
     }
 
+    template<typename TSVC, typename TREQUEST, typename TRESPONSE>
+    void register_rpc(
+            std::function<
+                void(TSVC*,
+                     ::grpc::ServerContext*,
+                     TREQUEST*,
+                     ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
+                     ::grpc::CompletionQueue*,
+                     ::grpc::ServerCompletionQueue*,
+                     void *)> request_call_func,
+            std::function<::grpc::Status(TREQUEST&, TRESPONSE&)> handle_request_func){
+
+        (new ServerCallData<TSVC, TREQUEST, TRESPONSE> (
+             &service_, completion_queue_.get(),
+             request_call_func,
+             handle_request_func))->proceed();
+    }
+
+
 private:
-    // This can be run in multiple threads if needed.
+    // This can be called by multiple threads
     void handle_rpcs();
+    void process(BaseServerCallData * cm);
+
     // TODO: move this function to utils
     bool get_file_contents(const std::string& file_name, std::string& contents);
 
@@ -299,8 +325,8 @@ void GrpcServer<TSERVICE>::handle_rpcs() {
             continue;
         }
 
-        ServerCallMethod* cm = static_cast<ServerCallMethod *>(tag);
-        process(cm);
+        BaseServerCallData* cm = static_cast<BaseServerCallData *>(tag);
+        cm->proceed();
     }
 }
 

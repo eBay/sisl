@@ -26,14 +26,14 @@ using namespace std::placeholders;
 
 
 
-class EchoSyncClient : public GrpcConnection<Echo> {
+class EchoSyncClient : public GrpcConnection<EchoService> {
 
 public:
     EchoSyncClient(const std::string& server_addr, uint32_t dead_line,
             ::grpc::CompletionQueue* cq,
             const std::string& target_domain,
             const std::string& ssl_cert)
-        : GrpcConnection<Echo>(server_addr, dead_line, cq, target_domain, ssl_cert)
+        : GrpcConnection<EchoService>(server_addr, dead_line, cq, target_domain, ssl_cert)
     {
     }
 
@@ -61,7 +61,7 @@ int RunClient(const std::string& server_address) {
 
         request.set_message(std::to_string(i));
 
-        Status status =client->stub()->Echo(&context, request, &reply);
+        Status status = client->stub()->Echo(&context, request, &reply);
         if (!status.ok())
         {
             std::cout << "echo request " << request.message() <<
