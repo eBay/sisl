@@ -1,73 +1,40 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.10)
 project(flip)
 
 set(CMAKE_CXX_STANDARD 17)
 
-#set (PROJECT_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-
-if (NOT DEFINED PROTOBUF_PROTOC_EXECUTABLE)
-    set(PROTOBUF_PROTOC_EXECUTABLE protoc)
+if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    conan_basic_setup()
+else()
+    message(WARNING "The file conanbuildinfo.cmake doesn't exist, you have to run conan install first")
+    return()
 endif()
 
-if (NOT DEFINED CMAKE_PREFIX_PATH)
-    set(CMAKE_PREFIX_PATH /usr/local/)
-endif()
+if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+  if (NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "clang" AND NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "apple-clang")
+    include (cmake/debug_flags.cmake)
+  endif ()
+endif ()
+if  (${MEMORY_SANITIZER_ON})
+  include (cmake/mem_sanitizer.cmake)
+endif ()
 
-set(PROTO_DIR ${PROJECT_SOURCE_DIR}/proto)
-set(PROTO_GEN_DIR ${CMAKE_BINARY_DIR}/gen_src/proto)
-file(MAKE_DIRECTORY ${PROTO_GEN_DIR})
-#set(FLIP_PROTO_FILE proto/flip_spec.proto)
+find_program(CCACHE_FOUND ccache)
+if (CCACHE_FOUND)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif ()
 
-get_filename_component(PROTO_FULL_PATH proto/flip_spec.proto ABSOLUTE)
-file(RELATIVE_PATH PROTO_REL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/proto ${PROTO_FULL_PATH})
-message(STATUS "Processing ${PROTO_FULL_PATH} Relative path ${PROTO_REL_PATH}")
+find_package(Protobuf REQUIRED)
 
-#set(_GEN_HEADERS src/proto/flip_spec.pb.h)
-#list(APPEND _generated_headers "${_GEN_HEADERS}")
-#set(_GEN_SOURCES src/proto/flip_spec.pb.cc)
+add_subdirectory(proto)
+message("Here: ${PROTO_PATH}")
 
-#target_sources(test_flip PRIVATE ${_GEN_SOURCES})
-#set_source_files_properties(${_GEN_SOURCES} ${_GEN_HEADERS} PROPERTIES GENERATED TRUE)
+include_directories(BEFORE include ${PROTO_PATH})
 
-add_custom_command(
-        OUTPUT ${PROTO_GEN_DIR}/flip_spec.pb.cc
-        COMMAND ${PROTOBUF_PROTOC_EXECUTABLE}
-        ARGS --cpp_out=${PROTO_GEN_DIR} -I. ${PROTO_REL_PATH}
-        DEPENDS proto/flip_spec.proto
-        WORKING_DIRECTORY ${PROTO_DIR}
-        COMMENT "Running C++ protocol buffer compiler on flip_spec.proto"
-        VERBATIM
-)
+add_executable(test_flip src/test_flip.cpp)
+target_link_libraries(test_flip flip)
 
-set(FLIP_LIB_FILES
-        src/flip.hpp
-        ${PROTO_GEN_DIR}/flip_spec.pb.cc
-        )
-
-set(TEST_FLIP_FILES
-        ${FLIP_LIB_FILES}
-        src/test_flip.cpp
-    )
-
-set(TEST_FLIP_CLIENT_FILES
-        ${FLIP_LIB_FILES}
-        src/test_flip_client.cpp
-        )
-
-find_library(PROTOBUF_LIBRARY protobuf HINTS ${CMAKE_PREFIX_PATH}/lib)
-find_library(GLOG_LIBRARY glog HINTS ${CMAKE_PREFIX_PATH}/lib)
-find_library(GFLAGS_LIBRARY gflags HINTS ${CMAKE_PREFIX_PATH}/lib)
-include_directories(${CMAKE_PREFIX_PATH}/include ${PROTO_GEN_DIR})
-
-add_library(flip ${FLIP_LIB_FILES})
-target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} ${GFLAGS_LIBRARY})
-
-add_executable(test_flip ${TEST_FLIP_FILES})
-target_link_libraries(test_flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} ${GFLAGS_LIBRARY} pthread boost_system)
-
-add_executable(test_flip_client ${TEST_FLIP_CLIENT_FILES})
-target_link_libraries(test_flip_client ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} ${GFLAGS_LIBRARY} pthread boost_system)
-
-install(TARGETS flip DESTINATION ${CMAKE_PREFIX_PATH}/lib)
-install(FILES src/flip.hpp proto/flip_spec.proto ${PROTO_GEN_DIR}/flip_spec.pb.h DESTINATION ${CMAKE_PREFIX_PATH}/include/flip)
-
+add_executable(test_flip_client src/test_flip_client.cpp)
+target_link_libraries(test_flip_client flip)
