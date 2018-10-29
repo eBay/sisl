@@ -66,6 +66,7 @@ struct flip_instance {
     std::atomic< int32_t > m_remain_exec_count;
 };
 
+/****************************** Proto Param to Value converter ******************************/
 template <typename T>
 struct val_converter {
     T operator()(const ParamValue &val) {
@@ -138,6 +139,65 @@ struct val_converter<delayed_return_param<T>> {
     }
 };
 
+/******************************************** Value to Proto converter ****************************************/
+template <typename T>
+struct to_proto_converter {
+    void operator()(const T& val, ParamValue* out_pval) {
+    }
+};
+
+template <>
+struct to_proto_converter<int> {
+    void operator()(const int& val, ParamValue* out_pval) {
+        out_pval->set_int_value(val);
+    }
+};
+
+#if 0
+template <>
+struct val_converter<const int> {
+    const int operator()(const ParamValue &val) {
+        return (val.kind_case() == ParamValue::kIntValue) ? val.int_value() : 0;
+    }
+};
+#endif
+
+template <>
+struct to_proto_converter<long> {
+    void operator()(const long& val, ParamValue* out_pval) {
+        out_pval->set_long_value(val);
+    }
+};
+
+template <>
+struct to_proto_converter<double> {
+    void operator()(const double& val, ParamValue* out_pval) {
+        out_pval->set_double_value(val);
+    }
+};
+
+template <>
+struct to_proto_converter<std::string> {
+    void operator()(const std::string& val, ParamValue* out_pval) {
+        out_pval->set_string_value(val);
+    }
+};
+
+template <>
+struct to_proto_converter<const char *> {
+    void operator()(const char*& val, ParamValue* out_pval) {
+        out_pval->set_string_value(val);
+    }
+};
+
+template <>
+struct to_proto_converter<bool> {
+    void operator()(const bool& val, ParamValue* out_pval) {
+        out_pval->set_bool_value(val);
+    }
+};
+
+/******************************************* Comparators *************************************/
 template< typename T >
 struct compare_val {
     bool operator()(const T &val1, const T &val2, Operator oper) {
@@ -200,6 +260,50 @@ struct compare_val<const char *> {
     }
 };
 
+using io_service       = boost::asio::io_service;
+using deadline_timer   = boost::asio::deadline_timer;
+using io_work          = boost::asio::io_service::work;
+
+class FlipTimer {
+public:
+    FlipTimer() : m_timer_count(0) {}
+    ~FlipTimer() {
+        if (m_timer_thread != nullptr) {
+            m_work.reset();
+            m_timer_thread->join();
+        }
+    }
+
+    void schedule(boost::posix_time::time_duration delay_us, const std::function<void()>& closure) {
+        std::unique_lock<std::mutex> lk(m_thr_mutex);
+        ++m_timer_count;
+        if (m_work == nullptr) {
+            m_work = std::make_unique<io_work>(m_svc);
+            m_timer_thread = std::make_unique<std::thread>(std::bind(&FlipTimer::timer_thr, this));
+        }
+
+        auto t = std::make_shared<deadline_timer>(m_svc, delay_us);
+        t->async_wait([this, closure, t](const boost::system::error_code& e){
+            if (e) { LOG(ERROR) << "Error in timer routine, message " << e.message(); }
+            else { closure(); }
+            std::unique_lock<std::mutex> lk(m_thr_mutex);
+            --m_timer_count;
+        });
+    }
+
+    void timer_thr() {
+        size_t executed = 0;
+        executed = m_svc.run();
+    }
+
+private:
+    io_service m_svc;
+    std::unique_ptr<io_work> m_work;
+    std::mutex m_thr_mutex;
+    int32_t m_timer_count;
+    std::unique_ptr< std::thread >m_timer_thread;
+};
+
 #define TEST_ONLY      0
 #define RETURN_VAL     1
 #define SET_DELAY      2
@@ -214,12 +318,34 @@ public:
         m_flip_enabled = true;
         auto inst = flip_instance(fspec);
 
+        LOG(INFO) << "Fpsec: " << fspec.DebugString();
+
         // TODO: Add verification to see if the flip is already scheduled, any errors etc..
         std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_flip_specs.emplace(std::pair< std::string, flip_instance >(fspec.flip_name(), inst));
         LOG(INFO) << "Added new fault flip " << fspec.flip_name() << " to the list of flips";
         return true;
     }
+
+#if 0
+    bool add_flip(std::string flip_name, std::vector<FlipCondition&> conditions, FlipAction& action,
+            uint32_t count, uint8_t percent) {
+        FlipSpec fspec;
+        *(fspec.mutable_flip_name()) = "delay_ret_fspec";
+
+        auto cond = fspec->mutable_conditions()->Add();
+        *cond->mutable_name() = "cmd_type";
+        cond->set_oper(flip::Operator::EQUAL);
+        cond->mutable_value()->set_int_value(2);
+
+        fspec->mutable_flip_action()->mutable_delay_returns()->set_delay_in_usec(100000);
+        fspec->mutable_flip_action()->mutable_delay_returns()->mutable_return_()->set_string_value("Delayed error simulated value");
+
+        auto freq = fspec->mutable_flip_frequency();
+        freq->set_count(2);
+        freq->set_percent(100);
+    }
+#endif
 
     template< class... Args >
     bool test_flip(std::string flip_name, Args &&... args) {
@@ -245,12 +371,7 @@ public:
         if (ret == boost::none) return false; // Not a hit
 
         uint64_t delay_usec = boost::get<uint64_t>(ret.get());
-        auto io = std::make_shared<boost::asio::io_service>();
-        boost::asio::deadline_timer t(*io, boost::posix_time::milliseconds(delay_usec/1000));
-        t.async_wait([closure, io](const boost::system::error_code& e) {
-            closure();
-        });
-        io->run();
+        m_timer.schedule(boost::posix_time::microseconds(delay_usec), closure);
         return true;
     }
 
@@ -262,13 +383,10 @@ public:
         if (ret == boost::none) return false; // Not a hit
 
         auto param = boost::get<delayed_return_param<T>>(ret.get());
-
-        auto io = std::make_shared<boost::asio::io_service>();
-        boost::asio::deadline_timer t(*io, boost::posix_time::milliseconds(param.delay_usec/1000));
-        t.async_wait([closure, io, param](const boost::system::error_code& e) {
+        LOG(INFO) << "Returned param delay = " << param.delay_usec << " val = " << param.val;
+        m_timer.schedule(boost::posix_time::microseconds(param.delay_usec), [closure, param]() {
             closure(param.val);
         });
-        io->run();
         return true;
     }
 
@@ -363,7 +481,7 @@ private:
             auto i = 0U;
             bool matched = true;
             for_each(arglist, [this, fspec, &i, &matched](auto &v) {
-                if (!condition_matches(fspec.conditions()[i++], v)) {
+                if (!condition_matches(v, fspec.conditions()[i++])) {
                     matched = false;
                 }
             });
@@ -378,9 +496,9 @@ private:
     }
 
     template< typename T >
-    bool condition_matches(const FlipCondition &cond, T &comp_val) {
+    bool condition_matches(T &comp_val, const FlipCondition &cond) {
         auto val1 = val_converter< T >()(cond.value());
-        return compare_val< T >()(val1, comp_val, cond.oper());
+        return compare_val< T >()(comp_val, val1, cond.oper());
     }
 
     bool handle_hits(const FlipFrequency &freq, flip_instance *inst) {
@@ -455,6 +573,78 @@ private:
     std::multimap< std::string, flip_instance, flip_name_compare > m_flip_specs;
     std::shared_mutex m_mutex;
     bool m_flip_enabled;
+    FlipTimer m_timer;
+};
+
+class FlipClient {
+public:
+    explicit FlipClient(Flip *f) : m_flip(f) {}
+
+    template< typename T>
+    void create_condition(const std::string& param_name, flip::Operator oper, const T& value, FlipCondition *out_condition) {
+        *(out_condition->mutable_name()) = param_name;
+        out_condition->set_oper(oper);
+        to_proto_converter<T>()(value, out_condition->mutable_value());
+    }
+
+    bool inject_noreturn_flip(std::string flip_name, const std::vector< FlipCondition >& conditions, const FlipFrequency &freq) {
+        FlipSpec fspec;
+
+        _create_flip_spec(flip_name, conditions, freq, fspec);
+        fspec.mutable_flip_action()->set_no_action(true);
+
+        m_flip->add(fspec);
+        return true;
+    }
+
+    template <typename T>
+    bool inject_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+                         const FlipFrequency& freq, const T& retval) {
+        FlipSpec fspec;
+
+        _create_flip_spec(flip_name, conditions, freq, fspec);
+        to_proto_converter<T>()(retval, fspec.mutable_flip_action()->mutable_returns()->mutable_return_());
+
+        m_flip->add(fspec);
+        return true;
+    }
+
+    bool inject_delay_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+                         const FlipFrequency& freq, uint64_t delay_usec) {
+        FlipSpec fspec;
+
+        _create_flip_spec(flip_name, conditions, freq, fspec);
+        fspec.mutable_flip_action()->mutable_delays()->set_delay_in_usec(delay_usec);
+
+        m_flip->add(fspec);
+        return true;
+    }
+
+    template <typename T>
+    bool inject_delay_and_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+                                   const FlipFrequency &freq, uint64_t delay_usec, const T& retval) {
+        FlipSpec fspec;
+
+        _create_flip_spec(flip_name, conditions, freq, fspec);
+        fspec.mutable_flip_action()->mutable_delays()->set_delay_in_usec(delay_usec);
+        to_proto_converter<T>()(retval, fspec.mutable_flip_action()->mutable_delay_returns()->mutable_return_());
+
+        m_flip->add(fspec);
+        return true;
+    }
+
+private:
+    void _create_flip_spec(std::string flip_name, const std::vector< FlipCondition >& conditions,
+            const FlipFrequency& freq, FlipSpec& out_fspec) {
+        *(out_fspec.mutable_flip_name()) = flip_name;
+        for (auto &c: conditions) {
+            *(out_fspec.mutable_conditions()->Add()) = c;
+        }
+        *(out_fspec.mutable_flip_frequency()) = freq;
+    }
+
+private:
+    Flip* m_flip;
 };
 
 } // namespace flip
