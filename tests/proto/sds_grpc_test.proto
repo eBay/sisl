@@ -5,6 +5,13 @@ package sds_grpc_test;
 
 service EchoService {
   rpc Echo (EchoRequest) returns (EchoReply) {}
+  
+  rpc EchoLongReply (EchoRequest) returns (stream EchoReply) {}
+
+  rpc LongEcho (stream EchoRequest) returns (EchoReply) {}
+  
+  rpc LongEchoLongReply (stream EchoRequest) returns (stream EchoReply) {}
+  
 }
 
 message EchoRequest {
@@ -14,3 +21,17 @@ message EchoRequest {
 message EchoReply {
   string message = 1;
 }
+
+
+service PingService {
+  rpc Ping (PingRequest) returns (PingReply) {}
+}
+
+message PingRequest {
+  uint32 seqno = 1;
+}
+
+message PingReply {
+  uint32 seqno = 1;
+}
+

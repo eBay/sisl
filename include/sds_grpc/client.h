@@ -120,7 +120,7 @@ class GrpcConnection {
 
     }
 
-    ~GrpcConnection() { }
+    virtual ~GrpcConnection() { }
 
     typename TSERVICE::StubInterface* stub() {
         return stub_.get();
@@ -239,7 +239,7 @@ class GrpcClient {
   public:
     GrpcClient() : shutdown_(true) {}
 
-    ~GrpcClient() {
+    virtual ~GrpcClient() {
         shutdown();
         for (auto& it : threads_) {
             it->join();

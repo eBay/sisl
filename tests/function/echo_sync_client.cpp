@@ -39,6 +39,9 @@ class EchoSyncClient : public GrpcConnection<EchoService> {
 };
 
 
+#define GRPC_CALL_COUNT 10
+
+
 int RunClient(const std::string& server_address) {
 
     GrpcClient* fix_this_name = new GrpcClient();
@@ -52,7 +55,7 @@ int RunClient(const std::string& server_address) {
 
     int ret = 0;
 
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < GRPC_CALL_COUNT; i++) {
         ClientContext context;
         EchoRequest  request;
         EchoReply reply;
@@ -81,17 +84,12 @@ int RunClient(const std::string& server_address) {
 
 int main(int argc, char** argv) {
 
-
     std::string server_address("0.0.0.0:50051");
 
+    if (RunClient(server_address) != GRPC_CALL_COUNT) {
+        std::cerr << "Only " << GRPC_CALL_COUNT << " calls are successful" << std::endl;
+        return 1;
+    }
 
-    return RunClient(server_address);
+    return 0;
 }
-
-
-
-
-
-
-
-

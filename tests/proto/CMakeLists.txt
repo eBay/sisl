@@ -1,5 +1,3 @@
-find_package(Protobuf REQUIRED)
-include(${CMAKE_HOME_DIRECTORY}/cmake/grpc.cmake)
 
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS sds_grpc_test.proto)
 

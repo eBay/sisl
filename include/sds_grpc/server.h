@@ -13,6 +13,10 @@
 #include <sds_logging/logging.h>
 
 #include <functional>
+#include <unordered_map>
+#include <boost/core/noncopyable.hpp>
+#include <boost/assert.hpp>
+#include "utils.h"
 
 
 namespace sds::grpc {
@@ -91,20 +95,21 @@ class BaseServerCallData {
 template<typename TSERVICE, typename TREQUEST, typename TRESPONSE>
 class ServerCallData final : public BaseServerCallData {
 
-    typedef std::function<void(TSERVICE*,
-                               ::grpc::ServerContext*,
-                               TREQUEST*,
-                               ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
-                               ::grpc::CompletionQueue*,
-                               ::grpc::ServerCompletionQueue*,
-                               void *)> request_call_func_t;
+    using request_call_func_t = std::function<
+                                void(TSERVICE*,
+                                     ::grpc::ServerContext*,
+                                     TREQUEST*,
+                                     ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
+                                     ::grpc::CompletionQueue*,
+                                     ::grpc::ServerCompletionQueue*,
+                                     void *)>;
 
-    typedef std::function<::grpc::Status(TREQUEST&, TRESPONSE&)> handle_call_func_t;
+    using handle_call_func_t = std::function<
+                               ::grpc::Status(TREQUEST&, TRESPONSE&)>;
 
-    typedef ServerCallData<TSERVICE, TREQUEST, TRESPONSE> T;
+    using T = ServerCallData<TSERVICE, TREQUEST, TRESPONSE>;
 
   private:
-    template<typename T>
     friend class GrpcServer;
 
     ServerCallData(TSERVICE * service,
@@ -154,36 +159,70 @@ class ServerCallData final : public BaseServerCallData {
 
 
 
-template<typename TSERVICE>
-class GrpcServer {
-  public:
+class GrpcServer : private boost::noncopyable {
 
-    typedef TSERVICE ServiceType;
+    enum State {
+        VOID,
+        INITED,
+        RUNNING,
+        SHUTTING_DOWN,
+        TERMINATED
+    };
 
+  private:
     GrpcServer();
+
+    bool init(const std::string& listen_addr, uint32_t threads,
+              const std::string& ssl_key, const std::string& ssl_cert);
+
+  public:
     virtual ~GrpcServer();
 
-    void shutdown();
-    bool is_shutdown();
-    bool run(const std::string& ssl_key, const std::string& ssl_cert,
-             const std::string& listen_addr, uint32_t threads = 1);
-
     /**
-     * Currently, user need to inherit GrpcServer and register rpc calls.
-     * This will be changed by "SDSTOR-464 sds_grpc: make single
-     * sds_grpc::GrpcServer instance supports multiple gRPC services"
+     * Create a new GrpcServer instance and initialize it.
      */
-    virtual void ready() = 0;
+    static GrpcServer* make(const std::string& listen_addr,
+                            uint32_t threads=1,
+                            const std::string& ssl_key="",
+                            const std::string& ssl_cert="");
 
+    bool run();
+
+    void shutdown();
+
+    bool is_terminated() {
+        return state_ == State::TERMINATED;
+    }
 
     ::grpc::ServerCompletionQueue * completion_queue() {
-        return completion_queue_.get();
+        return cq_.get();
+    }
+
+    template<typename TSVC>
+    bool register_async_service() {
+
+        BOOST_ASSERT_MSG(State::INITED == state_,
+                         "register service in non-INITED state");
+
+        auto name = TSVC::service_full_name();
+
+        BOOST_ASSERT_MSG(services_.find(name) == services_.end(),
+                         "Double register async service.");
+        if (services_.find(name) != services_.end()) {
+            return false;
+        }
+
+        auto svc = new typename TSVC::AsyncService();
+        builder_.RegisterService(svc);
+        services_.insert({name, svc});
+
+        return true;
     }
 
     template<typename TSVC, typename TREQUEST, typename TRESPONSE>
-    void register_rpc(
+    bool register_rpc(
         std::function<
-        void(TSVC*,
+        void(typename TSVC::AsyncService*,
              ::grpc::ServerContext*,
              TREQUEST*,
              ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
@@ -192,145 +231,46 @@ class GrpcServer {
              void *)> request_call_func,
         std::function<::grpc::Status(TREQUEST&, TRESPONSE&)> handle_request_func) {
 
-        (new ServerCallData<TSVC, TREQUEST, TRESPONSE> (
-             &service_, completion_queue_.get(),
-             request_call_func,
-             handle_request_func))->proceed();
-    }
+        BOOST_ASSERT_MSG(State::RUNNING == state_,
+                         "register service in non-INITED state");
 
-
-  private:
-    // This can be called by multiple threads
-    void handle_rpcs();
-    void process(BaseServerCallData * cm);
-
-    // TODO: move this function to utils
-    bool get_file_contents(const std::string& file_name, std::string& contents);
-
-  protected:
-    std::unique_ptr<::grpc::ServerCompletionQueue> completion_queue_;
-    std::unique_ptr<Server>     server_;
-    TSERVICE                    service_;
-
-  private:
-    bool shutdown_;
-    std::list<std::shared_ptr<std::thread>> threads_;
-};
-
-
-template<typename TSERVICE>
-GrpcServer<TSERVICE>::GrpcServer()
-    :shutdown_(true)
-{}
-
-
-template<typename TSERVICE>
-GrpcServer<TSERVICE>::~GrpcServer() {
-    shutdown();
-    for (auto& it : threads_) {
-        it->join();
-    }
-}
-
-
-template<typename TSERVICE>
-void GrpcServer<TSERVICE>::shutdown() {
-    if (!shutdown_) {
-        server_->Shutdown();
-        completion_queue_->Shutdown();
-        shutdown_ = true;
-
-    }
-}
-
-template<typename TSERVICE>
-bool GrpcServer<TSERVICE>::is_shutdown() {
-    return shutdown_;
-}
-
-
-template<typename TSERVICE>
-bool GrpcServer<TSERVICE>::run(const std::string& ssl_key, const std::string& ssl_cert,
-                               const std::string& listen_addr, uint32_t threads /* = 1 */) {
-    if (listen_addr.empty() || threads == 0) {
-        return false;
-    }
-
-    ServerBuilder builder;
-    if (!ssl_cert.empty() && !ssl_key.empty()) {
-        std::string     key_contents;
-        std::string     cert_contents;
-        get_file_contents(ssl_cert, cert_contents);
-        get_file_contents(ssl_key, key_contents);
-
-        if (cert_contents.empty() || key_contents.empty()) {
+        auto it = services_.find(TSVC::service_full_name());
+        if (it == services_.end()) {
+            BOOST_ASSERT_MSG(false, "service not registered");
             return false;
         }
 
-        ::grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = { key_contents, cert_contents };
-        ::grpc::SslServerCredentialsOptions ssl_opts;
-        ssl_opts.pem_root_certs = "";
-        ssl_opts.pem_key_cert_pairs.push_back(pkcp);
+        auto svc = static_cast<typename TSVC::AsyncService*>(it->second);
+        (new ServerCallData<typename TSVC::AsyncService, TREQUEST, TRESPONSE> (
+             svc, cq_.get(),
+             request_call_func,
+             handle_request_func))->proceed();
 
-        builder.AddListeningPort(listen_addr, ::grpc::SslServerCredentials(ssl_opts));
-    } else {
-        builder.AddListeningPort(listen_addr, ::grpc::InsecureServerCredentials());
+        return true;
     }
 
-    builder.RegisterService(&service_);
-    completion_queue_ = builder.AddCompletionQueue();
-    server_ = builder.BuildAndStart();
-    //LOGDEBUGMOD(GRPC, "Server listening on {}", listen_addr);
 
-    shutdown_ = false;
-    ready();
+  private:
 
-    for (uint32_t  i = 0; i < threads; ++i) {
-        std::shared_ptr<std::thread> t =
-            std::shared_ptr<std::thread>(new std::thread(&GrpcServer<TSERVICE>::handle_rpcs, this));
-        threads_.push_back(t);
-    }
+    /*
+     * This can be called by multiple threads
+     */
+    void handle_rpcs();
 
-    return true;
-}
+    void process(BaseServerCallData * cm);
 
+    State state_ = State::VOID;
 
-template<typename TSERVICE>
-bool GrpcServer<TSERVICE>::get_file_contents(const std::string& file_name, std::string& contents) {
-    try {
-        std::ifstream in(file_name.c_str(), std::ios::in);
-        if (in) {
-            std::ostringstream t;
-            t << in.rdbuf();
-            in.close();
+    uint32_t thread_num_ = 0;
 
-            contents = t.str();
-            return true;
-        }
-    } catch (...) {
+    ServerBuilder builder_;
 
-    }
+    std::unique_ptr<::grpc::ServerCompletionQueue> cq_;
+    std::unique_ptr<Server> server_;
+    std::list<std::shared_ptr<std::thread>> threads_;
 
-    return false;
-}
-
-template<typename TSERVICE>
-void GrpcServer<TSERVICE>::handle_rpcs() {
-    void* tag;
-    bool ok = false;
-
-    while (completion_queue_->Next(&tag, &ok)) {
-        if (!ok) {
-            // the server has been Shutdown before this particular
-            // call got matched to an incoming RPC.
-            continue;
-        }
-
-        BaseServerCallData* cm = static_cast<BaseServerCallData *>(tag);
-        cm->proceed();
-    }
-}
-
+    std::unordered_map<const char *, ::grpc::Service *> services_;
+};
 
 
 }

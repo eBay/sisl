@@ -33,28 +33,64 @@ class EchoServiceImpl {
         return ::grpc::Status::OK;
     }
 
+    bool register_service(GrpcServer* server) {
+
+        if (!server->register_async_service<EchoService>()) {
+            std::cout << "register service failed" << std::endl;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool register_rpcs(GrpcServer* server) {
+        std::cout << "register rpc calls" << std::endl;
+        if (!server->register_rpc<EchoService, EchoRequest, EchoReply>(
+                    &EchoService::AsyncService::RequestEcho,
+                    std::bind(&EchoServiceImpl::echo_request, this, _1, _2))) {
+            std::cout << "register rpc failed" << std::endl;
+            return false;
+        }
+
+        return true;
+    }
 
 };
 
-using EchoAsyncService = ::sds_grpc_test::EchoService::AsyncService;
 
-class EchoServer : public GrpcServer<EchoAsyncService> {
+
+class PingServiceImpl {
 
   public:
-    EchoServer(EchoServiceImpl* impl)
-        : GrpcServer<EchoAsyncService>(),
-          impl_(impl) {
+    virtual ~PingServiceImpl() = default;
+
+    virtual ::grpc::Status ping_request(PingRequest& request, PingReply& response) {
+        std::cout << "receive ping request " << request.seqno() << std::endl;
+        response.set_seqno(request.seqno());
+        return ::grpc::Status::OK;
     }
 
-    void ready() {
+    bool register_service(GrpcServer* server) {
 
+        if (!server->register_async_service<PingService>()) {
+            std::cout << "register ping service failed" << std::endl;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool register_rpcs(GrpcServer* server) {
         std::cout << "register rpc calls" << std::endl;
-        register_rpc<EchoAsyncService, EchoRequest, EchoReply>(
-            &EchoAsyncService::RequestEcho,
-            std::bind(&EchoServiceImpl::echo_request, impl_, _1, _2));
-    }
+        if (!server->register_rpc<PingService, PingRequest, PingReply>(
+                    &PingService::AsyncService::RequestPing,
+                    std::bind(&PingServiceImpl::ping_request, this, _1, _2))) {
+            std::cout << "register ping rpc failed" << std::endl;
+            return false;
+        }
 
-    EchoServiceImpl* impl_;
+        return true;
+    }
 
 };
 
@@ -63,12 +99,21 @@ void RunServer() {
 
     std::string server_address("0.0.0.0:50051");
 
-    EchoServiceImpl * impl = new EchoServiceImpl();
-    EchoServer* server = new EchoServer(impl);
-    server->run("", "", server_address, 4);
+    auto server = GrpcServer::make(server_address, 4, "", "");
+
+    EchoServiceImpl * echo_impl = new EchoServiceImpl();
+    echo_impl->register_service(server);
+
+    PingServiceImpl * ping_impl = new PingServiceImpl();
+    ping_impl->register_service(server);
+
+    server->run();
     std::cout << "Server listening on " << server_address << std::endl;
 
-    while (!server->is_shutdown()) {
+    echo_impl->register_rpcs(server);
+    ping_impl->register_rpcs(server);
+
+    while (!server->is_terminated()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 

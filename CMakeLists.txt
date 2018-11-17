@@ -5,6 +5,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_WARNINGS} -DPACKAGE_NAME=${CONAN_P
 find_package(Boost REQUIRED)
 find_package(Threads REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(Protobuf REQUIRED)
+
+include(${CMAKE_HOME_DIRECTORY}/cmake/grpc.cmake)
 
 include_directories(BEFORE include)
 
