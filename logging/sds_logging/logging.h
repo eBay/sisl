@@ -6,7 +6,7 @@
 
 #pragma once
 
-#define FMT_STRING_ALIAS 1
+#define FMT_STRING_ALIAS 0
 
 #include <cstdio>
 #include <memory>
@@ -18,6 +18,7 @@
 extern "C" {
 #include <dlfcn.h>
 }
+#include <spdlog/fmt/fmt.h>
 #include <spdlog/async.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -184,7 +185,7 @@ MODLEVELDEC(_, _, base)
                 } else {                                                                \
                   *mod_level = lvl;                                                     \
                 }                                                                       \
-                enabled_mods.push_back(format(fmt("[{}:{}]"),                           \
+                enabled_mods.push_back(format(FMT_STRING("[{}:{}]"),                    \
                                               module_name,                              \
                                               spdlog::level::to_c_str(*mod_level)));    \
              } else {                                                                   \
