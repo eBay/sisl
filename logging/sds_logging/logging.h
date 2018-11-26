@@ -120,7 +120,7 @@ MODLEVELDEC(_, _, base)
                              (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level")) \
    static sds_logging::shared<spdlog::logger> logger_;                                  \
                                                                                         \
-   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::error, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
+   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::err, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
    namespace sds_logging {                                                              \
    thread_local shared<spdlog::logger> sds_thread_logger;                               \
                                                                                         \
