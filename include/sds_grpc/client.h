@@ -17,8 +17,7 @@
 
 #include "utils.h"
 
-namespace sds::grpc
-{
+namespace sds::grpc {
 
 using ::grpc::Channel;
 using ::grpc::ClientAsyncResponseReader;
@@ -33,7 +32,7 @@ using namespace ::std::chrono;
  *
  */
 class ClientCallMethod {
-public:
+  public:
     virtual ~ClientCallMethod() {}
 
     virtual void handle_response() = 0;
@@ -48,39 +47,43 @@ template<typename TREQUEST, typename TREPLY>
 class ClientCallData final : public ClientCallMethod {
 
     using handle_response_cb_t = std::function<
-            void(TREPLY&, ::grpc::Status& status)>;
+                                 void(TREPLY&, ::grpc::Status& status)>;
 
     using ResponseReaderType = std::unique_ptr<
-            ::grpc::ClientAsyncResponseReaderInterface<TREPLY>>;
+                               ::grpc::ClientAsyncResponseReaderInterface<TREPLY>>;
 
-public:
+  public:
     ClientCallData(handle_response_cb_t handle_response_cb)
         : handle_response_cb_(handle_response_cb) { }
 
-    void set_deadline(uint32_t seconds)
-    {
+    void set_deadline(uint32_t seconds) {
         system_clock::time_point deadline = system_clock::now() +
-                                    std::chrono::seconds(seconds);
+                                            std::chrono::seconds(seconds);
         context_.set_deadline(deadline);
     }
 
     ResponseReaderType& responder_reader() {
-    	return response_reader_;
+        return response_reader_;
     }
 
-    Status & status() { return status_; }
+    Status & status() {
+        return status_;
+    }
 
-    TREPLY & reply() { return reply_; }
+    TREPLY & reply() {
+        return reply_;
+    }
 
-    ClientContext & context() { return context_; }
+    ClientContext & context() {
+        return context_;
+    }
 
 
-    virtual void handle_response() override
-    {
+    virtual void handle_response() override {
         handle_response_cb_(reply_, status_);
     }
 
-private:
+  private:
     handle_response_cb_t handle_response_cb_;
     TREPLY reply_;
     ClientContext context_;
@@ -96,7 +99,7 @@ private:
  */
 template<typename TSERVICE>
 class GrpcConnection {
-public:
+  public:
 
     const std::string& server_addr_;
     const std::string& target_domain_;
@@ -109,12 +112,11 @@ public:
 
 
     GrpcConnection(const std::string& server_addr, uint32_t dead_line,
-    		CompletionQueue* cq, const std::string& target_domain,
-			const std::string& ssl_cert)
-		: server_addr_(server_addr), target_domain_(target_domain),
-		  ssl_cert_(ssl_cert), dead_line_(dead_line),
-		  completion_queue_(cq)
-    {
+                   CompletionQueue* cq, const std::string& target_domain,
+                   const std::string& ssl_cert)
+        : server_addr_(server_addr), target_domain_(target_domain),
+          ssl_cert_(ssl_cert), dead_line_(dead_line),
+          completion_queue_(cq) {
 
     }
 
@@ -124,8 +126,7 @@ public:
         return stub_.get();
     }
 
-    virtual bool init()
-    {
+    virtual bool init() {
         if (!init_channel()) {
             return false;
         }
@@ -134,10 +135,12 @@ public:
         return true;
     }
 
-    CompletionQueue*  completion_queue() { return completion_queue_; }
+    CompletionQueue*  completion_queue() {
+        return completion_queue_;
+    }
 
 
-protected:
+  protected:
 
     virtual bool init_channel() {
 
@@ -149,35 +152,33 @@ protected:
                 ::grpc::ChannelArguments channel_args;
                 channel_args.SetSslTargetNameOverride(target_domain_);
                 channel_ = ::grpc::CreateCustomChannel(server_addr_,
-                                                ::grpc::SslCredentials(ssl_opts),
-                                                 channel_args);
+                                                       ::grpc::SslCredentials(ssl_opts),
+                                                       channel_args);
             } else {
                 // TODO: add log -- lhuang8
                 return false;
             }
         } else {
             channel_ = ::grpc::CreateChannel(server_addr_,
-                                ::grpc::InsecureChannelCredentials());
+                                             ::grpc::InsecureChannelCredentials());
         }
 
         return true;
     }
 
-    virtual void init_stub()
-    {
+    virtual void init_stub() {
         stub_ = TSERVICE::NewStub(channel_);
     }
 
 
-    virtual bool load_ssl_cert(const std::string& ssl_cert, std::string content)
-    {
+    virtual bool load_ssl_cert(const std::string& ssl_cert, std::string content) {
         return ::sds::grpc::get_file_contents(ssl_cert, content);;
     }
 
     virtual bool is_connection_ready() {
-        if (channel_->GetState(true) == grpc_connectivity_state::GRPC_CHANNEL_READY) 
+        if (channel_->GetState(true) == grpc_connectivity_state::GRPC_CHANNEL_READY)
             return true;
-        else 
+        else
             return false;
     }
 
@@ -203,12 +204,12 @@ protected:
  */
 class GrpcConnectionFactory {
 
-public:
+  public:
     template<typename T>
     static std::unique_ptr<T> Make(
-            const std::string& server_addr, uint32_t dead_line,
-            CompletionQueue* cq, const std::string& target_domain,
-            const std::string& ssl_cert) {
+        const std::string& server_addr, uint32_t dead_line,
+        CompletionQueue* cq, const std::string& target_domain,
+        const std::string& ssl_cert) {
 
         std::unique_ptr<T> ret(new T(server_addr, dead_line, cq,
                                      target_domain, ssl_cert));
@@ -235,7 +236,7 @@ public:
  *
  */
 class GrpcClient {
-public:
+  public:
     GrpcClient() : shutdown_(true) {}
 
     ~GrpcClient() {
@@ -261,16 +262,18 @@ public:
         for (uint32_t i = 0; i < num_threads; ++i) {
             // TODO: no need to call async_complete_rpc for sync calls;
             std::shared_ptr<std::thread> t = std::shared_ptr<std::thread>(
-            		new std::thread(&GrpcClient::async_complete_rpc, this));
+                                                 new std::thread(&GrpcClient::async_complete_rpc, this));
             threads_.push_back(t);
         }
 
         return true;
     }
 
-    CompletionQueue& cq() { return completion_queue_; }
+    CompletionQueue& cq() {
+        return completion_queue_;
+    }
 
-private:
+  private:
 
     void async_complete_rpc() {
         void* tag;
@@ -293,10 +296,10 @@ private:
         }
     }
 
-protected:
+  protected:
     CompletionQueue completion_queue_;
 
-private:
+  private:
     bool shutdown_;
     std::list<std::shared_ptr<std::thread>> threads_;
 };

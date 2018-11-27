@@ -28,13 +28,12 @@ using namespace std::placeholders;
 
 class EchoSyncClient : public GrpcConnection<EchoService> {
 
-public:
+  public:
     EchoSyncClient(const std::string& server_addr, uint32_t dead_line,
-            ::grpc::CompletionQueue* cq,
-            const std::string& target_domain,
-            const std::string& ssl_cert)
-        : GrpcConnection<EchoService>(server_addr, dead_line, cq, target_domain, ssl_cert)
-    {
+                   ::grpc::CompletionQueue* cq,
+                   const std::string& target_domain,
+                   const std::string& ssl_cert)
+        : GrpcConnection<EchoService>(server_addr, dead_line, cq, target_domain, ssl_cert) {
     }
 
 };
@@ -45,16 +44,15 @@ int RunClient(const std::string& server_address) {
     GrpcClient* fix_this_name = new GrpcClient();
 
     auto client = GrpcConnectionFactory::Make<EchoSyncClient>(
-                        server_address, 5, &(fix_this_name->cq()), "", "");
-    if (!client)
-    {
+                      server_address, 5, &(fix_this_name->cq()), "", "");
+    if (!client) {
         std::cout << "Create echo client failed." << std::endl;
         return -1;
     }
 
     int ret = 0;
 
-    for (int i = 0; i < 3; i++){
+    for (int i = 0; i < 3; i++) {
         ClientContext context;
         EchoRequest  request;
         EchoReply reply;
@@ -62,16 +60,15 @@ int RunClient(const std::string& server_address) {
         request.set_message(std::to_string(i));
 
         Status status = client->stub()->Echo(&context, request, &reply);
-        if (!status.ok())
-        {
+        if (!status.ok()) {
             std::cout << "echo request " << request.message() <<
-                    " failed, status " << status.error_code() <<
-                    ": " << status.error_message() << std::endl;
+                      " failed, status " << status.error_code() <<
+                      ": " << status.error_message() << std::endl;
             continue;
         }
 
         std::cout << "echo request " << request.message() <<
-                " reply " << reply.message() << std::endl;
+                  " reply " << reply.message() << std::endl;
 
         if (request.message() == reply.message()) {
             ret++;

@@ -9,8 +9,7 @@
 #include <string>
 
 
-namespace sds::grpc
-{
+namespace sds::grpc {
 
 
 bool get_file_contents(const std::string & file_name, std::string & contents);

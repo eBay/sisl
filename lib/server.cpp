@@ -7,11 +7,10 @@
 #include <sds_grpc/server.h>
 
 
-namespace sds::grpc
-{
+namespace sds::grpc {
 
 void BaseServerCallData::proceed() {
-    if (status_ == CREATE){
+    if (status_ == CREATE) {
         status_ = PROCESS;
         do_create();
     } else if (status_ == PROCESS) {
@@ -25,7 +24,7 @@ void BaseServerCallData::proceed() {
 }
 
 
-void BaseServerCallData::do_finish(){
+void BaseServerCallData::do_finish() {
     GPR_ASSERT(status_ == FINISH);
     // Once in the FINISH state, this can be destroyed
     delete this;

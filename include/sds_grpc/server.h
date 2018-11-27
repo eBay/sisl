@@ -15,8 +15,7 @@
 #include <functional>
 
 
-namespace sds::grpc
-{
+namespace sds::grpc {
 
 using ::grpc::Server;
 using ::grpc::ServerAsyncResponseWriter;
@@ -32,12 +31,14 @@ using ::grpc::Status;
  *
  */
 class BaseServerCallData {
-public:
-	enum CallStatus { CREATE, PROCESS, FINISH };
+  public:
+    enum CallStatus { CREATE, PROCESS, FINISH };
 
-    CallStatus& status() { return status_; }
+    CallStatus& status() {
+        return status_;
+    }
 
-public:
+  public:
 
     /**
      * During the life cycle of this object, this method should be called
@@ -56,7 +57,7 @@ public:
      */
     void proceed();
 
-protected:
+  protected:
 
     BaseServerCallData() : status_(CREATE) {
     }
@@ -78,7 +79,7 @@ protected:
      */
     virtual void do_finish();
 
-	CallStatus status_;
+    CallStatus status_;
 };
 
 
@@ -91,18 +92,18 @@ template<typename TSERVICE, typename TREQUEST, typename TRESPONSE>
 class ServerCallData final : public BaseServerCallData {
 
     typedef std::function<void(TSERVICE*,
-                              ::grpc::ServerContext*,
-                              TREQUEST*,
-                              ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
-                              ::grpc::CompletionQueue*,
-                              ::grpc::ServerCompletionQueue*,
-                              void *)> request_call_func_t;
+                               ::grpc::ServerContext*,
+                               TREQUEST*,
+                               ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
+                               ::grpc::CompletionQueue*,
+                               ::grpc::ServerCompletionQueue*,
+                               void *)> request_call_func_t;
 
     typedef std::function<::grpc::Status(TREQUEST&, TRESPONSE&)> handle_call_func_t;
 
     typedef ServerCallData<TSERVICE, TREQUEST, TRESPONSE> T;
 
-private:
+  private:
     template<typename T>
     friend class GrpcServer;
 
@@ -116,9 +117,11 @@ private:
         handle_request_func_(handle_request) {
     }
 
-    ::grpc::ServerAsyncResponseWriter<TRESPONSE>& responder() { return responder_; }
+    ::grpc::ServerAsyncResponseWriter<TRESPONSE>& responder() {
+        return responder_;
+    }
 
-protected:
+  protected:
 
     ServerContext context_;
 
@@ -133,14 +136,12 @@ protected:
     request_call_func_t wait_request_func_;
     handle_call_func_t handle_request_func_;
 
-    void do_create()
-    {
+    void do_create() {
         wait_request_func_(service_, &context_, &request_, &responder_,
-                cq_, cq_, this);
+                           cq_, cq_, this);
     }
 
-    void do_process()
-    {
+    void do_process() {
         (new T(service_, cq_,
                wait_request_func_, handle_request_func_))->proceed();
         //LOGDEBUGMOD(GRPC, "receive {}", request_.GetTypeName());
@@ -155,7 +156,7 @@ protected:
 
 template<typename TSERVICE>
 class GrpcServer {
-public:
+  public:
 
     typedef TSERVICE ServiceType;
 
@@ -165,7 +166,7 @@ public:
     void shutdown();
     bool is_shutdown();
     bool run(const std::string& ssl_key, const std::string& ssl_cert,
-            const std::string& listen_addr, uint32_t threads = 1);
+             const std::string& listen_addr, uint32_t threads = 1);
 
     /**
      * Currently, user need to inherit GrpcServer and register rpc calls.
@@ -181,15 +182,15 @@ public:
 
     template<typename TSVC, typename TREQUEST, typename TRESPONSE>
     void register_rpc(
-            std::function<
-                void(TSVC*,
-                     ::grpc::ServerContext*,
-                     TREQUEST*,
-                     ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
-                     ::grpc::CompletionQueue*,
-                     ::grpc::ServerCompletionQueue*,
-                     void *)> request_call_func,
-            std::function<::grpc::Status(TREQUEST&, TRESPONSE&)> handle_request_func){
+        std::function<
+        void(TSVC*,
+             ::grpc::ServerContext*,
+             TREQUEST*,
+             ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
+             ::grpc::CompletionQueue*,
+             ::grpc::ServerCompletionQueue*,
+             void *)> request_call_func,
+        std::function<::grpc::Status(TREQUEST&, TRESPONSE&)> handle_request_func) {
 
         (new ServerCallData<TSVC, TREQUEST, TRESPONSE> (
              &service_, completion_queue_.get(),
@@ -198,7 +199,7 @@ public:
     }
 
 
-private:
+  private:
     // This can be called by multiple threads
     void handle_rpcs();
     void process(BaseServerCallData * cm);
@@ -206,12 +207,12 @@ private:
     // TODO: move this function to utils
     bool get_file_contents(const std::string& file_name, std::string& contents);
 
-protected:
+  protected:
     std::unique_ptr<::grpc::ServerCompletionQueue> completion_queue_;
     std::unique_ptr<Server>     server_;
     TSERVICE                    service_;
 
-private:
+  private:
     bool shutdown_;
     std::list<std::shared_ptr<std::thread>> threads_;
 };
@@ -250,7 +251,7 @@ bool GrpcServer<TSERVICE>::is_shutdown() {
 
 template<typename TSERVICE>
 bool GrpcServer<TSERVICE>::run(const std::string& ssl_key, const std::string& ssl_cert,
-        const std::string& listen_addr, uint32_t threads /* = 1 */) {
+                               const std::string& listen_addr, uint32_t threads /* = 1 */) {
     if (listen_addr.empty() || threads == 0) {
         return false;
     }

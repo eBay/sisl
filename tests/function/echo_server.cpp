@@ -24,7 +24,7 @@ using namespace std::placeholders;
 
 class EchoServiceImpl {
 
-public:
+  public:
     virtual ~EchoServiceImpl() = default;
 
     virtual ::grpc::Status echo_request(EchoRequest& request, EchoReply& response) {
@@ -40,7 +40,7 @@ using EchoAsyncService = ::sds_grpc_test::EchoService::AsyncService;
 
 class EchoServer : public GrpcServer<EchoAsyncService> {
 
-public:
+  public:
     EchoServer(EchoServiceImpl* impl)
         : GrpcServer<EchoAsyncService>(),
           impl_(impl) {
@@ -50,8 +50,8 @@ public:
 
         std::cout << "register rpc calls" << std::endl;
         register_rpc<EchoAsyncService, EchoRequest, EchoReply>(
-                &EchoAsyncService::RequestEcho,
-                std::bind(&EchoServiceImpl::echo_request, impl_, _1, _2));
+            &EchoAsyncService::RequestEcho,
+            std::bind(&EchoServiceImpl::echo_request, impl_, _1, _2));
     }
 
     EchoServiceImpl* impl_;
@@ -68,8 +68,7 @@ void RunServer() {
     server->run("", "", server_address, 4);
     std::cout << "Server listening on " << server_address << std::endl;
 
-    while (!server->is_shutdown())
-    {
+    while (!server->is_shutdown()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
@@ -77,8 +76,7 @@ void RunServer() {
 }
 
 
-int main(int arc, char* argv[])
-{
+int main(int arc, char* argv[]) {
     std::cout << "Start echo server ..." << std::endl;
 
     RunServer();
