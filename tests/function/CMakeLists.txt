@@ -2,11 +2,7 @@
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../proto)
 
 set(FUNCTION_TEST_LIBS sds_grpc test_proto 
-    ${CONAN_LIBS_GRPC} 
-    ${CONAN_LIBS_PROTOBUF} 
-    ${CONAN_LIBS_OPENSSL} 
-    ${CONAN_LIBS_C-ARES} 
-    ${CONAN_LIBS_ZLIB} )
+    ${CONAN_LIBS})
 
 
 # build echo_server
