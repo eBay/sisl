@@ -294,6 +294,8 @@ public:
     void timer_thr() {
         size_t executed = 0;
         executed = m_svc.run();
+        // To suppress compiler warning
+        (void) executed;
     }
 
 private:
