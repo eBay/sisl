@@ -61,7 +61,7 @@ include_directories(${CMAKE_PREFIX_PATH}/include ${PROTO_GEN_DIR})
 
 #boost
 set(Boost_USE_STATIC_LIBS ON)
-find_package(Boost 1.68 REQUIRED COMPONENTS system)
+find_package(Boost 1.67 REQUIRED COMPONENTS system)
 include_directories(${Boost_INCLUDE_DIRS})
 
 add_library(flip ${FLIP_LIB_FILES})
