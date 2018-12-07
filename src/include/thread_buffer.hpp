@@ -11,48 +11,78 @@
 #include "flexarray.hpp"
 #include "sparse_vector.hpp"
 #include "urcu_helper.hpp"
+#include <cxxabi.h>
+#include <cstdio>
 
 namespace fds {
+
+#define MAX_THREADS_FOR_BUFFER        1024
+
+typedef std::function<void(uint32_t)> thread_attach_cb_t;
+
+template <typename T>
+struct DeMangler {
+    static std::string name() {
+        int status;
+        char* realname = abi::__cxa_demangle(typeid(T).name(), 0, 0, &status);
+        std::string str(realname);
+        free(realname);
+
+        return str;
+    }
+};
 
 class ThreadRegistry {
 #define MAX_RUNNING_THREADS 1024
 #define INVALID_CURSOR boost::dynamic_bitset<>::npos
 
   public:
-    ThreadRegistry()
-        : m_free_thread_slots(MAX_RUNNING_THREADS), m_busy_buf_slots(MAX_RUNNING_THREADS),
-          m_bufs_open(MAX_RUNNING_THREADS, 0) {
+    ThreadRegistry() :
+            m_free_thread_slots(MAX_RUNNING_THREADS),
+            m_busy_buf_slots(MAX_RUNNING_THREADS),
+            m_bufs_open(MAX_RUNNING_THREADS, 0) {
         // Mark all slots as free
         m_free_thread_slots.set();
         m_slot_cursor = INVALID_CURSOR;
     }
 
     uint32_t attach() {
-        std::lock_guard<std::mutex> lock(m_init_mutex);
+        uint32_t thread_num;
 
-        // Wrap around to get the next free slot
-        uint32_t thread_num = get_next_free_slot();
+        std::lock_guard <std::mutex> lock(m_init_mutex);
 
-        // Mark the slot as not free
-        m_free_thread_slots.reset(thread_num);
+        {
+            // Wrap around to get the next free slot
+            thread_num = get_next_free_slot();
 
-        char thread_name[256] = {0};
-        size_t len = sizeof(thread_name);
+            // Mark the slot as not free
+            m_free_thread_slots.reset(thread_num);
+
+            char thread_name[256] = {0};
+            size_t len = sizeof(thread_name);
 
 #ifdef _POSIX_THREADS
-        pthread_getname_np(pthread_self(), thread_name, len);
+            pthread_getname_np(pthread_self(), thread_name, len);
 #endif /* _POSIX_THREADS */
-	urcu::urcu_ctl::register_rcu();
+            urcu::urcu_ctl::register_rcu();
+        }
+
+        //std::cout << "ThreadRegistry: Attaching thread " << thread_num << "\n";
+        //printf("ThreadRegistry: Attaching thread %u\n", thread_num);
+	    for (auto cb : m_registered_cbs) {
+	        cb(thread_num);
+	        inc_buf(thread_num);
+	    }
         return thread_num;
     }
 
     void detach(uint32_t thread_num) {
         m_free_thread_slots.set(thread_num);
-	urcu::urcu_ctl::unregister_rcu();
+	    urcu::urcu_ctl::unregister_rcu();
     }
 
     void inc_buf(uint32_t thread_num) {
-        std::lock_guard<std::mutex> lock(m_init_mutex);
+        //std::lock_guard<std::mutex> lock(m_init_mutex);
         assert(!m_free_thread_slots.test(thread_num));
         m_busy_buf_slots.set(thread_num);
         m_bufs_open[thread_num]++;
@@ -61,6 +91,11 @@ class ThreadRegistry {
     void dec_buf(uint32_t thread_num) {
         std::lock_guard<std::mutex> lock(m_init_mutex);
         do_dec_buf(thread_num);
+    }
+
+    void register_new_thread_cb(const std::function<void(uint32_t)> &func) {
+        std::lock_guard <std::mutex> lock(m_init_mutex);
+        m_registered_cbs.push_back(func);
     }
 
     void for_all(std::function<void(uint32_t, bool)> cb) {
@@ -117,29 +152,31 @@ class ThreadRegistry {
     // Number of buffers that are open for a given thread
     boost::dynamic_bitset<> m_busy_buf_slots;
     std::vector<int> m_bufs_open;
+
+    std::vector<thread_attach_cb_t> m_registered_cbs;
 };
 
 #define thread_registry ThreadRegistry::instance()
 
 class ThreadLocalContext {
   public:
-    ThreadLocalContext() { this_thread_num = thread_registry->attach(); }
+    ThreadLocalContext() {
+        this_thread_num = thread_registry->attach();
+        //printf("Created new ThreadLocalContext with thread_num = %u\n", this_thread_num);
+    }
 
     ~ThreadLocalContext() {
         thread_registry->detach(this_thread_num);
         this_thread_num = (uint32_t)-1;
     }
 
-    static ThreadLocalContext* instance() {
-        if (inst == nullptr) { inst = new ThreadLocalContext(); }
-        return inst;
-    }
+    static ThreadLocalContext* instance() { return &inst; }
 
     static uint32_t my_thread_num() { return instance()->this_thread_num; }
     static void set_context(uint32_t context_id, uint64_t context) { instance()->user_contexts[context_id] = context; }
     static uint64_t get_context(uint32_t context_id) { return instance()->user_contexts[context_id]; }
 
-    static thread_local ThreadLocalContext* inst;
+    static thread_local ThreadLocalContext inst;
 
     uint32_t this_thread_num;
     std::array<uint64_t, 5> user_contexts; // To store any user contexts
@@ -147,21 +184,20 @@ class ThreadLocalContext {
 
 #define THREAD_BUFFER_INIT                                                                                             \
     fds::ThreadRegistry fds::ThreadRegistry::inst;                                                                     \
-    thread_local fds::ThreadLocalContext* fds::ThreadLocalContext::inst = nullptr;
+    thread_local fds::ThreadLocalContext fds::ThreadLocalContext::inst;
 
 template <typename T, typename... Args>
 class ThreadBuffer {
   public:
     template <class... Args1>
-    ThreadBuffer(Args1&&... args) : m_args(std::forward<Args1>(args)...) {}
+    ThreadBuffer(Args1&&... args) : m_args(std::forward<Args1>(args)...) {
+        m_buffers.reserve(MAX_THREADS_FOR_BUFFER);
+        thread_registry->register_new_thread_cb(std::bind(&ThreadBuffer::on_new_thread, this, std::placeholders::_1));
+    }
 
     T* get() {
         auto tnum = ThreadLocalContext::my_thread_num();
-        if (is_new_thread()) {
-            std::lock_guard<std::mutex> guard(m_expand_mutex);
-            m_buffers[tnum] = std::make_unique<T>(std::forward<Args>(m_args)...);
-            thread_registry->inc_buf(tnum);
-        }
+        assert(m_buffers[tnum].get() != nullptr);
         return m_buffers[tnum].get();
     }
 
@@ -174,9 +210,9 @@ class ThreadBuffer {
         return m_buffers[n];
     }
 
-    bool is_new_thread() const {
-        auto tnum = ThreadLocalContext::my_thread_num();
-        return (!m_buffers.index_exists(tnum) || (m_buffers[tnum].get() == nullptr));
+    void on_new_thread(uint32_t thread_num) {
+        std::lock_guard<std::mutex> guard(m_expand_mutex);
+        create_buffer(thread_num, m_args, std::index_sequence_for<Args...>());
     }
 
     uint32_t get_count() { return m_buffers.size(); }
@@ -191,6 +227,12 @@ class ThreadBuffer {
     }
 
     void reset() { m_buffers[ThreadLocalContext::my_thread_num()].reset(); }
+
+  private:
+    template<std::size_t... Is>
+    void create_buffer(uint32_t tnum, const std::tuple<Args...>& tuple, std::index_sequence<Is...>) {
+        m_buffers[tnum] = std::make_unique<T>(std::get<Is>(tuple)...);
+    }
 
   private:
     fds::sparse_vector<std::unique_ptr<T>> m_buffers;

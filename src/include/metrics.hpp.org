@@ -39,6 +39,7 @@ enum _publish_as { publish_as_counter, publish_as_gauge, publish_as_histogram, }
 class _counter {
 public:
     _counter() = default;
+    void init() { m_value = 0; }
     void increment (int64_t value = 1)  { m_value += value; }
     void decrement (int64_t value = 1)  { m_value -= value; }
     int64_t get() const { return m_value; }
@@ -52,44 +53,47 @@ private:
 
 class _gauge {
 public:
-    _gauge() : m_value(0) {}
-    _gauge(const std::atomic<int64_t> &oval) : m_value(oval.load(std::memory_order_relaxed)) {}
-    _gauge(const _gauge &other) : m_value(other.get()) {}
-    _gauge &operator=(const _gauge &other) {
-        m_value.store(other.get(), std::memory_order_relaxed);
-        return *this;
+    _gauge() = default;
+    void init() { m_ts = 0; }
+    void update (int64_t value) {
+        auto ts = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+        if (m_ts >= ts) return;
+        m_value = value;
+        m_ts = ts;
     }
-    void update (int64_t value) { m_value.store(value, std::memory_order_relaxed); }
-    int64_t get() const { return m_value.load(std::memory_order_relaxed); }
-
+    int64_t get() const { return m_value; }
+    int64_t merge (const _gauge& other) {
+        if (m_ts < other.m_ts) {
+            this->m_value = other.m_value;
+            this->m_ts = other.m_ts;
+        }
+        return m_value;
+    }
 private:
-    std::atomic<int64_t> m_value;
+    int64_t m_value = 0;
+    int64_t m_ts = 0;
 };
 
 class _histogram {
 public:
-    _histogram() {
-        memset(&m_freqs, 0, sizeof(int64_t) * m_freqs.size());
-        m_sum = 0;
-    }
-
-    void observe(int64_t value) {
+    _histogram() { init(); }
+    void init() { std::fill(m_freqs, m_freqs+HIST_BKT_SIZE, 0); m_sum = 0; }
+    void update (int64_t value) {
         auto lower = std::lower_bound(g_histogram_bucket_specs.begin(), g_histogram_bucket_specs.end(), value);
         auto bkt_idx = lower - g_histogram_bucket_specs.begin();
         m_freqs[bkt_idx]++;
         m_sum += value;
     }
-    void merge(const _histogram& other) {
+    void merge (const _histogram& other) {
         for (auto i = 0U; i < HIST_BKT_SIZE; i++) {
             this->m_freqs[i] += other.m_freqs[i];
         }
         this->m_sum += other.m_sum;
     }
-    auto& getFreqs() const { return m_freqs; }
+    const int64_t* getFreqs() const { return m_freqs; }
     int64_t getSum() const { return m_sum; }
-
 private:
-    std::array<int64_t, HIST_BKT_SIZE> m_freqs;
+    int64_t m_freqs[HIST_BKT_SIZE];
     int64_t m_sum = 0;
 };
 
@@ -98,44 +102,82 @@ typedef std::tuple<size_t, size_t, size_t> metrics_count_tuple;
 class SafeMetrics {
 private:
     _counter   *m_counters   = nullptr;
+    _gauge     *m_gauges     = nullptr;
     _histogram *m_histograms = nullptr;
 
     uint32_t m_ncntrs;
+    uint32_t m_ngauges;
     uint32_t m_nhists;
+    //metrics_count_tuple m_num_metrics;
 
 public:
-    SafeMetrics() : SafeMetrics(0U, 0U) {}
+    //SafeMetrics() : SafeMetrics(std::make_tuple(0UL, 0UL, 0UL)) {}
+    SafeMetrics() : SafeMetrics(0U, 0U, 0U) {}
 
-    SafeMetrics(uint32_t ncntrs, uint32_t nhists) :
-            m_ncntrs(ncntrs), m_nhists(nhists) {
+    SafeMetrics(uint32_t ncntrs, uint32_t ngauges, uint32_t nhists) :
+            m_ncntrs(ncntrs), m_ngauges(ngauges), m_nhists(nhists) {
         m_counters   = new _counter[ncntrs];
+        m_gauges     = new _gauge[ngauges];
         m_histograms = new _histogram[nhists];
 
         memset(m_counters, 0, (sizeof(_counter) * ncntrs));
+        memset(m_gauges, 0, (sizeof(_gauge) * ngauges));
         memset(m_histograms, 0, (sizeof(_histogram) * nhists));
     }
 
+#if 0
+    SafeMetrics(const metrics_count_tuple& num_metrics) :
+            m_num_metrics(num_metrics) {
+        size_t num_cntrs, num_gauges, num_hists;
+        std::tie(num_cntrs, num_gauges, num_hists) = num_metrics;
+
+        m_counters   = new _counter[num_cntrs];
+        m_gauges     = new _gauge[num_gauges];
+        m_histograms = new _histogram[num_hists];
+
+        memset(m_counters, 0, (sizeof(_counter) * num_cntrs));
+        memset(m_gauges, 0, (sizeof(_gauge) * num_gauges));
+        memset(m_histograms, 0, (sizeof(_histogram) * num_hists));
+    }
+#endif
+
     ~SafeMetrics() {
         delete [] m_counters;
+        delete [] m_gauges;
         delete [] m_histograms;
     }
 
     _counter& getCounter (uint64_t index) { return m_counters[index]; }
+    _gauge& getGauge (uint64_t index) { return m_gauges[index]; }
     _histogram& getHistogram (uint64_t index) { return m_histograms[index]; }
 
-    auto getNumMetrics() const { return std::make_tuple(m_ncntrs, m_nhists); }
+    auto getNumMetrics() const { return std::make_tuple(m_ncntrs, m_ngauges, m_nhists); }
 };
+
+#if 0
+class _metrics_buf {
+public:
+    _metrics_buf(const metrics_count_tuple& num_metrics) :
+        m_safe_metrics(num_metrics) {}
+
+    urcu::urcu_ptr<SafeMetrics> getSafe() { return m_safe_metrics.get(); }
+    void rotate() { m_safe_metrics.make_and_exchange(m_safe_metrics.get_node()->get()->getNumMetrics()); }
+
+private:
+    urcu::urcu_data<SafeMetrics> m_safe_metrics;
+};
+#endif
 
 class _metrics_buf {
 public:
-    _metrics_buf(uint32_t ncntrs, uint32_t nhists) :
-            m_safe_metrics(ncntrs, nhists) {}
+    _metrics_buf(uint32_t ncntrs, uint32_t ngauges, uint32_t nhists) :
+            m_safe_metrics(ncntrs, ngauges, nhists) {}
 
     urcu::urcu_ptr<SafeMetrics> getSafe() { return m_safe_metrics.get(); }
     void rotate() {
-        uint32_t ncntrs, nhists;
-        std::tie(ncntrs, nhists) = m_safe_metrics.get_node()->get()->getNumMetrics();
-        m_safe_metrics.make_and_exchange(ncntrs, nhists);
+        uint32_t ncntrs, ngauges, nhists;
+        std::tie(ncntrs, ngauges, nhists) = m_safe_metrics.get_node()->get()->getNumMetrics();
+        m_safe_metrics.make_and_exchange(ncntrs, ngauges, nhists);
     }
 
 private:
@@ -180,7 +222,6 @@ private:
 };
 
 class ReportGauge {
-    friend class MetricsGroup;
 public:
     ReportGauge(const std::string& name, const std::string& desc, const std::string& sub_type) :
             m_name(name),
@@ -198,6 +239,7 @@ public:
     }
 
     uint64_t get() const { return m_gauge.get(); };
+    int64_t merge(const _gauge& other) { return m_gauge.merge(other); }
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
     std::string subType() const { return m_sub_type; }
@@ -268,8 +310,6 @@ public:
         //std::vector<double> vec(std::begin(m_histogram.getFreqs()), std::end(m_histogram.getFreqs()));
         //m_prometheus_hist->Update(vec, m_histogram.m_sum);
     }
-    _histogram& getReportHistogram() { return m_histogram; }
-
 private:
     const std::string m_name, m_desc, m_sub_type;
     _histogram m_histogram;
@@ -277,13 +317,12 @@ private:
 };
 
 typedef std::shared_ptr<MetricsGroup> MetricsGroupPtr;
-typedef fds::ThreadBuffer<_metrics_buf, uint32_t, uint32_t> MetricsThreadBuffer;
+typedef fds::ThreadBuffer<_metrics_buf, uint32_t, uint32_t, uint32_t> MetricsThreadBuffer;
 
 class MetricsResult;
 class MetricsFarm;
 class MetricsGroup {
     friend class MetricsFarm;
-
 public:
 private:
     [[nodiscard]] auto lock() { return std::lock_guard<decltype(m_mutex)>(m_mutex); }
@@ -309,8 +348,16 @@ public:
         return m_histograms.size()-1;
     }
 
-    _counter& getCounter(uint64_t index) { return (*m_buffer)->getSafe()->getCounter(index); }
-    _gauge& getGauge(uint64_t index) { return m_gauges[index].m_gauge; }
+    //_counter& getCounter(uint64_t index) { return (*m_buffer)->getSafe()->getCounter(index); }
+    _counter& getCounter(uint64_t index) {
+        auto b = m_buffer.get(); assert(b != nullptr);
+        auto m = b->get(); assert(m != nullptr);
+        auto s = m->getSafe();
+
+        return s->getCounter(index);
+    }
+
+    _gauge& getGauge(uint64_t index) { return (*m_buffer)->getSafe()->getGauge(index); }
     _histogram& getHistogram(uint64_t index) { return (*m_buffer)->getSafe()->getHistogram(index); }
 
     std::vector<ReportCounter>      m_counters;
@@ -319,7 +366,7 @@ public:
 
 private:
     void on_register() {
-        m_buffer = std::make_unique< MetricsThreadBuffer >(m_counters.size(), m_histograms.size());
+        m_buffer = std::make_unique< MetricsThreadBuffer >(m_counters.size(), m_gauges.size(), m_histograms.size());
     }
     std::unique_ptr<MetricsResult> gather() { return std::make_unique<MetricsResult>(this, *m_buffer); }
 
@@ -335,11 +382,14 @@ public:
         all_buf.access_all_threads([mgroup](_metrics_buf *m) {
             /* get current metrics instance */
             auto metrics = m->getSafe();
-            uint32_t num_cntrs, num_hists;
-            std::tie(num_cntrs, num_hists) = metrics->getNumMetrics();
+            uint32_t num_cntrs, num_gauges, num_hists;
+            std::tie(num_cntrs, num_gauges, num_hists) = metrics->getNumMetrics();
 
             for (auto i = 0U; i < num_cntrs; i++) {
                 mgroup->m_counters[i].merge(metrics->getCounter(i));
+            }
+            for (auto i = 0U; i < num_gauges; i++) {
+                mgroup->m_gauges[i].merge(metrics->getGauge(i));
             }
             for (auto i = 0U; i < num_hists; i++) {
                 mgroup->m_histograms[i].merge(metrics->getHistogram(i));
