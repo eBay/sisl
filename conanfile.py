@@ -4,7 +4,7 @@ from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
     name = "sds_metrics"
-    version = "0.3.3"
+    version = "0.3.4"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/SDS/metrics"
@@ -15,9 +15,10 @@ class MetricsConan(ConanFile):
                "sanitize": ['True', 'False']}
     default_options = 'coverage=False', 'sanitize=False'
 
-    requires = (("sds_logging/3.0.1@sds/stable"),
+    requires = (("sds_logging/3.4.1@sds/testing"),
                 ("gtest/1.8.1@bincrafters/stable"),
-                ("boost_dynamic_bitset/1.66.0@bincrafters/stable"),
+                ("boost_dynamic_bitset/1.67.0@bincrafters/stable"),
+                ("boost_preprocessor/1.67.0@bincrafters/stable"),
                 ("evhtp/1.2.16@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"),
                 ("prometheus-cpp/0.1.2@oss/stable"),
