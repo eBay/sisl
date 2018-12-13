@@ -3,12 +3,12 @@
 from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
-    name = "sds_metrics"
-    version = "0.3.4"
+    name = "sisl_metrics"
+    version = "0.3.5"
 
     license = "Proprietary"
-    url = "https://github.corp.ebay.com/SDS/metrics"
-    description = "Metrics collection project for eBay SDS"
+    url = "https://github.corp.ebay.com/Symbiosis/metrics"
+    description = "High performant metrics collection and reporting library"
 
     settings = "compiler", "build_type"
     options = {"coverage": ['True', 'False'],
