@@ -10,12 +10,13 @@ class MetricsConan(ConanFile):
     url = "https://github.corp.ebay.com/SDS/metrics"
     description = "Metrics collection project for eBay SDS"
 
-    settings = "compiler"
+    settings = "compiler", "build_type"
     options = {"coverage": ['True', 'False'],
                "sanitize": ['True', 'False']}
     default_options = 'coverage=False', 'sanitize=False'
 
-    requires = (("sds_logging/3.0.1@sds/stable"),
+    requires = (("sds_logging/3.2.4@sds/stable"),
+                ("benchmark/1.4.1@oss/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.66.0@bincrafters/stable"),
                 ("evhtp/1.2.16@oss/stable"),
@@ -43,6 +44,9 @@ class MetricsConan(ConanFile):
 
         if self.options.sanitize == 'True':
             definitions['MEMORY_SANITIZER_ON'] = 'ON'
+
+        if self.settings.build_type == 'Debug':
+            definitions['CMAKE_BUILD_TYPE'] = 'Debug'
 
         cmake.configure(defs=definitions)
         cmake.build()

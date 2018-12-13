@@ -19,29 +19,29 @@ MetricsGroupPtr glob_mgroup;
 
 void seqA () {
     std::this_thread::sleep_for (std::chrono::seconds(1));
-    glob_mgroup->getCounter(0).increment();
-    glob_mgroup->getHistogram(0).observe(2);
-    glob_mgroup->getHistogram(0).observe(5);
+    glob_mgroup->counterIncrement(0);
+    glob_mgroup->histogramObserve(0, 2);
+    glob_mgroup->histogramObserve(0, 5);
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
-    glob_mgroup->getHistogram(0).observe(5);
-    glob_mgroup->getCounter(1).increment();
-    glob_mgroup->getGauge(0).update(2);
+    glob_mgroup->histogramObserve(0, 5);
+    glob_mgroup->counterIncrement(1);
+    glob_mgroup->gaugeUpdate(0, 2);
 }
 
 void seqB () {
-    glob_mgroup->getCounter(0).increment();
-    glob_mgroup->getCounter(1).increment();
+    glob_mgroup->counterIncrement(0);
+    glob_mgroup->counterIncrement(1);
 
     std::this_thread::sleep_for (std::chrono::seconds(3));
 
-    glob_mgroup->getCounter(0).decrement(2);
-    glob_mgroup->getCounter(1).decrement();
+    glob_mgroup->counterDecrement(0, 2);
+    glob_mgroup->counterDecrement(1);
 
     std::this_thread::sleep_for (std::chrono::seconds(1));
 
-    glob_mgroup->getGauge(0).update(5);
+    glob_mgroup->gaugeUpdate(0, 5);
 }
 
 std::string expected[ITERATIONS] = {
@@ -60,7 +60,7 @@ uint64_t delay[ITERATIONS] = {2,4};
 void gather () {
     for (auto i = 0U; i < ITERATIONS; i++) {
         std::this_thread::sleep_for (std::chrono::seconds(delay[i]));
-        auto output = metrics::MetricsFarm::getInstance()->gather();
+        auto output = metrics::MetricsFarm::getInstance().getResultInJSONString();
         output.erase( std::remove_if( output.begin(), output.end(),
                     [l = std::locale{}](auto ch) { return std::isspace(ch, l); }),
                 output.end());
@@ -93,7 +93,7 @@ int main(int argc, char* argv[]) {
 
     glob_mgroup->registerHistogram( "hist", " for test", "" );
 
-    metrics::MetricsFarm::getInstance()->registerMetricsGroup(glob_mgroup);
+    metrics::MetricsFarm::getInstance().registerMetricsGroup(glob_mgroup);
 
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

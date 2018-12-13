@@ -96,6 +96,14 @@ class ThreadRegistry {
     void register_new_thread_cb(const std::function<void(uint32_t)> &func) {
         std::lock_guard <std::mutex> lock(m_init_mutex);
         m_registered_cbs.push_back(func);
+
+        // This callback needs to be called for existing running threads as well.
+        auto tnum = m_busy_buf_slots.find_first();
+        while (tnum != INVALID_CURSOR) {
+            bool thread_exited = m_free_thread_slots.test(tnum);
+            if (!thread_exited) func(tnum);
+            tnum = m_busy_buf_slots.find_next(tnum);
+        }
     }
 
     void for_all(std::function<void(uint32_t, bool)> cb) {

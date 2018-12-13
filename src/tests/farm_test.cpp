@@ -18,14 +18,14 @@ void userA () {
     mgroup->registerCounter( "counter2", " for test", "" );
     mgroup->registerCounter( "counter3", " for test", "" );
 
-    metrics::MetricsFarm::getInstance()->registerMetricsGroup(mgroup);
+    metrics::MetricsFarm::getInstance().registerMetricsGroup(mgroup);
 
-    mgroup->getCounter(0).increment();
-    mgroup->getCounter(2).increment(4);
+    mgroup->counterIncrement(0);
+    mgroup->counterIncrement(2, 4);
     std::this_thread::sleep_for (std::chrono::seconds(3));
-    mgroup->getCounter(1).increment();
+    mgroup->counterIncrement(1);
     std::this_thread::sleep_for (std::chrono::seconds(2));
-    metrics::MetricsFarm::getInstance()->deregisterMetricsGroup(mgroup);
+    metrics::MetricsFarm::getInstance().deregisterMetricsGroup(mgroup);
 }
 
 void userB () {
@@ -34,14 +34,14 @@ void userB () {
     auto mgroup = std::make_shared<metrics::MetricsGroup>();
     mgroup->registerGauge( "gauge1", " for test", "" );
     mgroup->registerGauge( "gauge2", " for test", "" );
-    metrics::MetricsFarm::getInstance()->registerMetricsGroup(mgroup);
+    metrics::MetricsFarm::getInstance().registerMetricsGroup(mgroup);
 
-    mgroup->getGauge(0).update(5);
+    mgroup->gaugeUpdate(0, 5);
     std::this_thread::sleep_for (std::chrono::seconds(3));
-    mgroup->getGauge(1).update(2);
-    mgroup->getGauge(0).update(3);
+    mgroup->gaugeUpdate(1, 2);
+    mgroup->gaugeUpdate(0, 3);
     std::this_thread::sleep_for (std::chrono::seconds(2));
-    metrics::MetricsFarm::getInstance()->deregisterMetricsGroup(mgroup);
+    metrics::MetricsFarm::getInstance().deregisterMetricsGroup(mgroup);
 }
 
 std::string expected[ITERATIONS] = {
@@ -64,7 +64,7 @@ uint64_t delay[ITERATIONS] = {2, 2, 3, 3};
 void gather () {
     for (auto i = 0U; i < ITERATIONS; i++) {
         std::this_thread::sleep_for (std::chrono::seconds(delay[i]));
-        auto output = metrics::MetricsFarm::getInstance()->gather();
+        auto output = metrics::MetricsFarm::getInstance().getResultInJSONString();
         output.erase( std::remove_if( output.begin(), output.end(),
                     [l = std::locale{}](auto ch) { return std::isspace(ch, l); }),
                 output.end());
