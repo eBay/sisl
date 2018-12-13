@@ -23,7 +23,7 @@
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/stringize.hpp>
 
-namespace metrics {
+namespace sisl { namespace metrics {
 
 #if 0
 std::once_flag is_bktset_present;
@@ -741,4 +741,4 @@ public:
 }
 #endif
 
-}
+} } // namespace sisl::metrics

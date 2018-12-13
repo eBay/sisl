@@ -12,7 +12,8 @@ RCU_REGISTER_INIT;
 #define ITERATIONS 100000
 #define THREADS    8
 
-using namespace metrics;
+using namespace sisl;
+using namespace sisl::metrics;
 
 #define NGAUGES     50
 #define NCOUNTERS   50
@@ -194,7 +195,7 @@ void test_metrics_read_rcu(benchmark::State& state) {
     std::string str;
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
-        benchmark::DoNotOptimize(str = metrics::MetricsFarm::getInstance().getResultInJSON());
+        benchmark::DoNotOptimize(str = metrics::MetricsFarm::getInstance().getResultInJSONString());
     }
 }
 

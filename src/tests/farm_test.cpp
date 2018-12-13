@@ -12,6 +12,8 @@
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
+using namespace sisl;
+
 void userA () {
     auto mgroup = std::make_shared<metrics::MetricsGroup>();
     mgroup->registerCounter( "counter1", " for test", "" );

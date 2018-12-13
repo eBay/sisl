@@ -16,7 +16,8 @@
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
-using namespace metrics;
+using namespace sisl;
+using namespace sisl::metrics;
 
 class TreeMetrics : public MetricsGroupWrapper {
 public:

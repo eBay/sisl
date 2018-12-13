@@ -7,7 +7,7 @@
 
 #include <vector>
 
-namespace metrics {
+namespace sisl { namespace metrics {
 typedef std::vector<double> hist_bucket_boundaries_t;
 
 /* For any new histogram buckets, define a name and its values here */
@@ -71,5 +71,5 @@ public:
 
 };
 
-}
+} }
 #endif //METRICS_HISTOGRAM_BUCKETS_HPP
