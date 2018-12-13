@@ -46,14 +46,18 @@ void seqB () {
 }
 
 std::string expected[ITERATIONS] = {
-    "{\"Counters\":{\"counter1 for test\":2,\"counter2 for test\":1,\
-        \"counter3 for test\":0},\"Gauges\":{\"gauge1 for test\":0,\
-        \"gauge2 for test\":0},\"Histograms percentiles (usecs) \
-        avg/50/95/99\":{\"hist for test\":\"3 / 0 / 0 / 0\"}}",
-    "{\"Counters\":{\"counter1 for test\":0,\"counter2 for test\":1,\
-        \"counter3 for test\":0},\"Gauges\":{\"gauge1 for test\":5,\
-        \"gauge2 for test\":0},\"Histograms percentiles (usecs) \
-        avg/50/95/99\":{\"hist for test\":\"4 / 0 / 0 / 0\"}}"
+    R"result({"metrics_group_0": {
+                "Counters":{"Counter1":2,"Counter2":1,"Counter3":0},
+                "Gauges":{"Gauge1":0,"Gauge2":0},
+                "Histogramspercentiles(usecs)avg/50/95/99":{"Histogram1":"3/0/0/0"}
+                }
+            })result",
+    R"result({"metrics_group_0":{
+                "Counters":{"Counter1":0,"Counter2":1,"Counter3":0},
+                "Gauges":{"Gauge1":5,"Gauge2":0},
+                "Histogramspercentiles(usecs)avg/50/95/99":{"Histogram1":"4/0/0/0"}
+                }
+            })result"
 };
 
 uint64_t delay[ITERATIONS] = {2,4};
@@ -85,14 +89,14 @@ TEST(functionalityTest, gather) {
 int main(int argc, char* argv[]) {
     glob_mgroup = metrics::MetricsGroup::make_group();
 
-    glob_mgroup->registerCounter( "counter1", " for test", "" );
-    glob_mgroup->registerCounter( "counter2", " for test", "" );
-    glob_mgroup->registerCounter( "counter3", " for test", "" );
+    glob_mgroup->registerCounter( "counter1", "Counter1", "" );
+    glob_mgroup->registerCounter( "counter2", "Counter2", "" );
+    glob_mgroup->registerCounter( "counter3", "Counter3", "" );
 
-    glob_mgroup->registerGauge( "gauge1", " for test", "" );
-    glob_mgroup->registerGauge( "gauge2", " for test", "" );
+    glob_mgroup->registerGauge( "gauge1", "Gauge1", "" );
+    glob_mgroup->registerGauge( "gauge2", "Gauge2", "" );
 
-    glob_mgroup->registerHistogram( "hist", " for test", "" );
+    glob_mgroup->registerHistogram( "hist", "Histogram1", "" );
 
     metrics::MetricsFarm::getInstance().registerMetricsGroup(glob_mgroup);
 

@@ -16,9 +16,9 @@ using namespace sisl;
 
 void userA () {
     auto mgroup = std::make_shared<metrics::MetricsGroup>();
-    mgroup->registerCounter( "counter1", " for test", "" );
-    mgroup->registerCounter( "counter2", " for test", "" );
-    mgroup->registerCounter( "counter3", " for test", "" );
+    mgroup->registerCounter( "counter1", "Counter1", "" );
+    mgroup->registerCounter( "counter2", "Counter2", "" );
+    mgroup->registerCounter( "counter3", "Counter3", "" );
 
     metrics::MetricsFarm::getInstance().registerMetricsGroup(mgroup);
 
@@ -34,8 +34,8 @@ void userB () {
     std::this_thread::sleep_for (std::chrono::seconds(3));
 
     auto mgroup = std::make_shared<metrics::MetricsGroup>();
-    mgroup->registerGauge( "gauge1", " for test", "" );
-    mgroup->registerGauge( "gauge2", " for test", "" );
+    mgroup->registerGauge( "gauge1", "Gauge1", "" );
+    mgroup->registerGauge( "gauge2", "Gauge2", "" );
     metrics::MetricsFarm::getInstance().registerMetricsGroup(mgroup);
 
     mgroup->gaugeUpdate(0, 5);
@@ -47,18 +47,10 @@ void userB () {
 }
 
 std::string expected[ITERATIONS] = {
-    "{\"Counters\":{\"counter1 for test\":1,\"counter2 for test\":0,\
-        \"counter3 for test\":4},\"Gauges\":null,\"Histograms percentiles \
-        (usecs) avg/50/95/99\":null}",
-    "{\"Counters\":{\"counter1 for test\":1,\"counter2 for test\":1,\
-        \"counter3 for test\":4},\"Gauges\":{\"gauge1 for test\":5,\
-        \"gauge2 for test\":0},\"Histograms percentiles (usecs) \
-        avg/50/95/99\":null}",
-    "{\"Counters\":null,\"Gauges\":{\"gauge1 for test\":3,\
-        \"gauge2 for test\":2},\"Histograms percentiles (usecs) \
-        avg/50/95/99\":null}",
-    "{\"Counters\":null,\"Gauges\":null,\"Histograms percentiles (usecs) \
-        avg/50/95/99\":null}"
+    R"result({"metrics_group_0":{"Counters":{"Counter1":1,"Counter2":0,"Counter3":4},"Gauges":null,"Histogramspercentiles(usecs)avg/50/95/99":null}})result",
+    R"result({"metrics_group_0":{"Counters":{"Counter1":1,"Counter2":1,"Counter3":4},"Gauges":null,"Histogramspercentiles(usecs)avg/50/95/99":null}})result",
+    R"result({"metrics_group_0":{"Counters":null,"Gauges":{"Gauge1":3,"Gauge2":2},"Histogramspercentiles(usecs)avg/50/95/99":null}})result",
+    "null"
 };
 
 uint64_t delay[ITERATIONS] = {2, 2, 3, 3};
