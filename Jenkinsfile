@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+
+    environment {
+        PROJECT = 'sisl_metrics'
+        CONAN_CHANNEL = 'testing'
+        CONAN_USER = 'sisl'
+        CONAN_PASS = credentials('CONAN_PASS')
+    }
+
+    stages {
+        stage('Get Version') {
+            steps {
+                script {
+                    TAG = sh(script: "grep -m 1 'version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh "docker build --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${TAG} ."
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh "docker create --name ${PROJECT}-${TAG}_coverage ${PROJECT}-${TAG}"
+                sh "docker cp ${PROJECT}-${TAG}_coverage:/output/coverage.xml coverage.xml"
+                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '0, 0, 0', fileCoverageTargets: '0, 0, 0', lineCoverageTargets: '0, 0, 0', maxNumberOfBuilds: 0, sourceEncoding: 'ASCII', zoomCoverageChart: false
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch "${CONAN_CHANNEL}/*"
+            }
+            steps {
+                sh "docker run --rm ${PROJECT}-${TAG}"
+                slackSend channel: '#conan-pkgs', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has been uploaded to conan repo."
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rmi -f ${PROJECT}-${TAG}"
+            sh "docker rm -f ${PROJECT}-${TAG}_coverage"
+        }
+    }
+}
