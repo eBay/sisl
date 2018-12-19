@@ -231,17 +231,6 @@ protected:
         return EVHTP_RES_OK;
     }
 
-#if 0
-    void _default_request_handler(evhtp_request_t* req) {
-        auto it = m_handlers.find(handler_info(req->uri->path->full);
-        if (it == m_handlers.end()) {
-            http_NOTOK(req, EVHTP_RES_BADREQ, "Request can't be matched with any handlers\n");
-        } else {
-            it->m_callback(req, it->m_arg);
-        }
-    }
-#endif
-
     static void default_request_handler(evhtp_request_t* req, void* arg) {
         HttpServer *server = (HttpServer *)arg;
         HttpCallData cd = new _http_calldata(req, arg);
