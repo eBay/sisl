@@ -142,10 +142,10 @@ public:
             return -1;
         }
 
-        // TODO: Replace this with conditional variable
-        do {
-            sleep(10);
-        } while (!m_is_ready);
+        {
+            std::unique_lock <std::mutex> lk(m_mutex);
+            m_ready_cv.wait(lk, [this] { return (m_is_running); });
+        }
         return 0;
     }
 
@@ -189,41 +189,23 @@ public:
         event_active(m_internal_event, EV_READ|EV_WRITE, 1);
     }
 
-    void http_NOTOK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
-        nlohmann::json json = {{"errorCode", http_code}, {"errorDetail", msg}};
-        std::string json_str = json.dump();
-        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", "application/json", 0, 0));
-
-        std::stringstream ss;
-        ss << json_str.size();
-        /* valloc should be 1 because ss.str().c_str() is freed once control goes out of this function */
-        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
-
-        evbuffer_add(req->buffer_out, json_str.c_str(), json_str.size());
-        evhtp_send_reply(req, http_code);
+    void respond_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg,
+            const char* content_type = "application/json") {
+        if (std::this_thread::get_id() == m_http_thread->get_id()) {
+            http_OK(req, http_code, msg, content_type);
+        } else {
+            run_in_http_thread([req, http_code, msg, content_type, this]() {
+                http_OK(req, http_code, msg, content_type);
+            });
+        }
     }
 
-    void http_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg, const char* content_type) {
-        auto conn = evhtp_request_get_connection(req);
-        if (m_cfg.is_tls_enabled) {
-            htp_sslutil_add_xheaders(req->headers_out, conn->ssl, HTP_SSLUTILS_XHDR_ALL);
+    void respond_NOTOK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
+        if (std::this_thread::get_id() == m_http_thread->get_id()) {
+            http_NOTOK(req, http_code, msg);
+        } else {
+            run_in_http_thread([&]() { http_NOTOK(req, http_code, msg); });
         }
-        if (content_type) {
-            evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", content_type, 0, 0));
-        }
-
-        std::stringstream ss;
-        ss << msg.size();
-        /* valloc should be 1 because ss.str().c_str() is freed once control goes out
-         * of this function */
-        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
-
-        evbuffer_add(req->buffer_out, msg.c_str(), msg.size());
-        evhtp_send_reply(req, http_code);
-    }
-
-    void http_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
-        http_OK(req, EVHTP_RES_OK, msg, "application/json");
     }
 
 #define request_callback(cb) (evhtp_callback_cb)std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)
@@ -240,9 +222,9 @@ protected:
     }
 
     void _default_request_handler(evhtp_request_t* req) {
-        auto it = m_handlers.find(_request_handler(req->uri->path->path));
+        auto it = m_handlers.find(_request_handler(req->uri->path->full));
         if (it == m_handlers.end()) {
-            http_NOTOK(req, EVHTP_RES_BADREQ, "Request can't be matched with any handlers");
+            http_NOTOK(req, EVHTP_RES_BADREQ, "Request can't be matched with any handlers\n");
         } else {
             it->m_callback(req, it->m_arg);
         }
@@ -422,20 +404,6 @@ private:
         }
         evhtp_set_gencb(m_htp, (evhtp_callback_cb)default_request_handler, (void *)this);
 
-#if 0
-        // register pipe event handler
-        struct event* pipe_event =
-                event_new(m_ev_base, m_pipefd[0], EV_READ | EV_PERSIST, &AdminServer::pipe_event_handler, this);
-
-        error = event_add(pipe_event, nullptr);
-        if (error != 0) {
-            LOG(ERROR) << "Adding pipe event failed!";
-            evhtp_free(m_htp);
-            event_base_free(m_ev_base);
-            return error;
-        }
-#endif
-
         // bind a socket
         error = evhtp_bind_socket(m_htp, m_cfg.bind_address.c_str(), uint16_t(m_cfg.server_port), 128);
         if (error != 0) {
@@ -448,7 +416,13 @@ private:
         }
 
         LOGINFO("HTTP Server started at port: {}", m_cfg.server_port);
-        m_is_ready = true;
+
+        // Notify the caller that we are ready.
+        {
+            std::lock_guard <std::mutex> lk(m_mutex);
+            m_is_running = true;
+        }
+        m_ready_cv.notify_one();
 
         // start event loop, this will block the thread.
         error = event_base_loop(m_ev_base, 0);
@@ -456,15 +430,13 @@ private:
             LOGERROR("Error starting Http listener loop");
         }
 
-        m_is_ready = false;
+        m_is_running = false;
 
         // free the resources
         evhtp_unbind_socket(m_htp);
 
-#if 0
         // free pipe event
-        event_free(pipe_event);
-#endif
+        event_free(m_internal_event);
 
         // free evhtp
         evhtp_free(m_htp);
@@ -499,46 +471,47 @@ private:
 
     }
 
+    void http_NOTOK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
+        nlohmann::json json = {{"errorCode", http_code}, {"errorDetail", msg}};
+        std::string json_str = json.dump();
+        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", "application/json", 0, 0));
+
+        std::stringstream ss;
+        ss << json_str.size();
+        /* valloc should be 1 because ss.str().c_str() is freed once control goes out of this function */
+        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
+
+        evbuffer_add(req->buffer_out, json_str.c_str(), json_str.size());
+        evhtp_send_reply(req, http_code);
+    }
+
+    void http_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg, const char* content_type) {
+        auto conn = evhtp_request_get_connection(req);
+        if (m_cfg.is_tls_enabled) {
+            htp_sslutil_add_xheaders(req->headers_out, conn->ssl, HTP_SSLUTILS_XHDR_ALL);
+        }
+        if (content_type) {
+            evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", content_type, 0, 0));
+        }
+
+        std::stringstream ss;
+        ss << msg.size();
+        /* valloc should be 1 because ss.str().c_str() is freed once control goes out
+         * of this function */
+        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
+
+        evbuffer_add(req->buffer_out, msg.c_str(), msg.size());
+        evhtp_send_reply(req, http_code);
+    }
+
+    void http_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
+        http_OK(req, EVHTP_RES_OK, msg, "application/json");
+    }
+
     static void internal_event_handler(evutil_socket_t socket, short events, void *user_data) {
         HttpServer *server = (HttpServer *)user_data;
         server->_internal_event_handler(socket, events);
     }
-
-#if 0
-    void register_request_handlers() {
-#define EVHTP_SET_CB(a, b) evhtp_set_cb(m_htp, (a), (evhtp_callback_cb)(b), nullptr);
-
-        EVHTP_SET_CB("/api/v1/setLogLevel", monstor::HttpRequestHandler::log_level_handler);
-        EVHTP_SET_CB("/api/v1/getSettings", monstor::HttpRequestHandler::get_settings_handler);
-        EVHTP_SET_CB("/api/v1/getGsiSchema", monstor::HttpRequestHandler::get_gsi_schema_handler);
-        EVHTP_SET_CB("/api/v1/pauseWrite", monstor::HttpRequestHandler::pause_write_handler);
-        EVHTP_SET_CB("/api/v1/resumeWrite", monstor::HttpRequestHandler::resume_write_handler);
-        EVHTP_SET_CB("/api/v1/switch", monstor::HttpRequestHandler::switch_handler);
-        EVHTP_SET_CB("/api/v1/ping", monstor::HttpRequestHandler::ping_handler);
-        EVHTP_SET_CB("/api/v1/reloadCheckpoint", monstor::HttpRequestHandler::reload_checkpoint_handler);
-        EVHTP_SET_CB("/api/v1/ismaster", monstor::HttpRequestHandler::is_master_handler);
-        EVHTP_SET_CB("/api/v1/version", monstor::HttpRequestHandler::version_handler);
-        EVHTP_SET_CB("/api/v1/reloadSettings", monstor::HttpRequestHandler::reload_settings_handler);
-        EVHTP_SET_CB("/api/v1/requestHeartbeat", monstor::HttpRequestHandler::request_heartbeat_handler);
-        EVHTP_SET_CB("/api/v1/dumpTransactionTable", monstor::HttpRequestHandler::dump_transaction_table);
-        EVHTP_SET_CB("/api/v1/getCheckpointRanges", monstor::HttpRequestHandler::get_checkpoint_ranges);
-        EVHTP_SET_CB("/api/v1/validateCheckpointRanges", monstor::HttpRequestHandler::validate_checkpoint_ranges);
-        EVHTP_SET_CB("/api/v1/getLastSettingsError", monstor::HttpRequestHandler::get_last_settings_error);
-        EVHTP_SET_CB("/api/v1/getStatus", monstor::HttpRequestHandler::get_monstordb_status);
-        EVHTP_SET_CB("/api/v1/triggerCompaction", monstor::HttpRequestHandler::trigger_compaction);
-        EVHTP_SET_CB("/api/v1/getMetrics", monstor::HttpRequestHandler::get_metrics);
-        EVHTP_SET_CB("/api/v1/setCheckpoint", monstor::HttpRequestHandler::set_checkpoint);
-        EVHTP_SET_CB("/api/v1/getCheckpoint", monstor::HttpRequestHandler::get_checkpoint);
-        EVHTP_SET_CB("/api/v1/getMongoUsername", monstor::HttpRequestHandler::get_mongo_username);
-        EVHTP_SET_CB("/api/v1/streamStatus", monstor::HttpRequestHandler::get_stream_status);
-        EVHTP_SET_CB("/api/v1/resumeStreaming", monstor::HttpRequestHandler::resume_streaming);
-        EVHTP_SET_CB("/api/v1/freezeStreaming", monstor::HttpRequestHandler::freeze_streaming);
-        EVHTP_SET_CB("/api/v1/threadDump", monstor::HttpRequestHandler::thread_dump);
-        EVHTP_SET_CB("/api/v1/checkRCUReclamation", monstor::HttpRequestHandler::check_rcu_reclamation);
-
-        evhtp_set_gencb(m_htp, (evhtp_callback_cb)monstor::HttpRequestHandler::unknown_request_handler, nullptr);
-    }
-#endif
 
     std::unique_ptr<evhtp_ssl_cfg_t> get_ssl_opts_() {
         struct stat f_stat;
@@ -565,18 +538,10 @@ private:
         return std::move(ssl_config);
     }
 
-#if 0
-    static void pipe_event_handler(evutil_socket_t fd, short event, void* arg);
-#endif
-
 private:
     HttpServerConfig m_cfg;
     std::unique_ptr<std::thread> m_http_thread;
     std::set< _request_handler > m_handlers;
-
-#if 0
-    int m_pipefd[2];
-#endif
 
     // Maintaining a list of pipe events because multiple threads could add events at the same time.
     // Additions and deletions from this list are protected by m_mutex defined .
@@ -587,7 +552,8 @@ private:
     evhtp_t* m_htp;
     struct event *m_internal_event;
 
-    bool m_is_ready = false;
+    bool m_is_running = false;
+    std::condition_variable m_ready_cv;
 };
 
 }; // namespace sisl
