@@ -23,6 +23,7 @@
 #include <boost/filesystem.hpp>
 #include <sds_logging/logging.h>
 #include <boost/intrusive/slist.hpp>
+#include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include "utility/thread_factory.hpp"
 #include "utility/obj_life_counter.hpp"
 
@@ -30,57 +31,7 @@ SDS_LOGGING_DECL(httpserver_lmod)
 
 namespace sisl {
 
-#if 0
-/*
- * This class wraps the evhtp_request_t object and makes it cancelable
- *
- * evhtp_request_t object could freed while db request is pending, when the db request finishes we send the response
- * only if the request is not already cancelled. Request could be cancelled on client timeout or socket error.
- *
- * Usage:
- * On every new http request, create an instance of this class
- *      auto creq = new CancelableRequest(request);
- *
- * Once the request is processed, check if the creq was already cancelled, if so do not send response
- *      if (creq->is_cancelled()) return;
- *
- * Cancel the request when the request is finished
- *      evhtp_res request_fini_handler(evhtp_request_t* req, void* arg) {
- *          ...
- *          ...
- *          auto *creq = (CancelableRequest*)req->cbarg;
- *          creq->cancel();
- *          ...
- *      }
- *
- * Note: request_fini_handler is called always for all request, even when the request is timed out by client
- * */
-struct CancelableRequest : public boost::intrusive_ref_counter<CancelableRequest>,
-            public sisl::fds::ObjLifeCounter<CancelableRequest> {
-
-    std::atomic<bool> cancelled;
-
-    evhtp_request_t* request;
-
-    CancelableRequest(evhtp_request_t* r) : cancelled(false), request(r) {
-        r->cbarg = ref();
-    }
-
-    CancelableRequest* ref() {
-        intrusive_ptr_add_ref(this);
-        return this;
-    }
-
-    void cancel() {
-        cancelled = true;
-    }
-
-    bool is_cancelled() const {
-        return cancelled;
-    }
-};
-#endif
-
+////////////////////// Config Definitions //////////////////////
 struct HttpServerConfig {
     bool            is_tls_enabled;
     std::string     tls_cert_path;
@@ -90,33 +41,78 @@ struct HttpServerConfig {
     uint32_t        read_write_timeout_secs;
 };
 
+////////////////////// Internal Event Definitions //////////////////////
 enum event_type_t {
     CALLBACK,
 };
-
 struct HttpEvent : public boost::intrusive::slist_base_hook<> {
     event_type_t          m_event_type;
     std::function<void()> m_closure;
 };
+typedef boost::intrusive::slist< HttpEvent, boost::intrusive::cache_last<true> > EventList;
 
-struct _request_handler {
-    std::string       m_uri;
-    evhtp_callback_cb m_callback;
-    void*             m_arg;
+////////////////////// API CallData Definitions //////////////////////
+struct _http_calldata : public boost::intrusive_ref_counter< _http_calldata >, sisl::ObjLifeCounter< _http_calldata > {
+public:
+    friend class HttpServer;
 
-    _request_handler(const std::string& uri, evhtp_callback_cb cb = nullptr, void *arg = nullptr) :
-        m_uri(uri), m_callback(cb), m_arg(arg) {}
+    _http_calldata(evhtp_request_t* req, void* arg = nullptr) :
+            m_req(req),
+            m_completed(false),
+            m_arg(arg),
+            m_http_code(EVHTP_RES_OK),
+            m_content_type("application/json") {
+        m_req->cbarg = (void *)this;
+    }
 
-    bool operator<(const _request_handler& other) const {
+    void set_response(evhtp_res code, const std::string& msg) {
+        m_http_code = code;
+        m_response_msg = msg;
+    }
+
+    void complete() { m_completed = true; }
+    bool is_completed() const { return m_completed; }
+    evhtp_request_t *request() { return m_req; }
+    void* cookie() { return m_arg; }
+
+private:
+    evhtp_request_t *m_req;
+    bool m_completed;
+    void *m_arg;
+    std::string m_response_msg;
+    evhtp_res m_http_code;
+    const char *m_content_type;
+};
+
+typedef boost::intrusive_ptr< _http_calldata > HttpCallData;
+
+////////////////////// Handler Definitions //////////////////////
+typedef std::function<void(HttpCallData)> HttpRequestHandler;
+struct _handler_info {
+    std::string        m_uri;
+    evhtp_callback_cb  m_callback;
+    void*              m_arg;
+
+    _handler_info(const std::string& uri, evhtp_callback_cb cb, void *arg = nullptr) :
+            m_uri(uri), m_callback(cb), m_arg(arg) {}
+
+    bool operator<(const _handler_info& other) const {
         return m_uri < other.m_uri;
     }
 };
 
-typedef boost::intrusive::slist< HttpEvent, boost::intrusive::cache_last<true> > EventList;
+template <void (*Handler)(HttpCallData)>
+static void _request_handler(evhtp_request_t* req, void* arg) {
+    HttpCallData cd = new _http_calldata(req, arg);
+    Handler(cd);
+}
 
+#define handler_info(uri, cb, arg) sisl::_handler_info(uri, sisl::_request_handler< cb >, arg)
+
+////////////////////// Server Implementation //////////////////////
 class HttpServer {
 public:
-    HttpServer(const HttpServerConfig& cfg, const std::set< _request_handler > &handlers) :
+    HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info > &handlers) :
             m_cfg(cfg),
             m_handlers(handlers),
             m_ev_base(nullptr),
@@ -135,7 +131,6 @@ public:
 
     int start() {
         try {
-            // m_admin_thread = std::make_unique<monstor::thread>("admin_thread", &AdminServer::_run, this);
             m_http_thread = sisl::make_unique_thread("httpserver", &HttpServer::_run, this);
         } catch (std::system_error& e) {
             LOGERROR("Thread creation failed: {} ", e.what());
@@ -168,8 +163,8 @@ public:
         return 0;
     }
 
-    void register_request_handler(const std::string& uri, evhtp_callback_cb &handler, void *arg) {
-        m_handlers.emplace(uri, handler, arg);
+    void register_handler_info(const _handler_info& hinfo) {
+        evhtp_set_cb(m_htp, hinfo.m_uri.c_str(), hinfo.m_callback, hinfo.m_arg);
     }
 
     // Commands for admin/diagnostic purposes
@@ -189,22 +184,37 @@ public:
         event_active(m_internal_event, EV_READ|EV_WRITE, 1);
     }
 
-    void respond_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg,
+    void respond_OK(HttpCallData cd, evhtp_res http_code, const std::string& msg,
             const char* content_type = "application/json") {
+        cd->m_http_code = http_code;
+        cd->m_response_msg = msg;
+        cd->m_content_type = content_type;
+        respond_OK(cd);
+    }
+
+    void respond_NOTOK(HttpCallData cd, evhtp_res http_code, const std::string& msg) {
+        cd->m_http_code = http_code;
+        cd->m_response_msg = msg;
+        respond_OK(cd);
+    }
+
+    void respond_OK(HttpCallData cd) {
         if (std::this_thread::get_id() == m_http_thread->get_id()) {
-            http_OK(req, http_code, msg, content_type);
+            http_OK(cd);
         } else {
-            run_in_http_thread([req, http_code, msg, content_type, this]() {
-                http_OK(req, http_code, msg, content_type);
+            run_in_http_thread([this, cd]() {
+                http_OK(cd);
             });
         }
     }
 
-    void respond_NOTOK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
+    void respond_NOTOK(HttpCallData cd) {
         if (std::this_thread::get_id() == m_http_thread->get_id()) {
-            http_NOTOK(req, http_code, msg);
+            http_NOTOK(cd);
         } else {
-            run_in_http_thread([&]() { http_NOTOK(req, http_code, msg); });
+            run_in_http_thread([this, cd]() {
+                http_NOTOK(cd);
+            });
         }
     }
 
@@ -221,18 +231,21 @@ protected:
         return EVHTP_RES_OK;
     }
 
+#if 0
     void _default_request_handler(evhtp_request_t* req) {
-        auto it = m_handlers.find(_request_handler(req->uri->path->full));
+        auto it = m_handlers.find(handler_info(req->uri->path->full);
         if (it == m_handlers.end()) {
             http_NOTOK(req, EVHTP_RES_BADREQ, "Request can't be matched with any handlers\n");
         } else {
             it->m_callback(req, it->m_arg);
         }
     }
+#endif
 
     static void default_request_handler(evhtp_request_t* req, void* arg) {
         HttpServer *server = (HttpServer *)arg;
-        server->_default_request_handler(req);
+        HttpCallData cd = new _http_calldata(req, arg);
+        server->respond_NOTOK(cd, EVHTP_RES_BADREQ, "Request can't be matched with any handlers\n");
     }
 
 #if 0
@@ -327,12 +340,10 @@ protected:
         }
         LOGINFOMOD(httpserver_lmod, "Finishing req={}, path={}", (void *)req, path);
 
-#if 0
-        if (req->cbarg != NULL) {
-            auto creq = (CancelableRequest*)req->cbarg;
-            creq->cancel();
+        if (req->cbarg != nullptr) {
+            _http_calldata *cd = (_http_calldata *)req->cbarg;
+            cd->complete();
         }
-#endif
         return EVHTP_RES_OK;
     }
 
@@ -471,8 +482,31 @@ private:
 
     }
 
-    void http_NOTOK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
-        nlohmann::json json = {{"errorCode", http_code}, {"errorDetail", msg}};
+    void http_OK(HttpCallData cd) {
+        evhtp_request_t* req = cd->request();
+
+        auto conn = evhtp_request_get_connection(req);
+        if (m_cfg.is_tls_enabled) {
+            htp_sslutil_add_xheaders(req->headers_out, conn->ssl, HTP_SSLUTILS_XHDR_ALL);
+        }
+        if (cd->m_content_type) {
+            evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", cd->m_content_type, 0, 0));
+        }
+
+        std::stringstream ss;
+        ss << cd->m_response_msg.size();
+
+        /* valloc should be 1 because ss.str().c_str() is freed once control goes out
+         * of this function */
+        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
+        evbuffer_add(req->buffer_out, cd->m_response_msg.c_str(), cd->m_response_msg.size());
+        evhtp_send_reply(req, cd->m_http_code);
+    }
+
+    void http_NOTOK(HttpCallData cd) {
+        evhtp_request_t* req = cd->request();
+
+        nlohmann::json json = {{"errorCode", cd->m_http_code}, {"errorDetail", cd->m_response_msg}};
         std::string json_str = json.dump();
         evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", "application/json", 0, 0));
 
@@ -482,30 +516,7 @@ private:
         evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
 
         evbuffer_add(req->buffer_out, json_str.c_str(), json_str.size());
-        evhtp_send_reply(req, http_code);
-    }
-
-    void http_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg, const char* content_type) {
-        auto conn = evhtp_request_get_connection(req);
-        if (m_cfg.is_tls_enabled) {
-            htp_sslutil_add_xheaders(req->headers_out, conn->ssl, HTP_SSLUTILS_XHDR_ALL);
-        }
-        if (content_type) {
-            evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", content_type, 0, 0));
-        }
-
-        std::stringstream ss;
-        ss << msg.size();
-        /* valloc should be 1 because ss.str().c_str() is freed once control goes out
-         * of this function */
-        evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
-
-        evbuffer_add(req->buffer_out, msg.c_str(), msg.size());
-        evhtp_send_reply(req, http_code);
-    }
-
-    void http_OK(evhtp_request_t* req, evhtp_res http_code, const std::string& msg) {
-        http_OK(req, EVHTP_RES_OK, msg, "application/json");
+        evhtp_send_reply(req, cd->m_http_code);
     }
 
     static void internal_event_handler(evutil_socket_t socket, short events, void *user_data) {
@@ -541,7 +552,7 @@ private:
 private:
     HttpServerConfig m_cfg;
     std::unique_ptr<std::thread> m_http_thread;
-    std::set< _request_handler > m_handlers;
+    std::vector< _handler_info > m_handlers;
 
     // Maintaining a list of pipe events because multiple threads could add events at the same time.
     // Additions and deletions from this list are protected by m_mutex defined .
