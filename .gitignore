@@ -1,6 +1,4 @@
 .idea*
-*.cmake
-cmake/*
 conanbuildinfo.txt
 conaninfo.txt
 CMakeCache.txt
