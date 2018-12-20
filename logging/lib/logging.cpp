@@ -10,7 +10,7 @@ namespace sds_logging {
 thread_local shared<spdlog::logger> sds_thread_logger;
 
 namespace sinks = spdlog::sinks;
-void SetLogger(std::string const& name) {
+void SetLogger(std::string const& name, std::string const& pkg, std::string const& ver) {
    std::vector<spdlog::sink_ptr> mysinks { };
    if (!SDS_OPTIONS.count("stdout")) {
      std::string const path = (0 < SDS_OPTIONS.count("logfile") ?
@@ -43,10 +43,7 @@ void SetLogger(std::string const& name) {
    }
    module_level_base = lvl;
    sds_thread_logger = logger_;
-   LOGINFO("Logging initialized [{}]: {}/{}",
-           spdlog::level::to_c_str(lvl),
-           BOOST_PP_STRINGIZE(PACKAGE_NAME),
-           BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+   LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_c_str(lvl), pkg, ver);
    if (SDS_OPTIONS.count("log_mods")) {
       std::vector<std::string> enabled_mods;
       std::regex re("[\\s,]+");

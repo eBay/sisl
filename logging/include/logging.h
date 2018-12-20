@@ -129,7 +129,9 @@ shared<spdlog::logger> GetLogger() {
    return logger_;
 }
 
-void SetLogger(std::string const& name);
+void SetLogger(std::string const& name,
+               std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
+               std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 }
 
 #define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(module_level_, mod) = (lvl);
