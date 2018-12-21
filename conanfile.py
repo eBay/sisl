@@ -15,7 +15,7 @@ class MetricsConan(ConanFile):
                "sanitize": ['True', 'False']}
     default_options = 'coverage=False', 'sanitize=False'
 
-    requires = (("sds_logging/3.4.1@sds/testing"),
+    requires = (("sds_logging/3.4.2@sds/testing"),
                 ("benchmark/1.4.1@oss/stable"),
                 ("boost_intrusive/1.66.0@bincrafters/stable"),
                 ("boost_filesystem/1.66.0@bincrafters/stable"),
