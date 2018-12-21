@@ -17,8 +17,8 @@ class MetricsConan(ConanFile):
 
     requires = (("sds_logging/3.4.2@sds/testing"),
                 ("benchmark/1.4.1@oss/stable"),
-                ("boost_intrusive/1.66.0@bincrafters/stable"),
-                ("boost_filesystem/1.66.0@bincrafters/stable"),
+                ("boost_intrusive/1.67.0@bincrafters/stable"),
+                ("boost_filesystem/1.67.0@bincrafters/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("evhtp/1.2.16@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"))
