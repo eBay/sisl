@@ -106,5 +106,5 @@ public:
     }
 };
 
-#define RCU_REGISTER_INIT thread_local bool urcu::urcu_ctl::_rcu_registered_already = false
+#define RCU_REGISTER_INIT thread_local bool sisl::urcu_ctl::_rcu_registered_already = false
 }

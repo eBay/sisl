@@ -4,7 +4,7 @@ from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
     name = "sisl_fds"
-    version = "0.1.1"
+    version = "0.1.2"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl_fds"
@@ -18,9 +18,11 @@ class MetricsConan(ConanFile):
     requires = (("sds_logging/3.4.2@sds/testing"),
                 ("benchmark/1.4.1@oss/stable"),
                 ("boost_intrusive/1.67.0@bincrafters/stable"),
+                ("boost_dynamic_bitset/1.67.0@bincrafters/stable"),
                 ("boost_filesystem/1.67.0@bincrafters/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("evhtp/1.2.16@oss/stable"),
+                ("userspace-rcu/0.10.1@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"))
 
     generators = "cmake"
