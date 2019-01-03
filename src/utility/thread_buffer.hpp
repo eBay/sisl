@@ -94,18 +94,18 @@ class ThreadRegistry {
         }
     }
 
-    void for_all(std::function<void(uint32_t, bool)> cb) {
+    void for_all(std::function<bool(uint32_t, bool)> cb) {
         m_init_mutex.lock();
         auto i = m_busy_buf_slots.find_first();
         while (i != INVALID_CURSOR) {
             bool thread_exited = m_free_thread_slots.test(i);
             m_init_mutex.unlock();
 
-            cb((uint32_t)i, thread_exited);
+            bool gathered = cb((uint32_t)i, thread_exited);
 
             // After callback, if the original thread is indeed freed, free up the slot as well.
             m_init_mutex.lock();
-            if (thread_exited) { do_dec_buf(i); }
+            if (thread_exited && gathered) { do_dec_buf(i); }
 
             i = m_busy_buf_slots.find_next(i);
         }
@@ -186,7 +186,10 @@ template <typename T, typename... Args>
 class ThreadBuffer {
   public:
     template <class... Args1>
-    ThreadBuffer(Args1&&... args) : m_args(std::forward<Args1>(args)...) {
+    //ThreadBuffer(Args1&&... args) : m_args(std::make_tuple(std::forward<Args1>(args)...) {
+    //ThreadBuffer(Args1&&... args) : m_args(std::forward_as_tuple((args)...)) {
+    ThreadBuffer(Args1&&... args) :
+            m_args(std::forward<Args1>(args)...) {
         m_buffers.reserve(MAX_THREADS_FOR_BUFFER);
         thread_registry->register_new_thread_cb(std::bind(&ThreadBuffer::on_new_thread, this, std::placeholders::_1));
     }
@@ -214,11 +217,15 @@ class ThreadBuffer {
     uint32_t get_count() { return m_buffers.size(); }
 
     // This method access the buffer for all the threads and do a callback with that thread.
-    void access_all_threads(std::function<void(T*)> cb) {
+    void access_all_threads(std::function<bool(T*)> cb) {
         thread_registry->for_all(
             [this, cb](uint32_t thread_num, bool is_thread_exited) {
+                bool gathered = true;
                 (void) is_thread_exited;
-	            if(m_buffers[thread_num]) { cb(m_buffers.at(thread_num).get()); }
+	            if (m_buffers[thread_num]) {
+	                gathered = cb(m_buffers.at(thread_num).get());
+	            }
+	            return gathered;
             });
     }
 

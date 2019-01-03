@@ -3,39 +3,32 @@
 //
 #pragma once
 
-#include "waitfree_write_framework.hpp"
+#include "wisr_framework.hpp"
+#include <vector>
 
 namespace sisl { namespace fds {
 
 template< typename T >
-class VectorWrapper : public std::vector< T > {
+class vector_wrapper : public std::vector< T > {
 public:
-#if 0
-    VectorWrapper() {
+    vector_wrapper() = default;
+    explicit vector_wrapper(size_t initial) : std::vector<T>() {
         std::vector< T >::reserve(initial);
     }
-#endif
 
-    static void merge(VectorWrapper *one, const VectorWrapper *two) {
+    static void merge(vector_wrapper *one, const vector_wrapper *two) {
         std::vector<T> *a = (std::vector<T> *)one;
         std::vector<T> *b = (std::vector<T> *)two;
         a->insert(a->end(), b->begin(), b->end());
     }
-
-#if 0
-private:
-    size_t m_initial = 0;
-#endif
 };
 
 template< typename T >
-class WaitFreeWriteVector {
+class wisr_vector {
 public:
-#if 0
-    WaitFreeWriteVector(size_t initial) :
+    explicit wisr_vector(size_t initial) :
             m_wfw(initial) {
     }
-#endif
 
     void push_back(T& value) {
         m_wfw.writeable()->push_back(value);
@@ -47,10 +40,10 @@ public:
     }
 
     std::unique_ptr < std::vector< T > > get_copy() {
-        return m_wfw.readable();
+        return m_wfw.get_copy();
     }
 
 private:
-    sisl::fds::WaitFreeWriterFramework< VectorWrapper< T > > m_wfw;
+    sisl::fds::wisr_framework< vector_wrapper< T >, size_t > m_wfw;
 };
 }}

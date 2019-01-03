@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include "utility/thread_buffer.hpp"
-#include "fds/waitfree_write_vector.hpp"
+#include "fds/wisr_vector.hpp"
 #include <list>
 #include <atomic>
 #include <thread>
@@ -25,10 +25,12 @@ struct WaitFreeWriteVectorTest : public testing::Test {
 protected:
     std::vector< std::thread * > m_threads;
     std::thread* m_scrapper_thread;
-    sisl::fds::WaitFreeWriteVector< uint64_t > m_vec;
+    sisl::fds::wisr_vector< uint64_t > m_vec;
     std::atomic< uint32_t > m_write_threads_completed;
 
-    WaitFreeWriteVectorTest() : m_write_threads_completed(0) {
+    WaitFreeWriteVectorTest() :
+           m_vec(1000),
+           m_write_threads_completed(0) {
         for(auto i = 0U; i < INITIAL_THREADS; i++) {
             m_threads.push_back(new std::thread(write_thread, i, this));
         }

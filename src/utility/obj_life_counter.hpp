@@ -76,7 +76,7 @@ ObjTypeWrapper<T> ObjLifeCounter<T>::m_type(&ObjLifeCounter<T>::m_created, &ObjL
 
 #else
 
-template <typename T> struct ObjLifeCounter {};
+template <typename DS> struct ObjLifeCounter {};
 #endif // _PRERELEASE
 
 }// namespace sisl
