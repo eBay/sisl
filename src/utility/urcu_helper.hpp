@@ -85,7 +85,7 @@ public:
         return urcu_ptr<T>(m_rcu_node);
     }
 
-    urcu_node<T> get_node() const {
+    urcu_node<T> *get_node() const {
         return m_rcu_node;
     }
 private:
