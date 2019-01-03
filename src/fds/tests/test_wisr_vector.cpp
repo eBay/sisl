@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include "utility/thread_buffer.hpp"
-#include "fds/wisr_vector.hpp"
+#include "fds/wisr_ds.hpp"
 #include <list>
 #include <atomic>
 #include <thread>
