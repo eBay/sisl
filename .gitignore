@@ -37,6 +37,7 @@ CMakeFiles
 CMakeCache.txt
 Makefile
 cmake-build-*
+*.cmake
 
 ### Vi Swap Files
 *.swp

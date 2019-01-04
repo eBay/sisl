@@ -3,11 +3,11 @@
 from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
-    name = "sisl_fds"
+    name = "sisl"
     version = "0.1.6"
 
     license = "Proprietary"
-    url = "https://github.corp.ebay.com/Symbiosis/sisl_fds"
+    url = "https://github.corp.ebay.com/Symbiosis/sisl"
     description = "Sisl library for fast data structures, utilities"
 
     settings = "compiler", "build_type"
