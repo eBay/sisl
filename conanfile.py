@@ -3,19 +3,21 @@
 from conans import ConanFile, CMake
 
 class MetricsConan(ConanFile):
-    name = "sds_metrics"
-    version = "0.3.4"
+    name = "sisl_metrics"
+    version = "0.3.5"
 
     license = "Proprietary"
-    url = "https://github.corp.ebay.com/SDS/metrics"
-    description = "Metrics collection project for eBay SDS"
+    url = "https://github.corp.ebay.com/Symbiosis/metrics"
+    description = "High performant metrics collection and reporting library"
 
-    settings = "compiler"
+    settings = "compiler", "build_type"
     options = {"coverage": ['True', 'False'],
                "sanitize": ['True', 'False']}
     default_options = 'coverage=False', 'sanitize=False'
 
     requires = (("sds_logging/3.4.1@sds/testing"),
+                ("sisl_fds/0.1.6@sisl/testing"),
+                ("benchmark/1.4.1@oss/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.67.0@bincrafters/stable"),
                 ("boost_preprocessor/1.67.0@bincrafters/stable"),
@@ -44,6 +46,9 @@ class MetricsConan(ConanFile):
 
         if self.options.sanitize == 'True':
             definitions['MEMORY_SANITIZER_ON'] = 'ON'
+
+        if self.settings.build_type == 'Debug':
+            definitions['CMAKE_BUILD_TYPE'] = 'Debug'
 
         cmake.configure(defs=definitions)
         cmake.build()

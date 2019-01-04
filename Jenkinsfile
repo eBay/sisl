@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        PROJECT = 'sds_metrics'
+        PROJECT = 'sisl_metrics'
         CONAN_CHANNEL = 'testing'
-        CONAN_USER = 'sds'
+        CONAN_USER = 'sisl'
         CONAN_PASS = credentials('CONAN_PASS')
     }
 

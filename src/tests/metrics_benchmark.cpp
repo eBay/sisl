@@ -1,0 +1,280 @@
+#include <benchmark/benchmark.h>
+#include <mutex>
+#include "include/metrics.hpp"
+#include <string>
+#include <boost/preprocessor/repetition/repeat.hpp>
+
+THREAD_BUFFER_INIT;
+RCU_REGISTER_INIT;
+
+#define ITERATIONS 1000
+#define THREADS    8
+
+using namespace sisl;
+using namespace sisl::metrics;
+
+#define NGAUGES     50
+#define NCOUNTERS   50
+#define NHISTOGRAMS 50
+
+typedef std::pair<std::vector<double>, int64_t> hist_result_t;
+
+struct _locked_hist_wrapper {
+    _locked_hist_wrapper() : m_hist("hist", "", "", HistogramBucketsType(DefaultBuckets)) {}
+
+    void observe(uint64_t value) {
+        std::lock_guard<std::mutex> g(m_lock);
+        m_value.observe(value, HistogramBucketsType(DefaultBuckets));
+    }
+
+    hist_result_t get_result() {
+        std::lock_guard<std::mutex> g(m_lock);
+        std::vector<double> vec(std::begin(m_value.getFreqs()), std::end(m_value.getFreqs()));
+        return std::make_pair(vec, m_value.getSum());
+    }
+
+    std::mutex m_lock;
+    HistogramInfo m_hist;
+    HistogramValue m_value;
+};
+
+struct atomic_counter_groups {
+    std::array<std::atomic<uint64_t>, NCOUNTERS> m_counters;
+    std::array<std::atomic<uint64_t>, NGAUGES> m_gauges;
+    std::array<_locked_hist_wrapper, NHISTOGRAMS> m_histograms;
+
+    atomic_counter_groups() {
+        for (auto i = 0; i < NCOUNTERS; i++) {
+            m_counters[i].store(0, std::memory_order_relaxed);
+        }
+
+        for (auto i = 0; i < NGAUGES; i++) {
+            m_gauges[i].store(0, std::memory_order_relaxed);
+        }
+    }
+    std::atomic<uint64_t> &getCounter(int index) {
+        return m_counters[index];
+    }
+
+    std::atomic<uint64_t> &getGauge(int index) {
+        return m_gauges[index];
+    }
+
+    void updateHist(int index, uint64_t value) {
+        m_histograms[index].observe(value);
+    }
+
+    std::vector<hist_result_t> hist_results() {
+        std::vector<hist_result_t> res;
+        res.reserve(NCOUNTERS);
+
+        for (auto i = 0; i < NCOUNTERS; i++) {
+            res.emplace_back(m_histograms[i].get_result());
+        }
+        return res;
+    }
+};
+
+atomic_counter_groups glob_matomic_grp;
+
+#define DIRECT_METRICS 1
+
+#ifdef DIRECT_METRICS
+MetricsGroupPtr glob_mgroup;
+void setup() {
+    // Initialize rcu based metric group
+    glob_mgroup = metrics::MetricsGroup::make_group();
+
+    for (auto i = 0; i < NCOUNTERS; i++) {
+        std::stringstream ss; ss << "counter" << i + 1;
+        glob_mgroup->registerCounter(ss.str(), " for test", "" );
+    }
+
+    for (auto i = 0; i < NGAUGES; i++) {
+        std::stringstream ss; ss << "gauge" << i+1;
+        glob_mgroup->registerGauge(ss.str(), " for test", "");
+    }
+
+    for (auto i = 0; i < NHISTOGRAMS; i++) {
+        std::stringstream ss; ss << "histogram" << i+1;
+        glob_mgroup->registerHistogram(ss.str(), " for test", "");
+    }
+
+    metrics::MetricsFarm::getInstance().registerMetricsGroup(glob_mgroup);
+}
+
+
+void test_counters_write_rcu(benchmark::State& state) {
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NCOUNTERS; i++) {
+            glob_mgroup->counterIncrement(i);
+        }
+    }
+}
+
+void test_gauge_write_rcu(benchmark::State& state) {
+    auto v = 1U;
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NGAUGES; i++) {
+            glob_mgroup->gaugeUpdate(i, v * (i+1));
+        }
+        v++;
+    }
+}
+
+void test_histogram_write_rcu(benchmark::State& state) {
+    auto v = 1U;
+
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NHISTOGRAMS; i++) {
+            glob_mgroup->histogramObserve(i, v * (i+1));
+        }
+        v++;
+    }
+}
+#else
+
+using namespace metrics;
+
+class GlobMetrics : public MetricsGroupWrapper {
+#define _REG_COUNTER(z, n, d)     REGISTER_COUNTER(BOOST_PP_CAT(mycounter, n), "Test Counter", "");
+#define _REG_GAUGE(z, n, d)       REGISTER_GAUGE(BOOST_PP_CAT(mygauge, n), "Test Gauge", "");
+#define _REG_HISTOGRAM(z, n, d)   REGISTER_HISTOGRAM(BOOST_PP_CAT(myhist, n), "Test Histogram", "");
+
+public:
+    GlobMetrics() {
+        BOOST_PP_REPEAT(NCOUNTERS, _REG_COUNTER,);
+        BOOST_PP_REPEAT(NGAUGES, _REG_GAUGE,);
+        BOOST_PP_REPEAT(NHISTOGRAMS, _REG_HISTOGRAM,);
+
+        register_me_to_farm();
+    }
+};
+
+GlobMetrics glob_metrics;
+void setup() {
+}
+
+#define _INC_COUNTER(z, n, d)     COUNTER_INCREMENT(glob_metrics, BOOST_PP_CAT(mycounter, n), 1);
+#define _UPD_GAUGE(z, n, d)       GAUGE_UPDATE(glob_metrics, BOOST_PP_CAT(mygauge, n), (d * (n + 1)));
+#define _OBS_HISTOGRAM(z, n, d)   HISTOGRAM_OBSERVE(glob_metrics, BOOST_PP_CAT(myhist, n), (d * (n + 1)));
+
+void test_counters_write_rcu(benchmark::State& state) {
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        BOOST_PP_REPEAT(NCOUNTERS, _INC_COUNTER,);
+    }
+}
+
+void test_gauge_write_rcu(benchmark::State& state) {
+    auto v = 1U;
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        BOOST_PP_REPEAT(NGAUGES, _UPD_GAUGE, v);
+        v++;
+    }
+}
+
+void test_histogram_write_rcu(benchmark::State& state) {
+    auto v = 1U;
+
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        BOOST_PP_REPEAT(NHISTOGRAMS, _OBS_HISTOGRAM, v);
+        v++;
+    }
+}
+#endif
+
+void test_metrics_read_rcu(benchmark::State& state) {
+    std::string str;
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        benchmark::DoNotOptimize(str = metrics::MetricsFarm::getInstance().getResultInJSONString());
+    }
+}
+
+void test_counters_write_atomic(benchmark::State& state) {
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NCOUNTERS; i++) {
+            glob_matomic_grp.getCounter(i).fetch_add(1, std::memory_order_relaxed);
+        }
+    }
+}
+
+void test_gauge_write_atomic(benchmark::State& state) {
+    auto v = 1U;
+
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NGAUGES; i++) {
+            glob_matomic_grp.getGauge(i).store(v * (i+1), std::memory_order_relaxed);
+        }
+        v++;
+    }
+}
+
+void test_histogram_write_locked(benchmark::State& state) {
+    auto v = 1U;
+
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NHISTOGRAMS; i++) {
+            glob_matomic_grp.updateHist(i, v * (i+1));
+        }
+        v++;
+    }
+}
+
+void test_counters_read_atomic(benchmark::State& state) {
+    auto val = 0;
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NCOUNTERS; i++) {
+            val += glob_matomic_grp.getCounter(i).load(std::memory_order_relaxed);
+        }
+    }
+}
+
+void test_gauge_read_atomic(benchmark::State& state) {
+    uint64_t val = 0;
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NGAUGES; i++) {
+            val += glob_matomic_grp.getGauge(i).load(std::memory_order_relaxed);
+        }
+    }
+}
+
+void test_histogram_read_locked(benchmark::State& state) {
+    // Actual test
+    std::vector<hist_result_t> res;
+    for (auto _ : state) { // Loops upto iteration count
+        benchmark::DoNotOptimize(res = glob_matomic_grp.hist_results());
+    }
+}
+
+BENCHMARK(test_counters_write_atomic)->Iterations(ITERATIONS)->Threads(THREADS);
+BENCHMARK(test_counters_write_rcu)->Iterations(ITERATIONS)->Threads(THREADS);
+
+//BENCHMARK(test_gauge_write_atomic)->Iterations(ITERATIONS)->Threads(THREADS);
+BENCHMARK(test_gauge_write_rcu)->Iterations(ITERATIONS)->Threads(THREADS);
+
+BENCHMARK(test_histogram_write_locked)->Iterations(ITERATIONS)->Threads(THREADS);
+BENCHMARK(test_histogram_write_rcu)->Iterations(ITERATIONS)->Threads(THREADS);
+
+BENCHMARK(test_counters_read_atomic)->Iterations(ITERATIONS)->Threads(1);
+BENCHMARK(test_gauge_read_atomic)->Iterations(ITERATIONS)->Threads(1);
+BENCHMARK(test_histogram_read_locked)->Iterations(ITERATIONS)->Threads(1);
+BENCHMARK(test_metrics_read_rcu)->Iterations(ITERATIONS)->Threads(1);
+
+int main(int argc, char** argv)
+{
+    setup();
+    ::benchmark::Initialize(&argc, argv);
+    ::benchmark::RunSpecifiedBenchmarks();
+}

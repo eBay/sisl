@@ -3,52 +3,59 @@
 #include <chrono>
 #include <fstream>
 #include "include/metrics.hpp"
-#include "include/thread_buffer.hpp"
-#include "include/urcu_helper.hpp"
 #include <gtest/gtest.h>
 
 #define ITERATIONS 2
 
-CREATE_REPORT;
+//CREATE_REPORT;
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
+using namespace sisl;
+using namespace sisl::metrics;
+
+MetricsGroupPtr glob_mgroup;
+
 void seqA () {
     std::this_thread::sleep_for (std::chrono::seconds(1));
-    REPORT.getCounter(0).increment();
-    REPORT.getHistogram(0).update(2);
-    REPORT.getHistogram(0).update(5);
+    glob_mgroup->counterIncrement(0, 1);
+    glob_mgroup->histogramObserve(0, 2);
+    glob_mgroup->histogramObserve(0, 5);
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
-    REPORT.getHistogram(0).update(5);
-    REPORT.getCounter(1).increment();
-    REPORT.getGauge(0).update(2);
+    glob_mgroup->histogramObserve(0, 5);
+    glob_mgroup->counterIncrement(1, 1);
+    glob_mgroup->gaugeUpdate(0, 2);
 }
 
 void seqB () {
-    REPORT.getCounter(0).increment();
-    REPORT.getCounter(1).increment();
+    glob_mgroup->counterIncrement(0, 1);
+    glob_mgroup->counterIncrement(1, 1);
 
     std::this_thread::sleep_for (std::chrono::seconds(3));
 
-    REPORT.getCounter(0).decrement(2);
-    REPORT.getCounter(1).decrement();
+    glob_mgroup->counterDecrement(0, 2);
+    glob_mgroup->counterDecrement(1);
 
     std::this_thread::sleep_for (std::chrono::seconds(1));
 
-    REPORT.getGauge(0).update(5);
+    glob_mgroup->gaugeUpdate(0, 5);
 }
 
 std::string expected[ITERATIONS] = {
-    "{\"Counters\":{\"counter1 for test\":2,\"counter2 for test\":1,\
-        \"counter3 for test\":0},\"Gauges\":{\"gauge1 for test\":0,\
-        \"gauge2 for test\":0},\"Histograms percentiles (usecs) \
-        avg/50/95/99\":{\"hist for test\":\"3 / 0 / 0 / 0\"}}",
-    "{\"Counters\":{\"counter1 for test\":0,\"counter2 for test\":1,\
-        \"counter3 for test\":0},\"Gauges\":{\"gauge1 for test\":5,\
-        \"gauge2 for test\":0},\"Histograms percentiles (usecs) \
-        avg/50/95/99\":{\"hist for test\":\"4 / 0 / 0 / 0\"}}"
+    R"result({"metrics_group_0": {
+                "Counters":{"Counter1":2,"Counter2":1,"Counter3":0},
+                "Gauges":{"Gauge1":0,"Gauge2":0},
+                "Histogramspercentiles(usecs)avg/50/95/99":{"Histogram1":"3/0/0/0"}
+                }
+            })result",
+    R"result({"metrics_group_0":{
+                "Counters":{"Counter1":0,"Counter2":1,"Counter3":0},
+                "Gauges":{"Gauge1":5,"Gauge2":0},
+                "Histogramspercentiles(usecs)avg/50/95/99":{"Histogram1":"4/0/0/0"}
+                }
+            })result"
 };
 
 uint64_t delay[ITERATIONS] = {2,4};
@@ -56,7 +63,7 @@ uint64_t delay[ITERATIONS] = {2,4};
 void gather () {
     for (auto i = 0U; i < ITERATIONS; i++) {
         std::this_thread::sleep_for (std::chrono::seconds(delay[i]));
-        auto output = REPORT.gather()->getJSON();
+        auto output = metrics::MetricsFarm::getInstance().getResultInJSONString();
         output.erase( std::remove_if( output.begin(), output.end(),
                     [l = std::locale{}](auto ch) { return std::isspace(ch, l); }),
                 output.end());
@@ -78,14 +85,18 @@ TEST(functionalityTest, gather) {
 }
 
 int main(int argc, char* argv[]) {
-    REPORT.registerCounter( "counter1", " for test", "" );
-    REPORT.registerCounter( "counter2", " for test", "" );
-    REPORT.registerCounter( "counter3", " for test", "" );
+    glob_mgroup = metrics::MetricsGroup::make_group();
 
-    REPORT.registerGauge( "gauge1", " for test", "" );
-    REPORT.registerGauge( "gauge2", " for test", "" );
+    glob_mgroup->registerCounter( "counter1", "Counter1", "" );
+    glob_mgroup->registerCounter( "counter2", "Counter2", "" );
+    glob_mgroup->registerCounter( "counter3", "Counter3", "" );
 
-    REPORT.registerHistogram( "hist", " for test", "" );
+    glob_mgroup->registerGauge( "gauge1", "Gauge1", "" );
+    glob_mgroup->registerGauge( "gauge2", "Gauge2", "" );
+
+    glob_mgroup->registerHistogram( "hist", "Histogram1", "" );
+
+    metrics::MetricsFarm::getInstance().registerMetricsGroup(glob_mgroup);
 
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
