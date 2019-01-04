@@ -20,9 +20,11 @@ class MetricsConan(ConanFile):
                 ("boost_intrusive/1.67.0@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.67.0@bincrafters/stable"),
                 ("boost_filesystem/1.67.0@bincrafters/stable"),
+                ("boost_preprocessor/1.67.0@bincrafters/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("evhtp/1.2.16@oss/stable"),
                 ("userspace-rcu/0.10.1@oss/stable"),
+                ("prometheus-cpp/0.1.2@oss/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"))
 
     generators = "cmake"
@@ -54,7 +56,8 @@ class MetricsConan(ConanFile):
         cmake.test(target=test_target)
 
     def package(self):
-        self.copy("*.hpp", src="src/", dst="include", keep_path=True)
+        self.copy("*.hpp", src="src/", dst="sisl", keep_path=True)
+        self.copy("*.h", src="src/", dst="sisl", keep_path=True)
         self.copy("*.a", dst="lib/", keep_path=False)
         self.copy("*.lib", dst="lib/", keep_path=False)
         self.copy("*.so", dst="lib/", keep_path=False)

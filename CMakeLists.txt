@@ -37,3 +37,4 @@ add_compile_options(-g)
 
 add_subdirectory (src/async_http)
 add_subdirectory (src/wisr)
+add_subdirectory (src/metrics)
