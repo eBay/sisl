@@ -1,15 +1,13 @@
 #include <benchmark/benchmark.h>
 #include <mutex>
 #include "include/metrics.hpp"
-#include "include/thread_buffer.hpp"
-#include "include/urcu_helper.hpp"
 #include <string>
 #include <boost/preprocessor/repetition/repeat.hpp>
 
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
-#define ITERATIONS 100000
+#define ITERATIONS 1000
 #define THREADS    8
 
 using namespace sisl;
@@ -26,18 +24,18 @@ struct _locked_hist_wrapper {
 
     void observe(uint64_t value) {
         std::lock_guard<std::mutex> g(m_lock);
-        m_hist.getReportHistogram().observe(value, HistogramBucketsType(DefaultBuckets));
+        m_value.observe(value, HistogramBucketsType(DefaultBuckets));
     }
 
     hist_result_t get_result() {
         std::lock_guard<std::mutex> g(m_lock);
-        std::vector<double> vec(std::begin(m_hist.getReportHistogram().getFreqs()),
-                                std::end(m_hist.getReportHistogram().getFreqs()));
-        return std::make_pair(vec, m_hist.getReportHistogram().getSum());
+        std::vector<double> vec(std::begin(m_value.getFreqs()), std::end(m_value.getFreqs()));
+        return std::make_pair(vec, m_value.getSum());
     }
 
     std::mutex m_lock;
-    ReportHistogram m_hist;
+    HistogramInfo m_hist;
+    HistogramValue m_value;
 };
 
 struct atomic_counter_groups {

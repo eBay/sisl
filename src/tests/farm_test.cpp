@@ -3,8 +3,6 @@
 #include <chrono>
 #include <fstream>
 #include "include/metrics.hpp"
-#include "include/thread_buffer.hpp"
-#include "include/urcu_helper.hpp"
 #include <gtest/gtest.h>
 
 #define ITERATIONS 4

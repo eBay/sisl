@@ -16,6 +16,7 @@ class MetricsConan(ConanFile):
     default_options = 'coverage=False', 'sanitize=False'
 
     requires = (("sds_logging/3.4.1@sds/testing"),
+                ("sisl_fds/0.1.6@sisl/testing"),
                 ("benchmark/1.4.1@oss/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.67.0@bincrafters/stable"),

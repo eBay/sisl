@@ -25,7 +25,6 @@
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <fds/wisr_framework.hpp>
-#include <cstdio>
 
 namespace sisl { namespace metrics {
 
@@ -34,6 +33,7 @@ class MetricsGroup;
 enum _publish_as { publish_as_counter, publish_as_gauge, publish_as_histogram, };
 
 class CounterValue {
+    friend class ReportCounter;
 public:
     CounterValue() = default;
     void increment (int64_t value = 1)  { m_value += value; }
@@ -110,11 +110,11 @@ public:
         }
     }
 
+    int64_t merge(const CounterValue& other) { return m_counter.merge(other); }
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
     std::string subType() const { return m_sub_type; }
     void publish(const CounterValue& value) {
-        (void)value;
         //m_prometheus_counter->Update((double) value.get());
     }
 private:
@@ -201,20 +201,19 @@ public:
     int64_t count(const HistogramValue& hvalue) const {
         int64_t cnt = 0;
         for (auto i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
-            cnt += (hvalue.getFreqs())[i];
+            cnt += (hhvalue.getFreqs())[i];
         }
         return cnt;
     }
     double average(const HistogramValue& hvalue) const {
-        auto cnt = count(hvalue);
+        auto cnt = count();
         return (cnt ? hvalue.getSum()/cnt : 0);
     }
-
+    void merge(const HistogramValue& other) { m_histogram.merge(other, m_bkt_boundaries); }
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
     std::string subType() const { return m_sub_type; }
     void publish(const HistogramValue& hvalue) {
-        (void)hvalue;
         //std::vector<double> vec(std::begin(hvalue.getFreqs()), std::end(hvalue.getFreqs()));
         //m_prometheus_hist->Update(vec, hvalue.m_sum);
     }
@@ -226,9 +225,9 @@ private:
    //monitor::Histogram *m_prometheus_hist;
 };
 
+#if 0
 class SafeMetrics {
 private:
-    const MetricsGroup& m_mgroup;
     CounterValue   *m_counters   = nullptr;
     HistogramValue *m_histograms = nullptr;
 
@@ -236,8 +235,9 @@ private:
     uint32_t m_nhists;
 
 public:
-    SafeMetrics(const MetricsGroup& mgroup, uint32_t ncntrs, uint32_t nhists) :
-            m_mgroup(mgroup),
+    SafeMetrics() : SafeMetrics(0U, 0U) {}
+
+    SafeMetrics(uint32_t ncntrs, uint32_t nhists) :
             m_ncntrs(ncntrs),
             m_nhists(nhists) {
         m_counters   = new CounterValue[ncntrs];
@@ -245,20 +245,71 @@ public:
 
         memset(m_counters, 0, (sizeof(CounterValue) * ncntrs));
         memset(m_histograms, 0, (sizeof(HistogramValue) * nhists));
-
-        //printf("ThreadId=%08lux: SafeMetrics=%p constructor, m_counters=%p, m_histograms=%p\n",
-        //       pthread_self(), (void *)this, (void *)m_counters, (void *)m_histograms);
     }
 
     ~SafeMetrics() {
         delete [] m_counters;
         delete [] m_histograms;
-        //printf("ThreadId=%08lux: SafeMetrics=%p destructor\n", pthread_self(), (void *)this);
     }
 
+    CounterValue& getCounter (uint64_t index) { return m_counters[index]; }
+    HistogramValue& getHistogram (uint64_t index) { return m_histograms[index]; }
+
+    auto getNumMetrics() const { return std::make_tuple(m_ncntrs, m_nhists); }
+};
+
+class _metrics_buf {
+public:
+    _metrics_buf(uint32_t ncntrs, uint32_t nhists) :
+            m_safe_metrics(ncntrs, nhists) {}
+
+    sisl::urcu_ptr<SafeMetrics> getSafe() { return m_safe_metrics.get(); }
+    void rotate() {
+        uint32_t ncntrs, nhists;
+        std::tie(ncntrs, nhists) = m_safe_metrics.get_node()->get()->getNumMetrics();
+        m_safe_metrics.make_and_exchange(ncntrs, nhists);
+    }
+
+private:
+    sisl::urcu_data<SafeMetrics> m_safe_metrics;
+};
+#endif
+
+class SafeMetrics {
+private:
+    CounterValue   *m_counters   = nullptr;
+    HistogramValue *m_histograms = nullptr;
+
+    uint32_t m_ncntrs;
+    uint32_t m_nhists;
+
+public:
+    SafeMetrics() : SafeMetrics(0U, 0U) {}
+
+    SafeMetrics(uint32_t ncntrs, uint32_t nhists) :
+            m_ncntrs(ncntrs),
+            m_nhists(nhists) {
+        m_counters   = new CounterValue[ncntrs];
+        m_histograms = new HistogramValue[nhists];
+
+        memset(m_counters, 0, (sizeof(CounterValue) * ncntrs));
+        memset(m_histograms, 0, (sizeof(HistogramValue) * nhists));
+    }
+
+    ~SafeMetrics() {
+        delete [] m_counters;
+        delete [] m_histograms;
+    }
 
     // Required method to work with wisr_framework
-    static void merge(SafeMetrics* a, SafeMetrics* b);
+    static void merge(SafeMetrics *a, SafeMetrics *b) {
+        for (auto i = 0U; i < a->m_ncntrs; i++) {
+            a->m_counters[i].merge(b->m_counters[i]);
+        }
+        for (auto i = 0U; i < a->m_nhists; i++) {
+            a->m_histograms[i].merge(b->m_histograms[i]);
+        }
+    }
 
     CounterValue& getCounter(uint64_t index) { return m_counters[index]; }
     HistogramValue& getHistogram(uint64_t index) { return m_histograms[index]; }
@@ -266,9 +317,9 @@ public:
     auto getNumMetrics() const { return std::make_tuple(m_ncntrs, m_nhists); }
 };
 
-typedef std::shared_ptr< MetricsGroup > MetricsGroupPtr;
+typedef std::shared_ptr<MetricsGroup> MetricsGroupPtr;
 //typedef sisl::ThreadBuffer< _metrics_buf, uint32_t, uint32_t > MetricsThreadBuffer;
-typedef sisl::fds::wisr_framework< SafeMetrics, const MetricsGroup&, uint32_t, uint32_t > ThreadSafeMetrics;
+typedef sisl::wisr::wisr_framework< SafeMetrics, uint32_t, uint32_t > ThreadSafeMetrics;
 
 class MetricsGroupResult;
 class MetricsFarm;
@@ -332,23 +383,21 @@ public:
         return registerHistogram(name, desc, "", bkt_boundaries);
     }
 
-    void counterIncrement(uint64_t index, int64_t val=1) {
-        m_metrics->insertable()->getCounter(index).increment(val);
-        //printf("Thread=%08lux: Updating SafeMetrics=%p countervalue = %p, index=%lu to new val = %ld\n",
-        //       pthread_self(),
-        //       m_metrics->insertable(), &m_metrics->insertable()->getCounter(index), index, m_metrics->insertable()->getCounter(index).get());
-    }
-    void counterDecrement(uint64_t index, int64_t val=1) { m_metrics->insertable()->getCounter(index).decrement(val); }
+#if 0
+    void counterIncrement(uint64_t index, int64_t val=1) { (*m_buffer)->getSafe()->getCounter(index).increment(val); }
+    void counterDecrement(uint64_t index, int64_t val=1) { (*m_buffer)->getSafe()->getCounter(index).decrement(val); }
     void gaugeUpdate(uint64_t index, int64_t val) { m_gauges[index].m_gauge.update(val); }
     void histogramObserve(uint64_t index, int64_t val) {
-        m_metrics->insertable()->getHistogram(index).observe(val, m_bkt_boundaries[index]);
-        //printf("Thread=%08lux: Updating SafeMetrics=%p histvalue = %p, index=%lu\n",
-        //       pthread_self(), m_metrics->insertable(), &m_metrics->insertable()->getHistogram(index), index);
+        (*m_buffer)->getSafe()->getHistogram(index).observe(val, m_bkt_boundaries[index]);
     }
+#endif
 
-    const CounterInfo& getCounterInfo(uint64_t index) const { return m_counters[index]; }
-    const GaugeInfo& getGaugeInfo(uint64_t index) const { return m_gauges[index]; }
-    const HistogramInfo& getHistogramInfo(uint64_t index) const { return m_histograms[index]; }
+    void counterIncrement(uint64_t index, int64_t val=1) { m_metrics->writeable()->getCounter(index).increment(val); }
+    void counterDecrement(uint64_t index, int64_t val=1) { m_metrics->writeable()->getCounter(index).decrement(val); }
+    void gaugeUpdate(uint64_t index, int64_t val) { m_gauges[index].m_gauge.update(val); }
+    void histogramObserve(uint64_t index, int64_t val) {
+        m_metrics->writeable()->getHistogram(index).observe(val, m_bkt_boundaries[index]);
+    }
 
     nlohmann::json getResultInJSON() {
         nlohmann::json json;
@@ -402,14 +451,14 @@ public:
 private:
     void on_register() {
         //m_buffer = std::make_unique< MetricsThreadBuffer >(m_counters.size(), m_histograms.size());
-        m_metrics = std::make_unique< ThreadSafeMetrics >(*this, m_counters.size(), m_histograms.size());
+        m_metrics = std::make_unique< ThreadSafeMetrics >(m_counters.size(), m_histograms.size());
     }
 
     void gatherResult(std::function<void(CounterInfo& , const CounterValue&)> counter_cb,
                       std::function<void(GaugeInfo&)> gauge_cb,
                       std::function<void(HistogramInfo&, const HistogramValue&)> histogram_cb) {
-        //printf("Start Gathering\n=============================================================\n");
-        auto smetrics = m_metrics->accessible();
+        // Rotate and get a new copy of safe metrics.
+        auto smetrics = m_metrics->get_copy();
 
         for (auto i = 0U; i < m_counters.size(); i++) {
             counter_cb(m_counters[i], smetrics->getCounter(i));
@@ -422,7 +471,6 @@ private:
         for (auto i = 0U; i < m_histograms.size(); i++) {
             histogram_cb(m_histograms[i], smetrics->getHistogram(i));
         }
-        //printf("End Gathering\n=============================================================\n");
     }
     //std::unique_ptr<MetricsGroupResult> getResult() { return std::make_unique<MetricsGroupResult>(this, *m_buffer); }
 
@@ -438,18 +486,98 @@ private:
     std::vector<std::reference_wrapper< const hist_bucket_boundaries_t >> m_bkt_boundaries;
 };
 
-void SafeMetrics::merge(SafeMetrics *a, SafeMetrics *b) {
-    //printf("ThreadId=%08lux: Merging SafeMetrics a=%p, b=%p, a->m_ncntrs=%u, b->m_ncntrs=%u, a->m_nhists=%u, b->m_nhists=%u\n",
-    //       pthread_self(), a, b, a->m_ncntrs, b->m_ncntrs, a->m_nhists, b->m_nhists);
-    for (auto i = 0U; i < a->m_ncntrs; i++) {
-        //printf("a->m_counters[%u] = %ld, b->m_counters[%u] = %ld, ", i, a->m_counters[i].get(), i, b->m_counters[i].get());
-        a->m_counters[i].merge(b->m_counters[i]);
-        //printf("After merge a->m_counters[%u] = %ld\n", i, a->m_counters[i].get());
+#if 0
+class MetricsGroupResult {
+public:
+    friend class MetricsResult;
+
+    MetricsGroupResult(MetricsGroup* mgroup) {
+        // Rotate and get a new copy of safe metrics.
+        auto smetrics = mgroup->m_metrics->get_copy();
+
+        // Copy the smetrics counters and histograms to report metrics.
+        for (auto i = 0U; i < num_cntrs; i++) {
+            mgroup->m_counters[i].merge(metrics->getCounter(i));
+        }
+        for (auto i = 0U; i < num_hists; i++) {
+            mgroup->m_histograms[i].merge(metrics->getHistogram(i));
+        }
+
+        m_mgroup = mgroup;
+        all_buf.access_all_threads([mgroup](_metrics_buf *m) {
+            /* get current metrics instance */
+            auto metrics = m->getSafe();
+            uint32_t num_cntrs, num_hists;
+            std::tie(num_cntrs, num_hists) = metrics->getNumMetrics();
+
+            for (auto i = 0U; i < num_cntrs; i++) {
+                mgroup->m_counters[i].merge(metrics->getCounter(i));
+            }
+            for (auto i = 0U; i < num_hists; i++) {
+                mgroup->m_histograms[i].merge(metrics->getHistogram(i));
+            }
+            /* replace new metrics instance */
+            m->rotate();
+            return true;
+        });
     }
-    for (auto i = 0U; i < a->m_nhists; i++) {
-        a->m_histograms[i].merge(b->m_histograms[i], a->m_mgroup.getHistogramInfo(i).getBoundaries());
+
+    ~MetricsGroupResult() { sisl::urcu_ctl::declare_quiscent_state(); }
+
+    void publish() {
+        for (auto i = 0U; i < m_mgroup->m_counters.size(); i++) {
+            m_mgroup->m_counters[i].publish();
+        }
+        for (auto i = 0U; i < m_mgroup->m_gauges.size(); i++) {
+            m_mgroup->m_gauges[i].publish();
+        }
+        for (auto i = 0U; i < m_mgroup->m_histograms.size(); i++) {
+            m_mgroup->m_histograms[i].publish();
+        }
     }
-}
+
+    nlohmann::json getJSON() const {
+        nlohmann::json json;
+        nlohmann::json counter_entries;
+        for (auto &c : m_mgroup->m_counters) {
+            std::string desc = c.desc();
+            if (!c.subType().empty()) desc = desc + " - " + c.subType();
+            counter_entries[desc] = c.get();
+        }
+        json["Counters"] = counter_entries;
+
+        nlohmann::json gauge_entries;
+        for (auto &g : m_mgroup->m_gauges) {
+            std::string desc = g.desc();
+            if (!g.subType().empty()) desc = desc + " - " + g.subType();
+            gauge_entries[desc] = g.get();
+        }
+        json["Gauges"] = gauge_entries;
+
+        nlohmann::json hist_entries;
+        for (auto &h : m_mgroup->m_histograms) {
+            std::stringstream ss;
+            ss << h.average() << " / " << h.percentile(50) << " / " << h.percentile(95)  << " / " << h.percentile(99);
+            std::string desc = h.desc();
+            if (!h.subType().empty()) desc = desc + " - " + h.subType();
+            hist_entries[desc] = ss.str();
+        }
+        json["Histograms percentiles (usecs) avg/50/95/99"] = hist_entries;
+
+        return json;
+    }
+
+    std::string getJSONString() const {
+        return getJSON().dump();
+    }
+
+private:
+    MetricsGroup* m_mgroup;
+    friend class MetricsFarm;
+};
+
+class MetricsResult;
+#endif
 
 class MetricsFarm {
 private:
@@ -485,21 +613,61 @@ public:
         m_mgroups.erase(mgroup);
     }
 
+    std::unique_ptr< MetricsResult > getResult() const {
+        return std::make_unique<MetricsResult >(*this);
+    }
+
     nlohmann::json getResultInJSON() {
         nlohmann::json json;
         for (auto &mgroup : m_mgroups) {
-            json[mgroup->getName()] = mgroup->getResultInJSON();
+            json[mgroup->getName()] = mgroup.getResultInJSON();
         }
         return json;
     };
-    std::string getResultInJSONString() { return getResultInJSON().dump(); }
+    std::string getResultInJSONString() const { return getResultInJSON().dump(); }
 
     void publishResult() {
         for (auto &mgroup : m_mgroups) {
-            mgroup->publishResult();
+            mgroup.publishResult();
         }
     }
 };
+
+#if 0
+class MetricsResult {
+private:
+    std::vector< std::unique_ptr< MetricsGroupResult > > m_result;
+
+public:
+    explicit MetricsResult(const MetricsFarm& farm) {
+        m_result.reserve(farm.m_mgroups.size());
+        for (auto mgroup : farm.m_mgroups) {
+            m_result.emplace_back(std::move(mgroup->getResult()));
+        }
+    }
+
+    nlohmann::json getJSON() const {
+        nlohmann::json json;
+        for (auto &r : m_result) {
+            json[r->m_mgroup->getName()] = r->getJSON();
+        }
+        return json;
+    }
+
+    std::string getJSONString() const {
+        return getJSON().dump();
+    }
+};
+
+nlohmann::json MetricsFarm::getResultInJSON() const {
+    nlohmann::json json;
+    for (auto &mgroup : m_mgroups) {
+        MetricsGroupResult grp_result(mgroup.get(), *(mgroup->m_buffer));
+        json[mgroup->getName()] = grp_result.getJSON();
+    }
+    return json;
+}
+#endif
 
 ////////////////////////////////////////// Helper Routine section /////////////////////////////////////////////
 template <char... chars>

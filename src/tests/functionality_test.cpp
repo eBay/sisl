@@ -3,8 +3,6 @@
 #include <chrono>
 #include <fstream>
 #include "include/metrics.hpp"
-#include "include/thread_buffer.hpp"
-#include "include/urcu_helper.hpp"
 #include <gtest/gtest.h>
 
 #define ITERATIONS 2
@@ -20,20 +18,20 @@ MetricsGroupPtr glob_mgroup;
 
 void seqA () {
     std::this_thread::sleep_for (std::chrono::seconds(1));
-    glob_mgroup->counterIncrement(0);
+    glob_mgroup->counterIncrement(0, 1);
     glob_mgroup->histogramObserve(0, 2);
     glob_mgroup->histogramObserve(0, 5);
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
     glob_mgroup->histogramObserve(0, 5);
-    glob_mgroup->counterIncrement(1);
+    glob_mgroup->counterIncrement(1, 1);
     glob_mgroup->gaugeUpdate(0, 2);
 }
 
 void seqB () {
-    glob_mgroup->counterIncrement(0);
-    glob_mgroup->counterIncrement(1);
+    glob_mgroup->counterIncrement(0, 1);
+    glob_mgroup->counterIncrement(1, 1);
 
     std::this_thread::sleep_for (std::chrono::seconds(3));
 
