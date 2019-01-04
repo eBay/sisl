@@ -7,7 +7,7 @@
 #include <vector>
 #include <cassert>
 
-namespace sisl { namespace fds {
+namespace sisl {
 /*
  * This class provides additional functionality to std::vector where the entries can be sparse. So it can be
  * inserted in any order and can be looked up with index, like regular array.
@@ -48,4 +48,4 @@ private:
     }
 };
 
-} } // namespace sisl::fds
+} // namespace sisl

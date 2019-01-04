@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <mutex>
-#include "fds/wisr_ds.hpp"
+#include "wisr/wisr_ds.hpp"
 #include <string>
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <boost/intrusive/slist.hpp>
@@ -14,7 +14,6 @@ RCU_REGISTER_INIT;
 #define THREADS    8
 
 using namespace sisl;
-using namespace sisl::fds;
 
 struct Entry : public boost::intrusive::slist_base_hook<> {
     explicit Entry(uint64_t n) : m_n(n) {}
@@ -24,14 +23,11 @@ struct Entry : public boost::intrusive::slist_base_hook<> {
 std::unique_ptr< boost::intrusive::slist< Entry > > glob_lock_list;
 std::mutex glob_list_mutex;
 
-std::unique_ptr< sisl::fds::wisr_intrusive_slist< Entry > > glob_wisr_list;
+std::unique_ptr< sisl::wisr_intrusive_slist< Entry > > glob_wisr_list;
 std::array< std::vector< Entry >, THREADS > glob_entries;
 
-using namespace sisl;
-using namespace sisl::fds;
-
 void setup() {
-    glob_wisr_list = std::make_unique< sisl::fds::wisr_intrusive_slist< Entry > >();
+    glob_wisr_list = std::make_unique< sisl::wisr_intrusive_slist< Entry > >();
     glob_lock_list = std::make_unique< boost::intrusive::slist< Entry > >();
 
     for (auto i = 0U; i < THREADS; i++) {

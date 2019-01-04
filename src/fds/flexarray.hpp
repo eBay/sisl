@@ -8,7 +8,7 @@
 #include <array>
 #include <vector>
 
-namespace sisl { namespace fds {
+namespace sisl {
 template <typename T, int32_t StaticCount> class FlexArray {
   public:
     FlexArray() : m_count(0) {}
@@ -202,5 +202,5 @@ template <typename T, int32_t StaticCount> class FlexArray<std::unique_ptr<T>, S
     std::vector<std::unique_ptr<T>> m_vec;
     uint32_t m_count;
 };
-} } // namespace sisl::fds
+} // namespace sisl
 

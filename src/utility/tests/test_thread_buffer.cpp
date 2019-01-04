@@ -12,7 +12,6 @@ THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
 using namespace sisl;
-using namespace sisl::fds;
 
 struct MyList {
     std::list< uint64_t > m_list;

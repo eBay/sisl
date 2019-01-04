@@ -9,7 +9,7 @@
 #include <deque>
 #include <boost/intrusive/slist.hpp>
 
-namespace sisl { namespace fds {
+namespace sisl {
 
 template< typename DS >
 class wisr_ds_wrapper : public DS {
@@ -77,7 +77,7 @@ public:
     std::unique_ptr < DS > get_copy_and_reset() { return m_wfw.get_copy_and_reset();}
 
 private:
-    sisl::fds::wisr_framework< DS, DSArgs... > m_wfw;
+    sisl::wisr_framework< DS, DSArgs... > m_wfw;
 };
 
 template <typename T>
@@ -97,4 +97,4 @@ public:
 template <typename T>
 class wisr_intrusive_slist : public wisr_ds< intrusive_slist_wrapper< T >, T > {
 };
-}}
+}

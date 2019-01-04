@@ -4,7 +4,7 @@
 
 #include <gtest/gtest.h>
 #include "utility/thread_buffer.hpp"
-#include "fds/wisr_ds.hpp"
+#include "wisr/wisr_ds.hpp"
 #include <list>
 #include <atomic>
 #include <thread>
@@ -13,7 +13,6 @@ THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
 using namespace sisl;
-using namespace sisl::fds;
 
 #define INITIAL_THREADS         (6U)
 #define ADDLN_THREADS           (2U)
@@ -25,7 +24,7 @@ struct WaitFreeWriteVectorTest : public testing::Test {
 protected:
     std::vector< std::thread * > m_threads;
     std::thread* m_scrapper_thread;
-    sisl::fds::wisr_vector< uint64_t > m_vec;
+    sisl::wisr_vector< uint64_t > m_vec;
     std::atomic< uint32_t > m_write_threads_completed;
 
     WaitFreeWriteVectorTest() :

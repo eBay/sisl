@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <mutex>
-#include "fds/wisr_ds.hpp"
+#include "wisr/wisr_ds.hpp"
 #include <string>
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <vector>
@@ -13,22 +13,18 @@ RCU_REGISTER_INIT;
 #define THREADS    8
 
 using namespace sisl;
-using namespace sisl::fds;
 
 std::unique_ptr< std::vector<uint64_t> > glob_lock_vector;
 std::mutex glob_vector_mutex;
 
-std::unique_ptr< sisl::fds::wisr_vector< uint64_t > > glob_wisr_vector;
-
-using namespace sisl;
-using namespace sisl::fds;
+std::unique_ptr< sisl::wisr_vector< uint64_t > > glob_wisr_vector;
 
 #define NENTRIES_PER_THREAD 200
 
 void setup() {
     glob_lock_vector = std::make_unique< std::vector< uint64_t > >();
     glob_lock_vector->reserve(NENTRIES_PER_THREAD * THREADS * ITERATIONS);
-    glob_wisr_vector = std::make_unique< sisl::fds::wisr_vector< uint64_t > >((size_t)NENTRIES_PER_THREAD * THREADS * ITERATIONS);
+    glob_wisr_vector = std::make_unique< sisl::wisr_vector< uint64_t > >((size_t)NENTRIES_PER_THREAD * THREADS * ITERATIONS);
 }
 
 void test_locked_vector_insert(benchmark::State& state) {

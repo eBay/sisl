@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 #include <mutex>
 //#include "fds/wisr_deque.hpp"
-#include "fds/wisr_ds.hpp"
+#include "wisr/wisr_ds.hpp"
 #include <string>
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <deque>
@@ -14,21 +14,17 @@ RCU_REGISTER_INIT;
 #define THREADS    8
 
 using namespace sisl;
-using namespace sisl::fds;
 
 std::unique_ptr< std::deque<uint64_t> > glob_lock_deque;
 std::mutex glob_deque_mutex;
 
-std::unique_ptr< sisl::fds::wisr_deque< uint64_t > > glob_wisr_deque;
-
-using namespace sisl;
-using namespace sisl::fds;
+std::unique_ptr< sisl::wisr_deque< uint64_t > > glob_wisr_deque;
 
 #define NENTRIES_PER_THREAD 20000
 
 void setup() {
     glob_lock_deque = std::make_unique< std::deque< uint64_t > >();
-    glob_wisr_deque = std::make_unique< sisl::fds::wisr_deque< uint64_t > >();
+    glob_wisr_deque = std::make_unique< sisl::wisr_deque< uint64_t > >();
 }
 
 void test_locked_deque_insert(benchmark::State& state) {

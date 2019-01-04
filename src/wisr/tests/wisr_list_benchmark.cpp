@@ -1,7 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <mutex>
-//#include "fds/wisr_list.hpp"
-#include "fds/wisr_ds.hpp"
+#include "wisr/wisr_ds.hpp"
 #include <string>
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <list>
@@ -14,21 +13,17 @@ RCU_REGISTER_INIT;
 #define THREADS    8
 
 using namespace sisl;
-using namespace sisl::fds;
 
 std::unique_ptr< std::list<uint64_t> > glob_lock_list;
 std::mutex glob_list_mutex;
 
-std::unique_ptr< sisl::fds::wisr_list< uint64_t > > glob_wisr_list;
-
-using namespace sisl;
-using namespace sisl::fds;
+std::unique_ptr< sisl::wisr_list< uint64_t > > glob_wisr_list;
 
 #define NENTRIES_PER_THREAD 20000
 
 void setup() {
     glob_lock_list = std::make_unique< std::list< uint64_t > >();
-    glob_wisr_list = std::make_unique< sisl::fds::wisr_list< uint64_t > >();
+    glob_wisr_list = std::make_unique< sisl::wisr_list< uint64_t > >();
 }
 
 void test_locked_list_insert(benchmark::State& state) {

@@ -5,7 +5,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_FLAGS} ${CPP_WARNINGS} -DPACKAGE_N
 find_package(Threads REQUIRED)
 find_package(Boost 1.64 REQUIRED)
 
-include_directories(BEFORE .)
+include_directories(BEFORE ../fds)
 include_directories(BEFORE ..)
 
 set(TEST_WISR_VECTOR tests/test_wisr_vector.cpp)

@@ -238,7 +238,7 @@ class ThreadBuffer {
     }
 
   private:
-    sisl::fds::sparse_vector<std::unique_ptr<T>> m_buffers;
+    sisl::sparse_vector<std::unique_ptr<T>> m_buffers;
     std::tuple<Args...> m_args;
     std::mutex m_expand_mutex;
 };

@@ -8,7 +8,7 @@
 #include "utility/urcu_helper.hpp"
 #include <tuple>
 
-namespace sisl { namespace fds {
+namespace sisl {
 
 template <typename DS, typename... Args>
 class WrapperBuf {
@@ -95,7 +95,7 @@ private:
     std::mutex m_rotate_mutex;
     std::unique_ptr< DS > m_base_obj;
 };
-}} // namespace sisl::fds
+} // namespace sisl
 
 
 #endif //SISL_FDS_WAITFREE_WRITE_DS_HPP
