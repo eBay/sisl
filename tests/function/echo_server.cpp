@@ -121,8 +121,10 @@ void RunServer() {
 }
 
 SDS_LOGGING_INIT()
+SDS_OPTIONS_ENABLE(logging)
 
-int main(int arc, char* argv[]) {
+int main(int argc, char* argv[]) {
+    SDS_OPTIONS_LOAD(argc, argv, logging)
     std::cout << "Start echo server ..." << std::endl;
 
     RunServer();

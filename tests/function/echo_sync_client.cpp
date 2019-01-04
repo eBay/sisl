@@ -118,8 +118,10 @@ int RunClient(const std::string& server_address) {
 }
 
 SDS_LOGGING_INIT()
+SDS_OPTIONS_ENABLE(logging)
 
 int main(int argc, char** argv) {
+    SDS_OPTIONS_LOAD(argc, argv, logging)
 
     std::string server_address("0.0.0.0:50051");
 
