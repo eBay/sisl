@@ -9,6 +9,10 @@
 namespace sds_logging {
 thread_local shared<spdlog::logger> sds_thread_logger;
 
+shared<spdlog::logger> GetLogger() {
+   return logger_;
+}
+
 namespace sinks = spdlog::sinks;
 void SetLogger(std::string const& name, std::string const& pkg, std::string const& ver) {
    std::vector<spdlog::sink_ptr> mysinks { };

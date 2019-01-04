@@ -120,14 +120,10 @@ MODLEVELDEC(_, _, base)
                              (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
                              (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
                              (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level")) \
-   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::err, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
+   BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::warn, BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base))) \
    namespace sds_logging { shared<spdlog::logger> logger_; }
 
 namespace sds_logging {
-
-shared<spdlog::logger> GetLogger() {
-   return logger_;
-}
 
 void SetLogger(std::string const& name,
                std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
