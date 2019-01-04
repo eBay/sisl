@@ -84,7 +84,7 @@ TEST(counterTest, wrapperTest) {
     cache1.update();
     cache2.update();
 
-    auto output = MetricsFarm::getInstance().getResultInJSONString();
+    auto output = MetricsFarm::getInstance().get_result_in_json_string();
     std::cout << "Output of gather = " << output << "\n";
 }
 

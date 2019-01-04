@@ -1,4 +1,4 @@
-# Install script for directory: /Users/hkadayam/src/workspace_sds/sisl_fds/src/utility
+# Install script for directory: /Users/hkadayam/src/workspace_sds/sisl/src/utility
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

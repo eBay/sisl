@@ -14,34 +14,34 @@ using namespace sisl;
 
 void userA () {
     auto mgroup = std::make_shared<MetricsGroup>();
-    mgroup->registerCounter( "counter1", "Counter1", "" );
-    mgroup->registerCounter( "counter2", "Counter2", "" );
-    mgroup->registerCounter( "counter3", "Counter3", "" );
+    mgroup->register_counter("counter1", "Counter1", "");
+    mgroup->register_counter("counter2", "Counter2", "");
+    mgroup->register_counter("counter3", "Counter3", "");
 
-    MetricsFarm::getInstance().registerMetricsGroup(mgroup);
+    MetricsFarm::getInstance().register_metrics_group(mgroup);
 
-    mgroup->counterIncrement(0);
-    mgroup->counterIncrement(2, 4);
+    mgroup->counter_increment(0);
+    mgroup->counter_increment(2, 4);
     std::this_thread::sleep_for (std::chrono::seconds(3));
-    mgroup->counterIncrement(1);
+    mgroup->counter_increment(1);
     std::this_thread::sleep_for (std::chrono::seconds(2));
-    MetricsFarm::getInstance().deregisterMetricsGroup(mgroup);
+    MetricsFarm::getInstance().deregister_metrics_group(mgroup);
 }
 
 void userB () {
     std::this_thread::sleep_for (std::chrono::seconds(3));
 
     auto mgroup = std::make_shared<MetricsGroup>();
-    mgroup->registerGauge( "gauge1", "Gauge1", "" );
-    mgroup->registerGauge( "gauge2", "Gauge2", "" );
-    MetricsFarm::getInstance().registerMetricsGroup(mgroup);
+    mgroup->register_gauge("gauge1", "Gauge1", "");
+    mgroup->register_gauge("gauge2", "Gauge2", "");
+    MetricsFarm::getInstance().register_metrics_group(mgroup);
 
-    mgroup->gaugeUpdate(0, 5);
+    mgroup->gauge_update(0, 5);
     std::this_thread::sleep_for (std::chrono::seconds(3));
-    mgroup->gaugeUpdate(1, 2);
-    mgroup->gaugeUpdate(0, 3);
+    mgroup->gauge_update(1, 2);
+    mgroup->gauge_update(0, 3);
     std::this_thread::sleep_for (std::chrono::seconds(2));
-    MetricsFarm::getInstance().deregisterMetricsGroup(mgroup);
+    MetricsFarm::getInstance().deregister_metrics_group(mgroup);
 }
 
 std::string expected[ITERATIONS] = {
@@ -56,7 +56,7 @@ uint64_t delay[ITERATIONS] = {2, 2, 3, 3};
 void gather () {
     for (auto i = 0U; i < ITERATIONS; i++) {
         std::this_thread::sleep_for (std::chrono::seconds(delay[i]));
-        auto output = MetricsFarm::getInstance().getResultInJSONString();
+        auto output = MetricsFarm::getInstance().get_result_in_json_string();
         output.erase( std::remove_if( output.begin(), output.end(),
                     [l = std::locale{}](auto ch) { return std::isspace(ch, l); }),
                 output.end());

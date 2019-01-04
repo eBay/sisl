@@ -17,29 +17,29 @@ MetricsGroupPtr glob_mgroup;
 
 void seqA () {
     std::this_thread::sleep_for (std::chrono::seconds(1));
-    glob_mgroup->counterIncrement(0, 1);
-    glob_mgroup->histogramObserve(0, 2);
-    glob_mgroup->histogramObserve(0, 5);
+    glob_mgroup->counter_increment(0, 1);
+    glob_mgroup->histogram_observe(0, 2);
+    glob_mgroup->histogram_observe(0, 5);
 
     std::this_thread::sleep_for (std::chrono::seconds(2));
 
-    glob_mgroup->histogramObserve(0, 5);
-    glob_mgroup->counterIncrement(1, 1);
-    glob_mgroup->gaugeUpdate(0, 2);
+    glob_mgroup->histogram_observe(0, 5);
+    glob_mgroup->counter_increment(1, 1);
+    glob_mgroup->gauge_update(0, 2);
 }
 
 void seqB () {
-    glob_mgroup->counterIncrement(0, 1);
-    glob_mgroup->counterIncrement(1, 1);
+    glob_mgroup->counter_increment(0, 1);
+    glob_mgroup->counter_increment(1, 1);
 
     std::this_thread::sleep_for (std::chrono::seconds(3));
 
-    glob_mgroup->counterDecrement(0, 2);
-    glob_mgroup->counterDecrement(1);
+    glob_mgroup->counter_decrement(0, 2);
+    glob_mgroup->counter_decrement(1);
 
     std::this_thread::sleep_for (std::chrono::seconds(1));
 
-    glob_mgroup->gaugeUpdate(0, 5);
+    glob_mgroup->gauge_update(0, 5);
 }
 
 std::string expected[ITERATIONS] = {
@@ -62,7 +62,7 @@ uint64_t delay[ITERATIONS] = {2,4};
 void gather () {
     for (auto i = 0U; i < ITERATIONS; i++) {
         std::this_thread::sleep_for (std::chrono::seconds(delay[i]));
-        auto output = MetricsFarm::getInstance().getResultInJSONString();
+        auto output = MetricsFarm::getInstance().get_result_in_json_string();
         output.erase( std::remove_if( output.begin(), output.end(),
                     [l = std::locale{}](auto ch) { return std::isspace(ch, l); }),
                 output.end());
@@ -86,16 +86,16 @@ TEST(functionalityTest, gather) {
 int main(int argc, char* argv[]) {
     glob_mgroup = MetricsGroup::make_group();
 
-    glob_mgroup->registerCounter( "counter1", "Counter1", "" );
-    glob_mgroup->registerCounter( "counter2", "Counter2", "" );
-    glob_mgroup->registerCounter( "counter3", "Counter3", "" );
+    glob_mgroup->register_counter("counter1", "Counter1", "");
+    glob_mgroup->register_counter("counter2", "Counter2", "");
+    glob_mgroup->register_counter("counter3", "Counter3", "");
 
-    glob_mgroup->registerGauge( "gauge1", "Gauge1", "" );
-    glob_mgroup->registerGauge( "gauge2", "Gauge2", "" );
+    glob_mgroup->register_gauge("gauge1", "Gauge1", "");
+    glob_mgroup->register_gauge("gauge2", "Gauge2", "");
 
-    glob_mgroup->registerHistogram( "hist", "Histogram1", "" );
+    glob_mgroup->register_histogram("hist", "Histogram1", "");
 
-    MetricsFarm::getInstance().registerMetricsGroup(glob_mgroup);
+    MetricsFarm::getInstance().register_metrics_group(glob_mgroup);
 
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

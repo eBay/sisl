@@ -78,8 +78,8 @@ public:
         }
         this->m_sum += other.m_sum;
     }
-    auto& getFreqs() const { return m_freqs; }
-    int64_t getSum() const { return m_sum; }
+    auto& get_freqs() const { return m_freqs; }
+    int64_t get_sum() const { return m_sum; }
 
 private:
     std::array< int64_t, HistogramBuckets::max_hist_bkts > m_freqs;
@@ -112,7 +112,7 @@ public:
 
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
-    std::string subType() const { return m_sub_type; }
+    std::string sub_type() const { return m_sub_type; }
     void publish(const CounterValue& value) {
         (void)value;
         //m_prometheus_counter->Update((double) value.get());
@@ -147,7 +147,7 @@ public:
     uint64_t get() const { return m_gauge.get(); };
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
-    std::string subType() const { return m_sub_type; }
+    std::string sub_type() const { return m_sub_type; }
     void publish() {
         //m_prometheus_gauge->Set((double) m_gauge.get());
     }
@@ -179,16 +179,16 @@ public:
         std::array<int64_t, HistogramBuckets::max_hist_bkts> cum_freq;
         int64_t fcount = 0;
         for (auto i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
-            fcount += (hvalue.getFreqs())[i];
+            fcount += (hvalue.get_freqs())[i];
             cum_freq[i] = fcount;
         }
 
         int64_t pnum = fcount * pcntl/100;
         auto i = (std::lower_bound(cum_freq.begin(), cum_freq.end(), pnum)) - cum_freq.begin();
-        if ( (hvalue.getFreqs())[i] == 0 ) return 0;
+        if ( (hvalue.get_freqs())[i] == 0 ) return 0;
         auto Yl = i == 0 ? 0 : m_bkt_boundaries[i-1];
         auto ith_cum_freq = (i == 0) ? 0 : cum_freq[i-1];
-        double Yp = Yl + (((pnum - ith_cum_freq) * i)/(hvalue.getFreqs())[i]);
+        double Yp = Yl + (((pnum - ith_cum_freq) * i)/(hvalue.get_freqs())[i]);
         return Yp;
 
         /* Formula:
@@ -201,25 +201,25 @@ public:
     int64_t count(const HistogramValue& hvalue) const {
         int64_t cnt = 0;
         for (auto i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
-            cnt += (hvalue.getFreqs())[i];
+            cnt += (hvalue.get_freqs())[i];
         }
         return cnt;
     }
     double average(const HistogramValue& hvalue) const {
         auto cnt = count(hvalue);
-        return (cnt ? hvalue.getSum()/cnt : 0);
+        return (cnt ? hvalue.get_sum()/cnt : 0);
     }
 
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
-    std::string subType() const { return m_sub_type; }
+    std::string sub_type() const { return m_sub_type; }
     void publish(const HistogramValue& hvalue) {
         (void)hvalue;
-        //std::vector<double> vec(std::begin(hvalue.getFreqs()), std::end(hvalue.getFreqs()));
+        //std::vector<double> vec(std::begin(hvalue.getFreqs()), std::end(hvalue.get_freqs()));
         //m_prometheus_hist->Update(vec, hvalue.m_sum);
     }
 
-    const hist_bucket_boundaries_t& getBoundaries() const { return m_bkt_boundaries; }
+    const hist_bucket_boundaries_t& get_boundaries() const { return m_bkt_boundaries; }
 private:
     const std::string m_name, m_desc, m_sub_type;
     const hist_bucket_boundaries_t& m_bkt_boundaries;
@@ -256,14 +256,13 @@ public:
         //printf("ThreadId=%08lux: SafeMetrics=%p destructor\n", pthread_self(), (void *)this);
     }
 
-
     // Required method to work with wisr_framework
     static void merge(SafeMetrics* a, SafeMetrics* b);
 
-    CounterValue& getCounter(uint64_t index) { return m_counters[index]; }
-    HistogramValue& getHistogram(uint64_t index) { return m_histograms[index]; }
+    CounterValue& get_counter(uint64_t index) { return m_counters[index]; }
+    HistogramValue& get_histogram(uint64_t index) { return m_histograms[index]; }
 
-    auto getNumMetrics() const { return std::make_tuple(m_ncntrs, m_nhists); }
+    auto get_num_metrics() const { return std::make_tuple(m_ncntrs, m_nhists); }
 };
 
 typedef std::shared_ptr< MetricsGroup > MetricsGroupPtr;
@@ -291,88 +290,89 @@ public:
         }
     }
 
-    uint64_t registerCounter(const std::string& name, const std::string& desc, const std::string& sub_type = "",
-            _publish_as ptype = publish_as_counter) {
+    uint64_t register_counter(const std::string &name, const std::string &desc, const std::string &sub_type = "",
+                              _publish_as ptype = publish_as_counter) {
         auto locked = lock();
         m_counters.emplace_back(name, desc, sub_type, ptype);
         return m_counters.size()-1;
     }
-    uint64_t registerCounter(const CounterInfo& counter) {
+    uint64_t register_counter(const CounterInfo &counter) {
         auto locked = lock();
         m_counters.push_back(counter);
         return m_counters.size()-1;
     }
 
-    uint64_t registerGauge(const std::string& name, const std::string& desc, const std::string& sub_type = "") {
+    uint64_t register_gauge(const std::string &name, const std::string &desc, const std::string &sub_type = "") {
         auto locked = lock();
         m_gauges.emplace_back(name, desc, sub_type);
         return m_gauges.size()-1;
     }
-    uint64_t registerGauge(const GaugeInfo& gauge) {
+    uint64_t register_gauge(const GaugeInfo &gauge) {
         auto locked = lock();
         m_gauges.push_back(gauge);
         return m_gauges.size()-1;
     }
 
-    uint64_t registerHistogram(const std::string& name, const std::string& desc, const std::string& sub_type = "",
-            const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets)) {
+    uint64_t register_histogram(const std::string &name, const std::string &desc, const std::string &sub_type = "",
+                                const hist_bucket_boundaries_t &bkt_boundaries = HistogramBucketsType(DefaultBuckets)) {
         auto locked = lock();
         m_histograms.emplace_back(name, desc, sub_type, bkt_boundaries);
         m_bkt_boundaries.push_back(bkt_boundaries);
         return m_histograms.size()-1;
     }
-    uint64_t registerHistogram(HistogramInfo &hist) {
+    uint64_t register_histogram(HistogramInfo &hist) {
         auto locked = lock();
         m_histograms.push_back(hist);
-        m_bkt_boundaries.push_back(hist.getBoundaries());
+        m_bkt_boundaries.push_back(hist.get_boundaries());
         return m_histograms.size()-1;
     }
-    uint64_t registerHistogram(const std::string& name, const std::string& desc,
-            const hist_bucket_boundaries_t& bkt_boundaries) {
-        return registerHistogram(name, desc, "", bkt_boundaries);
+    uint64_t register_histogram(const std::string &name, const std::string &desc,
+                                const hist_bucket_boundaries_t &bkt_boundaries) {
+        return register_histogram(name, desc, "", bkt_boundaries);
     }
 
-    void counterIncrement(uint64_t index, int64_t val=1) {
-        m_metrics->insertable()->getCounter(index).increment(val);
+    void counter_increment(uint64_t index, int64_t val = 1) {
+        m_metrics->insertable()->get_counter(index).increment(val);
         //printf("Thread=%08lux: Updating SafeMetrics=%p countervalue = %p, index=%lu to new val = %ld\n",
         //       pthread_self(),
-        //       m_metrics->insertable(), &m_metrics->insertable()->getCounter(index), index, m_metrics->insertable()->getCounter(index).get());
+        //       m_metrics->insertable(), &m_metrics->insertable()->getCounter(index), index, m_metrics->insertable()->get_counter(index).get());
     }
-    void counterDecrement(uint64_t index, int64_t val=1) { m_metrics->insertable()->getCounter(index).decrement(val); }
-    void gaugeUpdate(uint64_t index, int64_t val) { m_gauges[index].m_gauge.update(val); }
-    void histogramObserve(uint64_t index, int64_t val) {
-        m_metrics->insertable()->getHistogram(index).observe(val, m_bkt_boundaries[index]);
+    void counter_decrement(uint64_t index, int64_t val = 1) { m_metrics->insertable()->get_counter(index).decrement(val); }
+    void gauge_update(uint64_t index, int64_t val) { m_gauges[index].m_gauge.update(val); }
+    void histogram_observe(uint64_t index, int64_t val) {
+        m_metrics->insertable()->get_histogram(index).observe(val, m_bkt_boundaries[index]);
         //printf("Thread=%08lux: Updating SafeMetrics=%p histvalue = %p, index=%lu\n",
-        //       pthread_self(), m_metrics->insertable(), &m_metrics->insertable()->getHistogram(index), index);
+        //       pthread_self(), m_metrics->insertable(), &m_metrics->insertable()->get_histogram(index), index);
     }
 
-    const CounterInfo& getCounterInfo(uint64_t index) const { return m_counters[index]; }
-    const GaugeInfo& getGaugeInfo(uint64_t index) const { return m_gauges[index]; }
-    const HistogramInfo& getHistogramInfo(uint64_t index) const { return m_histograms[index]; }
+    const CounterInfo& get_counter_info(uint64_t index) const { return m_counters[index]; }
+    const GaugeInfo& get_gauge_info(uint64_t index) const { return m_gauges[index]; }
+    const HistogramInfo& get_histogram_info(uint64_t index) const { return m_histograms[index]; }
 
-    nlohmann::json getResultInJSON() {
+    nlohmann::json get_result_in_json(bool need_latest = true) {
         nlohmann::json json;
         nlohmann::json counter_entries;
         nlohmann::json gauge_entries;
         nlohmann::json hist_entries;
 
-        gatherResult(
-                [&counter_entries](CounterInfo& c, const CounterValue &result) {
+        gather_result(
+                need_latest,
+                [&counter_entries](CounterInfo &c, const CounterValue &result) {
                     std::string desc = c.desc();
-                    if (!c.subType().empty()) desc = desc + " - " + c.subType();
+                    if (!c.sub_type().empty()) desc = desc + " - " + c.sub_type();
                     counter_entries[desc] = result.get();
                 },
-                [&gauge_entries](GaugeInfo& g) {
+                [&gauge_entries](GaugeInfo &g) {
                     std::string desc = g.desc();
-                    if (!g.subType().empty()) desc = desc + " - " + g.subType();
+                    if (!g.sub_type().empty()) desc = desc + " - " + g.sub_type();
                     gauge_entries[desc] = g.get();
                 },
-                [&hist_entries](HistogramInfo& h, const HistogramValue& result) {
+                [&hist_entries](HistogramInfo &h, const HistogramValue &result) {
                     std::stringstream ss;
                     ss << h.average(result) << " / " << h.percentile(result, 50) << " / "
-                       << h.percentile(result, 95)  << " / " << h.percentile(result, 99);
+                       << h.percentile(result, 95) << " / " << h.percentile(result, 99);
                     std::string desc = h.desc();
-                    if (!h.subType().empty()) desc = desc + " - " + h.subType();
+                    if (!h.sub_type().empty()) desc = desc + " - " + h.sub_type();
                     hist_entries[desc] = ss.str();
                 }
         );
@@ -383,21 +383,22 @@ public:
         return json;
     }
 
-    void publishResult() {
-        gatherResult(
-                [](CounterInfo& c, const CounterValue &result) {
+    void publish_result() {
+        gather_result(
+                true,  /* need_latest */
+                [](CounterInfo &c, const CounterValue &result) {
                     c.publish(result);
                 },
-                [](GaugeInfo& g) {
+                [](GaugeInfo &g) {
                     g.publish();
                 },
-                [](HistogramInfo& h, const HistogramValue& result) {
+                [](HistogramInfo &h, const HistogramValue &result) {
                     h.publish(result);
                 }
         );
     }
 
-    const std::string& getName() const { return m_grp_name; }
+    const std::string& get_name() const { return m_grp_name; }
 
 private:
     void on_register() {
@@ -405,14 +406,15 @@ private:
         m_metrics = std::make_unique< ThreadSafeMetrics >(*this, m_counters.size(), m_histograms.size());
     }
 
-    void gatherResult(std::function<void(CounterInfo& , const CounterValue&)> counter_cb,
-                      std::function<void(GaugeInfo&)> gauge_cb,
-                      std::function<void(HistogramInfo&, const HistogramValue&)> histogram_cb) {
+    void gather_result(bool need_latest,
+                       std::function< void(CounterInfo &, const CounterValue &) > counter_cb,
+                       std::function< void(GaugeInfo &) > gauge_cb,
+                       std::function< void(HistogramInfo &, const HistogramValue &) > histogram_cb) {
         //printf("Start Gathering\n=============================================================\n");
-        auto smetrics = m_metrics->accessible();
+        auto smetrics = need_latest ? m_metrics->now() : m_metrics->delayed();
 
         for (auto i = 0U; i < m_counters.size(); i++) {
-            counter_cb(m_counters[i], smetrics->getCounter(i));
+            counter_cb(m_counters[i], smetrics->get_counter(i));
         }
 
         for (auto i = 0U; i < m_gauges.size(); i++) {
@@ -420,7 +422,7 @@ private:
         }
 
         for (auto i = 0U; i < m_histograms.size(); i++) {
-            histogram_cb(m_histograms[i], smetrics->getHistogram(i));
+            histogram_cb(m_histograms[i], smetrics->get_histogram(i));
         }
         //printf("End Gathering\n=============================================================\n");
     }
@@ -447,7 +449,7 @@ void SafeMetrics::merge(SafeMetrics *a, SafeMetrics *b) {
         //printf("After merge a->m_counters[%u] = %ld\n", i, a->m_counters[i].get());
     }
     for (auto i = 0U; i < a->m_nhists; i++) {
-        a->m_histograms[i].merge(b->m_histograms[i], a->m_mgroup.getHistogramInfo(i).getBoundaries());
+        a->m_histograms[i].merge(b->m_histograms[i], a->m_mgroup.get_histogram_info(i).get_boundaries());
     }
 }
 
@@ -472,31 +474,31 @@ public:
     MetricsFarm(const MetricsFarm&) = delete;
     void operator=(const MetricsFarm&) = delete;
 
-    void registerMetricsGroup(MetricsGroupPtr mgroup) {
+    void register_metrics_group(MetricsGroupPtr mgroup) {
         assert(mgroup != nullptr);
         auto locked = lock();
         mgroup->on_register();
         m_mgroups.insert(mgroup);
     }
 
-    void deregisterMetricsGroup(MetricsGroupPtr mgroup) {
+    void deregister_metrics_group(MetricsGroupPtr mgroup) {
         assert(mgroup != nullptr);
         auto locked = lock();
         m_mgroups.erase(mgroup);
     }
 
-    nlohmann::json getResultInJSON() {
+    nlohmann::json get_result_in_json(bool need_latest = true) {
         nlohmann::json json;
         for (auto &mgroup : m_mgroups) {
-            json[mgroup->getName()] = mgroup->getResultInJSON();
+            json[mgroup->get_name()] = mgroup->get_result_in_json(need_latest);
         }
         return json;
     };
-    std::string getResultInJSONString() { return getResultInJSON().dump(); }
+    std::string get_result_in_json_string(bool need_latest = true) { return get_result_in_json(need_latest).dump(); }
 
-    void publishResult() {
+    void publish_result() {
         for (auto &mgroup : m_mgroups) {
-            mgroup->publishResult();
+            mgroup->publish_result();
         }
     }
 };
@@ -532,7 +534,7 @@ public:
         return CounterInfo(std::string(Name), desc, sub_type, ptype);
     }
 
-    const char *getName() const {return Name; }
+    const char *get_name() const {return Name; }
 };
 
 template <char... elements>
@@ -550,7 +552,7 @@ public:
         return GaugeInfo(std::string(Name), desc, sub_type);
     }
 
-    const char *getName() const {return Name; }
+    const char *get_name() const {return Name; }
 };
 
 template <char... elements>
@@ -569,46 +571,46 @@ public:
         return HistogramInfo(std::string(Name), desc, sub_type, bkt_boundaries);
     }
 
-    const char *getName() const {return Name; }
+    const char *get_name() const {return Name; }
 };
 
 class MetricsGroupWrapper : public MetricsGroupPtr {
 public:
     explicit MetricsGroupWrapper(const char *grp_name) : MetricsGroupPtr(std::make_shared<MetricsGroup>(grp_name)) {}
-    void register_me_to_farm() { MetricsFarm::getInstance().registerMetricsGroup(*this); }
+    void register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(*this); }
 };
 
 #define REGISTER_COUNTER(name, ...) \
     { \
         auto &nc = NamedCounter<decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr))>::getInstance(); \
         auto rc = nc.create(__VA_ARGS__); \
-        nc.m_index = this->get()->registerCounter(rc); \
+        nc.m_index = this->get()->register_counter(rc); \
     }
 
 #define REGISTER_GAUGE(name, ...) \
     { \
         auto &ng = NamedGauge<decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr))>::getInstance(); \
         auto rg = ng.create(__VA_ARGS__); \
-        ng.m_index = this->get()->registerGauge(rg); \
+        ng.m_index = this->get()->register_gauge(rg); \
     }
 
 #define REGISTER_HISTOGRAM(name, ...) \
     { \
         auto &nh = NamedHistogram<decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr))>::getInstance(); \
         auto rh = nh.create(__VA_ARGS__); \
-        nh.m_index = this->get()->registerHistogram(rh); \
+        nh.m_index = this->get()->register_histogram(rh); \
     }
 
 #define METRIC_NAME_TO_INDEX(name) (NamedCounter<decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr))>::getInstance().m_index)
-#define COUNTER_INCREMENT(group, name, ...) (group->counterIncrement(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
-#define COUNTER_DECREMENT(group, name, ...) (group->counterDecrement(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
-#define GAUGE_UPDATE(group, name, ...) (group->gaugeUpdate(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
-#define HISTOGRAM_OBSERVE(group, name, ...) (group->histogramObserve(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
+#define COUNTER_INCREMENT(group, name, ...) (group->counter_increment(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
+#define COUNTER_DECREMENT(group, name, ...) (group->counter_decrement(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
+#define GAUGE_UPDATE(group, name, ...) (group->gauge_update(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
+#define HISTOGRAM_OBSERVE(group, name, ...) (group->histogram_observe(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
 
 #if 0
 #define COUNTER_INCREMENT(group, name, ...) { \
     auto& nc = NamedCounter<decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr))>::getInstance(); \
-    std::cout << "Counter accessed for name = " << nc.getName() << " ptr = " << (void *)&nc << " index = " << nc.m_index << "\n"; \
+    std::cout << "Counter accessed for name = " << nc.get_name() << " ptr = " << (void *)&nc << " index = " << nc.m_index << "\n"; \
     group->counterIncrement(nc.m_index, __VA_ARGS__); \
 }
 #endif

@@ -28,8 +28,8 @@ struct _locked_hist_wrapper {
 
     hist_result_t get_result() {
         std::lock_guard<std::mutex> g(m_lock);
-        std::vector<double> vec(std::begin(m_value.getFreqs()), std::end(m_value.getFreqs()));
-        return std::make_pair(vec, m_value.getSum());
+        std::vector<double> vec(std::begin(m_value.get_freqs()), std::end(m_value.get_freqs()));
+        return std::make_pair(vec, m_value.get_sum());
     }
 
     std::mutex m_lock;
@@ -86,20 +86,20 @@ void setup() {
 
     for (auto i = 0; i < NCOUNTERS; i++) {
         std::stringstream ss; ss << "counter" << i + 1;
-        glob_mgroup->registerCounter(ss.str(), " for test", "" );
+        glob_mgroup->register_counter(ss.str(), " for test", "");
     }
 
     for (auto i = 0; i < NGAUGES; i++) {
         std::stringstream ss; ss << "gauge" << i+1;
-        glob_mgroup->registerGauge(ss.str(), " for test", "");
+        glob_mgroup->register_gauge(ss.str(), " for test", "");
     }
 
     for (auto i = 0; i < NHISTOGRAMS; i++) {
         std::stringstream ss; ss << "histogram" << i+1;
-        glob_mgroup->registerHistogram(ss.str(), " for test", "");
+        glob_mgroup->register_histogram(ss.str(), " for test", "");
     }
 
-    MetricsFarm::getInstance().registerMetricsGroup(glob_mgroup);
+    MetricsFarm::getInstance().register_metrics_group(glob_mgroup);
 }
 
 
@@ -107,7 +107,7 @@ void test_counters_write_rcu(benchmark::State& state) {
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
         for (auto i = 0; i < NCOUNTERS; i++) {
-            glob_mgroup->counterIncrement(i);
+            glob_mgroup->counter_increment(i);
         }
     }
 }
@@ -117,7 +117,7 @@ void test_gauge_write_rcu(benchmark::State& state) {
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
         for (auto i = 0; i < NGAUGES; i++) {
-            glob_mgroup->gaugeUpdate(i, v * (i+1));
+            glob_mgroup->gauge_update(i, v * (i + 1));
         }
         v++;
     }
@@ -129,7 +129,7 @@ void test_histogram_write_rcu(benchmark::State& state) {
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
         for (auto i = 0; i < NHISTOGRAMS; i++) {
-            glob_mgroup->histogramObserve(i, v * (i+1));
+            glob_mgroup->histogram_observe(i, v * (i + 1));
         }
         v++;
     }
@@ -192,7 +192,7 @@ void test_metrics_read_rcu(benchmark::State& state) {
     std::string str;
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
-        benchmark::DoNotOptimize(str = MetricsFarm::getInstance().getResultInJSONString());
+        benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
     }
 }
 

@@ -73,7 +73,7 @@ public:
     template <class... Args>
     void emplace_front(Args&&... args) { m_wfw.insertable()->emplace_front(std::forward<Args>(args)...); }
 
-    DS *accessible() { return m_wfw.accessible(); }
+    DS *now() { return m_wfw.now(); }
     std::unique_ptr < DS > get_copy_and_reset() { return m_wfw.get_copy_and_reset();}
 
 private:

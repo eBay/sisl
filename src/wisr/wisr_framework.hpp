@@ -65,9 +65,14 @@ public:
         return m_buffer->get_safe().get();
     }
 
-    DS* accessible() {
+    DS* now() {
         std::lock_guard<std::mutex> lg(m_rotate_mutex);
         _rotate();
+        return m_base_obj.get();
+    }
+
+    DS* delayed() {
+        std::lock_guard<std::mutex> lg(m_rotate_mutex);
         return m_base_obj.get();
     }
 
