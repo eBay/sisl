@@ -61,36 +61,35 @@ public:
         m_base_obj = m_buffer->make_new();
     }
 
-    DS* writeable() {
+    DS* insertable() {
         return m_buffer->get_safe().get();
     }
 
-    DS* gather() {
+    DS* accessible() {
         std::lock_guard<std::mutex> lg(m_rotate_mutex);
-        auto base_raw = m_base_obj.get();
-        m_buffer.access_all_threads([base_raw](WrapperBuf<DS, Args...> *ptr) {
-            auto old_ptr = ptr->rotate();
-            DS::merge(base_raw, old_ptr.get());
-            return true;
-        });
-
-        return base_raw;
+        _rotate();
+        return m_base_obj.get();
     }
 
-    std::unique_ptr< DS > get_copy() {
+    std::unique_ptr< DS > get_copy_and_reset() {
         std::lock_guard<std::mutex> lg(m_rotate_mutex);
-        auto base_raw = m_base_obj.get();
-        m_buffer.access_all_threads([base_raw](WrapperBuf<DS, Args...> *ptr) {
-            auto old_ptr = ptr->rotate();
-            DS::merge(base_raw, old_ptr.get());
-            return true;
-        });
+        _rotate();
 
         auto ret = std::move(m_base_obj);
         m_base_obj = m_buffer->make_new();
         return std::move(ret);
     }
 
+private:
+    // This method assumes that rotate mutex is already held
+    void _rotate() {
+        auto base_raw = m_base_obj.get();
+        m_buffer.access_all_threads([base_raw](WrapperBuf<DS, Args...> *ptr) {
+            auto old_ptr = ptr->rotate();
+            DS::merge(base_raw, old_ptr.get());
+            return true;
+        });
+    }
 private:
     sisl::ThreadBuffer< WrapperBuf< DS, Args... >, Args... > m_buffer;
     std::mutex m_rotate_mutex;

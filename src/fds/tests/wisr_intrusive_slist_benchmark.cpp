@@ -63,7 +63,7 @@ void test_wisr_list_insert(benchmark::State &state) {
     }
 
     if (state.thread_index == 0) {
-        auto l = glob_wisr_list->get_copy();
+        auto l = glob_wisr_list->get_copy_and_reset();
         l->clear();
     }
 }

@@ -49,7 +49,7 @@ public:
 #define INSERT_METHOD(method_name, ...) \
     template <class... Args> \
     void method_name(__VA_ARGS__) { \
-        m_wfw.writeable()->method_name(std::forward<Args>(args)...); \
+        m_wfw.insertable()->method_name(std::forward<Args>(args)...); \
     }
 
 template< typename DS, typename T, typename... DSArgs >
@@ -62,28 +62,19 @@ public:
 
     explicit wisr_ds(const wisr_ds& other) = default;
 
-    void push_back(T& value) {
-        m_wfw.writeable()->push_back(value);
-    }
+    void push_back(T& value) { m_wfw.insertable()->push_back(value); }
 
     template <class... Args>
-    void emplace_back(Args&&... args) {
-        m_wfw.writeable()->emplace_back(std::forward<Args>(args)...);
-    }
+    void emplace_back(Args&&... args) { m_wfw.insertable()->emplace_back(std::forward<Args>(args)...);}
 
     template <class... Args>
-    void push_front(Args&&... args) {
-        m_wfw.writeable()->push_front(std::forward<Args>(args)...);
-    }
+    void push_front(Args&&... args) { m_wfw.insertable()->push_front(std::forward<Args>(args)...);}
 
     template <class... Args>
-    void emplace_front(Args&&... args) {
-        m_wfw.writeable()->emplace_front(std::forward<Args>(args)...);
-    }
+    void emplace_front(Args&&... args) { m_wfw.insertable()->emplace_front(std::forward<Args>(args)...); }
 
-    std::unique_ptr < DS > get_copy() {
-        return m_wfw.get_copy();
-    }
+    DS *accessible() { return m_wfw.accessible(); }
+    std::unique_ptr < DS > get_copy_and_reset() { return m_wfw.get_copy_and_reset();}
 
 private:
     sisl::fds::wisr_framework< DS, DSArgs... > m_wfw;

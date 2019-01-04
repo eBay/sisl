@@ -1,6 +1,5 @@
 #include <benchmark/benchmark.h>
 #include <mutex>
-//#include "fds/wisr_vector.hpp"
 #include "fds/wisr_ds.hpp"
 #include <string>
 #include <boost/preprocessor/repetition/repeat.hpp>
@@ -70,7 +69,7 @@ void test_locked_vector_read(benchmark::State& state) {
 void test_wisr_vector_read(benchmark::State &state) {
     uint64_t ret;
     for (auto _ : state) { // Loops upto iteration count
-        auto vec = glob_wisr_vector->get_copy();
+        auto vec = glob_wisr_vector->get_copy_and_reset();
         for (auto v : *vec) {
             benchmark::DoNotOptimize(ret = v * 2);
         }

@@ -61,7 +61,7 @@ protected:
     }
 
     static void scrape(WaitFreeWriteVectorTest *test, std::vector< uint64_t >& result_vec) {
-        auto vec_copy = test->m_vec.get_copy();
+        auto vec_copy = test->m_vec.get_copy_and_reset();
         result_vec.insert(result_vec.end(), vec_copy->begin(), vec_copy->end());
         std::cout << "Scrapped " << vec_copy->size() << " in this iteration. total_entries_recvd so far = "
                   << result_vec.size() << "\n";

@@ -69,7 +69,7 @@ void test_locked_deque_read(benchmark::State& state) {
 void test_wisr_deque_read(benchmark::State &state) {
     uint64_t ret;
     for (auto _ : state) { // Loops upto iteration count
-        auto vec = glob_wisr_deque->get_copy();
+        auto vec = glob_wisr_deque->get_copy_and_reset();
         for (auto v : *vec) {
             benchmark::DoNotOptimize(ret = v * 2);
         }
