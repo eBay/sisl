@@ -81,15 +81,14 @@ class Echo {
 
     void handle_echo_reply(EchoReply& reply, ::grpc::Status& status) {
         if (!status.ok()) {
-            std::cout << "echo request " << request_.message() <<
-                      " failed, status " << status.error_code() <<
-                      ": " << status.error_message() << std::endl;
+            LOGERROR("echo request {} failed, status {}: {}",
+                     request_.message(),
+                     status.error_code(),
+                     status.error_message());
             return;
         }
 
-        std::cout << "echo request " << request_.message() <<
-                  " reply " << reply.message() << std::endl;
-
+        LOGINFO("echo request {} reply {}", request_.message(), reply.message());
 
         assert(request_.message() == reply.message());
         g_echo_counter.fetch_add(1, std::memory_order_relaxed);
@@ -107,7 +106,7 @@ int RunClient(const std::string& server_address) {
 
     auto client = GrpcAsyncClient::make<EchoAndPingAsyncClient>(server_address, "", "");
     if (!client) {
-        std::cout << "Create async client failed." << std::endl;
+        LOGCRITICAL("Create async client failed.");
         return -1;
     }
 
@@ -135,14 +134,14 @@ int RunClient(const std::string& server_address) {
             [request] (PingReply& reply, ::grpc::Status& status) {
 
                 if (!status.ok()) {
-                    std::cout << "ping request " << request->seqno() <<
-                              " failed, status " << status.error_code() <<
-                              ": " << status.error_message() << std::endl;
+                    LOGERROR("ping request {} failed, status {}: {}",
+                             request->seqno(),
+                             status.error_code(),
+                             status.error_message());
                     return;
                 }
 
-                std::cout << "ping request " << request->seqno() <<
-                          " reply " << reply.seqno() << std::endl;
+                LOGINFO("ping request {} reply {}", request->seqno(), reply.seqno());
 
                 assert(request->seqno() == reply.seqno());
                 g_ping_counter.fetch_add(1, std::memory_order_relaxed);
@@ -161,10 +160,11 @@ SDS_OPTIONS_ENABLE(logging)
 
 int main(int argc, char** argv) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
+    sds_logging::SetLogger("async_client");
     std::string server_address("0.0.0.0:50051");
 
     if (RunClient(server_address) != GRPC_CALL_COUNT) {
-        std::cerr << "Only " << GRPC_CALL_COUNT << " calls are successful" << std::endl;
+        LOGERROR("Only {} calls are successful", GRPC_CALL_COUNT);
         return 1;
     }
 

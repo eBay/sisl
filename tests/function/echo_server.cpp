@@ -28,7 +28,7 @@ class EchoServiceImpl {
     virtual ~EchoServiceImpl() = default;
 
     virtual ::grpc::Status echo_request(EchoRequest& request, EchoReply& response) {
-        std::cout << "receive echo request " << request.message() << std::endl;
+        LOGINFO("receive echo request {}", request.message());
         response.set_message(request.message());
         return ::grpc::Status::OK;
     }
@@ -36,7 +36,7 @@ class EchoServiceImpl {
     bool register_service(GrpcServer* server) {
 
         if (!server->register_async_service<EchoService>()) {
-            std::cout << "register service failed" << std::endl;
+            LOGERROR("register service failed");
             return false;
         }
 
@@ -44,11 +44,11 @@ class EchoServiceImpl {
     }
 
     bool register_rpcs(GrpcServer* server) {
-        std::cout << "register rpc calls" << std::endl;
+        LOGINFO("register rpc calls");
         if (!server->register_rpc<EchoService, EchoRequest, EchoReply>(
                     &EchoService::AsyncService::RequestEcho,
                     std::bind(&EchoServiceImpl::echo_request, this, _1, _2))) {
-            std::cout << "register rpc failed" << std::endl;
+            LOGERROR("register rpc failed");
             return false;
         }
 
@@ -65,7 +65,7 @@ class PingServiceImpl {
     virtual ~PingServiceImpl() = default;
 
     virtual ::grpc::Status ping_request(PingRequest& request, PingReply& response) {
-        std::cout << "receive ping request " << request.seqno() << std::endl;
+        LOGINFO("receive ping request {}", request.seqno());
         response.set_seqno(request.seqno());
         return ::grpc::Status::OK;
     }
@@ -73,7 +73,7 @@ class PingServiceImpl {
     bool register_service(GrpcServer* server) {
 
         if (!server->register_async_service<PingService>()) {
-            std::cout << "register ping service failed" << std::endl;
+            LOGERROR("register ping service failed");
             return false;
         }
 
@@ -81,11 +81,11 @@ class PingServiceImpl {
     }
 
     bool register_rpcs(GrpcServer* server) {
-        std::cout << "register rpc calls" << std::endl;
+        LOGINFO("register rpc calls");
         if (!server->register_rpc<PingService, PingRequest, PingReply>(
                     &PingService::AsyncService::RequestPing,
                     std::bind(&PingServiceImpl::ping_request, this, _1, _2))) {
-            std::cout << "register ping rpc failed" << std::endl;
+            LOGERROR("register ping rpc failed");
             return false;
         }
 
@@ -108,7 +108,7 @@ void RunServer() {
     ping_impl->register_service(server);
 
     server->run();
-    std::cout << "Server listening on " << server_address << std::endl;
+    LOGINFO("Server listening on {}", server_address);
 
     echo_impl->register_rpcs(server);
     ping_impl->register_rpcs(server);
@@ -125,7 +125,8 @@ SDS_OPTIONS_ENABLE(logging)
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
-    std::cout << "Start echo server ..." << std::endl;
+    sds_logging::SetLogger("echo_server");
+    LOGINFO("Start echo server ...");
 
     RunServer();
     return 0;

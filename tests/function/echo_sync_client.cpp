@@ -64,7 +64,7 @@ int RunClient(const std::string& server_address) {
 
     auto client = std::make_unique<EchoAndPingClient>(server_address, "", "");
     if (!client || !client->init()) {
-        std::cout << "Create grpc sync client failed." << std::endl;
+        LOGERROR("Create grpc sync client failed.");
         return -1;
     }
 
@@ -79,14 +79,14 @@ int RunClient(const std::string& server_address) {
             request.set_message(std::to_string(i));
             Status status = client->echo_stub()->Echo(&context, request, &reply);
             if (!status.ok()) {
-                std::cout << "echo request " << request.message() <<
-                          " failed, status " << status.error_code() <<
-                          ": " << status.error_message() << std::endl;
+                LOGERROR("echo request {} failed, status {}: {}",
+                         request.message(),
+                         status.error_code(),
+                         status.error_message());
                 continue;
             }
 
-            std::cout << "echo request " << request.message() <<
-                      " reply " << reply.message() << std::endl;
+            LOGINFO("echo request {} reply {}", request.message(), reply.message());
 
             if (request.message() == reply.message()) {
                 ret++;
@@ -98,14 +98,14 @@ int RunClient(const std::string& server_address) {
             request.set_seqno(i);
             Status status = client->ping_stub()->Ping(&context, request, &reply);
             if (!status.ok()) {
-                std::cout << "ping request " << request.seqno() <<
-                          " failed, status " << status.error_code() <<
-                          ": " << status.error_message() << std::endl;
+                LOGERROR("ping request {} failed, status {}: {}",
+                         request.seqno(),
+                         status.error_code(),
+                         status.error_message());
                 continue;
             }
 
-            std::cout << "ping request " << request.seqno() <<
-                      " reply " << reply.seqno() << std::endl;
+            LOGINFO("ping request {} reply {}", request.seqno(), reply.seqno());
 
             if (request.seqno() == reply.seqno()) {
                 ret++;
@@ -122,11 +122,12 @@ SDS_OPTIONS_ENABLE(logging)
 
 int main(int argc, char** argv) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
+    sds_logging::SetLogger("sync_client");
 
     std::string server_address("0.0.0.0:50051");
 
     if (RunClient(server_address) != GRPC_CALL_COUNT) {
-        std::cerr << "Only " << GRPC_CALL_COUNT << " calls are successful" << std::endl;
+        LOGERROR("Only {} calls are successful", GRPC_CALL_COUNT);
         return 1;
     }
 
