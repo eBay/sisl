@@ -120,6 +120,7 @@ void RunServer() {
     delete server;
 }
 
+SDS_LOGGING_INIT()
 
 int main(int arc, char* argv[]) {
     std::cout << "Start echo server ..." << std::endl;

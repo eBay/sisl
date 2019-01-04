@@ -156,6 +156,7 @@ int RunClient(const std::string& server_address) {
     return g_echo_counter.load() + g_ping_counter.load();
 }
 
+SDS_LOGGING_INIT()
 
 int main(int argc, char** argv) {
 

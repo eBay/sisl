@@ -117,6 +117,7 @@ int RunClient(const std::string& server_address) {
     return ret;
 }
 
+SDS_LOGGING_INIT()
 
 int main(int argc, char** argv) {
 
