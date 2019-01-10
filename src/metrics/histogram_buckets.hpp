@@ -21,7 +21,13 @@ typedef std::vector<double> hist_bucket_boundaries_t;
       1,        exp2(1),  exp2(2),  exp2(3),  exp2(4),  exp2(5),  exp2(6),  exp2(7),    \
       exp2(8),  exp2(9),  exp2(10), exp2(11), exp2(12), exp2(13), exp2(14), exp2(15),   \
       exp2(16), exp2(17), exp2(18), exp2(19), exp2(20), exp2(21), exp2(22), exp2(23),   \
-      exp2(24), exp2(25), exp2(26), exp2(27), exp2(28), exp2(29), exp2(30), exp2(31))
+      exp2(24), exp2(25), exp2(26), exp2(27), exp2(28), exp2(29), exp2(30), exp2(31))   \
+                                                                                        \
+    X(LinearUpto64Buckets,                                                              \
+      0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15, 16, 17, 18, 19,   \
+      20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,   \
+      40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,   \
+      60, 61, 62, 63, 64)
 
 template <typename... V>
 constexpr size_t _hist_bkt_count(__attribute__((unused)) V&&... v) {
@@ -40,7 +46,6 @@ constexpr size_t _get_max_hist_bkts(V&&... v) {
 constexpr int64_t exp2(int exponent) {
     return exponent == 0 ? 1 : 2 * exp2(exponent - 1);
 }
-
 
 #define HistogramBucketsType(name) (HistogramBuckets::getInstance().name)
 
