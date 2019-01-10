@@ -611,27 +611,27 @@ public:
 
 #define REGISTER_COUNTER(name, ...)                                                                                    \
     {                                                                                                                  \
-        auto& nc = NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();             \
+        auto& nc = sisl::NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();             \
         auto  rc = nc.create(__VA_ARGS__);                                                                             \
         nc.m_index = this->get()->register_counter(rc);                                                                \
     }
 
 #define REGISTER_GAUGE(name, ...)                                                                                      \
     {                                                                                                                  \
-        auto& ng = NamedGauge< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();               \
+        auto& ng = sisl::NamedGauge< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();               \
         auto  rg = ng.create(__VA_ARGS__);                                                                             \
         ng.m_index = this->get()->register_gauge(rg);                                                                  \
     }
 
 #define REGISTER_HISTOGRAM(name, ...)                                                                                  \
     {                                                                                                                  \
-        auto& nh = NamedHistogram< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();           \
+        auto& nh = sisl::NamedHistogram< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();           \
         auto  rh = nh.create(__VA_ARGS__);                                                                             \
         nh.m_index = this->get()->register_histogram(rh);                                                              \
     }
 
 #define METRIC_NAME_TO_INDEX(name)                                                                                     \
-    (NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().m_index)
+    (sisl::NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().m_index)
 #define COUNTER_INCREMENT(group, name, ...) ((group)->counter_increment(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
 #define COUNTER_DECREMENT(group, name, ...) ((group)->counter_decrement(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
 #define GAUGE_UPDATE(group, name, ...) ((group)->gauge_update(METRIC_NAME_TO_INDEX(name), __VA_ARGS__))
