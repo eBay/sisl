@@ -6,6 +6,19 @@
 
 #include "logging.h"
 
+#include <sds_options/options.h>
+
+SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable", ::cxxopts::value<std::string>(), "mod[:level][,mod2[:level2],...]"), \
+                          (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
+                          (log_name,   "l", "logfile", "Full path to logfile", ::cxxopts::value<std::string>(), "logfile"), \
+                          (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
+                          (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
+                          (standout,   "c", "stdout", "Stdout logging only", ::cxxopts::value<bool>(), ""), \
+                          (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
+                          (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
+                          (flush,      "",  "flush_every", "Flush logs on level (sync mode) or periodically (async mode)", ::cxxopts::value<uint32_t>()->default_value("2"), "level/seconds"), \
+                          (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level"))
+
 namespace sds_logging {
 thread_local shared<spdlog::logger> sds_thread_logger;
 
@@ -28,10 +41,11 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
    if (SDS_OPTIONS.count("stdout") || (!SDS_OPTIONS.count("quiet"))) {
       mysinks.push_back(std::make_shared<sinks::stdout_color_sink_mt>());
    }
-   if (SDS_OPTIONS.count("synclog") && SDS_OPTIONS.count("stdout")) {
+   if (SDS_OPTIONS.count("synclog")) {
       logger_ = std::make_shared<spdlog::logger>(name,
                                                  mysinks.begin(),
                                                  mysinks.end());
+      logger_->flush_on((spdlog::level::level_enum)SDS_OPTIONS["flush_every"].as<uint32_t>());
    } else {
       spdlog::init_thread_pool(SDS_OPTIONS["log_queue"].as<uint32_t>(), 1);
       logger_ = std::make_shared<spdlog::async_logger>(name,
@@ -41,6 +55,9 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
    }
    logger_->set_level(spdlog::level::level_enum::trace);
    spdlog::register_logger(logger_);
+   if (0 == SDS_OPTIONS.count("synclog")) {
+      spdlog::flush_every(std::chrono::seconds(SDS_OPTIONS["flush_every"].as<uint32_t>()));
+   }
    auto lvl = spdlog::level::level_enum::info;
    if (SDS_OPTIONS.count("verbosity")) {
       lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as<uint32_t>();
