@@ -64,7 +64,7 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
    }
    module_level_base = lvl;
    sds_thread_logger = logger_;
-   LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_c_str(lvl), pkg, ver);
+   LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_string_view(lvl), pkg, ver);
    if (SDS_OPTIONS.count("log_mods")) {
       std::vector<std::string> enabled_mods;
       std::regex re("[\\s,]+");
@@ -86,7 +86,7 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
             }
             enabled_mods.push_back(fmt::format(FMT_STRING("[{}:{}]"),
                                           module_name,
-                                          spdlog::level::to_c_str(*mod_level)));
+                                          spdlog::level::to_string_view(*mod_level)));
          } else {
             LOGWARN("Could not load module logger: {}\n{}",
                     module_name,

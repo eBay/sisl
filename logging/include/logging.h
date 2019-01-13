@@ -7,6 +7,8 @@
 #pragma once
 
 #define FMT_STRING_ALIAS 0
+#define SPDLOG_FUNCTION __PRETTY_FUNCTION__
+#define SPDLOG_NO_NAME
 
 #include <cstdio>
 #include <memory>
@@ -18,6 +20,7 @@
 extern "C" {
 #include <dlfcn.h>
 }
+#include <spdlog/spdlog.h>
 #include <spdlog/fmt/fmt.h>
 #include <spdlog/async.h>
 #include <spdlog/sinks/rotating_file_sink.h>
