@@ -6,10 +6,8 @@
 
 #pragma once
 
-#define FMT_STRING_ALIAS 0
 #define SPDLOG_FUNCTION __PRETTY_FUNCTION__
 #define SPDLOG_NO_NAME
-
 #include <cstdio>
 #include <memory>
 #include <numeric>
@@ -21,11 +19,6 @@ extern "C" {
 #include <dlfcn.h>
 }
 #include <spdlog/spdlog.h>
-#include <spdlog/fmt/fmt.h>
-#include <spdlog/async.h>
-#include <spdlog/sinks/rotating_file_sink.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/logger.h>
 
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
@@ -125,4 +118,3 @@ void SetLogger(std::string const& name,
 }
 
 #define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(module_level_, mod) = (lvl);
-#undef FMT_STRING_ALIAS
