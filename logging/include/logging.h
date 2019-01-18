@@ -83,19 +83,11 @@ constexpr const char* file_name(const char* str) {
 #define LOGCRITICAL(msg, ...)   LOGCRITICALMOD(base, msg, ##__VA_ARGS__)
 
 #define LOGCRITICAL_AND_FLUSH(msg, ...) {auto _l = LOGGER; _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__); _l->flush(); }
-
-#ifndef DEBUG
 #define LOGDFATAL_IF(cond, msg, ...) \
 	if (cond) { \
 		LOGCRITICAL_AND_FLUSH(msg, __VA_ARGS__); \
 		assert(0); \
 	}
-#else
-#define LOGDFATAL_IF(cond, msg, ...) \
-	if (cond) { \
-		LOGCRITICAL_AND_FLUSH(msg, __VA_ARGS__); \
-	}
-#endif
 
 namespace sds_logging {
 template <typename T>
