@@ -77,6 +77,15 @@ ObjTypeWrapper<T> ObjLifeCounter<T>::m_type(&ObjLifeCounter<T>::m_created, &ObjL
 #else
 
 template <typename DS> struct ObjLifeCounter {};
+class ObjCounterRegistry {
+    static ObjCounterRegistry& inst() {
+    }
+
+    static void register_obj(const char* name, pair_of_atomic_ptrs ptrs) {}
+
+    static void foreach(const std::function< void(const std::string&, int64_t, int64_t) > &closure) {
+    }
+};
 #endif // _PRERELEASE
 
 }// namespace sisl
