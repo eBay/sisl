@@ -10,7 +10,7 @@ class MetricsConan(ConanFile):
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
     description = "Sisl library for fast data structures, utilities"
 
-    settings = "compiler", "build_type", "sanitize"
+    settings = "arch", "os", "compiler", "build_type", "sanitize"
     options = {"coverage": ['True', 'False']}
     default_options = 'coverage=False'
 
@@ -66,5 +66,14 @@ class MetricsConan(ConanFile):
         self.copy("*.dylib", dst="lib/", keep_path=False)
 
     def package_info(self):
-        if self.options.coverage == 'True':
+        self.cpp_info.libs = tools.collect_libs(self)
+        if self.settings.sanitize != None:
+            self.cpp_info.sharedlinkflags.append("-fsanitize=address")
+            self.cpp_info.exelinkflags.append("-fsanitize=address")
+            self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
+            self.cpp_info.exelinkflags.append("-fsanitize=undefined")
+        elif self.options.coverage == 'True':
             self.cpp_info.libs.append('gcov')
+
+        if self.settings.os == "Linux":
+            self.cpp_info.libs.extend(["aio"])
