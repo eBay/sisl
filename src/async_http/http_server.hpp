@@ -26,6 +26,7 @@
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include "utility/thread_factory.hpp"
 #include "utility/obj_life_counter.hpp"
+#include <sds_options/options.h>
 
 SDS_LOGGING_DECL(httpserver_lmod)
 

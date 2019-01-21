@@ -8,6 +8,9 @@
 #include <fstream>
 #include "metrics.hpp"
 #include <gtest/gtest.h>
+#include <sds_options/options.h>
+
+SDS_LOGGING_INIT(vmod_metrics_framework)
 
 #define ITERATIONS 4
 
@@ -68,10 +71,19 @@ public:
         GAUGE_UPDATE(m_metrics, cache_eviction_pct, 8);
         GAUGE_UPDATE(m_metrics, cache_writes_rate, 2);
 
+#ifndef NDEBUG
+        ASSERT_DEATH(GAUGE_UPDATE(m_metrics, invalid_gauge, 2), "Metric name 'invalid_gauge' not registered yet but used");
+#endif
+
         HISTOGRAM_OBSERVE(m_metrics, cache_write_latency, 100);
         HISTOGRAM_OBSERVE(m_metrics, cache_write_latency, 150);
         HISTOGRAM_OBSERVE(m_metrics, cache_read_latency, 150);
         HISTOGRAM_OBSERVE(m_metrics, cache_delete_latency, 200);
+    }
+
+private:
+    void write_invald_gauge() {
+        GAUGE_UPDATE(m_metrics, invalid_gauge, 2);
     }
 };
 
@@ -88,7 +100,10 @@ TEST(counterTest, wrapperTest) {
     std::cout << "Output of gather = " << output << "\n";
 }
 
+//SDS_OPTIONS_ENABLE(logging)
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
+    //sds_logging::SetLogger("metrics_wrapper_test");
+    //spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
     return RUN_ALL_TESTS();
 }

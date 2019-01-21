@@ -47,7 +47,7 @@ constexpr int64_t exp2(int exponent) {
     return exponent == 0 ? 1 : 2 * exp2(exponent - 1);
 }
 
-#define HistogramBucketsType(name) (HistogramBuckets::getInstance().name)
+#define HistogramBucketsType(name) (sisl::HistogramBuckets::getInstance().name)
 
 //to define the histogram buckets used for various metrics
 class HistogramBuckets {

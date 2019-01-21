@@ -4,12 +4,14 @@
 #include <fstream>
 #include "metrics.hpp"
 #include <gtest/gtest.h>
+#include <sds_logging/logging.h>
 
 #define ITERATIONS 2
 
 //CREATE_REPORT;
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
+SDS_LOGGING_INIT(vmod_metrics_framework)
 
 using namespace sisl;
 
