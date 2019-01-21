@@ -43,7 +43,7 @@ private:
     }
 
 private:
-    sisl::urcu_data< DS, Args... > m_safe_buf;
+    sisl::urcu_data< DS > m_safe_buf;
     std::tuple< Args... >         m_args;
 };
 

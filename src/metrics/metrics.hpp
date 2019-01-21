@@ -270,8 +270,8 @@ public:
         m_counters = new CounterValue[ncntrs];
         m_histograms = new HistogramValue[nhists];
 
-        memset(m_counters, 0, (sizeof(CounterValue) * ncntrs));
-        memset(m_histograms, 0, (sizeof(HistogramValue) * nhists));
+        memset((void *)m_counters, 0, (sizeof(CounterValue) * ncntrs));
+        memset((void *)m_histograms, 0, (sizeof(HistogramValue) * nhists));
 
 #if 0
         LOG("ThreadId=%08lux: SafeMetrics=%p constructor, m_counters=%p, m_histograms=%p\n",

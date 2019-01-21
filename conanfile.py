@@ -10,10 +10,9 @@ class MetricsConan(ConanFile):
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
     description = "Sisl library for fast data structures, utilities"
 
-    settings = "compiler", "build_type"
-    options = {"coverage": ['True', 'False'],
-               "sanitize": ['True', 'False']}
-    default_options = 'coverage=False', 'sanitize=False'
+    settings = "compiler", "build_type", "sanitize"
+    options = {"coverage": ['True', 'False']}
+    default_options = 'coverage=False'
 
     requires = (("sds_logging/3.8.1@sds/testing"),
                 ("benchmark/1.4.1@oss/stable"),
@@ -33,6 +32,8 @@ class MetricsConan(ConanFile):
     def configure(self):
         if not self.settings.compiler == "gcc":
             del self.options.coverage
+        if self.settings.sanitize != None:
+            del self.options.coverage
 
     def build(self):
         cmake = CMake(self)
@@ -41,11 +42,11 @@ class MetricsConan(ConanFile):
                        'MEMORY_SANITIZER_ON': 'OFF'}
         test_target = None
 
-        if self.options.coverage == 'True':
+        if self.settings.sanitize != "address" and self.options.coverage == 'True':
             definitions['CONAN_BUILD_COVERAGE'] = 'ON'
             test_target = 'coverage'
 
-        if self.options.sanitize == 'True':
+        if self.settings.sanitize != None:
             definitions['MEMORY_SANITIZER_ON'] = 'ON'
 
         if self.settings.build_type == 'Debug':
