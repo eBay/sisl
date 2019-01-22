@@ -79,6 +79,8 @@ ObjTypeWrapper<T> ObjLifeCounter<T>::m_type(&ObjLifeCounter<T>::m_created, &ObjL
 template <typename DS> struct ObjLifeCounter {};
 class ObjCounterRegistry {
     static ObjCounterRegistry& inst() {
+        static ObjCounterRegistry instance;
+        return instance;
     }
 
     static void register_obj(const char* name, pair_of_atomic_ptrs ptrs) {}
