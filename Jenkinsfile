@@ -25,9 +25,9 @@ pipeline {
 
         stage('Test') {
             steps {
-                sh "docker create --name ${PROJECT}-${TAG}_coverage ${PROJECT}-${TAG}"
-                sh "docker cp ${PROJECT}-${TAG}_coverage:/output/coverage.xml coverage.xml"
-                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '0, 0, 0', fileCoverageTargets: '0, 0, 0', lineCoverageTargets: '0, 0, 0', maxNumberOfBuilds: 0, sourceEncoding: 'ASCII', zoomCoverageChart: false
+                #sh "docker create --name ${PROJECT}-${TAG}_coverage ${PROJECT}-${TAG}"
+                #sh "docker cp ${PROJECT}-${TAG}_coverage:/output/coverage.xml coverage.xml"
+                #cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '0, 0, 0', fileCoverageTargets: '0, 0, 0', lineCoverageTargets: '0, 0, 0', maxNumberOfBuilds: 0, sourceEncoding: 'ASCII', zoomCoverageChart: false
             }
         }
 
