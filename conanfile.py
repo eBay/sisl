@@ -46,8 +46,8 @@ class MetricsConan(ConanFile):
             definitions['CONAN_BUILD_COVERAGE'] = 'ON'
             test_target = 'coverage'
 
-        if self.settings.sanitize != None:
-            definitions['MEMORY_SANITIZER_ON'] = 'ON'
+#        if self.settings.sanitize != None:
+#            definitions['MEMORY_SANITIZER_ON'] = 'ON'
 
         if self.settings.build_type == 'Debug':
             definitions['CMAKE_BUILD_TYPE'] = 'Debug'
@@ -67,13 +67,13 @@ class MetricsConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
-        if self.settings.sanitize != None:
-            self.cpp_info.sharedlinkflags.append("-fsanitize=address")
-            self.cpp_info.exelinkflags.append("-fsanitize=address")
-            self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
-            self.cpp_info.exelinkflags.append("-fsanitize=undefined")
-        elif self.options.coverage == 'True':
-            self.cpp_info.libs.append('gcov')
+#        if self.settings.sanitize != None:
+#            self.cpp_info.sharedlinkflags.append("-fsanitize=address")
+#            self.cpp_info.exelinkflags.append("-fsanitize=address")
+#            self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
+#            self.cpp_info.exelinkflags.append("-fsanitize=undefined")
+#        elif self.options.coverage == 'True':
+#            self.cpp_info.libs.append('gcov')
 
         if self.settings.os == "Linux":
             self.cpp_info.libs.extend(["aio"])
