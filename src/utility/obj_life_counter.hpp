@@ -13,9 +13,9 @@
 
 namespace sisl {
 
-#ifdef _PRERELEASE
 using pair_of_atomic_ptrs = std::pair<std::atomic<int64_t>*, std::atomic<int64_t>*>;
 
+#ifdef _PRERELEASE
 class ObjCounterRegistry {
 private:
     std::unordered_map<std::string, pair_of_atomic_ptrs> m_tracker_map;
