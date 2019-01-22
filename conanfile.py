@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from conans import ConanFile, CMake
+from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
