@@ -12,9 +12,11 @@
 #include <chrono>
 #include <thread>
 
+#include <sds_logging/logging.h>
+#include <sds_options/options.h>
+
 #include "sds_grpc/server.h"
 #include "sds_grpc_test.grpc.pb.h"
-
 
 using namespace ::grpc;
 using namespace ::sds::grpc;

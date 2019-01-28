@@ -14,6 +14,8 @@
 #include <atomic>
 #include <cassert>
 
+#include <sds_logging/logging.h>
+#include <sds_options/options.h>
 
 #include "sds_grpc/client.h"
 #include "sds_grpc_test.grpc.pb.h"

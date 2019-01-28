@@ -17,7 +17,6 @@
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/async_unary_call.h>
 #include <grpc/support/log.h>
-#include <sds_logging/logging.h>
 
 #include "utils.h"
 
@@ -125,7 +124,7 @@ class GrpcBaseClient {
           ssl_cert_(ssl_cert) {
     }
 
-    virtual ~GrpcBaseClient() {};
+    virtual ~GrpcBaseClient() = default;
 
     virtual bool init();
     virtual bool is_connection_ready();
