@@ -338,6 +338,9 @@ public:
             ss << "metrics_group_" << __COUNTER__;
             m_grp_name = ss.str();
         }
+#ifndef NDEBUG
+        m_prepared_rotation = false;
+#endif
     }
 
     MetricsGroup(const std::string& name) {
@@ -348,6 +351,9 @@ public:
             ss << "metrics_group_" << __COUNTER__;
             m_grp_name = ss.str();
         }
+#ifndef NDEBUG
+        m_prepared_rotation = false;
+#endif
     }
 
     uint64_t register_counter(const std::string& name, const std::string& desc, const std::string& sub_type = "",
@@ -418,7 +424,7 @@ public:
     size_t total_registered_gauges() const { return m_gauges.size(); }
     size_t total_registered_histograms() const { return m_histograms.size(); }
 
-    nlohmann::json get_result_in_json(bool need_latest = true) {
+    nlohmann::json get_result_in_json(bool need_latest) {
         nlohmann::json json;
         nlohmann::json counter_entries;
         nlohmann::json gauge_entries;
@@ -453,6 +459,13 @@ public:
         return json;
     }
 
+    void prepare_gather() {
+        m_metrics->prepare_rotate();
+#ifndef NDEBUG
+        m_prepared_rotation = true;
+#endif
+    }
+
     void publish_result() {
         gather_result(true, /* need_latest */
                       [](CounterInfo& c, const CounterValue& result) { c.publish(result); },
@@ -467,10 +480,21 @@ private:
         m_metrics = std::make_unique< ThreadSafeMetrics >(m_histograms, m_counters.size(), m_histograms.size());
     }
 
-    void gather_result(bool need_latest, std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
+    void gather_result(bool need_latest,
+                       std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
                        std::function< void(GaugeInfo&) >                            gauge_cb,
                        std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) {
-        auto smetrics = need_latest ? m_metrics->now() : m_metrics->delayed();
+
+        SafeMetrics* smetrics;
+        if (need_latest) {
+#ifndef NDEBUG
+            assert(m_prepared_rotation);
+            m_prepared_rotation = false;
+#endif
+            smetrics = m_metrics->deferred();
+        } else {
+            smetrics = m_metrics->delayed();
+        }
 
         for (auto i = 0U; i < m_counters.size(); i++) {
             counter_cb(m_counters[i], smetrics->get_counter(i));
@@ -489,6 +513,9 @@ private:
     std::string                          m_grp_name;
     std::mutex                           m_mutex;
     std::unique_ptr< ThreadSafeMetrics > m_metrics;
+#ifndef NDEBUG
+    bool                                 m_prepared_rotation;
+#endif
 
     std::vector< CounterInfo >                                              m_counters;
     std::vector< GaugeInfo >                                                m_gauges;
@@ -532,14 +559,28 @@ public:
 
     nlohmann::json get_result_in_json(bool need_latest = true) {
         nlohmann::json json;
-        for (auto& mgroup : m_mgroups) {
-            json[mgroup->get_name()] = mgroup->get_result_in_json(need_latest);
+        if (!need_latest) {
+            for (auto &mgroup : m_mgroups) {
+                json[mgroup->get_name()] = mgroup->get_result_in_json(need_latest);
+            }
+        } else {
+            for (auto &mgroup : m_mgroups) {
+                mgroup->prepare_gather();
+            }
+            urcu_ctl::sync_rcu();
+            for (auto &mgroup : m_mgroups) {
+                json[mgroup->get_name()] = mgroup->get_result_in_json(need_latest);
+            }
         }
         return json;
     };
     std::string get_result_in_json_string(bool need_latest = true) { return get_result_in_json(need_latest).dump(); }
 
     void publish_result() {
+        for (auto &mgroup : m_mgroups) {
+            mgroup->prepare_gather();
+        }
+        urcu_ctl::sync_rcu();
         for (auto& mgroup : m_mgroups) {
             mgroup->publish_result();
         }

@@ -104,7 +104,7 @@ struct _handler_info {
 
 template <void (*Handler)(HttpCallData)>
 static void _request_handler(evhtp_request_t* req, void* arg) {
-    HttpCallData cd = new _http_calldata(req, arg);
+    HttpCallData cd(new _http_calldata(req, arg));
     Handler(cd);
 }
 
@@ -333,6 +333,7 @@ protected:
         if (req->cbarg != nullptr) {
             _http_calldata *cd = (_http_calldata *)req->cbarg;
             cd->complete();
+            intrusive_ptr_release(cd);
         }
         return EVHTP_RES_OK;
     }
@@ -486,10 +487,13 @@ private:
         std::stringstream ss;
         ss << cd->m_response_msg.size();
 
-        /* valloc should be 1 because ss.str().c_str() is freed once control goes out
-         * of this function */
+        /* valloc should be 1 because ss.str().c_str() is freed once control goes out of this function */
         evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
         evbuffer_add(req->buffer_out, cd->m_response_msg.c_str(), cd->m_response_msg.size());
+
+        // Need to increment the calldata reference since evhtp_send_reply will call finish asyncronously and calldata
+        // needs to stay relavant till that call.
+        intrusive_ptr_add_ref(cd.get());
         evhtp_send_reply(req, cd->m_http_code);
     }
 
@@ -504,8 +508,11 @@ private:
         ss << json_str.size();
         /* valloc should be 1 because ss.str().c_str() is freed once control goes out of this function */
         evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Length", ss.str().c_str(), 0, 1));
-
         evbuffer_add(req->buffer_out, json_str.c_str(), json_str.size());
+
+        // Need to increment the calldata reference since evhtp_send_reply will call finish asyncronously and calldata
+        // needs to stay relavant till that call.
+        intrusive_ptr_add_ref(cd.get());
         evhtp_send_reply(req, cd->m_http_code);
     }
 
