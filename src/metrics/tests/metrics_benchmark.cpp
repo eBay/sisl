@@ -193,8 +193,11 @@ void test_metrics_read_rcu(benchmark::State& state) {
     std::string str;
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
-        benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
+        //benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
+        str = MetricsFarm::getInstance().get_result_in_json_string();
     }
+
+    //std::cout << "str = " << str << "\n";
 }
 
 void test_counters_write_atomic(benchmark::State& state) {
@@ -254,7 +257,8 @@ void test_histogram_read_locked(benchmark::State& state) {
     // Actual test
     std::vector<hist_result_t> res;
     for (auto _ : state) { // Loops upto iteration count
-        benchmark::DoNotOptimize(res = glob_matomic_grp.hist_results());
+        res = glob_matomic_grp.hist_results();
+        //benchmark::DoNotOptimize(res = glob_matomic_grp.hist_results());
     }
 }
 
@@ -269,7 +273,7 @@ BENCHMARK(test_histogram_write_rcu)->Iterations(ITERATIONS)->Threads(THREADS);
 
 BENCHMARK(test_counters_read_atomic)->Iterations(ITERATIONS)->Threads(1);
 BENCHMARK(test_gauge_read_atomic)->Iterations(ITERATIONS)->Threads(1);
-BENCHMARK(test_histogram_read_locked)->Iterations(ITERATIONS)->Threads(1);
+//BENCHMARK(test_histogram_read_locked)->Iterations(ITERATIONS)->Threads(1);
 BENCHMARK(test_metrics_read_rcu)->Iterations(ITERATIONS)->Threads(1);
 
 int main(int argc, char** argv)
