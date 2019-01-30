@@ -338,9 +338,7 @@ public:
             ss << "metrics_group_" << __COUNTER__;
             m_grp_name = ss.str();
         }
-#ifndef NDEBUG
-        m_prepared_rotation = false;
-#endif
+        m_gather_pending = false;
     }
 
     MetricsGroup(const std::string& name) {
@@ -351,9 +349,7 @@ public:
             ss << "metrics_group_" << __COUNTER__;
             m_grp_name = ss.str();
         }
-#ifndef NDEBUG
-        m_prepared_rotation = false;
-#endif
+        m_gather_pending = false;
     }
 
     uint64_t register_counter(const std::string& name, const std::string& desc, const std::string& sub_type = "",
@@ -425,6 +421,7 @@ public:
     size_t total_registered_histograms() const { return m_histograms.size(); }
 
     nlohmann::json get_result_in_json(bool need_latest) {
+        auto locked = lock();
         nlohmann::json json;
         nlohmann::json counter_entries;
         nlohmann::json gauge_entries;
@@ -460,13 +457,13 @@ public:
     }
 
     void prepare_gather() {
+        auto locked = lock();
         m_metrics->prepare_rotate();
-#ifndef NDEBUG
-        m_prepared_rotation = true;
-#endif
+        m_gather_pending = true;
     }
 
     void publish_result() {
+        auto locked = lock();
         gather_result(true, /* need_latest */
                       [](CounterInfo& c, const CounterValue& result) { c.publish(result); },
                       [](GaugeInfo& g) { g.publish(); },
@@ -487,11 +484,12 @@ private:
 
         SafeMetrics* smetrics;
         if (need_latest) {
-#ifndef NDEBUG
-            assert(m_prepared_rotation);
-            m_prepared_rotation = false;
-#endif
-            smetrics = m_metrics->deferred();
+            if (m_gather_pending) {
+                m_gather_pending = false;
+                smetrics = m_metrics->deferred();
+            } else {
+                smetrics = m_metrics->now();
+            }
         } else {
             smetrics = m_metrics->delayed();
         }
@@ -513,9 +511,7 @@ private:
     std::string                          m_grp_name;
     std::mutex                           m_mutex;
     std::unique_ptr< ThreadSafeMetrics > m_metrics;
-#ifndef NDEBUG
-    bool                                 m_prepared_rotation;
-#endif
+    bool                                 m_gather_pending;
 
     std::vector< CounterInfo >                                              m_counters;
     std::vector< GaugeInfo >                                                m_gauges;
@@ -559,6 +555,7 @@ public:
 
     nlohmann::json get_result_in_json(bool need_latest = true) {
         nlohmann::json json;
+        auto locked = lock();
         if (!need_latest) {
             for (auto &mgroup : m_mgroups) {
                 json[mgroup->get_name()] = mgroup->get_result_in_json(need_latest);
@@ -577,6 +574,7 @@ public:
     std::string get_result_in_json_string(bool need_latest = true) { return get_result_in_json(need_latest).dump(); }
 
     void publish_result() {
+        auto locked = lock();
         for (auto &mgroup : m_mgroups) {
             mgroup->prepare_gather();
         }
