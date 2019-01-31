@@ -4,7 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "0.2.1"
+    version = "0.2.2"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -74,6 +74,3 @@ class MetricsConan(ConanFile):
             self.cpp_info.exelinkflags.append("-fsanitize=undefined")
         elif self.options.coverage == 'True':
             self.cpp_info.libs.append('gcov')
-
-        if self.settings.os == "Linux":
-            self.cpp_info.libs.extend(["aio"])
