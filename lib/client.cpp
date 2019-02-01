@@ -104,15 +104,10 @@ void GrpcAyncClientWorker::async_complete_rpc() {
     void* tag;
     bool ok = false;
     while (completion_queue_.Next(&tag, &ok)) {
-        if (!ok) {
-            // Client-side StartCallit not going to the wire. This
-            // would happen if the channel is either permanently broken or
-            // transiently broken but with the fail-fast option.
-            continue;
-        }
-
+        // For client-side unary call, `ok` is always true,
+        // even server is not running
         ClientCallMethod* cm = static_cast<ClientCallMethod*>(tag);
-        cm->handle_response();
+        cm->handle_response(ok);
         delete cm;
     }
 }

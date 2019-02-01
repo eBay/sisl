@@ -60,7 +60,7 @@ class BaseServerCallData {
      *  - FINISH is for destroy this object, gRPC server has sent the
      *    appropriate signals to the client to end the call.
      */
-    void proceed();
+    void proceed(bool ok=true);
 
   protected:
 

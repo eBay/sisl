@@ -5,11 +5,28 @@
  */
 
 #include <sds_grpc/server.h>
+#include <grpcpp/impl/codegen/service_type.h>
 
 
 namespace sds::grpc {
 
-void BaseServerCallData::proceed() {
+void BaseServerCallData::proceed(bool ok) {
+    if (!ok && status_ != FINISH) {
+        // for unary call, there are two cases ok can be false in server-side:
+        //  - Server-side RPC request: the server has been Shutdown
+        //    before this particular call got matched to an incoming RPC.
+        //    Call data should be released in this case.
+        //  - Server-side Finish: response not going to the wire because
+        //    the call is already dead (i.e., canceled, deadline expired,
+        //    other side  dropped the channel, etc)
+        //    In this case, not only this call data should be released,
+        //    server-side may need to handle the error, e.g roll back the
+        //    grpc call's operation. This version sds_grpc doesn't expose
+        //    API for handling this case, such API will be provided in next
+        //    version of this library.
+        status_ = FINISH;
+    }
+
     if (status_ == CREATE) {
         status_ = PROCESS;
         do_create();
@@ -38,6 +55,13 @@ GrpcServer::GrpcServer() {
 
 GrpcServer::~GrpcServer() {
     shutdown();
+
+    for (auto [k, v] : services_) {
+        (void)k;
+        delete v;
+    }
+
+    services_.clear();
 }
 
 
@@ -115,14 +139,27 @@ void GrpcServer::handle_rpcs() {
     bool ok = false;
 
     while (cq_->Next(&tag, &ok)) {
-        if (!ok) {
-            // the server has been Shutdown before this particular
-            // call got matched to an incoming RPC.
-            continue;
-        }
+
+        // `ok` is true if read a successful event, false otherwise.
+        // Success here means that this operation completed in the normal
+        // valid manner.
+
+        // This version of sds_grpc only support unary grpc call, so only
+        // two cases need to be considered:
+        //
+        // Server-side RPC request: \a ok indicates that the RPC has indeed
+        // been started. If it is false, the server has been Shutdown
+        // before this particular call got matched to an incoming RPC.
+        //
+        // Server-side Finish: ok means that the data/metadata/status/etc is
+        // going to go to the wire.
+        // If it is false, it not going to the wire because the call
+        // is already dead (i.e., canceled, deadline expired, other side
+        // dropped the channel, etc).
+
 
         BaseServerCallData* cm = static_cast<BaseServerCallData *>(tag);
-        cm->proceed();
+        cm->proceed(ok);
     }
 }
 

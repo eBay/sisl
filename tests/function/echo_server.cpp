@@ -11,6 +11,7 @@
 #include <functional>
 #include <chrono>
 #include <thread>
+#include <signal.h>
 
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
@@ -97,40 +98,67 @@ class PingServiceImpl {
 };
 
 
-void RunServer() {
+GrpcServer* g_grpc_server = nullptr;
+EchoServiceImpl * g_echo_impl = nullptr;
+PingServiceImpl * g_ping_impl = nullptr;
+
+void sighandler(int signum, siginfo_t *info, void *ptr)
+{
+    LOGINFO("Received signal {}", signum);
+
+    if (signum == SIGTERM) {
+        // shutdown server gracefully for check memory leak
+        LOGINFO("Shutdown grpc server");
+        g_grpc_server->shutdown();
+    }
+}
+
+void StartServer() {
 
     std::string server_address("0.0.0.0:50051");
 
-    auto server = GrpcServer::make(server_address, 4, "", "");
+    g_grpc_server = GrpcServer::make(server_address, 4, "", "");
 
-    EchoServiceImpl * echo_impl = new EchoServiceImpl();
-    echo_impl->register_service(server);
+    g_echo_impl = new EchoServiceImpl();
+    g_echo_impl->register_service(g_grpc_server);
 
-    PingServiceImpl * ping_impl = new PingServiceImpl();
-    ping_impl->register_service(server);
+    g_ping_impl = new PingServiceImpl();
+    g_ping_impl->register_service(g_grpc_server);
 
-    server->run();
+    g_grpc_server->run();
     LOGINFO("Server listening on {}", server_address);
 
-    echo_impl->register_rpcs(server);
-    ping_impl->register_rpcs(server);
+    g_echo_impl->register_rpcs(g_grpc_server);
+    g_ping_impl->register_rpcs(g_grpc_server);
 
-    while (!server->is_terminated()) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-
-    delete server;
 }
+
 
 SDS_LOGGING_INIT()
 SDS_OPTIONS_ENABLE(logging)
+
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
     sds_logging::SetLogger("echo_server");
     LOGINFO("Start echo server ...");
 
-    RunServer();
+    StartServer();
+
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_sigaction = sighandler;
+
+    sigaction(SIGTERM, &act, NULL);
+
+    while (!g_grpc_server->is_terminated()) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    delete g_grpc_server;
+    delete g_echo_impl;
+    delete g_ping_impl;
+
     return 0;
 }
 

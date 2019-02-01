@@ -37,7 +37,7 @@ class ClientCallMethod : private boost::noncopyable {
   public:
     virtual ~ClientCallMethod() {}
 
-    virtual void handle_response() = 0;
+    virtual void handle_response(bool ok=true) = 0;
 };
 
 
@@ -57,7 +57,7 @@ class ClientCallData final : public ClientCallMethod {
 
   private:
 
-    /* Sllow GrpcAsyncClient and its inner classes to use
+    /* Allow GrpcAsyncClient and its inner classes to use
      * ClientCallData.
      */
     friend class GrpcAsyncClient;
@@ -88,7 +88,9 @@ class ClientCallData final : public ClientCallMethod {
         return context_;
     }
 
-    virtual void handle_response() override {
+    virtual void handle_response([[maybe_unused]] bool ok=true) override {
+        // For unary call, ok is always true, `status_` will indicate error
+        // if there are any.
         handle_response_cb_(reply_, status_);
     }
 
@@ -277,7 +279,12 @@ class GrpcAsyncClient : public GrpcBaseClient {
          *     then the member function used here should be:
          *     `EchoService::StubInterface::AsyncEcho`.
          * @param callback - the response handler function, which will be
-         *     called after response received asynchronously.
+         *     called after response received asynchronously or call failed(which
+         *     would happen if the channel is either permanently broken or
+         *     transiently broken, or call timeout).
+         *     The callback function must check if `::grpc::Status` argument is
+         *     OK before handling the response. If call failed, `::grpc::Status`
+         *     indicates the error code and error message.
          *
          */
         template<typename TREQUEST, typename TRESPONSE>
@@ -287,7 +294,9 @@ class GrpcAsyncClient : public GrpcBaseClient {
             unary_callback_t<TREQUEST, TRESPONSE> callback) {
 
             auto data = new ClientCallData<TREQUEST, TRESPONSE>(callback);
+            // Note that async unary RPCs don't post a CQ tag in call
             data->responder_reader() = (stub_.get()->*call)(&data->context(), request, cq());
+            // CQ tag posted here
             data->responder_reader()->Finish(&data->reply(), &data->status(), (void*)data);
 
             return;
