@@ -88,9 +88,9 @@ TEST(functionalityTest, gather) {
 int main(int argc, char* argv[]) {
     glob_mgroup = MetricsGroup::make_group();
 
-    glob_mgroup->register_counter("counter1", "Counter1", "");
-    glob_mgroup->register_counter("counter2", "Counter2", "");
-    glob_mgroup->register_counter("counter3", "Counter3", "");
+    glob_mgroup->register_counter("counter1", "Counter1");
+    glob_mgroup->register_counter("counter2", "Counter2");
+    glob_mgroup->register_counter("counter3", "Counter3");
 
     glob_mgroup->register_gauge("gauge1", "Gauge1", "");
     glob_mgroup->register_gauge("gauge2", "Gauge2", "");
