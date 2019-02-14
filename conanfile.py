@@ -11,8 +11,10 @@ class MetricsConan(ConanFile):
     description = "Sisl library for fast data structures, utilities"
 
     settings = "arch", "os", "compiler", "build_type", "sanitize"
-    options = {"coverage": ['True', 'False']}
-    default_options = 'coverage=False'
+    options = {"shared": ['True', 'False'],
+               "fPIC": ['True', 'False'],
+               "coverage": ['True', 'False']}
+    default_options = 'shared=False', 'fPIC=True', 'coverage=False'
 
     requires = (("sds_logging/3.8.1@sds/testing"),
                 ("benchmark/1.4.1@oss/stable"),
@@ -43,12 +45,11 @@ class MetricsConan(ConanFile):
                        'MEMORY_SANITIZER_ON': 'OFF'}
         test_target = None
 
-        if self.settings.sanitize != "address" and self.options.coverage == 'True':
-            definitions['CONAN_BUILD_COVERAGE'] = 'ON'
-            test_target = 'coverage'
-
         if self.settings.sanitize != None:
             definitions['MEMORY_SANITIZER_ON'] = 'ON'
+        elif self.options.coverage == 'True':
+            definitions['CONAN_BUILD_COVERAGE'] = 'ON'
+            test_target = 'coverage'
 
         if self.settings.build_type == 'Debug':
             definitions['CMAKE_BUILD_TYPE'] = 'Debug'
