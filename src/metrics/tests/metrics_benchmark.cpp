@@ -20,7 +20,7 @@ using namespace sisl;
 typedef std::pair<std::vector<double>, int64_t> hist_result_t;
 
 struct _locked_hist_wrapper {
-    _locked_hist_wrapper() : m_hist("hist", "", "", HistogramBucketsType(DefaultBuckets)) {}
+    _locked_hist_wrapper() : m_hist("hist", "Sample histogram", "", "", {"", ""}, HistogramBucketsType(DefaultBuckets)) {}
 
     void observe(uint64_t value) {
         std::lock_guard<std::mutex> g(m_lock);
@@ -83,7 +83,7 @@ atomic_counter_groups glob_matomic_grp;
 MetricsGroupPtr glob_mgroup;
 void setup() {
     // Initialize rcu based metric group
-    glob_mgroup = MetricsGroup::make_group();
+    glob_mgroup = MetricsGroup::make_group("Group1", "Instance1");
 
     for (auto i = 0; i < NCOUNTERS; i++) {
         std::stringstream ss; ss << "counter" << i + 1;
