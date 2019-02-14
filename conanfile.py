@@ -23,7 +23,8 @@ class MetricsConan(ConanFile):
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("evhtp/1.2.16@oss/stable"),
                 ("userspace-rcu/0.10.1@oss/stable"),
-                ("prometheus-cpp/0.1.2@oss/stable"),
+                ("OpenSSL/1.0.2q@conan/stable"),
+                ("sds_prometheus/0.6.0@sds/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"))
 
     generators = "cmake"

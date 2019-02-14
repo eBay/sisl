@@ -71,6 +71,7 @@ public:
 
     ~urcu_data() {
         delete(m_rcu_node);
+        if (m_old_node != nullptr) { delete(m_old_node); }
     }
 
     template <typename... Args>

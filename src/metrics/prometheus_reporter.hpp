@@ -18,8 +18,6 @@
 #include <prometheus/histogram.h>
 #include <prometheus/serializer.h>
 #include <prometheus/text_serializer.h>
-#include <prometheus/json_serializer.h>
-#include <prometheus/protobuf_delimited_serializer.h>
 #pragma GCC diagnostic pop
 
 namespace sisl {
@@ -174,12 +172,6 @@ public:
             switch (format) {
             case ReportFormat::kTextFormat:
                 m_serializer.reset(new prometheus::TextSerializer());
-                break;
-            case ReportFormat::kJsonFormat:
-                m_serializer.reset(new prometheus::JsonSerializer());
-                break;
-            case ReportFormat::kProtoBufferFormat:
-                m_serializer.reset(new prometheus::ProtobufDelimitedSerializer());
                 break;
             default:
                 assert(0);

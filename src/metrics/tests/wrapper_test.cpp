@@ -112,7 +112,6 @@ private:
     }
 };
 
-//{"cache2":{"Counters":null,"Gauges":{"Cache Eviction Percent":8,"Cache Write rate":2,"Total cache size":4},"Histograms percentiles (usecs) avg/50/95/99":{"Cache Delete Latency":"200 / 0 / 0 / 0","Cache Read Latency":"150 / 0 / 0 / 0","Cache Write Latency":"125 / 0 / 0 / 0"}},"tree1":{"Counters":{"Total number of nodes in tree":1,"Total number of read ops in tree - op_type-read":24,"Total number of write ops in tree - op_type-write":12,"Total tree object count":48},"Gauges":null,"Histograms percentiles (usecs) avg/50/95/99":null},"tree2":{"Counters":{"Total number of nodes in tree":1,"Total number of read ops in tree - op_type-read":24,"Total number of write ops in tree - op_type-write":12,"Total tree object count":48},"Gauges":null,"Histograms percentiles (usecs) avg/50/95/99":null}}
 nlohmann::json expected = {
     {"Cache", {
         {"cache1", {
