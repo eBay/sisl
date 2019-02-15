@@ -37,7 +37,7 @@ pipeline {
     post {
         always {
             sh "docker rmi -f ${PROJECT}-${TAG}"
-            sh "docker rm -f ${PROJECT}-${TAG}_coverage"
+            sh "docker rm -f ${PROJECT}-${TAG}_coverage || true"
         }
     }
 }
