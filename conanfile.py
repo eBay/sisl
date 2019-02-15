@@ -16,7 +16,7 @@ class MetricsConan(ConanFile):
                "coverage": ['True', 'False']}
     default_options = 'shared=False', 'fPIC=True', 'coverage=False'
 
-    requires = (("sds_logging/3.8.1@sds/testing"),
+    requires = (("sds_logging/3.8.2@sds/testing"),
                 ("benchmark/1.4.1@oss/stable"),
                 ("boost_intrusive/1.67.0@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.67.0@bincrafters/stable"),
@@ -26,7 +26,7 @@ class MetricsConan(ConanFile):
                 ("evhtp/1.2.16@oss/stable"),
                 ("userspace-rcu/0.10.1@oss/stable"),
                 ("OpenSSL/1.0.2q@conan/stable"),
-                ("sds_prometheus/0.6.0@sds/stable"),
+                ("sds_prometheus/0.6.1@sds/stable"),
                 ("jsonformoderncpp/3.1.2@vthiery/stable"))
 
     generators = "cmake"
@@ -56,7 +56,7 @@ class MetricsConan(ConanFile):
 
         cmake.configure(defs=definitions)
         cmake.build()
-        cmake.test(target=test_target)
+        cmake.test(target=test_target, output_on_failure=True)
 
     def package(self):
         self.copy("*.hpp", src="src/", dst="include/", keep_path=True)
