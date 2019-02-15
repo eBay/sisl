@@ -61,7 +61,7 @@ public:
             m_histogram(family.Add(label_pairs, bkt_boundaries)) {}
 
     virtual void set_value(const std::vector<double>& bucket_values, double sum) {
-        //we have the prometheus::histogram class get patched to support the following method.
+        // Use modified prometheus method (not part of original repo)
         m_histogram.TransferBucketCounters(bucket_values, sum);
     }
 

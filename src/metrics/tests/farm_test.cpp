@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 #include <sds_logging/logging.h>
 
-#define ITERATIONS 4
+#define ITERATIONS 3
 
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
@@ -96,7 +96,7 @@ nlohmann::json expected[ITERATIONS] = {
 };
 // clang-format on
 
-uint64_t delay[ITERATIONS] = {2, 2, 3};
+uint64_t delay[ITERATIONS] = {2, 3, 4};
 
 void gather() {
     for (auto i = 0U; i < ITERATIONS; i++) {

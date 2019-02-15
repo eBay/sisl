@@ -12,8 +12,6 @@
 
 SDS_LOGGING_INIT(vmod_metrics_framework)
 
-#define ITERATIONS 4
-
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
