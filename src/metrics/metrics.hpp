@@ -377,6 +377,9 @@ public:
                        const metric_label& label_pair = {"", ""}, _publish_as ptype = publish_as_counter) {
         return CounterInfo(std::string(Name), desc, instance_name, report_name, label_pair, ptype);
     }
+    CounterInfo create(const std::string& instance_name, const std::string& desc, _publish_as ptype) {
+        return CounterInfo(std::string(Name), desc, instance_name, "", {"", ""}, ptype);
+    }
 
     const char* get_name() const { return Name; }
 };
@@ -427,10 +430,10 @@ public:
 
 class MetricsGroupWrapper : public MetricsGroupPtr {
 public:
-    MetricsGroupWrapper(const char* grp_name, const char *inst_name) :
+    MetricsGroupWrapper(const char* grp_name, const char *inst_name = "Instance1") :
         MetricsGroupPtr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
 
-    MetricsGroupWrapper(const std::string& grp_name, const std::string& inst_name) :
+    MetricsGroupWrapper(const std::string& grp_name, const std::string& inst_name = "Instance1") :
         MetricsGroupPtr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
 
     void register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(*this); }

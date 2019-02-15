@@ -44,6 +44,18 @@ public:
     }
 };
 
+class GlobalMetrics : public MetricsGroupWrapper {
+public:
+    explicit GlobalMetrics() : MetricsGroupWrapper("Global") {
+        REGISTER_COUNTER(num_open_connections, "Total number of connections", sisl::_publish_as::publish_as_gauge);
+        REGISTER_GAUGE(mem_utilization, "Total memory utilization");
+        REGISTER_HISTOGRAM(request_per_txn, "Distribution of request per transactions",
+                HistogramBucketsType(LinearUpto64Buckets));
+
+        register_me_to_farm();
+    }
+};
+
 class Tree {
 private:
     TreeMetrics m_metrics;
@@ -110,6 +122,27 @@ private:
     }
 };
 
+class MyServer {
+public:
+    MyServer() = default;
+
+    void process() {
+        COUNTER_INCREMENT(m_metrics, num_open_connections, 3);
+        GAUGE_UPDATE(m_metrics, mem_utilization, 540);
+        HISTOGRAM_OBSERVE(m_metrics, request_per_txn, 8)
+
+        COUNTER_DECREMENT(m_metrics, num_open_connections, 2);
+        GAUGE_UPDATE(m_metrics, mem_utilization, 980);
+
+        HISTOGRAM_OBSERVE(m_metrics, request_per_txn, 16);
+        HISTOGRAM_OBSERVE(m_metrics, request_per_txn, 48);
+        HISTOGRAM_OBSERVE(m_metrics, request_per_txn, 1);
+    }
+private:
+    GlobalMetrics m_metrics;
+};
+
+// clang-format off
 nlohmann::json expected = {
     {"Cache", {
         {"cache1", {
@@ -160,8 +193,22 @@ nlohmann::json expected = {
             {"Gauges", {}},
             {"Histograms percentiles (usecs) avg/50/95/99", {}}
         }}
+    }},
+    {"Global", {
+        {"Instance1", {
+            {"Counters", {
+                {"Total number of connections", 1}
+            }},
+            {"Gauges", {
+                {"Total memory utilization", 980}
+            }},
+            {"Histograms percentiles (usecs) avg/50/95/99", {
+                {"Distribution of request per transactions", "18 / 15 / 31 / 31"}
+            }}
+        }}
     }}
 };
+// clang-format on
 
 TEST(counterTest, wrapperTest) {
     Tree tree1("tree1"), tree2("tree2");
@@ -171,6 +218,9 @@ TEST(counterTest, wrapperTest) {
     Cache cache1("cache1"), cache2("cache2");
     cache1.update1();
     cache2.update2();
+
+    MyServer server;
+    server.process();
 
     auto output = MetricsFarm::getInstance().get_result_in_json();
     nlohmann::json patch = nlohmann::json::diff(output, expected);
