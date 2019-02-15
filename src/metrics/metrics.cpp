@@ -102,7 +102,7 @@ uint64_t MetricsGroup::register_counter(const CounterInfo& counter) {
     return m_counters.size() - 1;
 }
 uint64_t MetricsGroup::register_counter(const std::string& name, const std::string& desc, _publish_as ptype) {
-    register_counter(name, desc, "", {"", ""}, ptype);
+    return register_counter(name, desc, "", {"", ""}, ptype);
 }
 
 uint64_t MetricsGroup::register_gauge(const std::string& name, const std::string& desc, const std::string& report_name,
