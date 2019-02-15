@@ -261,6 +261,8 @@ public:
 
     uint64_t register_counter(const std::string& name, const std::string& desc, const std::string& report_name = "",
                               const metric_label& label_pair = {"", ""}, _publish_as ptype = publish_as_counter);
+    uint64_t register_counter(const std::string& name, const std::string& desc, _publish_as ptype);
+
     uint64_t register_counter(const CounterInfo& counter);
 
     uint64_t register_gauge(const std::string& name, const std::string& desc, const std::string& report_name = "",
