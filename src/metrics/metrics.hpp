@@ -270,7 +270,7 @@ public:
     uint64_t register_gauge(const GaugeInfo& gauge);
 
     uint64_t register_histogram(const std::string& name, const std::string& desc, const std::string& report_name = "",
-                                const metric_label& label_pair = {"", ""},
+                                const metric_label&             label_pair = {"", ""},
                                 const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets));
     uint64_t register_histogram(HistogramInfo& hist);
     uint64_t register_histogram(const std::string& name, const std::string& desc,
@@ -428,6 +428,21 @@ public:
     const char* get_name() const { return Name; }
 };
 
+class MetricsGroupWrapper {
+public:
+    MetricsGroupPtr m_mg_ptr;
+
+    MetricsGroupWrapper(const char* grp_name, const char* inst_name = "Instance1") :
+            m_mg_ptr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
+
+    MetricsGroupWrapper(const std::string& grp_name, const std::string& inst_name = "Instance1") :
+            m_mg_ptr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
+
+    void           register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(m_mg_ptr); }
+    nlohmann::json get_result_in_json(bool need_latest) { return m_mg_ptr->get_result_in_json(need_latest); }
+};
+
+#if 0
 class MetricsGroupWrapper : public MetricsGroupPtr {
 public:
     MetricsGroupWrapper(const char* grp_name, const char *inst_name = "Instance1") :
@@ -438,29 +453,30 @@ public:
 
     void register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(*this); }
 };
+#endif
 
 #define REGISTER_COUNTER(name, ...)                                                                                    \
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& nc = sisl::NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();       \
-        auto  rc = nc.create(this->get()->get_instance_name(), __VA_ARGS__);                                                    \
-        nc.m_index = this->get()->register_counter(rc);                                                                \
+        auto  rc = nc.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                        \
+        nc.m_index = this->m_mg_ptr->register_counter(rc);                                                             \
     }
 
 #define REGISTER_GAUGE(name, ...)                                                                                      \
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& ng = sisl::NamedGauge< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();         \
-        auto  rg = ng.create(this->get()->get_instance_name(), __VA_ARGS__);                                                    \
-        ng.m_index = this->get()->register_gauge(rg);                                                                  \
+        auto  rg = ng.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                        \
+        ng.m_index = this->m_mg_ptr->register_gauge(rg);                                                               \
     }
 
 #define REGISTER_HISTOGRAM(name, ...)                                                                                  \
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& nh = sisl::NamedHistogram< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();     \
-        auto  rh = nh.create(this->get()->get_instance_name(), __VA_ARGS__);                                                    \
-        nh.m_index = this->get()->register_histogram(rh);                                                             \
+        auto  rh = nh.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                        \
+        nh.m_index = this->m_mg_ptr->register_histogram(rh);                                                           \
     }
 
 #define METRIC_NAME_TO_INDEX(type, name)                                                                               \
@@ -476,13 +492,13 @@ public:
             fflush(stderr);                                                                                            \
             assert(0);                                                                                                 \
         }                                                                                                              \
-        ((group)->method(i, __VA_ARGS__));                                                                             \
+        ((group).m_mg_ptr->method(i, __VA_ARGS__));                                                                    \
     }
 #else
 #define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \
     {                                                                                                                  \
         auto i = METRIC_NAME_TO_INDEX(type, name);                                                                     \
-        ((group)->method(i, __VA_ARGS__));                                                                             \
+        ((group).m_mg_ptr->method(i, __VA_ARGS__));                                                                    \
     }
 #endif
 

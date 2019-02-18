@@ -77,9 +77,7 @@ MetricsGroupPtr MetricsGroup::make_group(const char* grp_name, const char* inst_
     return std::make_shared< MetricsGroup >(grp_name, inst_name);
 }
 
-MetricsGroup::MetricsGroup(const char* grp_name, const char* inst_name) :
-        m_grp_name(grp_name),
-        m_inst_name(inst_name) {
+MetricsGroup::MetricsGroup(const char* grp_name, const char* inst_name) : m_grp_name(grp_name), m_inst_name(inst_name) {
     m_gather_pending = false;
 }
 
@@ -106,7 +104,7 @@ uint64_t MetricsGroup::register_counter(const std::string& name, const std::stri
 }
 
 uint64_t MetricsGroup::register_gauge(const std::string& name, const std::string& desc, const std::string& report_name,
-        const metric_label& label_pair) {
+                                      const metric_label& label_pair) {
     auto locked = lock();
     m_gauges.emplace_back(name, desc, m_inst_name, report_name, label_pair);
     return m_gauges.size() - 1;
@@ -334,6 +332,6 @@ double HistogramInfo::average(const HistogramValue& hvalue) const {
 
 void HistogramInfo::publish(const HistogramValue& hvalue) {
     auto arr = hvalue.get_freqs();
-    m_report_histogram->set_value(std::vector<double>(arr.begin(), arr.end()), hvalue.get_sum());
+    m_report_histogram->set_value(std::vector< double >(arr.begin(), arr.end()), hvalue.get_sum());
 }
 } // namespace sisl
