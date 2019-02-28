@@ -320,7 +320,7 @@ public:
         m_flip_enabled = true;
         auto inst = flip_instance(fspec);
 
-        LOG(INFO) << "Fpsec: " << fspec.DebugString();
+        //LOG(INFO) << "Fpsec: " << fspec.DebugString();
 
         // TODO: Add verification to see if the flip is already scheduled, any errors etc..
         std::unique_lock<std::shared_mutex> lock(m_mutex);
