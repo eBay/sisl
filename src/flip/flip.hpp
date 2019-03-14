@@ -292,8 +292,7 @@ public:
     }
 
     void timer_thr() {
-        size_t executed = 0;
-        executed = m_svc.run();
+        m_svc.run();
     }
 
 private:
