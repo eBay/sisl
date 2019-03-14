@@ -11,6 +11,7 @@
 #include <thread>
 #include <mutex>
 #include <type_traits>
+#include <unordered_map>
 #include <boost/assert.hpp>
 
 #include <boost/core/noncopyable.hpp>
