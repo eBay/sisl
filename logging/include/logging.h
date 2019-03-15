@@ -19,6 +19,8 @@ extern "C" {
 #include <dlfcn.h>
 }
 #include <spdlog/spdlog.h>
+#include <spdlog/fmt/bin_to_hex.h>
+#include <spdlog/fmt/ostr.h>
 
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
