@@ -10,6 +10,7 @@
 #include <event2/http.h>
 #include <event2/dns.h>
 #include <event2/util.h>
+#include <event2/thread.h>
 #include <evhtp/evhtp.h>
 #include <evhtp/sslutils.h>
 #include <boost/intrusive_ptr.hpp>
@@ -132,6 +133,9 @@ public:
 
     int start() {
         try {
+            if (evthread_use_pthreads() != 0) {
+                throw std::runtime_error("evthread_use_pthreads error!");
+            }
             m_http_thread = sisl::make_unique_thread("httpserver", &HttpServer::_run, this);
         } catch (std::system_error& e) {
             LOGERROR("Thread creation failed: {} ", e.what());
