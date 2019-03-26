@@ -19,7 +19,9 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh "docker build --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${TAG} ."
+                withDockerRegistry([credentialsId: 'ecr', url: "https://ecr.vip.ebayc3.com"]) {
+                    sh "docker build --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${TAG} ."
+                }
             }
         }
 
