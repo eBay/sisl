@@ -18,7 +18,6 @@
 #include <string>
 
 namespace flip {
-static thread_local boost::asio::io_service g_io;
 
 template <
         size_t Index = 0, // start iteration at 0 index
@@ -313,7 +312,11 @@ private:
 
 class Flip {
 public:
-    Flip() : m_flip_enabled(false) {
+    Flip() : m_flip_enabled(false) {}
+
+    static Flip& instance() {
+        static Flip s_instance;
+        return s_instance;
     }
 
     bool add(const FlipSpec &fspec) {
