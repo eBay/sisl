@@ -17,6 +17,11 @@ class atomic_counter {
 public:
     atomic_counter() = default;
     atomic_counter(T count) : m_count(count) {}
+    atomic_counter(const atomic_counter& other) : m_count(other.m_count.load(std::memory_order_acquire)) {}
+    atomic_counter& operator=(const atomic_counter &other) {
+        m_count.store(other.m_count.load(std::memory_order_acquire), std::memory_order_release);
+    }
+
 
     T increment(int32_t n = 1) {
         T count = m_count.fetch_add(n, std::memory_order_relaxed);

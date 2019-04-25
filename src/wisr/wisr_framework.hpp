@@ -112,7 +112,8 @@ public:
      */
     void prepare_rotate() {
         std::lock_guard<std::mutex> lg(m_rotate_mutex);
-        m_buffer.access_all_threads([](WrapperBuf<DS, Args...> *ptr) {
+        m_buffer.access_all_threads([](WrapperBuf<DS, Args...> *ptr, bool is_thread_running) {
+            (void)is_thread_running;
             ptr->make();
             return false;
         });
@@ -121,7 +122,8 @@ public:
     DS* deferred() {
         std::lock_guard<std::mutex> lg(m_rotate_mutex);
         auto base_raw = m_base_obj.get();
-        m_buffer.access_all_threads([base_raw](WrapperBuf<DS, Args...> *ptr) {
+        m_buffer.access_all_threads([base_raw](WrapperBuf<DS, Args...> *ptr, bool is_thread_running) {
+            (void)is_thread_running;
             auto old_ptr = ptr->exchange();
             DS::merge(base_raw, old_ptr.get());
             return true;
@@ -133,14 +135,15 @@ private:
     // This method assumes that rotate mutex is already held
     void _rotate() {
         auto base_raw = m_base_obj.get();
-        m_buffer.access_all_threads([base_raw](WrapperBuf<DS, Args...> *ptr) {
+        m_buffer.access_all_threads([base_raw](WrapperBuf<DS, Args...> *ptr, bool is_thread_running) {
+            (void)is_thread_running;
             auto old_ptr = ptr->make_and_exchange();
             DS::merge(base_raw, old_ptr.get());
             return true;
         });
     }
 private:
-    sisl::ThreadBuffer< WrapperBuf< DS, Args... >, Args... > m_buffer;
+    sisl::ExitSafeThreadBuffer< WrapperBuf< DS, Args... >, Args... > m_buffer;
     std::mutex m_rotate_mutex;
     std::unique_ptr< DS > m_base_obj;
 };

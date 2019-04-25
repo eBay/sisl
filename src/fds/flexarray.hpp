@@ -9,8 +9,9 @@
 #include <vector>
 
 namespace sisl {
-template <typename T, int32_t StaticCount> class FlexArray {
-  public:
+template < typename T, int32_t StaticCount >
+class FlexArray {
+public:
     FlexArray() : m_count(0) {}
 
     FlexArray(int32_t size) : FlexArray() { m_vec.reserve(size - StaticCount); }
@@ -32,12 +33,13 @@ template <typename T, int32_t StaticCount> class FlexArray {
         return m_count - 1;
     }
 
-    template <class... Args> uint32_t emplace_back(Args&&... args) {
+    template < class... Args >
+    uint32_t emplace_back(Args&&... args) {
         if (m_count < StaticCount) {
             void* mem = (void*)&m_arr_mem[m_count * sizeof(T)];
-            new (mem) T(std::forward<Args>(args)...);
+            new (mem) T(std::forward< Args >(args)...);
         } else {
-            m_vec.emplace_back(std::forward<Args>(args)...);
+            m_vec.emplace_back(std::forward< Args >(args)...);
         }
         m_count++;
         return m_count - 1;
@@ -59,6 +61,11 @@ template <typename T, int32_t StaticCount> class FlexArray {
         }
     }
 
+    const T& back() const { return operator[](size() - 1); }
+    T&       back() { return operator[](size() - 1); }
+    const T& at(uint32_t n) const { return operator[](n); }
+    T&       at(uint32_t n) { return operator[](n); }
+
     void reset() {
         m_count = 0;
         m_vec.clear();
@@ -66,24 +73,24 @@ template <typename T, int32_t StaticCount> class FlexArray {
 
     size_t size() const { return m_count; }
 
-  private:
+private:
     T& get_in_array(uint32_t ind) const {
         T* arr = (T*)m_arr_mem;
         return arr[ind];
     }
 
-  private:
-    // Array or Vector of ops this txn is going to handle
-    uint8_t m_arr_mem[sizeof(T) * StaticCount];
-    std::vector<T> m_vec;
-    uint32_t m_count;
+private:
+    uint32_t         m_count;
+    uint8_t          m_arr_mem[sizeof(T) * StaticCount];
+    std::vector< T > m_vec;
 };
 
-template <typename T, int32_t StaticCount> class FlexArray<std::shared_ptr<T>, StaticCount> {
-  public:
+template < typename T, int32_t StaticCount >
+class FlexArray< std::shared_ptr< T >, StaticCount > {
+public:
     FlexArray() : m_count(0) {}
 
-    uint32_t push_back(std::shared_ptr<T>& value) {
+    uint32_t push_back(std::shared_ptr< T >& value) {
         if (m_count < StaticCount) {
             m_arr[m_count] = value;
         } else {
@@ -93,17 +100,18 @@ template <typename T, int32_t StaticCount> class FlexArray<std::shared_ptr<T>, S
         return m_count - 1;
     }
 
-    template <class... Args> uint32_t emplace_back(Args&&... args) {
+    template < class... Args >
+    uint32_t emplace_back(Args&&... args) {
         if (m_count < StaticCount) {
-            m_arr[m_count] = std::make_shared<T>(std::forward<Args>(args)...);
+            m_arr[m_count] = std::make_shared< T >(std::forward< Args >(args)...);
         } else {
-            m_vec.emplace_back(std::make_shared<T>(std::forward<Args>(args)...));
+            m_vec.emplace_back(std::make_shared< T >(std::forward< Args >(args)...));
         }
         m_count++;
         return m_count - 1;
     }
 
-    std::shared_ptr<T> operator[](uint32_t n) {
+    std::shared_ptr< T > operator[](uint32_t n) {
         if (n < StaticCount) {
             return m_arr[n];
         } else {
@@ -119,6 +127,9 @@ template <typename T, int32_t StaticCount> class FlexArray<std::shared_ptr<T>, S
         }
     }
 
+    std::shared_ptr< T > back() { return operator[](size() - 1); }
+    std::shared_ptr< T > at(uint32_t n) { return operator[](n); }
+
     void reset() {
         m_count = 0;
         m_vec.clear();
@@ -126,17 +137,18 @@ template <typename T, int32_t StaticCount> class FlexArray<std::shared_ptr<T>, S
 
     size_t size() const { return m_count; }
 
-  private:
-    std::array<std::shared_ptr<T>, StaticCount> m_arr;
-    std::vector<std::shared_ptr<T>> m_vec;
-    uint32_t m_count;
+private:
+    uint32_t                                        m_count;
+    std::array< std::shared_ptr< T >, StaticCount > m_arr;
+    std::vector< std::shared_ptr< T > >             m_vec;
 };
 
-template <typename T, int32_t StaticCount> class FlexArray<std::unique_ptr<T>, StaticCount> {
-  public:
+template < typename T, int32_t StaticCount >
+class FlexArray< std::unique_ptr< T >, StaticCount > {
+public:
     FlexArray() : m_count(0) {}
 
-    uint32_t push_back(std::unique_ptr<T>&& value) {
+    uint32_t push_back(std::unique_ptr< T >&& value) {
         if (m_count < StaticCount) {
             m_arr[m_count] = std::move(value);
         } else {
@@ -146,17 +158,18 @@ template <typename T, int32_t StaticCount> class FlexArray<std::unique_ptr<T>, S
         return m_count - 1;
     }
 
-    template <class... Args> uint32_t emplace_back(Args&&... args) {
+    template < class... Args >
+    uint32_t emplace_back(Args&&... args) {
         if (m_count < StaticCount) {
-            m_arr[m_count] = std::make_unique<T>(std::forward<Args>(args)...);
+            m_arr[m_count] = std::make_unique< T >(std::forward< Args >(args)...);
         } else {
-            m_vec.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
+            m_vec.emplace_back(std::make_unique< T >(std::forward< Args >(args)...));
         }
         m_count++;
         return m_count - 1;
     }
 
-    std::unique_ptr<T> release(uint32_t n) {
+    std::unique_ptr< T > release(uint32_t n) {
         if (n < StaticCount) {
             auto p = std::move(m_arr[n]);
             return p;
@@ -190,6 +203,9 @@ template <typename T, int32_t StaticCount> class FlexArray<std::unique_ptr<T>, S
         }
     }
 
+    T* back() { return operator[](size() - 1); }
+    T* at(uint32_t n) { return operator[](n); }
+
     void reset() {
         m_count = 0;
         m_vec.clear();
@@ -197,10 +213,9 @@ template <typename T, int32_t StaticCount> class FlexArray<std::unique_ptr<T>, S
 
     size_t size() const { return m_count; }
 
-  private:
-    std::array<std::unique_ptr<T>, StaticCount> m_arr;
-    std::vector<std::unique_ptr<T>> m_vec;
-    uint32_t m_count;
+private:
+    uint32_t                                        m_count;
+    std::array< std::unique_ptr< T >, StaticCount > m_arr;
+    std::vector< std::unique_ptr< T > >             m_vec;
 };
 } // namespace sisl
-

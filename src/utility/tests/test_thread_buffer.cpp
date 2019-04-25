@@ -31,7 +31,7 @@ struct ThreadBufferTest : public testing::Test {
 protected:
     std::vector< std::thread * > m_threads;
     std::thread* m_scrapper_thread;
-    sisl::ThreadBuffer< MyList > m_buffer;
+    sisl::ExitSafeThreadBuffer< MyList > m_buffer;
 
     ThreadBufferTest() {
         for(auto i = 0U; i < INITIAL_THREADS; i++) {
@@ -68,8 +68,9 @@ protected:
 
         do {
             usleep(50000);
-            test->m_buffer.access_all_threads([&merge_list](MyList *ml) {
+            test->m_buffer.access_all_threads([&merge_list](MyList *ml, bool is_thread_running) {
                 merge_list.add(*ml);
+                return true;
             });
 
             auto before_size = merge_list.m_list.size();
