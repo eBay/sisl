@@ -69,11 +69,11 @@ target_link_libraries(flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} ${GFLAGS_LIBRARY}
 
 add_executable(test_flip ${TEST_FLIP_FILES})
 target_link_libraries(test_flip ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY} ${GFLAGS_LIBRARY}
-        pthread Boost::system)
+        pthread ${Boost_LIBRARIES})
 
 add_executable(test_flip_client ${TEST_FLIP_CLIENT_FILES})
 target_link_libraries(test_flip_client ${PROTOBUF_LIBRARY} ${GLOG_LIBRARY}
-        ${GFLAGS_LIBRARY} pthread Boost::system)
+        ${GFLAGS_LIBRARY} pthread ${Boost_LIBRARIES})
 
 install(TARGETS flip DESTINATION ${CMAKE_PREFIX_PATH}/lib)
 install(FILES src/flip.hpp proto/flip_spec.proto ${PROTO_GEN_DIR}/flip_spec.pb.h DESTINATION ${CMAKE_PREFIX_PATH}/include/flip)
