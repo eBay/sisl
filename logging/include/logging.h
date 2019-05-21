@@ -85,11 +85,80 @@ constexpr const char* file_name(const char* str) {
 #define LOGCRITICAL(msg, ...)   LOGCRITICALMOD(base, msg, ##__VA_ARGS__)
 
 #define LOGCRITICAL_AND_FLUSH(msg, ...) {auto _l = LOGGER; _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__); _l->flush(); }
+
+#ifndef NDEBUG
+#define LOGFATAL(msg, ...) \
+        LOGCRITICAL_AND_FLUSH(msg, __VA_ARGS__); \
+	assert(0);
+#else
+#define LOGFATAL(msg, ...) \
+        LOGCRITICAL_AND_FLUSH(msg, __VA_ARGS__); \
+        abort();
+#endif
+
 #define LOGDFATAL_IF(cond, msg, ...) \
 	if (cond) { \
-		LOGCRITICAL_AND_FLUSH(msg, __VA_ARGS__); \
-		assert(0); \
+	   LOGFATAL(msg, __VA_ARGS__); \
 	}
+
+	//sds_logging::internal::signalHandler(6, nullptr, nullptr); 
+	//spdlog::shutdown(); 
+//////////////////////////////////////////////////////////////////////////////
+// GCC can be told that a certain branch is not likely to be taken (for
+// instance, a CHECK failure), and use that information in static analysis.
+// Giving it this information can help it optimize for the common case in
+// the absence of better information (ie. -fprofile-arcs).
+//
+#ifndef LOGGING_PREDICT_BRANCH_NOT_TAKEN
+#if defined(__clang__) || defined(__GNUC__)
+#define LOGGING_PREDICT_BRANCH_NOT_TAKEN(x) (__builtin_expect(x, 0))
+#else
+#define LOGGING_PREDICT_BRANCH_NOT_TAKEN(x) x
+#endif
+#endif
+
+#ifndef LOGGING_PREDICT_FALSE
+#if defined(__clang__) || defined(__GNUC__)
+#define LOGGING_PREDICT_FALSE(x) (__builtin_expect(x, 0))
+#else
+#define LOGGING_PREDICT_FALSE(x) x
+#endif
+#endif
+
+#ifndef LOGGING_PREDICT_TRUE
+#if defined(__clang__) || defined(__GNUC__)
+#define LOGGING_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
+#else
+#define LOGGING_PREDICT_TRUE(x) x
+#endif
+#endif
+
+#define CONFIRM_OP(name, op, val1, val2) \
+    if (!(LOGGING_PREDICT_BRANCH_NOT_TAKEN((val1) op (val2)))) { \
+        LOGFATAL("Assertion failure: Expected '{}' to be {} to '{}'", val1, #op, val2); \
+    }
+#define CONFIRM_EQ(val1, val2) CONFIRM_OP(_EQ, ==, val1, val2)
+#define CONFIRM_NE(val1, val2) CONFIRM_OP(_NE, !=, val1, val2)
+#define CONFIRM_LE(val1, val2) CONFIRM_OP(_LE, <=, val1, val2)
+#define CONFIRM_LT(val1, val2) CONFIRM_OP(_LT, < , val1, val2)
+#define CONFIRM_GE(val1, val2) CONFIRM_OP(_GE, >=, val1, val2)
+#define CONFIRM_GT(val1, val2) CONFIRM_OP(_GT, > , val1, val2)
+
+#ifndef NDEBUG
+#define DCONFIRM_EQ(val1, val2) CONFIRM_OP(_EQ, ==, val1, val2)
+#define DCONFIRM_NE(val1, val2) CONFIRM_OP(_NE, !=, val1, val2)
+#define DCONFIRM_LE(val1, val2) CONFIRM_OP(_LE, <=, val1, val2)
+#define DCONFIRM_LT(val1, val2) CONFIRM_OP(_LT, < , val1, val2)
+#define DCONFIRM_GE(val1, val2) CONFIRM_OP(_GE, >=, val1, val2)
+#define DCONFIRM_GT(val1, val2) CONFIRM_OP(_GT, > , val1, val2)
+#else
+#define DCONFIRM_EQ(val1, val2)
+#define DCONFIRM_NE(val1, val2)
+#define DCONFIRM_LE(val1, val2) 
+#define DCONFIRM_LT(val1, val2)
+#define DCONFIRM_GE(val1, val2) 
+#define DCONFIRM_GT(val1, val2) 
+#endif
 
 namespace sds_logging {
 template <typename T>
