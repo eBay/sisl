@@ -12,4 +12,3 @@ set(FLIP_LIB_FILES
         )
 add_library(flip ${FLIP_LIB_FILES})
 target_link_libraries(flip ${CONAN_LIBS})
-message("Here: ${PROTO_PATH}")
