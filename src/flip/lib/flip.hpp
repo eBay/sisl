@@ -18,7 +18,6 @@
 #include <string>
 
 namespace flip {
-static thread_local boost::asio::io_service g_io;
 
 template <
         size_t Index = 0, // start iteration at 0 index
@@ -292,7 +291,10 @@ public:
     }
 
     void timer_thr() {
-        m_svc.run();
+        size_t executed = 0;
+        executed = m_svc.run();
+        // To suppress compiler warning
+        (void) executed;
     }
 
 private:
@@ -310,14 +312,18 @@ private:
 
 class Flip {
 public:
-    Flip() : m_flip_enabled(false) {
+    Flip() : m_flip_enabled(false) {}
+
+    static Flip& instance() {
+        static Flip s_instance;
+        return s_instance;
     }
 
     bool add(const FlipSpec &fspec) {
         m_flip_enabled = true;
         auto inst = flip_instance(fspec);
 
-        LOG(INFO) << "Fpsec: " << fspec.DebugString();
+        //LOG(INFO) << "Fpsec: " << fspec.DebugString();
 
         // TODO: Add verification to see if the flip is already scheduled, any errors etc..
         std::unique_lock<std::shared_mutex> lock(m_mutex);

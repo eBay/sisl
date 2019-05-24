@@ -29,8 +29,6 @@ endif ()
 find_package(Protobuf REQUIRED)
 
 add_subdirectory(proto)
-message("Here: ${PROTO_PATH}")
-
 include_directories(BEFORE include ${PROTO_PATH})
 
 add_executable(test_flip src/test_flip.cpp)
