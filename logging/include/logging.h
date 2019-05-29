@@ -137,20 +137,6 @@ constexpr const char* file_name(const char* str) {
         _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
 #endif
 
-#if 0
-#define _CHECK_AND_LOG(enum_name, method, mod, msg, ...)  \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, enum_name)) {\
-        _l->method(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__); \
-    }
-
-#define LOGTRACEMOD(mod, msg, ...)    _CHECK_AND_LOG(spdlog::level::level_enum::trace, trace, mod, msg ##__VA_ARGS__)
-#define LOGDEBUGMOD(mod, msg, ...)    _CHECK_AND_LOG(spdlog::level::level_enum::debug, debug, mod, msg ##__VA_ARGS__)
-#define LOGINFOMOD(mod, msg, ...)     _CHECK_AND_LOG(spdlog::level::level_enum::info,  info,  mod, msg ## __VA_ARGS__)
-#define LOGWARNMOD(mod, msg, ...)     _CHECK_AND_LOG(spdlog::level::level_enum::warn,  warn,  mod, msg ##__VA_ARGS__)
-#define LOGERRORMOD(mod, msg, ...)    _CHECK_AND_LOG(spdlog::level::level_enum::err,   error, mod, msg ##__VA_ARGS__)
-#define LOGCRITICALMOD(mod, msg, ...) _CHECK_AND_LOG(spdlog::level::level_enum::critical, critical, mod, msg ##__VA_ARGS__)
-#endif
-
 #define LOGTRACE(msg, ...)      LOGTRACEMOD(base, msg, ##__VA_ARGS__)
 #define LOGDEBUG(msg, ...)      LOGDEBUGMOD(base, msg, ##__VA_ARGS__)
 #define LOGINFO(msg, ...)       LOGINFOMOD(base, msg, ##__VA_ARGS__)
