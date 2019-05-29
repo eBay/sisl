@@ -138,8 +138,6 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
     size_t cur_len = 0;
     size_t frame_num = 0;
 
-    printf("Stack sizie = %d\n", stack_size);
-
     // NOTE: starting from 1, skipping this frame.
     for (int i = 1; i < stack_size; ++i) {
         // `stack_msg[x]` format:
@@ -176,7 +174,6 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
 
         char cmd[1024];
         snprintf(cmd, 1024, "addr2line -f -e %.*s %s", fname_len, stack_msg[i], addr_str);
-	printf("cmd = %s\n", cmd);
         FILE* fp = popen(cmd, "r");
         if (!fp)
             continue;
@@ -354,11 +351,4 @@ static SIZE_T_UNUSED stack_backtrace(char* output_buf, size_t output_buflen) {
     return _stack_interpret(stack_ptr, stack_size, output_buf, output_buflen);
 }
 
-static void log_stack_trace() {
-    char buff[1 * 1024 * 1024];
-    buff[0] = 0;
-    size_t s = stack_backtrace(buff, sizeof(buff));
-    fprintf(stderr, "stack trace of size %ld", s);
-    fprintf(stderr, "%s", buff);
-}
 // LCOV_EXCL_STOP
