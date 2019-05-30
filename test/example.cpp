@@ -46,8 +46,8 @@ int main(int argc, char** argv) {
    //backtrace_unwind();
    //sds_logging::log_stack_trace();
 
-   ASSERT_EQ(argc, 2);
-   REL_ASSERT_EQ(argc, 2);
+   DEBUG_ASSERT_EQ(argc, 2, "I can't run without proper arguments in debug build");
+   RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build");
    int* x = nullptr; *x = 5;
 
    t.join();
