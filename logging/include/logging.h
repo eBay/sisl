@@ -16,6 +16,7 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
+#include <mutex>
 extern "C" {
 #include <dlfcn.h>
 }
@@ -30,8 +31,6 @@ extern "C" {
 #include <boost/preprocessor/tuple/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
-#include <unordered_set>
-#include <mutex>
 
 // The following constexpr's are used to extract the filename
 // from the full path during compile time.
@@ -92,28 +91,6 @@ constexpr const char* file_name(const char* str) {
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
 
-#if 0
-#define LOGGER (sds_logging::sds_thread_logger ? sds_logging::sds_thread_logger : sds_logging::sds_thread_logger = sds_logging::GetLogger())
-
-#define LOGTRACEMOD(mod, msg, ...)      if (auto _l = LOGGER; \
-                                                _l && LEVELCHECK(_l, mod, spdlog::level::level_enum::trace)) \
-                                            _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGDEBUGMOD(mod, msg, ...)      if (auto _l = LOGGER; \
-                                                _l && LEVELCHECK(_l, mod, spdlog::level::level_enum::debug)) \
-                                            _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGINFOMOD(mod, msg, ...)       if (auto _l = LOGGER; \
-                                                _l && LEVELCHECK(_l, mod, spdlog::level::level_enum::info)) \
-                                            _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGWARNMOD(mod, msg, ...)       if (auto _l = LOGGER; \
-                                                _l && LEVELCHECK(_l, mod, spdlog::level::level_enum::warn)) \
-                                            _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGERRORMOD(mod, msg, ...)      if (auto _l = LOGGER; \
-                                                _l && LEVELCHECK(_l, mod, spdlog::level::level_enum::err)) \
-                                            _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#define LOGCRITICALMOD(mod, msg, ...)   if (auto _l = LOGGER; \
-                                                _l && LEVELCHECK(_l, mod, spdlog::level::level_enum::critical)) \
-                                            _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#else
 #define LOGTRACEMOD(mod, msg, ...)     \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) \
         _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
@@ -137,7 +114,6 @@ constexpr const char* file_name(const char* str) {
 #define LOGCRITICALMOD(mod, msg, ...)   \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) \
         _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
-#endif
 
 #define LOGTRACE(msg, ...)      LOGTRACEMOD(base, msg, ##__VA_ARGS__)
 #define LOGDEBUG(msg, ...)      LOGDEBUGMOD(base, msg, ##__VA_ARGS__)
@@ -179,45 +155,63 @@ constexpr const char* file_name(const char* str) {
 #define LOGCRITICAL_AND_FLUSH(msg, ...) { auto& _l = sds_logging::GetLogger(); _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__); _l->flush(); }
 
 #define LOGDFATAL(msg, ...) \
-    LOGCRITICAL_AND_FLUSH(msg, __VA_ARGS__); \
-    if (!sds_logging::is_crash_handler_installed()) { sds_logging::log_stack_trace(false); } \
+    LOGCRITICAL_AND_FLUSH(msg, ##__VA_ARGS__); \
     assert(0);
 
 #define LOGFATAL(msg, ...) \
-    LOGDFATAL(msg, __VA_ARGS__); \
+    LOGDFATAL(msg, ##__VA_ARGS__); \
     abort();
 
-#define LOGFATAL_IF(cond, msg, ...)  if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(cond)) { LOGFATAL(msg, __VA_ARGS__); }
-#define LOGDFATAL_IF(cond, msg, ...) if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(cond)) { LOGDFATAL(msg, __VA_ARGS__); }
-
-#define CONFIRM_OP(op, val1, val2) \
-    if (!(LOGGING_PREDICT_BRANCH_NOT_TAKEN((val1) op (val2)))) { \
-        LOGFATAL("**************  Assertion failure: Expected '{}' to be {} to '{}'", val1, #op, val2); \
+/*
+ * RELEASE_ASSERT:   If condition is not met: Logs the message, aborts both in release and debug build
+ * LOGMSG_ASSERT:       If condition is not met: Logs the message with stack trace, aborts in debug build only.
+ * DEBUG_ASSERT:     No-op in release build, for debug build, if condition is not met, logs the message and aborts
+ */
+#define RELEASE_ASSERT(cond, msg, ...)  if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(cond))) { LOGFATAL(msg, ##__VA_ARGS__); }
+#define LOGMSG_ASSERT(cond, msg, ...) \
+    if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(cond))) { \
+        LOGDFATAL(msg, ##__VA_ARGS__); \
+        if (sds_logging::is_crash_handler_installed()) { sds_logging::log_stack_trace(false); } \
     }
-#define REL_CONFIRM_EQ(val1, val2) CONFIRM_OP(==, val1, val2)
-#define REL_CONFIRM_NE(val1, val2) CONFIRM_OP(!=, val1, val2)
-#define REL_CONFIRM_LE(val1, val2) CONFIRM_OP(<=, val1, val2)
-#define REL_CONFIRM_LT(val1, val2) CONFIRM_OP(< , val1, val2)
-#define REL_CONFIRM_GE(val1, val2) CONFIRM_OP(>=, val1, val2)
-#define REL_CONFIRM_GT(val1, val2) CONFIRM_OP(> , val1, val2)
-#define REL_CONFIRM_NOTNULL(val1)  CONFIRM_OP(!=, val1, nullptr)
+
+#define RELEASE_ASSERT_OP(op, val1, val2, ...) RELEASE_ASSERT(((val1) op (val2)), \
+        "**************  Assertion failure: {} ====> Expected '{}' to be {} to '{}' ", ##__VA_ARGS__, val1, #op, val2)
+#define RELEASE_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_OP(==, val1, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_OP(!=, val1, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_OP(<=, val1, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_OP(< , val1, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_OP(>=, val1, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_OP(> , val1, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_NOTNULL(val1, ...)  RELEASE_ASSERT_OP(!=, val1, nullptr, ##__VA_ARGS__)
+
+#define LOGMSG_ASSERT_OP(op, val1, val2, ...) LOGMSG_ASSERT(((val1) op (val2)), \
+        "**************  Assertion failure: Expected '{}' to be {} to '{}'", val1, #op, val2, ##__VA_ARGS__) 
+#define LOGMSG_ASSERT_EQ(val1, val2, ...) LOGMSG_ASSERT_OP(==, val1, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_NE(val1, val2, ...) LOGMSG_ASSERT_OP(!=, val1, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_LE(val1, val2, ...) LOGMSG_ASSERT_OP(<=, val1, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_LT(val1, val2, ...) LOGMSG_ASSERT_OP(< , val1, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_GE(val1, val2, ...) LOGMSG_ASSERT_OP(>=, val1, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_GT(val1, val2, ...) LOGMSG_ASSERT_OP(> , val1, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_NOTNULL(val1, ...)  LOGMSG_ASSERT_OP(!=, val1, nullptr, ##__VA_ARGS__)
 
 #ifndef NDEBUG
-#define CONFIRM_EQ(val1, val2) REL_CONFIRM_EQ(val1, val2)
-#define CONFIRM_NE(val1, val2) REL_CONFIRM_NE(val1, val2)
-#define CONFIRM_LE(val1, val2) REL_CONFIRM_LE(val1, val2)
-#define CONFIRM_LT(val1, val2) REL_CONFIRM_LT(val1, val2)
-#define CONFIRM_GE(val1, val2) REL_CONFIRM_GE(val1, val2)
-#define CONFIRM_GT(val1, val2) REL_CONFIRM_GT(val1, val2)
-#define CONFIRM_NOTNULL(val1)  REL_CONFIRM_NOTNULL(val1)
+#define DEBUG_ASSERT(cond, msg, ...)      RELEASE_ASSERT(cond, msg, ##__VA_ARGS__)
+#define DEBUG_ASSERT_EQ(val1, val2, ...)  RELEASE_ASSERT_EQ(val1, val2, ##__VA_ARGS__)
+#define DEBUG_ASSERT_NE(val1, val2, ...)  RELEASE_ASSERT_NE(val1, val2, ##__VA_ARGS__)
+#define DEBUG_ASSERT_LE(val1, val2, ...)  RELEASE_ASSERT_LE(val1, val2, ##__VA_ARGS__)
+#define DEBUG_ASSERT_LT(val1, val2, ...)  RELEASE_ASSERT_LT(val1, val2, ##__VA_ARGS__)
+#define DEBUG_ASSERT_GE(val1, val2, ...)  RELEASE_ASSERT_GE(val1, val2, ##__VA_ARGS__)
+#define DEBUG_ASSERT_GT(val1, val2, ...)  RELEASE_ASSERT_GT(val1, val2, ##__VA_ARGS__)
+#define DEBUG_ASSERT_NOTNULL(val1, ...)   RELEASE_ASSERT_NOTNULL(val1, ##__VA_ARGS__)
 #else
-#define CONFIRM_EQ(val1, val2)
-#define CONFIRM_NE(val1, val2)
-#define CONFIRM_LE(val1, val2) 
-#define CONFIRM_LT(val1, val2)
-#define CONFIRM_GE(val1, val2) 
-#define CONFIRM_GT(val1, val2) 
-#define CONFIRM_NOTNULL(val1)  
+#define DEBUG_ASSERT(cond, msg, ...)
+#define DEBUG_ASSERT_EQ(val1, val2, ...)
+#define DEBUG_ASSERT_NE(val1, val2, ...)
+#define DEBUG_ASSERT_LE(val1, val2, ...) 
+#define DEBUG_ASSERT_LT(val1, val2, ...)
+#define DEBUG_ASSERT_GE(val1, val2, ...) 
+#define DEBUG_ASSERT_GT(val1, val2, ...) 
+#define DEBUG_ASSERT_NOTNULL(val1, ...)  
 #endif
 
 namespace sds_logging {

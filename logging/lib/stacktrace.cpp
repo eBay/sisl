@@ -16,16 +16,18 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
-#include <sys/types.h>
-#include <dirent.h>
-#include <cxxabi.h>
-#include <execinfo.h>
 #include <iostream>
 #include <map>
 #include <sstream>
 #include <thread>
+extern "C" {
 #include <unistd.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <cxxabi.h>
+#include <execinfo.h>
+}
 
 #include "logging.h"
 #include "backtrace.h"
@@ -148,7 +150,7 @@ static void signal_handler(int signal_number, siginfo_t *info, void *unused_cont
 
         mythread_logger->set_pattern("%v");
         log_stack_trace(true);
-        LOGCRITICAL_AND_FLUSH("{}", fatal_stream.str());
+        LOGCRITICAL("{}", fatal_stream.str());
     }
 
     spdlog::apply_all([&](std::shared_ptr<spdlog::logger> l) {l->flush();});

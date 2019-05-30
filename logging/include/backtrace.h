@@ -43,11 +43,14 @@
 #include <sstream>
 #include <string>
 
+#include <cstdio>
+#include <csignal>
+
+extern "C" {
 #include <cxxabi.h>
 #include <execinfo.h>
 #include <inttypes.h>
-#include <stdio.h>
-#include <signal.h>
+}
 
 #ifdef __APPLE__
 #include <mach-o/getsect.h>
