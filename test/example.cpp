@@ -44,13 +44,15 @@ int main(int argc, char** argv) {
    LOGTRACEMOD(my_module, "Trace Module");
 
    //backtrace_unwind();
-   //sds_logging::log_stack_trace();
+   sds_logging::log_stack_trace();
 
+#if 0
    RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build");
    RELEASE_ASSERT_EQ(argc, 2);
    DEBUG_ASSERT_EQ(argc, 2, "I can't run without proper arguments in debug build, need {} args", 2);
    RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build, need {} args", 2);
    int* x = nullptr; *x = 5;
+#endif
 
    t.join();
    return 0;
