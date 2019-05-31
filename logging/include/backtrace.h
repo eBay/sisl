@@ -27,6 +27,12 @@
  * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * ===========================================================
+ *
+ * Enhanced by hkadayam:
+ *  -  While dlsym is available, backtrace does not provide symbol name, fixed it
+ *     by calculating the offset through dlsym.
  */
 
 #pragma once
@@ -136,6 +142,43 @@ static SIZE_T_UNUSED _stack_interpret(void** stack_ptr, int stack_size, char* ou
 }
 
 #ifdef __linux__
+static uintptr_t _extract_offset(const char *input_str, char* offset_str, int max_len) {
+    uintptr_t actual_addr;
+
+    int i = 0;
+    while (input_str[i] != ')' && input_str[i] != 0x0) { i++; }
+    auto len = std::min(max_len-1, i);
+    sprintf(offset_str, "%.*s", len, input_str);
+
+    // Convert hex string -> integer address.
+    std::stringstream ss;
+    ss << std::hex << offset_str;
+    ss >> actual_addr;
+
+    return actual_addr;
+}
+
+static bool _adjust_offset_symbol(const char* symbol_str, char* offset_str, uintptr_t* offset_ptr) {
+    uintptr_t status = false;
+    Dl_info symbol_info;
+
+    void* obj_file = dlopen(NULL, RTLD_LAZY);
+    if (!obj_file) { return false; }
+
+    void* addr = dlsym(obj_file, symbol_str);
+    if (!addr) { goto done; }
+
+    //extract the symbolic information pointed by address
+    if (!dladdr(addr, &symbol_info)) { goto done; }
+    *offset_ptr = ((uintptr_t)symbol_info.dli_saddr - ((uintptr_t)symbol_info.dli_fbase)) + *offset_ptr - 1;
+    sprintf(offset_str, "%" PRIxPTR, *offset_ptr);
+    status = true;
+
+done:
+    dlclose(obj_file);
+    return status;
+}
+
 static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, int stack_size, char* output_buf,
                                             size_t output_buflen) {
     size_t cur_len = 0;
@@ -143,6 +186,8 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
 
     // NOTE: starting from 1, skipping this frame.
     for (int i = 1; i < stack_size; ++i) {
+        char *cur_frame = stack_msg[i];
+
         // `stack_msg[x]` format:
         //   /foo/bar/executable() [0xabcdef]
         //   /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0xf0) [0x123456]
@@ -151,32 +196,43 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
         //   /foo/bar/executable(+0x5996) [0x555555559996]
 
         int fname_len = 0;
-        while (stack_msg[i][fname_len] != '(' && stack_msg[i][fname_len] != ' ' && stack_msg[i][fname_len] != 0x0) {
+        while (cur_frame[fname_len] != '(' && cur_frame[fname_len] != ' ' && cur_frame[fname_len] != 0x0) {
             ++fname_len;
         }
 
         char addr_str[256];
         uintptr_t actual_addr = 0x0;
-        if (stack_msg[i][fname_len] == '(' && stack_msg[i][fname_len + 1] == '+') {
-            // ASLR is enabled, get the offset from here.
-            int upto = fname_len + 2;
-            while (stack_msg[i][upto] != ')' && stack_msg[i][upto] != 0x0) {
-                upto++;
+        if (cur_frame[fname_len] == '(') {
+            // Extract the symbol if present
+            char _symbol[1024];
+            int _symbol_len = 0;
+            int _s = fname_len + 1;
+            while (cur_frame[_s] != '+' && cur_frame[_s] != ')' && cur_frame[_s] != 0x0 && _symbol_len < 1023) { 
+                _symbol[_symbol_len++] = cur_frame[_s++];
             }
-            sprintf(addr_str, "%.*s", upto - fname_len - 2, &stack_msg[i][fname_len + 2]);
+            _symbol[_symbol_len] = '\0';
 
-            // Convert hex string -> integer address.
-            std::stringstream ss;
-            ss << std::hex << addr_str;
-            ss >> actual_addr;
+            // Extract the offset
+            if (cur_frame[_s] == '+') {
+                // ASLR is enabled, get the offset from here.
+                actual_addr = _extract_offset(&cur_frame[_s + 1], addr_str, 256);
+            }
 
+            // If symbol is present, try to add offset and get the correct addr_str
+            if (_symbol_len > 0) {
+                if(!_adjust_offset_symbol(_symbol, addr_str, &actual_addr)) {
+                    // Resort to the default one
+                    actual_addr = (uintptr_t)stack_ptr[i];
+                    sprintf(addr_str, "%" PRIxPTR, actual_addr);
+                }
+            }
         } else {
             actual_addr = (uintptr_t)stack_ptr[i];
             sprintf(addr_str, "%" PRIxPTR, actual_addr);
         }
 
         char cmd[1024];
-        snprintf(cmd, 1024, "addr2line -f -e %.*s %s", fname_len, stack_msg[i], addr_str);
+        snprintf(cmd, 1024, "addr2line -f -e %.*s %s", fname_len, cur_frame, addr_str);
         FILE* fp = popen(cmd, "r");
         if (!fp)
             continue;
@@ -186,7 +242,7 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
         int ret = fscanf(fp, "%1023s %1023s", mangled_name, file_line);
         (void)ret;
         pclose(fp);
-
+        
         size_t msg_len = 0;
         size_t avail_len = output_buflen;
         _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in ", frame_num++, actual_addr);
@@ -196,7 +252,7 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
         if (cc) {
             _snprintf(output_buf, avail_len, cur_len, msg_len, "%s at ", cc);
         } else {
-            std::string msg_str = stack_msg[i];
+            std::string msg_str = cur_frame;
             std::string _func_name = msg_str;
             size_t s_pos = msg_str.find("(");
             size_t e_pos = msg_str.rfind("+");

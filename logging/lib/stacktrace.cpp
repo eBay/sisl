@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2018 by eBay Corporation
  * 
- * Small portion of this module is taken from g3log and spdlog fork by rxdu (especially *_signal_handler methods)
+ * Some portion of this module is taken from g3log and spdlog fork by rxdu (especially *_signal_handler methods)
  *
  * On top of that added functionalities to dump stack trace, signal for every thread and then dump it, etc.
  *
