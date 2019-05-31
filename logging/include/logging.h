@@ -175,7 +175,7 @@ constexpr const char* file_name(const char* str) {
     }
 
 #define RELEASE_ASSERT_OP(op, val1, val2, ...) RELEASE_ASSERT(((val1) op (val2)), \
-        "**************  Assertion failure: {} ====> Expected '{}' to be {} to '{}' ", ##__VA_ARGS__, val1, #op, val2)
+        "**************  Assertion failure: {} ====> Expected '{}' to be {} to '{}'", sds_logging::format_log_msg(__VA_ARGS__), val1, #op, val2)
 #define RELEASE_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_OP(==, val1, val2, ##__VA_ARGS__)
 #define RELEASE_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_OP(!=, val1, val2, ##__VA_ARGS__)
 #define RELEASE_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_OP(<=, val1, val2, ##__VA_ARGS__)
@@ -185,7 +185,7 @@ constexpr const char* file_name(const char* str) {
 #define RELEASE_ASSERT_NOTNULL(val1, ...)  RELEASE_ASSERT_OP(!=, val1, nullptr, ##__VA_ARGS__)
 
 #define LOGMSG_ASSERT_OP(op, val1, val2, ...) LOGMSG_ASSERT(((val1) op (val2)), \
-        "**************  Assertion failure: Expected '{}' to be {} to '{}'", val1, #op, val2, ##__VA_ARGS__) 
+        "**************  Assertion failure: {} ====> Expected '{}' to be {} to '{}'", sds_logging::format_log_msg(__VA_ARGS__), val1, #op, val2) 
 #define LOGMSG_ASSERT_EQ(val1, val2, ...) LOGMSG_ASSERT_OP(==, val1, val2, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_NE(val1, val2, ...) LOGMSG_ASSERT_OP(!=, val1, val2, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_LE(val1, val2, ...) LOGMSG_ASSERT_OP(<=, val1, val2, ##__VA_ARGS__)
@@ -289,5 +289,13 @@ void install_crash_handler();
 bool is_crash_handler_installed();
 void override_setup_signals(const std::map<int, std::string> override_signals);
 void restore_signal_handler_to_default();
+
+template<typename... Args>
+std::string format_log_msg(const char* fmt, const Args&... args) {
+    fmt::memory_buffer buf;
+    fmt::format_to(buf, fmt, args...);
+    return to_string(buf);
+}
+std::string format_log_msg();
 }
 #define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(module_level_, mod) = (lvl);

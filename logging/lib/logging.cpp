@@ -100,6 +100,16 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
    }
 }
 
+std::string format_log_msg() { return ""; }
+#if 0
+template<typename... Args>
+std::string format_log_msg(const char* fmt, const Args&... args) {
+    fmt::memory_buffer buf;
+    fmt::format_to(buf, fmt, args...);
+    return to_string(buf);
+}
+#endif
+
 LoggerThreadContext::LoggerThreadContext() {
     m_thread_id = pthread_self();
     LoggerThreadContext::add_logger_thread(this);
