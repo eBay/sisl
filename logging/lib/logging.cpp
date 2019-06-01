@@ -11,6 +11,7 @@
 #include <spdlog/logger.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include "backtrace.h"
 
 SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable", ::cxxopts::value<std::string>(), "mod[:level][,mod2[:level2],...]"), \
                           (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
@@ -24,10 +25,11 @@ SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable
                           (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level"))
 
 namespace sds_logging {
-thread_local shared<spdlog::logger> sds_thread_logger;
-
-shared<spdlog::logger> GetLogger() {
-   return logger_;
+std::shared_ptr< spdlog::logger >& GetLogger() {
+   if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(logger_thread_ctx.m_logger))) {
+      logger_thread_ctx.m_logger = glob_spdlog_logger;
+   }
+   return logger_thread_ctx.m_logger;
 }
 
 namespace sinks = spdlog::sinks;
@@ -46,19 +48,15 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
       mysinks.push_back(std::make_shared<sinks::stdout_color_sink_mt>());
    }
    if (SDS_OPTIONS.count("synclog")) {
-      logger_ = std::make_shared<spdlog::logger>(name,
-                                                 mysinks.begin(),
-                                                 mysinks.end());
-      logger_->flush_on((spdlog::level::level_enum)SDS_OPTIONS["flush_every"].as<uint32_t>());
+      glob_spdlog_logger = std::make_shared<spdlog::logger>(name, mysinks.begin(), mysinks.end());
+      glob_spdlog_logger->flush_on((spdlog::level::level_enum)SDS_OPTIONS["flush_every"].as<uint32_t>());
    } else {
       spdlog::init_thread_pool(SDS_OPTIONS["log_queue"].as<uint32_t>(), 1);
-      logger_ = std::make_shared<spdlog::async_logger>(name,
-                                                       mysinks.begin(),
-                                                       mysinks.end(),
-                                                       spdlog::thread_pool());
+      glob_spdlog_logger = std::make_shared<spdlog::async_logger>(name, mysinks.begin(), mysinks.end(),
+                                                                          spdlog::thread_pool());
    }
-   logger_->set_level(spdlog::level::level_enum::trace);
-   spdlog::register_logger(logger_);
+   glob_spdlog_logger->set_level(spdlog::level::level_enum::trace);
+   spdlog::register_logger(glob_spdlog_logger);
    if (0 == SDS_OPTIONS.count("synclog")) {
       spdlog::flush_every(std::chrono::seconds(SDS_OPTIONS["flush_every"].as<uint32_t>()));
    }
@@ -67,7 +65,6 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
       lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as<uint32_t>();
    }
    module_level_base = lvl;
-   sds_thread_logger = logger_;
    LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_string_view(lvl), pkg, ver);
    if (SDS_OPTIONS.count("log_mods")) {
       std::vector<std::string> enabled_mods;
@@ -101,5 +98,16 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
                                                          enabled_mods.end(),
                                                          std::string("")));
    }
+}
+
+std::string format_log_msg() { return ""; }
+
+LoggerThreadContext::LoggerThreadContext() {
+    m_thread_id = pthread_self();
+    LoggerThreadContext::add_logger_thread(this);
+}
+
+LoggerThreadContext::~LoggerThreadContext() {
+    LoggerThreadContext::remove_logger_thread(this);
 }
 }
