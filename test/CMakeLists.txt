@@ -9,7 +9,7 @@ include_directories(BEFORE ../src/include)
 #file(GLOB LIB_SOURCES lib/*.cpp)
 
 # Simulate how applications will use this
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--no-export-dynamic")
+set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--export-dynamic")
 
 add_executable(logging_example example.cpp)
 target_link_libraries(logging_example sds_logging dl ${CONAN_LIBS})
