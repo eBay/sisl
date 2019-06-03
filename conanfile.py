@@ -16,7 +16,7 @@ class MetricsConan(ConanFile):
                "coverage": ['True', 'False']}
     default_options = 'shared=False', 'fPIC=True', 'coverage=False'
 
-    requires = (("sds_logging/4.1.1@sds/testing"),
+    requires = (("sds_logging/5.0.0@sds/testing"),
                 ("benchmark/1.5.0@oss/stable"),
                 ("boost_intrusive/1.69.0@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.69.0@bincrafters/stable"),
