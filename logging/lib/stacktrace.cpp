@@ -2,7 +2,7 @@
  * stacktrace.cpp
  *
  * Copyright (c) 2018 by eBay Corporation
- * 
+ *
  * Some portion of this module is taken from g3log and spdlog fork by rxdu (especially *_signal_handler methods)
  *
  * On top of that added functionalities to dump stack trace, signal for every thread and then dump it, etc.
@@ -34,18 +34,18 @@ extern "C" {
 
 namespace sds_logging {
 #if defined(__linux__)
-#define SIGUSR3     SIGRTMIN + 1
+#define SIGUSR3 SIGRTMIN + 1
 #else
-#define SIGUSR3     SIGUSR1
+#define SIGUSR3 SIGUSR1
 #endif
 
-const static std::map<int, std::string> kSignals = {
-    {SIGABRT, "SIGABRT"}, {SIGFPE, "SIGFPE"}, {SIGILL, "SIGILL"}, {SIGSEGV, "SIGSEGV"}, {SIGINT, "SIGINT"}, {SIGUSR3, "SIGUSR3"}};
+const static std::map< int, std::string > kSignals = {{SIGABRT, "SIGABRT"}, {SIGFPE, "SIGFPE"}, {SIGILL, "SIGILL"},
+                                                      {SIGSEGV, "SIGSEGV"}, {SIGINT, "SIGINT"}, {SIGUSR3, "SIGUSR3"}};
 
-static std::map<int, std::string> gSignals = kSignals;
-static bool g_signal_handler_installed = false;
-static std::atomic< int > g_stack_dump_outstanding = 0;
-static std::condition_variable g_stack_dump_cv;
+static std::map< int, std::string > gSignals = kSignals;
+static bool                         g_signal_handler_installed = false;
+static std::atomic< int >           g_stack_dump_outstanding = 0;
+static std::condition_variable      g_stack_dump_cv;
 
 typedef int SignalType;
 
@@ -71,13 +71,13 @@ static bool shouldBlockForFatalHandling() {
 #endif
 
 static bool should_do_exit() {
-    static std::atomic<uint64_t> firstExit{0};
-    auto const count = firstExit.fetch_add(1, std::memory_order_relaxed);
+    static std::atomic< uint64_t > firstExit{0};
+    auto const                     count = firstExit.fetch_add(1, std::memory_order_relaxed);
     return (0 == count);
 }
 
 static void exit_with_default_sighandler(SignalType fatal_signal_id) {
-    const int signal_number = static_cast<int>(fatal_signal_id);
+    const int signal_number = static_cast< int >(fatal_signal_id);
     restore_signal_handler(signal_number);
 
     if (signal_number != SIGINT) {
@@ -94,26 +94,14 @@ static void exit_with_default_sighandler(SignalType fatal_signal_id) {
 /** \return signal_name Ref: signum.hpp and \ref installSignalHandler
  *  or for Windows exception name */
 static std::string exit_reason_name(SignalType fatal_id) {
-    int signal_number = static_cast<int>(fatal_id);
+    int signal_number = static_cast< int >(fatal_id);
     switch (signal_number) {
-    case SIGABRT:
-        return "SIGABRT";
-        break;
-    case SIGFPE:
-        return "SIGFPE";
-        break;
-    case SIGSEGV:
-        return "SIGSEGV";
-        break;
-    case SIGILL:
-        return "SIGILL";
-        break;
-    case SIGTERM:
-        return "SIGTERM";
-        break;
-    case SIGINT:
-        return "SIGINT";
-        break;
+    case SIGABRT: return "SIGABRT"; break;
+    case SIGFPE: return "SIGFPE"; break;
+    case SIGSEGV: return "SIGSEGV"; break;
+    case SIGILL: return "SIGILL"; break;
+    case SIGTERM: return "SIGTERM"; break;
+    case SIGINT: return "SIGINT"; break;
     default:
         std::ostringstream oss;
         oss << "UNKNOWN SIGNAL(" << signal_number << ")"; // for " << level.text;
@@ -121,7 +109,7 @@ static std::string exit_reason_name(SignalType fatal_id) {
     }
 }
 
-static void signal_handler(int signal_number, siginfo_t *info, void *unused_context) {
+static void signal_handler(int signal_number, siginfo_t* info, void* unused_context) {
     // Make compiler happy about unused variables
     (void)info;
     (void)unused_context;
@@ -144,7 +132,7 @@ static void signal_handler(int signal_number, siginfo_t *info, void *unused_cont
     // No stack dump and message if signal is SIGINT, which is usually raised by user
     if (signal_number != SIGINT) {
         std::ostringstream fatal_stream;
-        const auto fatal_reason = exit_reason_name(signal_number);
+        const auto         fatal_reason = exit_reason_name(signal_number);
         fatal_stream << "\n***** Received fatal SIGNAL: " << fatal_reason;
         fatal_stream << "(" << signal_number << ")\tPID: " << getpid();
 
@@ -153,7 +141,7 @@ static void signal_handler(int signal_number, siginfo_t *info, void *unused_cont
         LOGCRITICAL("{}", fatal_stream.str());
     }
 
-    spdlog::apply_all([&](std::shared_ptr<spdlog::logger> l) {l->flush();});
+    spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) { l->flush(); });
     spdlog::shutdown();
 
     exit_with_default_sighandler(signal_number);
@@ -169,9 +157,9 @@ void install_signal_handler() {
     action.sa_flags = SA_SIGINFO;
 
     // do it verbose style - install all signal actions
-    for (const auto &sig_pair : gSignals) { 
-        if (sigaction(sig_pair.first, &action, nullptr) < 0) { 
-	    const std::string error = "sigaction - " + sig_pair.second;
+    for (const auto& sig_pair : gSignals) {
+        if (sigaction(sig_pair.first, &action, nullptr) < 0) {
+            const std::string error = "sigaction - " + sig_pair.second;
             perror(error.c_str());
         }
     }
@@ -179,9 +167,7 @@ void install_signal_handler() {
 #endif
 }
 
-void install_crash_handler() {
-    install_signal_handler();
-}
+void install_crash_handler() { install_signal_handler(); }
 
 bool is_crash_handler_installed() { return g_signal_handler_installed; }
 
@@ -198,10 +184,10 @@ void install_crash_handler_once() {
 /// call example:
 ///  g3::overrideSetupSignals({ {SIGABRT, "SIGABRT"}, {SIGFPE, "SIGFPE"},{SIGILL, "SIGILL"},
 //                          {SIGSEGV, "SIGSEGV"},});
-void override_setup_signals(const std::map<int, std::string> override_signals) {
-    static std::mutex signal_lock;
-    std::lock_guard<std::mutex> guard(signal_lock);
-    for (const auto &sig : gSignals) {
+void override_setup_signals(const std::map< int, std::string > override_signals) {
+    static std::mutex             signal_lock;
+    std::lock_guard< std::mutex > guard(signal_lock);
+    for (const auto& sig : gSignals) {
         restore_signal_handler(sig.first);
     }
 
@@ -212,9 +198,7 @@ void override_setup_signals(const std::map<int, std::string> override_signals) {
 /// Probably only needed for unit testing. Resets the signal handling back to default
 /// which might be needed in case it was previously overridden
 /// The default signals are: SIGABRT, SIGFPE, SIGILL, SIGSEGV, SIGTERM
-void restore_signal_handler_to_default() {
-    override_setup_signals(kSignals);
-}
+void restore_signal_handler_to_default() { override_setup_signals(kSignals); }
 
 static void log_stack_trace_all_threads() {
     std::unique_lock lk(LoggerThreadContext::_logger_thread_mutex);
@@ -224,15 +208,19 @@ static void log_stack_trace_all_threads() {
     }
 
     auto& _l = GetLogger();
-    if (!_l) { return; }
+    if (!_l) {
+        return;
+    }
 
-    g_stack_dump_cv.wait(lk, []{ return (g_stack_dump_outstanding == 0); });
+    g_stack_dump_cv.wait(lk, [] { return (g_stack_dump_outstanding == 0); });
 
     // First dump this thread context
     uint32_t thr_count = 1;
     _l->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0, logger_thread_ctx.m_stack_buff);
     for (auto ctx : LoggerThreadContext::_logger_thread_set) {
-        if (ctx == &logger_thread_ctx) { continue; }
+        if (ctx == &logger_thread_ctx) {
+            continue;
+        }
         _l->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thr_count, ctx->m_stack_buff);
         thr_count++;
     }
@@ -241,7 +229,7 @@ static void log_stack_trace_all_threads() {
 
 void log_stack_trace(bool all_threads) {
     if (is_crash_handler_installed() && all_threads) {
-       log_stack_trace_all_threads(); 
+        log_stack_trace_all_threads();
     } else {
         char buff[64 * 1024];
         buff[0] = 0;
@@ -250,4 +238,4 @@ void log_stack_trace(bool all_threads) {
         LOGCRITICAL("\n\n{}", buff);
     }
 }
-}
+} // namespace sds_logging
