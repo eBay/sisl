@@ -99,7 +99,6 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
     module_level_base = lvl;
     LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_string_view(lvl), pkg, ver);
     if (SDS_OPTIONS.count("log_mods")) {
-        std::vector< std::string > enabled_mods;
         std::regex                 re("[\\s,]+");
         auto                       s = SDS_OPTIONS["log_mods"].as< std::string >();
         std::sregex_token_iterator it(s.begin(), s.end(), re, -1);
@@ -115,13 +114,49 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
                 } else {
                     *mod_level = lvl;
                 }
-                enabled_mods.push_back(
-                    fmt::format(FMT_STRING("[{}:{}]"), module_name, spdlog::level::to_string_view(*mod_level)));
+                glob_enabled_mods.push_back(module_name);
             } else {
                 LOGWARN("Could not load module logger: {}\n{}", module_name, dlerror());
             }
         }
-        LOGINFO("Enabled modules:\t{}", std::accumulate(enabled_mods.begin(), enabled_mods.end(), std::string("")));
+        LOGINFO("Enabled modules:\t{}", std::accumulate(glob_enabled_mods.begin(), glob_enabled_mods.end(), std::string("")));
+    }
+}
+
+void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level) {
+    auto sym = "module_level_" + module_name;
+    auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str());
+    if (mod_level == nullptr) {
+        LOGWARN("Unable to locate the module {} in registered modules", module_name);
+        return;
+    }
+
+    *mod_level = level;
+    LOGINFO("Set module '{}' log level to '{}'", module_name, spdlog::level::to_string_view(level));
+}
+
+spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name) {
+    auto sym = "module_level_" + module_name;
+    auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str());
+    if (mod_level == nullptr) {
+        LOGWARN("Unable to locate the module {} in registered modules", module_name);
+        return spdlog::level::level_enum::off;
+    }
+
+    return *mod_level;
+}
+
+nlohmann::json GetAllModuleLogLevel() {
+    nlohmann::json j;
+    for (auto mod_name : glob_enabled_mods) {
+        j[mod_name] = spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data();
+    }
+    return j;
+}
+
+void SetAllModuleLogLevel(spdlog::level::level_enum level) {
+    for (auto mod_name : glob_enabled_mods) {
+        SetModuleLogLevel(mod_name, level);
     }
 }
 
