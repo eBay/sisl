@@ -208,20 +208,21 @@ static void log_stack_trace_all_threads() {
     }
 
     auto& _l = GetLogger();
-    if (!_l) {
-        return;
-    }
+    auto& _cl = GetCriticalLogger();
+    if (!_l || !_cl) { return; }
 
     g_stack_dump_cv.wait(lk, [] { return (g_stack_dump_outstanding == 0); });
 
     // First dump this thread context
     uint32_t thr_count = 1;
     _l->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0, logger_thread_ctx.m_stack_buff);
+    _cl->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0, logger_thread_ctx.m_stack_buff);
     for (auto ctx : LoggerThreadContext::_logger_thread_set) {
         if (ctx == &logger_thread_ctx) {
             continue;
         }
         _l->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thr_count, ctx->m_stack_buff);
+        _cl->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thr_count, ctx->m_stack_buff);
         thr_count++;
     }
     _l->flush();

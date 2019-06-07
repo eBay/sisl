@@ -31,6 +31,7 @@ extern "C" {
 #include <boost/preprocessor/tuple/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
+#include <nlohmann/json.hpp>
 
 // The following constexpr's are used to extract the filename
 // from the full path during compile time.
@@ -267,6 +268,7 @@ extern std::shared_ptr< spdlog::logger > glob_spdlog_logger;
 extern std::shared_ptr< spdlog::logger > glob_critical_logger;
 extern shared< spdlog::logger >&         GetLogger() __attribute__((weak));
 extern shared< spdlog::logger >&         GetCriticalLogger() __attribute__((weak));
+extern std::vector< std::string >        glob_enabled_mods;
 } // namespace sds_logging
 
 #define MODLEVELDEC(r, _, module)                                                                                      \
@@ -290,6 +292,7 @@ MODLEVELDEC(_, _, base)
     namespace sds_logging {                                                                                            \
     std::shared_ptr< spdlog::logger >          glob_spdlog_logger;                                                     \
     std::shared_ptr< spdlog::logger >          glob_critical_logger;                                                   \
+    std::vector< std::string >                 glob_enabled_mods;                                                      \
     std::mutex                                 LoggerThreadContext::_logger_thread_mutex;                              \
     std::unordered_set< LoggerThreadContext* > LoggerThreadContext::_logger_thread_set;                                \
     }
@@ -298,6 +301,11 @@ namespace sds_logging {
 
 void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
                std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+
+void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
+spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name);
+nlohmann::json GetAllModuleLogLevel();
+void SetAllModuleLogLevel(spdlog::level::level_enum level);
 
 void log_stack_trace(bool all_threads = false);
 void install_signal_handler();
