@@ -16,7 +16,7 @@ void create_ret_fspec(flip::FlipSpec *fspec) {
     cond->set_oper(flip::Operator::EQUAL);
     cond->mutable_value()->set_string_value("item_shipping");
 
-    fspec->mutable_flip_action()->mutable_returns()->mutable_return_()->set_string_value("Error simulated value");
+    fspec->mutable_flip_action()->mutable_returns()->mutable_retval()->set_string_value("Error simulated value");
 
     auto freq = fspec->mutable_flip_frequency();
     freq->set_count(2);
@@ -118,7 +118,7 @@ void create_delay_ret_fspec(flip::FlipSpec *fspec) {
     cond->mutable_value()->set_int_value(2);
 
     fspec->mutable_flip_action()->mutable_delay_returns()->set_delay_in_usec(100000);
-    fspec->mutable_flip_action()->mutable_delay_returns()->mutable_return_()->set_string_value("Delayed error simulated value");
+    fspec->mutable_flip_action()->mutable_delay_returns()->mutable_retval()->set_string_value("Delayed error simulated value");
 
     auto freq = fspec->mutable_flip_frequency();
     freq->set_count(2);
@@ -197,6 +197,7 @@ int main(int argc, char *argv[]) {
     create_delay_ret_fspec(&delay_ret_fspec);
 
     flip::Flip flip;
+    flip.start_rpc_server();
     flip.add(ret_fspec);
     flip.add(check_fspec);
     flip.add(delay_fspec);
