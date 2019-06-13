@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(flip)
+include(CMakeScripts/grpc.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -28,11 +29,33 @@ endif ()
 
 find_package(Protobuf REQUIRED)
 
-add_subdirectory(proto)
-include_directories(BEFORE include ${PROTO_PATH})
+file(GLOB PROTO_IDLS proto/*.proto)
+PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_IDLS})
+
+file(GLOB GRPC_IDLS proto/flip_server.proto)
+PROTOBUF_GENERATE_GRPC_CPP(GRPC_SRCS GRPC_HDRS ${GRPC_IDLS})
+
+list(GET PROTO_HDRS 0 FIRST_PROTO)
+get_filename_component(PROTO_DIR ${FIRST_PROTO} DIRECTORY)
+set(PROTO_PATH ${PROTO_DIR})
+
+include_directories(BEFORE include ${PROTO_DIR} src)
+set(FLIP_LIB_FILES
+          ${PROTO_SRCS}
+          ${PROTO_HDRS}
+          ${GRPC_SRCS}
+          ${GRPC_HDRS}
+          src/flip_rpc_server.cpp
+        )
+
+add_library(flip ${FLIP_LIB_FILES})
+target_link_libraries(flip ${CONAN_LIBS})
 
 add_executable(test_flip src/test_flip.cpp)
 target_link_libraries(test_flip flip)
 
-add_executable(test_flip_client src/test_flip_client.cpp)
-target_link_libraries(test_flip_client flip)
+add_executable(test_flip_local_client src/test_flip_local_client.cpp)
+target_link_libraries(test_flip_local_client flip)
+
+add_executable(test_flip_server src/test_flip_server.cpp)
+target_link_libraries(test_flip_server flip)
