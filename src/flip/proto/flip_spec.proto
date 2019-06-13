@@ -72,7 +72,7 @@ message FlipCondition {
 
 message FlipAction {
     message ActionReturns {
-        ParamValue return = 1;
+        ParamValue retval = 1;
     }
 
     message ActionDelays {
@@ -81,7 +81,7 @@ message FlipAction {
 
     message ActionDelayedReturns {
         uint64 delay_in_usec = 1;
-        ParamValue return = 2;
+        ParamValue retval = 2;
     }
 
     oneof action {
