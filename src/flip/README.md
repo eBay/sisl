@@ -233,22 +233,41 @@ Returns: If the flip is hit or not. Whether flip is hit or not is immediately kn
 
 Flip is a header only framework and hence will be included and compiled along with application binary. It uses a protobuf to
 serialize the message about how faults can be triggered. The protobuf could be used against any RPCs the application provide.
-If application uses GRPC, the grpc definition needs to add the following RPC call to the grpc service proto
-```c++
-// Inject a fault rpc
-rpc InjectFault (flip.FlipSpec) returns (flip.FlipResponse);
-```
-Flip also supports optional GRPC server which can be started using
+
+Flip supports an optional GRPC server which can be started using 
 
 ```c++
 Flip::start_rpc_server()
 ```
 
+If application uses GRPC and if another GRPC server creation is to be avoided, then application can instead add the
+following grpc definition to its RPC call to the grpc service proto.
+```c++
+// Inject a fault rpc
+rpc InjectFault (flip.FlipSpec) returns (flip.FlipResponse);
+```
+
 # Flip Client
 
-Flip needs a client to trigger the faults externally. The exact client depends on which RPC it is integrated with application.
+Flip needs a client to trigger the faults externally. At present there are 2 forms of flip client, one GRPC client, which
+allows flip faults can be injected remotely from external application. Second form is local flip client, which means
+flip will be triggered by the same application binary which is to be fault tested.
 
 ## GRPC Client
+
+### Python GRPC Client
+There is python grpc client library through which it can be triggered remotely. To setup the python client, execute
+```
+bash ./setup_python_client.sh
+```
+
+Python library is available under ***src/client/python/flip_rpc_client.py***
+
+Libraries are defined in class **FlipRPCClient**. Examples of how to use library is provided by the python script
+***src/client/python/flip_client_example.py***
+
+### Nodejs GRPC Client
+
 There is a current implementation using GRPC for a project called "NuData/MonstorDB.git" which has nodejs client to inject the fault. Example of
 grpc service is provided in path "MonstorDB/nodejs-test/test/support/monstor_client/inject_fault.js" and examples of how to use is
 in "MonstorDB/nodejst-test/test/support/run_grpc_client.js"
@@ -264,8 +283,6 @@ await test.do_inject_fault(
 )
 ```
 
-### Python Client
-**TODO:** Write a standalone client which can be used to trigger various faults on different languages.
 
 ## Local Client
 If the code that needs to be fault injected and tested is a library in itself and that there is separate unit tests which runs
