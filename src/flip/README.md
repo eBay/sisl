@@ -238,8 +238,11 @@ If application uses GRPC, the grpc definition needs to add the following RPC cal
 // Inject a fault rpc
 rpc InjectFault (flip.FlipSpec) returns (flip.FlipResponse);
 ```
+Flip also supports optional GRPC server which can be started using
 
-**TODO:** Future work will provide a mechanism to start its own grpc server if needed, instead of relying on application rpc mechanism.
+```c++
+Flip::start_rpc_server()
+```
 
 # Flip Client
 
@@ -261,6 +264,7 @@ await test.do_inject_fault(
 )
 ```
 
+### Python Client
 **TODO:** Write a standalone client which can be used to trigger various faults on different languages.
 
 ## Local Client
