@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 project(flip)
-include(CMakeScripts/grpc.cmake)
-
 set(CMAKE_CXX_STANDARD 17)
 
 if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -20,6 +18,8 @@ endif ()
 if  (${MEMORY_SANITIZER_ON})
   include (cmake/mem_sanitizer.cmake)
 endif ()
+
+include(cmake/grpc.cmake)
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
