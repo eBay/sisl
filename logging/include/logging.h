@@ -31,6 +31,7 @@ extern "C" {
 #include <boost/preprocessor/tuple/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
+#include <boost/preprocessor/control/if.hpp>
 #include <nlohmann/json.hpp>
 
 // The following constexpr's are used to extract the filename
@@ -85,30 +86,67 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
 
 #define LOGTRACEMOD(mod, msg, ...)                                                                                     \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::trace))                  \
-        _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                \
+        _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                 \
+    }
 
 #define LOGDEBUGMOD(mod, msg, ...)                                                                                     \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::debug))                  \
-        _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                \
+        _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                 \
+    }
 
 #define LOGINFOMOD(mod, msg, ...)                                                                                      \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::info))                   \
-        _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::info)) {                 \
+        _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                  \
+    }
 
 #define LOGWARNMOD(mod, msg, ...)                                                                                      \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::warn))                   \
-        _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::warn)) {                 \
+        _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                  \
+    }
 
 #define LOGERRORMOD(mod, msg, ...)                                                                                     \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::err))                    \
-        _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::err)) {                  \
+        _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                 \
+    }
 
 #define LOGCRITICALMOD(mod, msg, ...)                                                                                  \
-    if (auto& _cl = sds_logging::GetCriticalLogger(); _cl && LEVELCHECK(mod, spdlog::level::level_enum::critical))     \
+    if (auto& _cl = sds_logging::GetCriticalLogger(); _cl && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {   \
         _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::critical))               \
-        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)
+    }                                                                                                                  \
+    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {             \
+        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                              \
+    }
+
+/* Extension macros to support custom formatting of messages */
+#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, formatter, msg, ...)                                      \
+    if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                    \
+        fmt::memory_buffer _log_buf;                                                                                   \
+        auto               cb = formatter;                                                                             \
+        cb(_log_buf, msg, ##__VA_ARGS__);                                                                              \
+        fmt::format_to(_log_buf, "{}", (char)0);                                                                       \
+        _l->method(_log_buf.data());                                                                                   \
+    }
+
+#define LOGTRACEMOD_FMT(mod, formatter, msg, ...)                                                                      \
+    _LOG_WITH_CUSTOM_FORMATTER(trace, trace, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+
+#define LOGDEBUGMOD_FMT(mod, formatter, msg, ...)                                                                      \
+    _LOG_WITH_CUSTOM_FORMATTER(debug, debug, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+
+#define LOGINFOMOD_FMT(mod, formatter, msg, ...)                                                                       \
+    _LOG_WITH_CUSTOM_FORMATTER(info, info, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+
+#define LOGWARNMOD_FMT(mod, formatter, msg, ...)                                                                       \
+    _LOG_WITH_CUSTOM_FORMATTER(warn, warn, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+
+#define LOGERRORMOD_FMT(mod, formatter, msg, ...)                                                                      \
+    _LOG_WITH_CUSTOM_FORMATTER(err, error, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+
+#define LOGCRITICALMOD_FMT(mod, formatter, msg, ...)                                                                   \
+    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, mod, sds_logging::GetCriticalLogger(), formatter, msg,              \
+                               ##__VA_ARGS__)                                                                          \
+    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
 
 #define LOGTRACE(msg, ...) LOGTRACEMOD(base, msg, ##__VA_ARGS__)
 #define LOGDEBUG(msg, ...) LOGDEBUGMOD(base, msg, ##__VA_ARGS__)
@@ -158,55 +196,89 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
         _l->flush();                                                                                                   \
     }
 
-#define LOGDFATAL(msg, ...)                                                                                            \
-    LOGCRITICAL(msg, ##__VA_ARGS__);                                                                                   \
-    assert(0);
-
-#define LOGFATAL(msg, ...)                                                                                             \
-    LOGDFATAL(msg, ##__VA_ARGS__);                                                                                     \
-    abort();
-
-/*
- * RELEASE_ASSERT:   If condition is not met: Logs the message, aborts both in release and debug build
- * LOGMSG_ASSERT:       If condition is not met: Logs the message with stack trace, aborts in debug build only.
- * DEBUG_ASSERT:     No-op in release build, for debug build, if condition is not met, logs the message and aborts
- */
-#define RELEASE_ASSERT(cond, msg, ...)                                                                                 \
-    if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(cond))) {                                                                   \
-        LOGFATAL(msg, ##__VA_ARGS__);                                                                                  \
-    }
-#define LOGMSG_ASSERT(cond, msg, ...)                                                                                  \
-    if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(cond))) {                                                                   \
-        LOGDFATAL(msg, ##__VA_ARGS__);                                                                                 \
+#define _ABORT_OR_DUMP(is_log_assert)                                                                                  \
+    assert(0);                                                                                                         \
+    if (is_log_assert) {                                                                                               \
         if (sds_logging::is_crash_handler_installed()) {                                                               \
             sds_logging::log_stack_trace(false);                                                                       \
         }                                                                                                              \
+    } else {                                                                                                           \
+        abort();                                                                                                       \
     }
 
-#define RELEASE_ASSERT_OP(op, val1, val2, ...)                                                                         \
-    RELEASE_ASSERT(((val1)op(val2)), "**************  Assertion failure: ====> Expected '{}' to be {} to '{}' {}",     \
-                   val1, #op, val2, sds_logging::format_log_msg(__VA_ARGS__))
-#define RELEASE_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_OP(==, val1, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_OP(!=, val1, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_OP(<=, val1, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_OP(<, val1, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_OP(>=, val1, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_OP(>, val1, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_OP(!=, val1, nullptr, ##__VA_ARGS__)
+#define _LOG_AND_ASSERT(is_log_assert, msg, ...)                                                                       \
+    LOGCRITICAL(msg, ##__VA_ARGS__);                                                                                   \
+    _ABORT_OR_DUMP(is_log_assert)
 
-#define LOGMSG_ASSERT_OP(op, val1, val2, ...)                                                                          \
-    LOGMSG_ASSERT(((val1)op(val2)), "**************  Assertion failure: ====> Expected '{}' to be {} to '{}' {}",      \
-                  val1, #op, val2, sds_logging::format_log_msg(__VA_ARGS__))
-#define LOGMSG_ASSERT_EQ(val1, val2, ...) LOGMSG_ASSERT_OP(==, val1, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_NE(val1, val2, ...) LOGMSG_ASSERT_OP(!=, val1, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_LE(val1, val2, ...) LOGMSG_ASSERT_OP(<=, val1, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_LT(val1, val2, ...) LOGMSG_ASSERT_OP(<, val1, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_GE(val1, val2, ...) LOGMSG_ASSERT_OP(>=, val1, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_GT(val1, val2, ...) LOGMSG_ASSERT_OP(>, val1, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_NOTNULL(val1, ...) LOGMSG_ASSERT_OP(!=, val1, nullptr, ##__VA_ARGS__)
+#define _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ...)                                                        \
+    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, base, sds_logging::GetCriticalLogger(), formatter, msg,             \
+                               ##__VA_ARGS__)                                                                          \
+    _ABORT_OR_DUMP(is_log_assert)
+
+#define LOGDFATAL(msg, ...) _LOG_AND_ASSERT(1, msg, ##__VA_ARGS__)
+#define LOGFATAL(msg, ...) _LOG_AND_ASSERT(0, msg, ##__VA_ARGS__)
+
+/*
+ * RELEASE_ASSERT:  If condition is not met: Logs the message, aborts both in release and debug build
+ * LOGMSG_ASSERT:   If condition is not met: Logs the message with stack trace, aborts in debug build only.
+ * DEBUG_ASSERT:    No-op in release build, for debug build, if condition is not met, logs the message and aborts
+ */
+#define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
+    if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(cond))) {                                                                   \
+        _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__);                                             \
+    }
+
+#define _FMT_LOG_MSG(...) sds_logging::format_log_msg(__VA_ARGS__).c_str()
+
+#define RELEASE_ASSERT(cond, m, ...)                                                                                   \
+    _GENERIC_ASSERT(0, cond,                                                                                           \
+                    [](fmt::memory_buffer& buf, const char* msg, auto... args) { fmt::format_to(buf, msg, args...); }, \
+                    m, ##__VA_ARGS__)
+#define RELEASE_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(0, cond, formatter, msg, ##__VA_ARGS__)
+#define RELEASE_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                            \
+    _GENERIC_ASSERT(0, ((val1)cmp(val2)), formatter, _FMT_LOG_MSG(__VA_ARGS__), val1, #cmp, val2)
+#define RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                           \
+    RELEASE_ASSERT_CMP(val1, cmp, val2,                                                                                \
+                       [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                  \
+                           sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                       \
+                       },                                                                                              \
+                       ##__VA_ARGS__)
+
+#define RELEASE_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, <=, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, <, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >=, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >, val2, ##__VA_ARGS__)
+#define RELEASE_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, !=, nullptr, ##__VA_ARGS__)
+
+#define LOGMSG_ASSERT(cond, m, ...)                                                                                    \
+    _GENERIC_ASSERT(                                                                                                   \
+        1, cond, [](fmt::memory_buffer& buf, const char* msg, auto&&... args) { fmt::format_to(buf, msg, args...); },  \
+        m, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(1, cond, formatter, msg, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                             \
+    _GENERIC_ASSERT(1, ((val1)cmp(val2)), formatter, sds_logging::format_log_msg(__VA_ARGS__).c_str(), val1, #cmp, val2)
+
+#define LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                            \
+    LOGMSG_ASSERT_CMP(val1, cmp, val2,                                                                                 \
+                      [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                   \
+                          sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                        \
+                      },                                                                                               \
+                      ##__VA_ARGS__)
+
+#define LOGMSG_ASSERT_EQ(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_NE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_LE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, <=, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_LT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, <, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_GE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >= val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_GT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >, val2, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_NOTNULL(val1, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, !=, nullptr, ##__VA_ARGS__)
 
 #ifndef NDEBUG
 #define DEBUG_ASSERT(cond, msg, ...) RELEASE_ASSERT(cond, msg, ##__VA_ARGS__)
+#define DEBUG_ASSERT_CMP(...) RELEASE_ASSERT_CMP(__VA_ARGS__)
+#define DEBUG_ASSERT_FMT(...) RELEASE_ASSERT_FMT(__VA_ARGS__)
 #define DEBUG_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_EQ(val1, val2, ##__VA_ARGS__)
 #define DEBUG_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_NE(val1, val2, ##__VA_ARGS__)
 #define DEBUG_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_LE(val1, val2, ##__VA_ARGS__)
@@ -216,6 +288,8 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 #define DEBUG_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_NOTNULL(val1, ##__VA_ARGS__)
 #else
 #define DEBUG_ASSERT(cond, msg, ...)
+#define DEBUG_ASSERT_CMP(...)
+#define DEBUG_ASSERT_FMT(...)
 #define DEBUG_ASSERT_EQ(val1, val2, ...)
 #define DEBUG_ASSERT_NE(val1, val2, ...)
 #define DEBUG_ASSERT_LE(val1, val2, ...)
@@ -261,7 +335,7 @@ public:
 };
 
 #define logger_thread_ctx LoggerThreadContext::instance()
-#define mythread_logger   logger_thread_ctx.m_logger
+#define mythread_logger logger_thread_ctx.m_logger
 #define mycritical_logger logger_thread_ctx.m_critical_logger
 
 extern std::shared_ptr< spdlog::logger > glob_spdlog_logger;
@@ -298,14 +372,13 @@ MODLEVELDEC(_, _, base)
     }
 
 namespace sds_logging {
-
 void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
                std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 
-void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
+void                      SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
 spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name);
-nlohmann::json GetAllModuleLogLevel();
-void SetAllModuleLogLevel(spdlog::level::level_enum level);
+nlohmann::json            GetAllModuleLogLevel();
+void                      SetAllModuleLogLevel(spdlog::level::level_enum level);
 
 void log_stack_trace(bool all_threads = false);
 void install_signal_handler();
@@ -321,5 +394,19 @@ std::string format_log_msg(const char* fmt, const Args&... args) {
     return to_string(buf);
 }
 std::string format_log_msg();
+
+template < typename T1, typename T2, typename T3, typename... Args >
+void _cmp_assert_with_msg(fmt::memory_buffer& buf, const char* msg, const T1& val1, const T2& op, const T3& val2,
+                          Args&&... args) {
+    fmt::format_to(buf, "******************** Assertion failure: =====> Expected '{}' to be {} to '{}' ", val1, op,
+                   val2);
+    fmt::format_to(buf, msg, args...);
+}
+
+template < typename... Args >
+void default_cmp_assert_formatter(fmt::memory_buffer& buf, const char* msg, const Args&... args) {
+    _cmp_assert_with_msg(buf, msg, args...);
+}
+
 } // namespace sds_logging
 #define SDS_LOG_LEVEL(mod, lvl) BOOST_PP_CAT(module_level_, mod) = (lvl);
