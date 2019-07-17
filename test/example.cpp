@@ -43,15 +43,19 @@ int main(int argc, char** argv) {
     LOGINFOMOD(my_module, "Enabled Module Logger");
     LOGTRACEMOD(my_module, "Trace Module");
 
-    sds_logging::log_stack_trace();
-
 #if 0
-   RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build");
-   RELEASE_ASSERT_EQ(argc, 2);
-   DEBUG_ASSERT_EQ(argc, 2, "I can't run without proper arguments in debug build, need {} args", 2);
-   RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build, need {} args", 2);
-   int* x = nullptr; *x = 5;
+    sds_logging::log_stack_trace();
+#else
+    RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build");
+    LOGMSG_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build");
+    RELEASE_ASSERT_EQ(argc, 2);
+    DEBUG_ASSERT_EQ(argc, 2, "I can't run without proper arguments in debug build, need {} args", 2);
+    RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build, need {} args", 2);
+    int* x = nullptr;
+    *x = 5;
 #endif
+
+    LOGMSG_ASSERT((argc == 2), "Expecting number of args = {}", argc);
 
     t.join();
     return 0;
