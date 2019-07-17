@@ -87,27 +87,27 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 
 #define LOGTRACEMOD(mod, msg, ...)                                                                                     \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                \
-        _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                 \
+        _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
     }
 
 #define LOGDEBUGMOD(mod, msg, ...)                                                                                     \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                \
-        _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                 \
+        _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
     }
 
 #define LOGINFOMOD(mod, msg, ...)                                                                                      \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::info)) {                 \
-        _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                  \
+        _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
     }
 
 #define LOGWARNMOD(mod, msg, ...)                                                                                      \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::warn)) {                 \
-        _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                  \
+        _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
     }
 
 #define LOGERRORMOD(mod, msg, ...)                                                                                     \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::err)) {                  \
-        _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                                 \
+        _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
     }
 
 #define LOGCRITICALMOD(mod, msg, ...)                                                                                  \
@@ -115,14 +115,14 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
         _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
     }                                                                                                                  \
     if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {             \
-        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__)                                              \
+        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
     }
 
 /* Extension macros to support custom formatting of messages */
 #define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, formatter, msg, ...)                                      \
     if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                    \
         fmt::memory_buffer _log_buf;                                                                                   \
-        auto               cb = formatter;                                                                             \
+        const auto&        cb = formatter;                                                                             \
         cb(_log_buf, msg, ##__VA_ARGS__);                                                                              \
         fmt::format_to(_log_buf, "{}", (char)0);                                                                       \
         _l->method(_log_buf.data());                                                                                   \
