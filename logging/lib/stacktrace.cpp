@@ -70,10 +70,24 @@ static bool shouldBlockForFatalHandling() {
 }
 #endif
 
-static bool should_do_exit() {
-    static std::atomic< uint64_t > firstExit{0};
-    auto const                     count = firstExit.fetch_add(1, std::memory_order_relaxed);
-    return (0 == count);
+static bool exit_in_progress() {
+    static std::atomic< pthread_t > tracing_thread_id{0};
+    bool                            ret;
+    pthread_t                       id;
+    pthread_t                       new_id;
+
+    do {
+        id = tracing_thread_id.load();
+        if ((id == 0) || (id == pthread_self())) {
+            ret = false;
+            new_id = pthread_self();
+        } else {
+            ret = true;
+            break;
+        }
+    } while (!tracing_thread_id.compare_exchange_weak(id, new_id));
+
+    return ret;
 }
 
 static void exit_with_default_sighandler(SignalType fatal_signal_id) {
@@ -123,7 +137,7 @@ static void signal_handler(int signal_number, siginfo_t* info, void* unused_cont
     }
 
     // Only one signal will be allowed past this point
-    if (false == should_do_exit()) {
+    if (exit_in_progress()) {
         while (true) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
@@ -136,7 +150,7 @@ static void signal_handler(int signal_number, siginfo_t* info, void* unused_cont
         fatal_stream << "\n***** Received fatal SIGNAL: " << fatal_reason;
         fatal_stream << "(" << signal_number << ")\tPID: " << getpid();
 
-        mythread_logger->set_pattern("%v");
+        GetLogger()->set_pattern("%v");
         log_stack_trace(true);
         LOGCRITICAL("{}", fatal_stream.str());
     }
@@ -209,14 +223,17 @@ static void log_stack_trace_all_threads() {
 
     auto& _l = GetLogger();
     auto& _cl = GetCriticalLogger();
-    if (!_l || !_cl) { return; }
+    if (!_l || !_cl) {
+        return;
+    }
 
     g_stack_dump_cv.wait(lk, [] { return (g_stack_dump_outstanding == 0); });
 
     // First dump this thread context
     uint32_t thr_count = 1;
     _l->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0, logger_thread_ctx.m_stack_buff);
-    _cl->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0, logger_thread_ctx.m_stack_buff);
+    _cl->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0,
+                  logger_thread_ctx.m_stack_buff);
     for (auto ctx : LoggerThreadContext::_logger_thread_set) {
         if (ctx == &logger_thread_ctx) {
             continue;
