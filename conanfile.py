@@ -4,7 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "0.3.2"
+    version = "0.3.3"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -14,7 +14,7 @@ class MetricsConan(ConanFile):
     options = {"shared": ['True', 'False'],
                "fPIC": ['True', 'False'],
                "coverage": ['True', 'False']}
-    default_options = 'shared=False', 'fPIC=True', 'coverage=False'
+    default_options = ('shared=False', 'fPIC=True', 'coverage=False')
 
     requires = (("sds_logging/5.0.0@sds/testing"),
                 ("benchmark/1.5.0@oss/stable"),
@@ -31,13 +31,13 @@ class MetricsConan(ConanFile):
                 ("zstd/1.3.8@bincrafters/stable"))
 
     generators = "cmake"
-    exports_sources = "CMakeLists.txt", "cmake/*", "src/*"
+    exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
     def configure(self):
-        if not self.settings.compiler == "gcc":
+        if self.settings.compiler != "gcc":
             del self.options.coverage
-        if self.settings.sanitize != None:
-            del self.options.coverage
+        #if self.settings.sanitize != None:
+        #    del self.options.coverage
 
     def build(self):
         cmake = CMake(self)
@@ -48,7 +48,7 @@ class MetricsConan(ConanFile):
 
         if self.settings.sanitize != None:
             definitions['MEMORY_SANITIZER_ON'] = 'ON'
-        elif self.options.coverage == 'True':
+        elif self.settings.compiler == "gcc" and self.options.coverage == 'True':
             definitions['CONAN_BUILD_COVERAGE'] = 'ON'
             test_target = 'coverage'
 
@@ -57,7 +57,8 @@ class MetricsConan(ConanFile):
 
         cmake.configure(defs=definitions)
         cmake.build()
-        cmake.test(target=test_target, output_on_failure=True)
+        #cmake.test(target=test_target, output_on_failure=True)
+        cmake.test(target=test_target)
 
     def package(self):
         self.copy("*.hpp", src="src/", dst="include/", keep_path=True)
@@ -70,10 +71,14 @@ class MetricsConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
+        self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
         if self.settings.sanitize != None:
             self.cpp_info.sharedlinkflags.append("-fsanitize=address")
             self.cpp_info.exelinkflags.append("-fsanitize=address")
             self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
             self.cpp_info.exelinkflags.append("-fsanitize=undefined")
-        elif self.options.coverage == 'True':
+        elif self.settings.compiler == "gcc" and self.options.coverage == 'True':
             self.cpp_info.libs.append('gcov')
+        if self.settings.os == "Linux":
+            self.cpp_info.libs.extend(["dl"])
+            self.cpp_info.exelinkflags.extend(["-export-dynamic"])
