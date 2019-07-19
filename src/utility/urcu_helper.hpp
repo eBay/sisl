@@ -14,33 +14,31 @@
 #include <mutex>
 
 namespace sisl {
-template <typename T>
+template < typename T >
 struct urcu_node {
-    rcu_head head;
+    rcu_head             head;
     std::shared_ptr< T > val;
 
-    template <typename... Args>
+    template < typename... Args >
     urcu_node(Args&&... args) {
         val = std::make_shared< T >(std::forward< Args >(args)...);
     }
 
-    std::shared_ptr< T > get() {
-        return val;
-    }
+    std::shared_ptr< T > get() { return val; }
 
-    void set(const T &v) { val = v;}
+    void        set(const T& v) { val = v; }
     static void free(struct rcu_head* rh) {
         auto* node = (urcu_node*)rh;
         delete node;
     }
 };
 
-template <typename T>
+template < typename T >
 class urcu_ptr {
 public:
-    urcu_node<T>* m_gp;
+    urcu_node< T >* m_gp;
 
-    urcu_ptr(urcu_node<T>* gp) : m_gp(gp) { rcu_read_lock(); }
+    urcu_ptr(urcu_node< T >* gp) : m_gp(gp) { rcu_read_lock(); }
     ~urcu_ptr() { rcu_read_unlock(); }
 
     urcu_ptr(const urcu_ptr& other) = delete;
@@ -58,61 +56,65 @@ public:
     }
 };
 
-template <typename T>
+template < typename T >
 class urcu_data {
 public:
-
-    template< typename... Args>
+    template < typename... Args >
     urcu_data(Args&&... args) {
-        auto node = new urcu_node<T>(std::forward< Args >(args)...);
+        auto node = new urcu_node< T >(std::forward< Args >(args)...);
         rcu_assign_pointer(m_rcu_node, node);
         m_old_node = nullptr;
     }
 
     ~urcu_data() {
-        delete(m_rcu_node);
-        if (m_old_node != nullptr) { delete(m_old_node); }
+        delete (m_rcu_node);
+        if (m_old_node != nullptr) {
+            delete (m_old_node);
+        }
     }
 
-    template <typename... Args>
+    template < typename... Args >
     std::shared_ptr< T > make_and_exchange(Args&&... args) {
-        auto new_node = new urcu_node<T>(std::forward< Args >(args)...);
+        auto new_node = new urcu_node< T >(std::forward< Args >(args)...);
         auto old_rcu_node = m_rcu_node;
         rcu_assign_pointer(m_rcu_node, new_node);
         synchronize_rcu();
         auto ret = old_rcu_node->get();
-        call_rcu(&old_rcu_node->head, urcu_node<T>::free);
+        call_rcu(&old_rcu_node->head, urcu_node< T >::free);
         return ret;
     }
 
-    template <typename... Args>
+    template < typename... Args >
     void make(Args&&... args) {
-        auto new_node = new urcu_node<T>(std::forward< Args >(args)...);
+        auto new_node = new urcu_node< T >(std::forward< Args >(args)...);
         m_old_node = m_rcu_node;
         rcu_assign_pointer(m_rcu_node, new_node);
     }
 
     std::shared_ptr< T > exchange() {
+        if (m_old_node == nullptr) {
+            /* exchange called without make for this thread. Its possible if a new thread is spawned between make and
+             * exchange. Just return nullptr for this case */
+            return nullptr;
+        }
         auto ret = m_old_node->get();
-        call_rcu(&m_old_node->head, urcu_node<T>::free);
+        call_rcu(&m_old_node->head, urcu_node< T >::free);
         m_old_node = nullptr;
         return ret;
     }
 
-    urcu_ptr<T> get() const {
+    urcu_ptr< T > get() const {
         assert(m_rcu_node != nullptr);
-        return urcu_ptr<T>(m_rcu_node);
+        return urcu_ptr< T >(m_rcu_node);
     }
 
-    urcu_node<T> *get_node() const {
-        return m_rcu_node;
-    }
+    urcu_node< T >* get_node() const { return m_rcu_node; }
 
-    urcu_node<T>* m_rcu_node;
-    urcu_node<T>* m_old_node; /* Used in case of make and exchange as 2 different steps */
+    urcu_node< T >* m_rcu_node;
+    urcu_node< T >* m_old_node; /* Used in case of make and exchange as 2 different steps */
 };
 
-template <typename T>
+template < typename T >
 class urcu_data_batch {
 public:
     static urcu_data_batch< T >& instance() {
@@ -130,9 +132,9 @@ public:
         m_batch.insert(data);
     }
 
-    template <typename... Args>
+    template < typename... Args >
     void exchange(Args&&... args) {
-        std::vector< urcu_node<T>* > old_nodes;
+        std::vector< urcu_node< T >* > old_nodes;
         old_nodes.reserve(m_batch.size());
 
         {
@@ -145,37 +147,29 @@ public:
 
             synchronize_rcu();
 
-            for (auto &on : old_nodes) {
+            for (auto& on : old_nodes) {
                 call_rcu(&on->head, urcu_node< T >::free);
             }
         }
     }
 
 private:
-    std::mutex m_mutex;
-    std::set< urcu_data< T > *> m_batch;
+    std::mutex                  m_mutex;
+    std::set< urcu_data< T >* > m_batch;
 };
 
 class urcu_ctl {
 public:
     static thread_local bool _rcu_registered_already;
 
-    static void register_rcu() {
-        rcu_register_thread();
-    }
+    static void register_rcu() { rcu_register_thread(); }
 
-    static void declare_quiscent_state() {
-        rcu_quiescent_state();
-    }
+    static void declare_quiscent_state() { rcu_quiescent_state(); }
 
-    static void unregister_rcu() {
-        rcu_unregister_thread();
-    }
+    static void unregister_rcu() { rcu_unregister_thread(); }
 
-    static void sync_rcu() {
-        synchronize_rcu();
-    }
+    static void sync_rcu() { synchronize_rcu(); }
 };
 
 #define RCU_REGISTER_INIT thread_local bool sisl::urcu_ctl::_rcu_registered_already = false
-}
+} // namespace sisl
