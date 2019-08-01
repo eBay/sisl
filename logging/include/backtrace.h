@@ -91,7 +91,7 @@ static INTPTR_UNUSED image_slide(void) {
         return -1;
 
     auto image_count = _dyld_image_count();
-    for (decltype(image_count) i = 0; i < image_count; i++) {
+    for (decltype(image_count) i = 0; i < image_count; ++i) {
         if (strcmp(_dyld_get_image_name(i), exec_path.c_str()) == 0) {
             return _dyld_get_image_vmaddr_slide(i);
         }
@@ -147,7 +147,7 @@ static uintptr_t _extract_offset(const char* input_str, char* offset_str, int ma
 
     int i = 0;
     while (input_str[i] != ')' && input_str[i] != 0x0) {
-        i++;
+        ++i;
     }
     auto len = std::min(max_len - 1, i);
     sprintf(offset_str, "%.*s", len, input_str);
@@ -214,7 +214,7 @@ struct _addr2line_cmd_info {
 };
 
 static size_t find_frame_in_cmd_info(std::vector< _addr2line_cmd_info >& ainfos, char* frame, uint32_t fname_len) {
-    for (auto i = 0u; i < ainfos.size(); i++) {
+    for (auto i = 0u; i < ainfos.size(); ++i) {
         if (strncmp(ainfos[i].this_frame_name, frame, fname_len) == 0) {
             return i;
         }
@@ -224,7 +224,7 @@ static size_t find_frame_in_cmd_info(std::vector< _addr2line_cmd_info >& ainfos,
 
 static void convert_frame_format(frame_info_t* finfos, size_t nframes) {
     std::vector< _addr2line_cmd_info > ainfos;
-    for (auto f = 0u; f < nframes; f++) {
+    for (auto f = 0u; f < nframes; ++f) {
         frame_info_t*        finfo = &finfos[f];
         _addr2line_cmd_info* ainfo;
 
@@ -245,7 +245,7 @@ static void convert_frame_format(frame_info_t* finfos, size_t nframes) {
         if (!fp)
             continue;
 
-        for (auto finfop : ainfo.single_invoke_finfos) {
+        for (auto& finfop : ainfo.single_invoke_finfos) {
             int ret = fscanf(fp, "%1023s %1023s", finfop->mangled_name, finfop->file_line);
             (void)ret;
 
@@ -277,9 +277,9 @@ static void convert_frame_format(frame_info_t* finfos, size_t nframes) {
 
 static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, int stack_size, char* output_buf,
                                             size_t output_buflen) {
-    size_t        cur_len = 0;
-    size_t        nframes = 0;
-    frame_info_t* finfos = new frame_info_t[stack_size];
+    size_t                            cur_len = 0;
+    size_t                            nframes = 0;
+    std::unique_ptr< frame_info_t[] > finfos(new frame_info_t[stack_size]);
 
     // NOTE: starting from 1, skipping this frame.
     for (int i = 1; i < stack_size; ++i) {
@@ -335,8 +335,8 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
         ++nframes;
     }
 
-    convert_frame_format(finfos, nframes);
-    for (size_t frame_num = 0u; frame_num < nframes; frame_num++) {
+    convert_frame_format(finfos.get(), nframes);
+    for (size_t frame_num = 0u; frame_num < nframes; ++frame_num) {
         frame_info_t* finfo = &finfos[frame_num];
 
         size_t msg_len = 0;
@@ -348,19 +348,18 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
         }
     }
 
-    delete[](finfos);
     return cur_len;
 }
 #endif
 
 static VOID_UNUSED skip_whitespace(const std::string base_str, size_t& cursor) {
     while (base_str[cursor] == ' ')
-        cursor++;
+        ++cursor;
 }
 
 static VOID_UNUSED skip_glyph(const std::string base_str, size_t& cursor) {
     while (base_str[cursor] != ' ')
-        cursor++;
+        ++cursor;
 }
 
 #ifdef __APPLE__
