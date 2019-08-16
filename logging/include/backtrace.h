@@ -64,12 +64,12 @@ extern "C" {
 
 static UINT64_T_UNUSED static_base_address(void) {
     const struct segment_command_64* command = getsegbyname(SEG_TEXT /*"__TEXT"*/);
-    uint64_t addr = command->vmaddr;
+    uint64_t                         addr = command->vmaddr;
     return addr;
 }
 
 static STR_UNUSED get_exec_path() {
-    char path[1024];
+    char     path[1024];
     uint32_t size = sizeof(path);
     if (_NSGetExecutablePath(path, &size) != 0)
         return std::string();
@@ -91,7 +91,7 @@ static INTPTR_UNUSED image_slide(void) {
         return -1;
 
     auto image_count = _dyld_image_count();
-    for (decltype(image_count) i = 0; i < image_count; i++) {
+    for (decltype(image_count) i = 0; i < image_count; ++i) {
         if (strcmp(_dyld_get_image_name(i), exec_path.c_str()) == 0) {
             return _dyld_get_image_vmaddr_slide(i);
         }
@@ -142,12 +142,14 @@ static SIZE_T_UNUSED _stack_interpret(void** stack_ptr, int stack_size, char* ou
 }
 
 #ifdef __linux__
-static uintptr_t _extract_offset(const char *input_str, char* offset_str, int max_len) {
+static uintptr_t _extract_offset(const char* input_str, char* offset_str, int max_len) {
     uintptr_t actual_addr;
 
     int i = 0;
-    while (input_str[i] != ')' && input_str[i] != 0x0) { i++; }
-    auto len = std::min(max_len-1, i);
+    while (input_str[i] != ')' && input_str[i] != 0x0) {
+        ++i;
+    }
+    auto len = std::min(max_len - 1, i);
     sprintf(offset_str, "%.*s", len, input_str);
 
     // Convert hex string -> integer address.
@@ -160,16 +162,22 @@ static uintptr_t _extract_offset(const char *input_str, char* offset_str, int ma
 
 static bool _adjust_offset_symbol(const char* symbol_str, char* offset_str, uintptr_t* offset_ptr) {
     uintptr_t status = false;
-    Dl_info symbol_info;
+    Dl_info   symbol_info;
 
     void* obj_file = dlopen(NULL, RTLD_LAZY);
-    if (!obj_file) { return false; }
+    if (!obj_file) {
+        return false;
+    }
 
     void* addr = dlsym(obj_file, symbol_str);
-    if (!addr) { goto done; }
+    if (!addr) {
+        goto done;
+    }
 
-    //extract the symbolic information pointed by address
-    if (!dladdr(addr, &symbol_info)) { goto done; }
+    // extract the symbolic information pointed by address
+    if (!dladdr(addr, &symbol_info)) {
+        goto done;
+    }
     *offset_ptr = ((uintptr_t)symbol_info.dli_saddr - ((uintptr_t)symbol_info.dli_fbase)) + *offset_ptr - 1;
     sprintf(offset_str, "%" PRIxPTR, *offset_ptr);
     status = true;
@@ -179,14 +187,103 @@ done:
     return status;
 }
 
+struct frame_info_t {
+    char*     frame;         // Actual stack frame
+    uint32_t  fname_len;     // The frame length containing the symbol to convert
+    uintptr_t actual_addr;   // Actual address before converted to string
+    char      addr_str[256]; // address to convert
+    uint32_t  index;         // In a list of frames the index in it
+
+    // Result section
+    char* demangled_name;
+    bool  demangler_alloced;
+
+    char mangled_name[1024]; // Mangled name and file info
+    char file_line[1024];
+};
+
+struct _addr2line_cmd_info {
+    const char*                  this_frame_name;
+    std::vector< frame_info_t* > single_invoke_finfos;
+    std::string                  cmd;
+
+    _addr2line_cmd_info(const char* frame, uint32_t fname_len) : this_frame_name(frame) {
+        cmd = "addr2line -f -e ";
+        cmd.append(frame, fname_len);
+    }
+};
+
+static size_t find_frame_in_cmd_info(std::vector< _addr2line_cmd_info >& ainfos, char* frame, uint32_t fname_len) {
+    for (auto i = 0u; i < ainfos.size(); ++i) {
+        if (strncmp(ainfos[i].this_frame_name, frame, fname_len) == 0) {
+            return i;
+        }
+    }
+    return ainfos.size();
+}
+
+static void convert_frame_format(frame_info_t* finfos, size_t nframes) {
+    std::vector< _addr2line_cmd_info > ainfos;
+    for (auto f = 0u; f < nframes; ++f) {
+        frame_info_t*        finfo = &finfos[f];
+        _addr2line_cmd_info* ainfo;
+
+        size_t ind = find_frame_in_cmd_info(ainfos, finfo->frame, finfo->fname_len);
+        if (ind == ainfos.size()) {
+            ainfos.emplace_back(finfo->frame, finfo->fname_len);
+            ainfo = &ainfos.back();
+        } else {
+            ainfo = &ainfos[ind];
+        }
+        ainfo->single_invoke_finfos.push_back(finfo);
+        ainfo->cmd.append(" ");
+        ainfo->cmd.append(finfo->addr_str);
+    }
+
+    for (auto& ainfo : ainfos) {
+        FILE* fp = popen(ainfo.cmd.c_str(), "r");
+        if (!fp)
+            continue;
+
+        for (auto& finfop : ainfo.single_invoke_finfos) {
+            int ret = fscanf(fp, "%1023s %1023s", finfop->mangled_name, finfop->file_line);
+            (void)ret;
+
+            int status;
+            finfop->demangler_alloced = true;
+            finfop->demangled_name = abi::__cxa_demangle(finfop->mangled_name, 0, 0, &status);
+            if (finfop->demangled_name == nullptr) {
+                std::string msg_str = finfop->frame;
+                std::string _func_name = msg_str;
+                size_t      s_pos = msg_str.find("(");
+                size_t      e_pos = msg_str.rfind("+");
+                if (e_pos == std::string::npos)
+                    e_pos = msg_str.rfind(")");
+                if (s_pos != std::string::npos && e_pos != std::string::npos) {
+                    _func_name = msg_str.substr(s_pos + 1, e_pos - s_pos - 1);
+                }
+                if (_func_name.empty()) {
+                    finfop->demangled_name = finfop->mangled_name;
+                    finfop->demangler_alloced = false;
+                } else {
+                    finfop->demangled_name = (char*)malloc(strlen(_func_name.c_str()) + 1);
+                    strcpy(finfop->demangled_name, _func_name.c_str());
+                }
+            }
+        }
+        pclose(fp);
+    }
+}
+
 static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, int stack_size, char* output_buf,
                                             size_t output_buflen) {
-    size_t cur_len = 0;
-    size_t frame_num = 0;
+    size_t                            cur_len = 0;
+    size_t                            nframes = 0;
+    std::unique_ptr< frame_info_t[] > finfos(new frame_info_t[stack_size]);
 
     // NOTE: starting from 1, skipping this frame.
     for (int i = 1; i < stack_size; ++i) {
-        char *cur_frame = stack_msg[i];
+        char* cur_frame = stack_msg[i];
 
         // `stack_msg[x]` format:
         //   /foo/bar/executable() [0xabcdef]
@@ -200,14 +297,17 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
             ++fname_len;
         }
 
-        char addr_str[256];
+        finfos[nframes].frame = stack_msg[i];
+        finfos[nframes].fname_len = fname_len;
+        finfos[nframes].index = nframes;
+
         uintptr_t actual_addr = 0x0;
         if (cur_frame[fname_len] == '(') {
             // Extract the symbol if present
             char _symbol[1024];
-            int _symbol_len = 0;
-            int _s = fname_len + 1;
-            while (cur_frame[_s] != '+' && cur_frame[_s] != ')' && cur_frame[_s] != 0x0 && _symbol_len < 1023) { 
+            int  _symbol_len = 0;
+            int  _s = fname_len + 1;
+            while (cur_frame[_s] != '+' && cur_frame[_s] != ')' && cur_frame[_s] != 0x0 && _symbol_len < 1023) {
                 _symbol[_symbol_len++] = cur_frame[_s++];
             }
             _symbol[_symbol_len] = '\0';
@@ -215,57 +315,37 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
             // Extract the offset
             if (cur_frame[_s] == '+') {
                 // ASLR is enabled, get the offset from here.
-                actual_addr = _extract_offset(&cur_frame[_s + 1], addr_str, 256);
+                actual_addr = _extract_offset(&cur_frame[_s + 1], finfos[nframes].addr_str, 256);
             }
 
             // If symbol is present, try to add offset and get the correct addr_str
             if (_symbol_len > 0) {
-                if(!_adjust_offset_symbol(_symbol, addr_str, &actual_addr)) {
+                if (!_adjust_offset_symbol(_symbol, finfos[nframes].addr_str, &actual_addr)) {
                     // Resort to the default one
                     actual_addr = (uintptr_t)stack_ptr[i];
-                    sprintf(addr_str, "%" PRIxPTR, actual_addr);
+                    sprintf(finfos[nframes].addr_str, "%" PRIxPTR, actual_addr);
                 }
             }
         } else {
             actual_addr = (uintptr_t)stack_ptr[i];
-            sprintf(addr_str, "%" PRIxPTR, actual_addr);
+            sprintf(finfos[nframes].addr_str, "%" PRIxPTR, actual_addr);
         }
 
-        char cmd[1024];
-        snprintf(cmd, 1024, "addr2line -f -e %.*s %s", fname_len, cur_frame, addr_str);
-        FILE* fp = popen(cmd, "r");
-        if (!fp)
-            continue;
+        finfos[nframes].actual_addr = actual_addr;
+        ++nframes;
+    }
 
-        char mangled_name[1024];
-        char file_line[1024];
-        int ret = fscanf(fp, "%1023s %1023s", mangled_name, file_line);
-        (void)ret;
-        pclose(fp);
-        
+    convert_frame_format(finfos.get(), nframes);
+    for (size_t frame_num = 0u; frame_num < nframes; ++frame_num) {
+        frame_info_t* finfo = &finfos[frame_num];
+
         size_t msg_len = 0;
         size_t avail_len = output_buflen;
-        _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in ", frame_num++, actual_addr);
-
-        int status;
-        char* cc = abi::__cxa_demangle(mangled_name, 0, 0, &status);
-        if (cc) {
-            _snprintf(output_buf, avail_len, cur_len, msg_len, "%s at ", cc);
-        } else {
-            std::string msg_str = cur_frame;
-            std::string _func_name = msg_str;
-            size_t s_pos = msg_str.find("(");
-            size_t e_pos = msg_str.rfind("+");
-            if (e_pos == std::string::npos)
-                e_pos = msg_str.rfind(")");
-            if (s_pos != std::string::npos && e_pos != std::string::npos) {
-                _func_name = msg_str.substr(s_pos + 1, e_pos - s_pos - 1);
-            }
-            _snprintf(output_buf, avail_len, cur_len, msg_len, "%s() at ",
-                      (_func_name.empty() ? mangled_name : _func_name.c_str()));
+        _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in %s at %s\n", frame_num,
+                  finfo->actual_addr, finfo->demangled_name, finfo->file_line);
+        if (finfo->demangler_alloced) {
+            free((void*)finfo->demangled_name);
         }
-
-        _snprintf(output_buf, avail_len, cur_len, msg_len, "%s\n", file_line);
     }
 
     return cur_len;
@@ -274,12 +354,12 @@ static SIZE_T_UNUSED _stack_interpret_linux(void** stack_ptr, char** stack_msg, 
 
 static VOID_UNUSED skip_whitespace(const std::string base_str, size_t& cursor) {
     while (base_str[cursor] == ' ')
-        cursor++;
+        ++cursor;
 }
 
 static VOID_UNUSED skip_glyph(const std::string base_str, size_t& cursor) {
     while (base_str[cursor] != ' ')
-        cursor++;
+        ++cursor;
 }
 
 #ifdef __APPLE__
@@ -292,7 +372,7 @@ static SIZE_T_UNUSED _stack_interpret_apple(void** stack_ptr, char** stack_msg, 
 
     std::string exec_full_path = get_exec_path();
     std::string exec_file = get_file_part(exec_full_path);
-    uint64_t load_base = (uint64_t)image_slide() + static_base_address();
+    uint64_t    load_base = (uint64_t)image_slide() + static_base_address();
 
     // NOTE: starting from 1, skipping this frame.
     for (int i = 1; i < stack_size; ++i) {
@@ -343,7 +423,7 @@ static SIZE_T_UNUSED _stack_interpret_apple(void** stack_ptr, char** stack_msg, 
 
         if (filename != exec_file) {
             // Dynamic library.
-            int status;
+            int   status;
             char* cc = abi::__cxa_demangle(func_mangled.c_str(), 0, 0, &status);
             if (cc) {
                 _snprintf(output_buf, avail_len, cur_len, msg_len, "%s at %s\n", cc, filename.c_str());
@@ -367,7 +447,7 @@ static SIZE_T_UNUSED _stack_interpret_apple(void** stack_ptr, char** stack_msg, 
             fgets(atos_cstr, 4095, fp);
 
             std::string atos_str = atos_cstr;
-            size_t d_pos = atos_str.find(" (in ");
+            size_t      d_pos = atos_str.find(" (in ");
             if (d_pos == std::string::npos)
                 continue;
             std::string function_part = atos_str.substr(0, d_pos);
@@ -406,7 +486,7 @@ static SIZE_T_UNUSED _stack_interpret_other(void** stack_ptr, char** stack_msg, 
 
 static SIZE_T_UNUSED stack_backtrace(char* output_buf, size_t output_buflen) {
     void* stack_ptr[256];
-    int stack_size = _stack_backtrace(stack_ptr, 256);
+    int   stack_size = _stack_backtrace(stack_ptr, 256);
     return _stack_interpret(stack_ptr, stack_size, output_buf, output_buflen);
 }
 
