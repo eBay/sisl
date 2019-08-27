@@ -23,7 +23,7 @@
 namespace sds::grpc {
 
 using ::grpc::Server;
-using ::grpc::ServerAsyncResponseWriter;
+using ::grpc_impl::ServerAsyncResponseWriter;
 using ::grpc::ServerBuilder;
 using ::grpc::ServerContext;
 using ::grpc::ServerCompletionQueue;
@@ -100,7 +100,7 @@ class ServerCallData final : public BaseServerCallData {
                                 void(TSERVICE*,
                                      ::grpc::ServerContext*,
                                      TREQUEST*,
-                                     ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
+                                     ::grpc_impl::ServerAsyncResponseWriter<TRESPONSE>*,
                                      ::grpc::CompletionQueue*,
                                      ::grpc::ServerCompletionQueue*,
                                      void *)>;
@@ -123,7 +123,7 @@ class ServerCallData final : public BaseServerCallData {
         handle_request_func_(handle_request) {
     }
 
-    ::grpc::ServerAsyncResponseWriter<TRESPONSE>& responder() {
+    ::grpc_impl::ServerAsyncResponseWriter<TRESPONSE>& responder() {
         return responder_;
     }
 
@@ -137,7 +137,7 @@ class ServerCallData final : public BaseServerCallData {
 
     TREQUEST request_;
     TRESPONSE reponse_;
-    ::grpc::ServerAsyncResponseWriter<TRESPONSE> responder_;
+    ::grpc_impl::ServerAsyncResponseWriter<TRESPONSE> responder_;
 
     request_call_func_t wait_request_func_;
     handle_call_func_t handle_request_func_;
@@ -226,7 +226,7 @@ class GrpcServer : private boost::noncopyable {
         void(typename TSVC::AsyncService*,
              ::grpc::ServerContext*,
              TREQUEST*,
-             ::grpc::ServerAsyncResponseWriter<TRESPONSE>*,
+             ::grpc_impl::ServerAsyncResponseWriter<TRESPONSE>*,
              ::grpc::CompletionQueue*,
              ::grpc::ServerCompletionQueue*,
              void *)> request_call_func,
