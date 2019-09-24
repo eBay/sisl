@@ -17,6 +17,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstdlib>
 #include <string>
+#include <regex>
 
 namespace flip {
 
@@ -214,9 +215,44 @@ struct compare_val {
     }
 };
 
-template <>
-struct compare_val< const char* > {
-    bool operator()(const char*& val1, const char*& val2, Operator oper) {
+template<>
+struct compare_val<std::string> {
+    bool operator()(const std::string& val1, const std::string& val2, Operator oper) {
+        switch (oper) {
+        case Operator::DONT_CARE:
+            return true;
+
+        case Operator::EQUAL:
+            return (val1 == val2);
+
+        case Operator::NOT_EQUAL:
+            return (val1 != val2);
+
+        case Operator::GREATER_THAN:
+            return (val1 > val2);
+
+        case Operator::LESS_THAN:
+            return (val1 < val2);
+
+        case Operator::GREATER_THAN_OR_EQUAL:
+            return (val1 >= val2);
+
+        case Operator::LESS_THAN_OR_EQUAL:
+            return (val1 <= val2);
+
+        case Operator::REG_EX: {
+            const std::regex re(val2);
+            return (std::sregex_iterator(val1.begin(), val1.end(), re) != std::sregex_iterator());
+        }
+
+        default:
+            return false;
+        }
+    }
+};
+template<>
+struct compare_val<const char *> {
+    bool operator()(const char *&val1, const char *&val2, Operator oper) {
         switch (oper) {
         case Operator::DONT_CARE: return true;
 
@@ -235,7 +271,14 @@ struct compare_val< const char* > {
         case Operator::LESS_THAN_OR_EQUAL:
             return (val1 && val2 && (strcmp(val1, val2) <= 0)) || (!val1 && val2) || (!val1 && !val2);
 
-        default: return false;
+        case Operator::REG_EX: {
+            const std::regex re(val2);
+            const std::string v(val1);
+            return (std::sregex_iterator(v.begin(), v.end(), re) != std::sregex_iterator());
+        }
+
+        default:
+            return false;
         }
     }
 };
