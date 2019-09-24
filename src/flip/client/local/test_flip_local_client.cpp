@@ -24,20 +24,25 @@ void run_and_validate_noret_flip() {
 
 void run_and_validate_ret_flip() {
     std::string my_vol = "vol1";
+    std::string valid_dev_name = "/dev/sda";
     std::string unknown_vol = "unknown_vol";
+    std::string invalid_dev_name = "/boot/sda";
 
-    auto result = g_flip.get_test_flip<std::string>("simval_flip", my_vol);
+    auto result = g_flip.get_test_flip<std::string>("simval_flip", my_vol, valid_dev_name);
     assert(result);
     assert(result.get() == "Simulated error value");
 
-    result = g_flip.get_test_flip<std::string>("simval_flip", unknown_vol);
+    result = g_flip.get_test_flip<std::string>("simval_flip", unknown_vol, valid_dev_name);
     assert(!result);
 
-    result = g_flip.get_test_flip<std::string>("simval_flip", my_vol);
+    result = g_flip.get_test_flip<std::string>("simval_flip", my_vol, invalid_dev_name);
+    assert(!result);
+
+    result = g_flip.get_test_flip<std::string>("simval_flip", my_vol, valid_dev_name);
     assert(result);
     assert(result.get() == "Simulated error value");
 
-    result = g_flip.get_test_flip<std::string>("simval_flip", my_vol);
+    result = g_flip.get_test_flip<std::string>("simval_flip", my_vol, valid_dev_name);
     assert(!result); // Not more than 2
 }
 
@@ -105,10 +110,11 @@ int main(int argc, char *argv[]) {
     fclient.inject_noreturn_flip("noret_flip", {cond1}, freq);
 
     /* Inject a invalid return action flip */
-    FlipCondition cond2;
+    FlipCondition cond2, cond6;
     fclient.create_condition<std::string>("vol_name", flip::Operator::EQUAL, "vol1", &cond2);
+    fclient.create_condition<std::string>("dev_name", flip::Operator::REG_EX, "\\/dev\\/", &cond6);
     freq.set_count(2); freq.set_percent(100);
-    fclient.inject_retval_flip<std::string>("simval_flip", {cond2}, freq, "Simulated error value");
+    fclient.inject_retval_flip<std::string>("simval_flip", {cond2, cond6}, freq, "Simulated error value");
 
     /* Inject a delay of 100ms action flip */
     FlipCondition cond3, cond4;

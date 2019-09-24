@@ -24,6 +24,9 @@ enum Operator {
 
     // Don't care about
     DONT_CARE = 6;
+
+    // RegEx Pattern
+    REG_EX = 7;
 }
 
 enum Frequency {
