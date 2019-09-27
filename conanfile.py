@@ -4,7 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "0.3.8"
+    version = "0.3.9"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -17,7 +17,7 @@ class MetricsConan(ConanFile):
                "coverage": ['True', 'False']}
     default_options = ('shared=False', 'fPIC=True', 'coverage=False')
 
-    requires = (("sds_logging/5.3.3@sds/develop"),
+    requires = (("sds_logging/6.0.0@sds/develop"),
                 ("benchmark/1.5.0@oss/stable"),
                 ("boost_intrusive/1.69.0@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.69.0@bincrafters/stable"),
