@@ -2,8 +2,13 @@
 #include <iostream>
 #include <logging.h>
 #include <mutex>
+#include <thread>
 //#include <stack_trace.h>
 #include <sds_options/options.h>
+
+extern "C" {
+#include <unistd.h>
+}
 
 SDS_LOGGING_INIT(my_module)
 
