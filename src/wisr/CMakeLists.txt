@@ -3,7 +3,7 @@ set(CPP_WARNINGS "-Wall -Wextra -Werror -Wno-unused-parameter")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_FLAGS} ${CPP_WARNINGS} -DPACKAGE_NAME=${CONAN_PACKAGE_NAME} -DPACKAGE_VERSION=${CONAN_PACKAGE_VERSION} -DRCU_SIGNAL")
 
 find_package(Threads REQUIRED)
-find_package(Boost 1.64 REQUIRED)
+find_package(Boost REQUIRED)
 
 include_directories(BEFORE ../fds)
 include_directories(BEFORE ..)
