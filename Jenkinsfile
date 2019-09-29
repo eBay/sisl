@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         PROJECT = 'sisl'
-        CONAN_CHANNEL = 'testing'
+        CONAN_CHANNEL = 'develop'
         CONAN_USER = 'sisl'
         CONAN_PASS = credentials('CONAN_PASS')
     }
