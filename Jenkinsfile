@@ -27,7 +27,7 @@ pipeline {
 
         stage('Deploy') {
             when {
-                branch "${CONAN_CHANNEL}/*"
+                branch "${CONAN_CHANNEL}"
             }
             steps {
                 sh "docker run --rm ${PROJECT}-${GIT_COMMIT}"
