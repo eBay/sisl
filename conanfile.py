@@ -4,11 +4,12 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "0.3.7"
+    version = "0.3.9"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
     description = "Sisl library for fast data structures, utilities"
+    revision_mode = "scm"
 
     settings = "arch", "os", "compiler", "build_type", "sanitize"
     options = {"shared": ['True', 'False'],
@@ -16,19 +17,19 @@ class MetricsConan(ConanFile):
                "coverage": ['True', 'False']}
     default_options = ('shared=False', 'fPIC=True', 'coverage=False')
 
-    requires = (("sds_logging/5.3.2@sds/testing"),
+    requires = (("sds_logging/5.3.3@sds/testing"),
                 ("benchmark/1.5.0@oss/stable"),
                 ("boost_intrusive/1.69.0@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.69.0@bincrafters/stable"),
                 ("boost_filesystem/1.69.0@bincrafters/stable"),
                 ("boost_preprocessor/1.69.0@bincrafters/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
-                ("evhtp/1.2.18@oss/stable"),
-                ("folly/2019.06.17.00@bincrafters/stable"),
+                ("evhtp/1.2.18.1@oss/stable"),
+                ("folly/2019.09.23.00@bincrafters/develop"),
                 ("userspace-rcu/0.10.1@oss/stable"),
-                ("OpenSSL/1.0.2r@conan/stable"),
-                ("sds_prometheus/0.7.0@sds/stable"),
-                ("jsonformoderncpp/3.6.1@vthiery/stable"),
+                ("OpenSSL/1.1.1c@conan/stable"),
+                ("sds_prometheus/0.7.1@sds/stable"),
+                ("jsonformoderncpp/3.7.0@vthiery/stable"),
                 ("zstd/1.3.8@bincrafters/stable"))
 
     generators = "cmake"
