@@ -16,6 +16,7 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <condition_variable>
 #include <iostream>
 #include <map>
 #include <sstream>
