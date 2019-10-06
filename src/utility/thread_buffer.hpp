@@ -288,6 +288,7 @@ public:
         case thread_life_cycle::THREAD_DETACHED:
             if (IsActiveThreadsOnly) {
                 std::unique_lock l(m_expand_mutex);
+                m_buffers.at(thread_num).reset();
                 m_thread_slots.reset(thread_num);
                 thread_registry->slot_release(thread_num);
             }
@@ -317,6 +318,7 @@ public:
         if (can_free_thread_bufs.size()) {
             std::unique_lock l(m_expand_mutex);
             for (auto i : can_free_thread_bufs) {
+                m_buffers.at(i) = nullptr;
                 m_thread_slots.reset(i);
                 thread_registry->slot_release(i);
             }
@@ -338,6 +340,7 @@ public:
 
         if (can_free) {
             std::unique_lock l(m_expand_mutex);
+            m_buffers.at(thread_num) = nullptr;
             m_thread_slots.reset(thread_num);
             thread_registry->slot_release(thread_num);
         }

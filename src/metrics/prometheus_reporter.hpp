@@ -57,10 +57,10 @@ class PrometheusReportHistogram : public ReportHistogram {
 public:
     PrometheusReportHistogram(prometheus::Family< prometheus::Histogram >& family,
                               const std::map< std::string, std::string >&  label_pairs,
-                              const hist_bucket_boundaries_t& bkt_boundaries) :
+                              const hist_bucket_boundaries_t&              bkt_boundaries) :
             m_histogram(family.Add(label_pairs, bkt_boundaries)) {}
 
-    virtual void set_value(const std::vector<double>& bucket_values, double sum) {
+    virtual void set_value(const std::vector< double >& bucket_values, double sum) {
         // Use modified prometheus method (not part of original repo)
         m_histogram.TransferBucketCounters(bucket_values, sum);
     }
@@ -82,7 +82,7 @@ public:
     std::shared_ptr< ReportCounter > add_counter(const std::string& name, const std::string& desc,
                                                  const std::string&  instance_name,
                                                  const metric_label& label_pair = {"", ""}) {
-        static uint64_t __unique_id = 0;
+        static uint64_t                                                      __unique_id = 0;
         std::shared_ptr< PrometheusReportCounter >                           ret;
         std::pair< std::string, prometheus::Family< prometheus::Counter >* > family_pair;
         auto                                                                 it = m_counter_families.find(name);
@@ -102,17 +102,19 @@ public:
 
         std::map< std::string, std::string > label_pairs;
         if (!label_pair.first.empty() && !label_pair.second.empty()) {
-            label_pairs = {{"instance", instance_name}, { "unique_id",  unique_name }, {label_pair.first, label_pair.second}};
+            label_pairs = {
+                {"instance", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
         } else {
-            label_pairs = {{"instance", instance_name}, { "unique_id",  unique_name }};
+            label_pairs = {{"instance", instance_name}, {"unique_id", unique_name}};
         }
 
         return std::make_shared< PrometheusReportCounter >(*family_pair.second, label_pairs);
     }
 
     std::shared_ptr< ReportGauge > add_gauge(const std::string& name, const std::string& desc,
-                                             const std::string& instance_name, const metric_label& label_pair = {"", ""}) {
-        static uint64_t __unique_id = 0;
+                                             const std::string&  instance_name,
+                                             const metric_label& label_pair = {"", ""}) {
+        static uint64_t                                                    __unique_id = 0;
         std::shared_ptr< ReportGauge >                                     ret;
         std::pair< std::string, prometheus::Family< prometheus::Gauge >* > family_pair;
         auto                                                               it = m_gauge_families.find(name);
@@ -129,19 +131,20 @@ public:
 
         std::map< std::string, std::string > label_pairs;
         if (!label_pair.first.empty() && !label_pair.second.empty()) {
-            label_pairs = {{"instance", instance_name}, { "unique_id",  unique_name }, {label_pair.first, label_pair.second}};
+            label_pairs = {
+                {"instance", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
         } else {
-            label_pairs = {{"instance", instance_name}, { "unique_id",  unique_name }};
+            label_pairs = {{"instance", instance_name}, {"unique_id", unique_name}};
         }
 
         return std::make_shared< PrometheusReportGauge >(*family_pair.second, label_pairs);
     }
 
     std::shared_ptr< ReportHistogram > add_histogram(const std::string& name, const std::string& desc,
-                                                     const std::string&  instance_name,
+                                                     const std::string&              instance_name,
                                                      const hist_bucket_boundaries_t& bkt_boundaries,
-                                                     const metric_label& label_pair = {"", ""}) {
-        static uint64_t __unique_id = 0;
+                                                     const metric_label&             label_pair = {"", ""}) {
+        static uint64_t                                                        __unique_id = 0;
         std::shared_ptr< ReportHistogram >                                     ret;
         std::pair< std::string, prometheus::Family< prometheus::Histogram >* > family_pair;
         auto                                                                   it = m_histogram_families.find(name);
@@ -158,9 +161,10 @@ public:
 
         std::map< std::string, std::string > label_pairs;
         if (!label_pair.first.empty() && !label_pair.second.empty()) {
-            label_pairs = {{"instance", instance_name}, { "unique_id",  unique_name }, {label_pair.first, label_pair.second}};
+            label_pairs = {
+                {"instance", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
         } else {
-            label_pairs = {{"instance", instance_name}, { "unique_id",  unique_name }};
+            label_pairs = {{"instance", instance_name}, {"unique_id", unique_name}};
         }
 
         return std::make_shared< PrometheusReportHistogram >(*family_pair.second, label_pairs, bkt_boundaries);
@@ -170,9 +174,7 @@ public:
         if (format != m_cur_serializer_format) {
             // If user wants different formatter now, change the serializer
             switch (format) {
-            case ReportFormat::kTextFormat:
-                m_serializer.reset(new prometheus::TextSerializer());
-                break;
+            case ReportFormat::kTextFormat: m_serializer.reset(new prometheus::TextSerializer()); break;
             default:
                 assert(0);
                 format = ReportFormat::kTextFormat;
@@ -183,6 +185,7 @@ public:
         }
         return m_serializer->Serialize(m_registry->Collect());
     }
+
 private:
     std::shared_ptr< prometheus::Registry >                                         m_registry;
     std::unordered_map< std::string, prometheus::Family< prometheus::Counter >* >   m_counter_families;
@@ -190,7 +193,7 @@ private:
     std::unordered_map< std::string, prometheus::Family< prometheus::Histogram >* > m_histogram_families;
 
     std::unique_ptr< prometheus::Serializer > m_serializer;
-    ReportFormat m_cur_serializer_format;
+    ReportFormat                              m_cur_serializer_format;
 };
 } // namespace sisl
 #endif // ASYNC_HTTP_PROMETHEUS_REPORTER_HPP
