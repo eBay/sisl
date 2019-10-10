@@ -243,6 +243,7 @@ public:
 
 typedef std::shared_ptr< MetricsGroup >                                                              MetricsGroupPtr;
 typedef sisl::wisr_framework< SafeMetrics, const std::vector< HistogramInfo >&, uint32_t, uint32_t > ThreadSafeMetrics;
+typedef std::function< void(void) >                                                                  on_gather_cb_t;
 
 class MetricsGroupResult;
 class MetricsFarm;
@@ -292,6 +293,11 @@ public:
     const std::string& get_group_name() const;
     const std::string& get_instance_name() const;
 
+    void attach_gather_cb(const on_gather_cb_t& cb) {
+        auto locked = lock();
+        m_on_gather_cb = cb;
+    }
+
 private:
     void on_register();
 
@@ -305,6 +311,7 @@ private:
     std::mutex                           m_mutex;
     std::unique_ptr< ThreadSafeMetrics > m_metrics;
     bool                                 m_gather_pending;
+    on_gather_cb_t                       m_on_gather_cb = nullptr;
 
     std::vector< CounterInfo >                                              m_counters;
     std::vector< GaugeInfo >                                                m_gauges;
@@ -439,7 +446,9 @@ public:
             m_mg_ptr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
 
     void           register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(m_mg_ptr); }
+    void           deregister_me_from_farm() { MetricsFarm::getInstance().deregister_metrics_group(m_mg_ptr); }
     nlohmann::json get_result_in_json(bool need_latest) { return m_mg_ptr->get_result_in_json(need_latest); }
+    void           attach_gather_cb(const on_gather_cb_t& cb) { m_mg_ptr->attach_gather_cb(cb); }
 };
 
 #if 0
