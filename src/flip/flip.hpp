@@ -11,13 +11,15 @@
 #include <functional>
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
-#include <glog/logging.h>
+#include <sds_logging/logging.h>
 #include <shared_mutex>
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstdlib>
 #include <string>
 #include <regex>
+
+SDS_LOGGING_DECL(flip)
 
 namespace flip {
 
@@ -308,7 +310,7 @@ public:
         auto t = std::make_shared< deadline_timer >(m_svc, delay_us);
         t->async_wait([this, closure, t](const boost::system::error_code& e) {
             if (e) {
-                LOG(ERROR) << "Error in timer routine, message " << e.message();
+                LOGERRORMOD(flip, "Error in timer routine, message {}", e.message());
             } else {
                 closure();
             }
@@ -360,7 +362,7 @@ public:
         // TODO: Add verification to see if the flip is already scheduled, any errors etc..
         std::unique_lock< std::shared_mutex > lock(m_mutex);
         m_flip_specs.emplace(std::pair< std::string, flip_instance >(fspec.flip_name(), inst));
-        LOG(INFO) << "Added new fault flip " << fspec.flip_name() << " to the list of flips";
+        LOGINFOMOD(flip, "Added new fault flip {} to the list of flips", fspec.flip_name());
         //LOG(INFO) << "Flip details:" << inst.to_string();
         return true;
     }
@@ -458,7 +460,7 @@ public:
             return false; // Not a hit
 
         auto param = boost::get< delayed_return_param< T > >(ret.get());
-        LOG(INFO) << "Returned param delay = " << param.delay_usec << " val = " << param.val;
+        LOGINFOMOD(flip, "Returned param delay = {} val = {}", param.delay_usec, param.val);
         m_timer.schedule(boost::posix_time::microseconds(param.delay_usec), [closure, param]() { closure(param.val); });
         return true;
     }
@@ -481,7 +483,7 @@ private:
 
             // Check if we are subjected to rate limit
             if (!handle_hits(fspec.flip_frequency(), inst)) {
-                LOG(INFO) << "Flip " << flip_name << " matches, but it is rate limited";
+                LOGINFOMOD(flip, "Flip {} matches, but it is rate limited", flip_name);
                 return boost::none;
             }
 
@@ -490,10 +492,10 @@ private:
             if (remain_count == 0) {
                 exec_completed = true;
             } else if (remain_count < 0) {
-                LOG(INFO) << "Flip " << flip_name << " matches, but reaches max count";
+                LOGINFOMOD(flip, "Flip {} matches, but reaches max count", flip_name);
                 return boost::none;
             }
-            LOG(INFO) << "Flip " << flip_name << " matches and hits";
+            LOGINFOMOD(flip, "Flip {} matches and hits", flip_name);
         }
 
         boost::variant< T, bool, uint64_t, delayed_return_param< T > > val_ret;
