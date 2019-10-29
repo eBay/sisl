@@ -7,7 +7,12 @@
 #include <memory>
 #include <string>
 
+#include <sds_options/options.h>
+
 using namespace flip;
+
+SDS_LOGGING_INIT(flip)
+SDS_OPTIONS_ENABLE(logging)
 
 Flip g_flip;
 
@@ -61,7 +66,7 @@ void run_and_validate_delay_flip() {
     assert(!g_flip.delay_flip("delay_flip", [closure_calls]() {(*closure_calls)++;}, valid_cmd, valid_size_bytes1));
 
     sleep(2);
-    DCHECK_EQ((*closure_calls).load(), 2);
+    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
 }
 
 void run_and_validate_delay_return_flip() {
@@ -71,7 +76,7 @@ void run_and_validate_delay_return_flip() {
 
     assert(g_flip.get_delay_flip<std::string>("delay_simval_flip", [closure_calls](std::string error) {
         (*closure_calls)++;
-        DCHECK_EQ(error, "Simulated delayed errval");
+        DEBUG_ASSERT_EQ(error, "Simulated delayed errval");
     }, valid_double));
 
     assert(!g_flip.get_delay_flip<std::string>("delay_simval_flip", [closure_calls](std::string error) {
@@ -80,7 +85,7 @@ void run_and_validate_delay_return_flip() {
     }, invalid_double));
 
     assert(g_flip.get_delay_flip<std::string>("delay_simval_flip", [closure_calls](std::string error) {
-        DCHECK_EQ(error, "Simulated delayed errval");
+        DEBUG_ASSERT_EQ(error, "Simulated delayed errval");
         (*closure_calls)++;
     }, valid_double));
 
@@ -90,16 +95,20 @@ void run_and_validate_delay_return_flip() {
     }, invalid_double));
 
     assert(!g_flip.get_delay_flip<std::string>("delay_simval_flip", [closure_calls](std::string error) {
-        DCHECK_EQ(error, "Simulated delayed errval");
+        DEBUG_ASSERT_EQ(error, "Simulated delayed errval");
         (*closure_calls)++;
-        LOG(INFO) << "Called with error = " << error;
+        LOGINFO("Called with error = {}", error);
     }, valid_double));
 
     sleep(2);
-    DCHECK_EQ((*closure_calls).load(), 2);
+    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
 }
 
 int main(int argc, char *argv[]) {
+    SDS_OPTIONS_LOAD(argc, argv, logging)
+    sds_logging::SetLogger(std::string(argv[0]));
+    spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
+
     FlipClient fclient(&g_flip);
     FlipFrequency freq;
 

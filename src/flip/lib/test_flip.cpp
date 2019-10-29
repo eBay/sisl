@@ -7,7 +7,12 @@
 #include <memory>
 #include <string>
 
-void create_ret_fspec(flip::FlipSpec *fspec) {
+#include <sds_options/options.h>
+
+SDS_LOGGING_INIT(flip)
+SDS_OPTIONS_ENABLE(logging)
+
+void create_ret_fspec(flip::FlipSpec* fspec) {
     *(fspec->mutable_flip_name()) = "ret_fspec";
 
     // Create a new condition and add it to flip spec
@@ -23,26 +28,26 @@ void create_ret_fspec(flip::FlipSpec *fspec) {
     freq->set_percent(100);
 }
 
-void run_and_validate_ret_flip(flip::Flip *flip) {
+void run_and_validate_ret_flip(flip::Flip* flip) {
     std::string my_coll = "item_shipping";
     std::string unknown_coll = "unknown_collection";
 
-    auto result = flip->get_test_flip<std::string>("ret_fspec", my_coll);
+    auto result = flip->get_test_flip< std::string >("ret_fspec", my_coll);
     assert(result);
     assert(result.get() == "Error simulated value");
 
-    result = flip->get_test_flip<std::string>("ret_fspec", unknown_coll);
+    result = flip->get_test_flip< std::string >("ret_fspec", unknown_coll);
     assert(!result);
 
-    result = flip->get_test_flip<std::string>("ret_fspec", my_coll);
+    result = flip->get_test_flip< std::string >("ret_fspec", my_coll);
     assert(result);
     assert(result.get() == "Error simulated value");
 
-    result = flip->get_test_flip<std::string>("ret_fspec", my_coll);
+    result = flip->get_test_flip< std::string >("ret_fspec", my_coll);
     assert(!result); // Not more than 2
 }
 
-void create_check_fspec(flip::FlipSpec *fspec) {
+void create_check_fspec(flip::FlipSpec* fspec) {
     *(fspec->mutable_flip_name()) = "check_fspec";
 
     auto cond = fspec->mutable_conditions()->Add();
@@ -55,7 +60,7 @@ void create_check_fspec(flip::FlipSpec *fspec) {
     freq->set_percent(100);
 }
 
-void run_and_validate_check_flip(flip::Flip *flip) {
+void run_and_validate_check_flip(flip::Flip* flip) {
     int valid_cmd = 1;
     int invalid_cmd = -1;
 
@@ -66,7 +71,7 @@ void run_and_validate_check_flip(flip::Flip *flip) {
     assert(!flip->test_flip("check_fspec", valid_cmd)); // Not more than 2
 }
 
-void create_delay_fspec(flip::FlipSpec *fspec) {
+void create_delay_fspec(flip::FlipSpec* fspec) {
     *(fspec->mutable_flip_name()) = "delay_fspec";
 
     auto cond = fspec->mutable_conditions()->Add();
@@ -80,36 +85,26 @@ void create_delay_fspec(flip::FlipSpec *fspec) {
     freq->set_percent(100);
 }
 
-void run_and_validate_delay_flip(flip::Flip *flip) {
-    int valid_cmd = 2;
-    int invalid_cmd = -1;
-    std::shared_ptr< std::atomic<int> > closure_calls = std::make_shared<std::atomic<int>>(0);
+void run_and_validate_delay_flip(flip::Flip* flip) {
+    int                                   valid_cmd = 2;
+    int                                   invalid_cmd = -1;
+    std::shared_ptr< std::atomic< int > > closure_calls = std::make_shared< std::atomic< int > >(0);
 
-    assert(flip->delay_flip("delay_fspec", [closure_calls]() {
-        (*closure_calls)++;
-    }, valid_cmd));
+    assert(flip->delay_flip("delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd));
 
-    assert(!flip->delay_flip("delay_fspec", [closure_calls]() {
-        (*closure_calls)++;
-    }, invalid_cmd));
+    assert(!flip->delay_flip("delay_fspec", [closure_calls]() { (*closure_calls)++; }, invalid_cmd));
 
-    assert(flip->delay_flip("delay_fspec", [closure_calls]() {
-        (*closure_calls)++;
-    }, valid_cmd));
+    assert(flip->delay_flip("delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd));
 
-    assert(!flip->delay_flip("delay_fspec", [closure_calls]() {
-        (*closure_calls)++;
-    }, invalid_cmd));
+    assert(!flip->delay_flip("delay_fspec", [closure_calls]() { (*closure_calls)++; }, invalid_cmd));
 
-    assert(!flip->delay_flip("delay_fspec", [closure_calls]() {
-        (*closure_calls)++;
-    }, valid_cmd));
+    assert(!flip->delay_flip("delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd));
 
     sleep(2);
-    DCHECK_EQ((*closure_calls).load(), 2);
+    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
 }
 
-void create_delay_ret_fspec(flip::FlipSpec *fspec) {
+void create_delay_ret_fspec(flip::FlipSpec* fspec) {
     *(fspec->mutable_flip_name()) = "delay_ret_fspec";
 
     auto cond = fspec->mutable_conditions()->Add();
@@ -118,46 +113,57 @@ void create_delay_ret_fspec(flip::FlipSpec *fspec) {
     cond->mutable_value()->set_int_value(2);
 
     fspec->mutable_flip_action()->mutable_delay_returns()->set_delay_in_usec(100000);
-    fspec->mutable_flip_action()->mutable_delay_returns()->mutable_retval()->set_string_value("Delayed error simulated value");
+    fspec->mutable_flip_action()->mutable_delay_returns()->mutable_retval()->set_string_value(
+        "Delayed error simulated value");
 
     auto freq = fspec->mutable_flip_frequency();
     freq->set_count(2);
     freq->set_percent(100);
 }
 
-void run_and_validate_delay_return_flip(flip::Flip *flip) {
-    int valid_cmd = 2;
-    int invalid_cmd = -1;
-    std::shared_ptr< std::atomic<int> > closure_calls = std::make_shared<std::atomic<int>>(0);
+void run_and_validate_delay_return_flip(flip::Flip* flip) {
+    int                                   valid_cmd = 2;
+    int                                   invalid_cmd = -1;
+    std::shared_ptr< std::atomic< int > > closure_calls = std::make_shared< std::atomic< int > >(0);
 
-    assert(flip->get_delay_flip<std::string>("delay_ret_fspec", [closure_calls](std::string error) {
-        (*closure_calls)++;
-        DCHECK_EQ(error, "Delayed error simulated value");
-    }, valid_cmd));
+    assert(flip->get_delay_flip< std::string >("delay_ret_fspec",
+                                               [closure_calls](std::string error) {
+                                                   (*closure_calls)++;
+                                                   DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
+                                               },
+                                               valid_cmd));
 
-    assert(!flip->get_delay_flip<std::string>("delay_ret_fspec", [closure_calls](std::string error) {
-        assert(0);
-        (*closure_calls)++;
-    }, invalid_cmd));
+    assert(!flip->get_delay_flip< std::string >("delay_ret_fspec",
+                                                [closure_calls](std::string error) {
+                                                    assert(0);
+                                                    (*closure_calls)++;
+                                                },
+                                                invalid_cmd));
 
-    assert(flip->get_delay_flip<std::string>("delay_ret_fspec", [closure_calls](std::string error) {
-        DCHECK_EQ(error, "Delayed error simulated value");
-        (*closure_calls)++;
-    }, valid_cmd));
+    assert(flip->get_delay_flip< std::string >("delay_ret_fspec",
+                                               [closure_calls](std::string error) {
+                                                   DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
+                                                   (*closure_calls)++;
+                                               },
+                                               valid_cmd));
 
-    assert(!flip->get_delay_flip<std::string>("delay_ret_fspec", [closure_calls](std::string error) {
-        assert(0);
-        (*closure_calls)++;
-    }, invalid_cmd));
+    assert(!flip->get_delay_flip< std::string >("delay_ret_fspec",
+                                                [closure_calls](std::string error) {
+                                                    assert(0);
+                                                    (*closure_calls)++;
+                                                },
+                                                invalid_cmd));
 
-    assert(!flip->get_delay_flip<std::string>("delay_ret_fspec", [closure_calls](std::string error) {
-        DCHECK_EQ(error, "Delayed error simulated value");
-        (*closure_calls)++;
-        LOG(INFO) << "Called with error = " << error;
-    }, valid_cmd));
+    assert(!flip->get_delay_flip< std::string >("delay_ret_fspec",
+                                                [closure_calls](std::string error) {
+                                                    DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
+                                                    (*closure_calls)++;
+                                                    LOGINFO("Called with error = {}", error);
+                                                },
+                                                valid_cmd));
 
     sleep(2);
-    DCHECK_EQ((*closure_calls).load(), 2);
+    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
 }
 
 #if 0
@@ -183,7 +189,11 @@ void create_multi_cond_fspec(flip::FlipSpec *fspec) {
 }
 #endif
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
+    SDS_OPTIONS_LOAD(argc, argv, logging)
+    sds_logging::SetLogger(std::string(argv[0]));
+    spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
+
     flip::FlipSpec ret_fspec;
     create_ret_fspec(&ret_fspec);
 
