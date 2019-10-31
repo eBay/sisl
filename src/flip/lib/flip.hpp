@@ -483,7 +483,7 @@ private:
 
             // Check if we are subjected to rate limit
             if (!handle_hits(fspec.flip_frequency(), inst)) {
-                LOGINFOMOD(flip, "Flip {} matches, but it is rate limited", flip_name);
+                LOGDEBUGMOD(flip, "Flip {} matches, but it is rate limited", flip_name);
                 return boost::none;
             }
 
@@ -492,7 +492,7 @@ private:
             if (remain_count == 0) {
                 exec_completed = true;
             } else if (remain_count < 0) {
-                LOGINFOMOD(flip, "Flip {} matches, but reaches max count", flip_name);
+                LOGDEBUGMOD(flip, "Flip {} matches, but reaches max count", flip_name);
                 return boost::none;
             }
             LOGINFOMOD(flip, "Flip {} matches and hits", flip_name);
