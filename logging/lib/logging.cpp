@@ -23,7 +23,8 @@ SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable
                           (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
                           (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
                           (flush,      "",  "flush_every", "Flush logs on level (sync mode) or periodically (async mode)", ::cxxopts::value<uint32_t>()->default_value("2"), "level/seconds"), \
-                          (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level"))
+                          (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level"), \
+                          (version,    "V", "version", "Print the version and exist", ::cxxopts::value<bool>(), ""))
 // clang-format on
 
 namespace sds_logging {
@@ -94,6 +95,12 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
     auto lvl = spdlog::level::level_enum::info;
     if (SDS_OPTIONS.count("verbosity")) {
         lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as< uint32_t >();
+    }
+
+    if (0 < SDS_OPTIONS["version"].count()) {
+        spdlog::set_pattern("%v");
+        sds_logging::GetLogger()->info("{} - {}", pkg, ver);
+        exit(0);
     }
 
     module_level_base = lvl;
