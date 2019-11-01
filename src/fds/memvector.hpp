@@ -13,6 +13,7 @@
 #include <utility/atomic_counter.hpp>
 #include <atomic>
 #include <utility/obj_life_counter.hpp>
+#include "utils.hpp"
 
 namespace sisl {
 #define round_off(val, rnd) ((((val)-1) / (rnd)) + 1)
@@ -33,11 +34,6 @@ struct __attribute__((__may_alias__)) __mempiece_tag {
 
     uint16_t to_integer() { return *((uint16_t*)this); }
 } __attribute((packed));
-
-struct blob {
-    uint8_t* bytes;
-    uint32_t size;
-};
 
 struct MemPiece : public sisl::ObjLifeCounter< MemPiece > {
     uint8_t* m_mem;
