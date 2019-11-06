@@ -15,6 +15,7 @@ SDS_LOGGING_INIT(test_bitset);
 static uint64_t g_total_bits;
 static uint32_t g_num_threads;
 static uint32_t g_set_pct;
+static uint32_t g_max_bits_in_group;
 
 class ShadowBitset {
 public:
@@ -32,25 +33,7 @@ public:
 
     uint64_t get_next_set_bit(uint64_t start_bit) {
         std::unique_lock l(m_mutex);
-        if (start_bit == boost::dynamic_bitset<>::npos) {
-#if 0
-            std::string s;
-            boost::to_string(m_bitset, s);
-            std::cout << "Bits = " << s << "\n";
-            std::cout << "bitset[2] = " << m_bitset[2] << " bitset[3] = " << m_bitset[3]
-                      << " find_first = " << m_bitset.find_first()
-                      << " find_next = " << m_bitset.find_next(boost::dynamic_bitset<>::npos)
-                      << "\nSize = " << m_bitset.size() << " Bits = ";
-
-            for (auto i = 0u; i < m_bitset.size(); i++) {
-                std::cout << m_bitset[i];
-            }
-            std::cout << "\n";
-#endif
-            return m_bitset.find_first();
-        } else {
-            return m_bitset.find_next(start_bit);
-        }
+        return (start_bit == boost::dynamic_bitset<>::npos) ? m_bitset.find_first() : m_bitset.find_next(start_bit);
     }
 
     uint64_t get_next_reset_bit(uint64_t start_bit) {
@@ -83,7 +66,7 @@ public:
         return ret;
     }
 
-    void shrink_right(uint64_t nbits) {
+    void shrink_head(uint64_t nbits) {
         std::unique_lock l(m_mutex);
         m_bitset >>= nbits;
         m_bitset.resize(m_bitset.size() - nbits);
@@ -126,13 +109,13 @@ protected:
         m_shadow_bm.set(false, start_bit, nbits);
     }
 
-    void shrink_right(uint64_t nbits) {
-        m_bset.shrink_right(nbits);
-        m_shadow_bm.shrink_right(nbits);
+    void shrink_head(uint64_t nbits) {
+        m_bset.shrink_head(nbits);
+        m_shadow_bm.shrink_head(nbits);
         m_total_bits -= nbits;
     }
 
-    void expand_left(uint64_t nbits) {
+    void expand_tail(uint64_t nbits) {
         m_bset.resize(m_total_bits + nbits);
         m_shadow_bm.resize(m_total_bits + nbits);
         m_total_bits += nbits;
@@ -239,7 +222,7 @@ TEST_F(BitsetTest, AlternateSetAndShrink) {
     validate_all(1);
 
     LOGINFO("INFO: Shrink and right shift by 15 bits");
-    shrink_right(15);
+    shrink_head(15);
 
     run_parallel(total_bits(), g_num_threads, [&](uint64_t start, uint32_t count) {
         LOGINFO("INFO: Now toggle set/reset (reset even and set odd) in range[{} - {}]", start, start + count - 1);
@@ -261,7 +244,7 @@ TEST_F(BitsetTest, SequentialSetAndExpand) {
     validate_all(1);
 
     LOGINFO("INFO: Increase the size by 1000 bits");
-    expand_left(1000);
+    expand_tail(1000);
 
     LOGINFO("INFO: Setting all bits from 0 to 200");
     run_parallel(total_bits(), g_num_threads, [&](uint64_t start, uint32_t count) {
@@ -284,8 +267,8 @@ TEST_F(BitsetTest, RandomSetAndShrink) {
 
     validate_all(1);
 
-    LOGINFO("INFO: Increase the size by 129 bits");
-    shrink_right(129);
+    LOGINFO("INFO: Truncate the size by 129 bits");
+    shrink_head(129);
 
     run_parallel(total_bits(), g_num_threads, [&](uint64_t start, uint32_t count) {
         LOGINFO("INFO: Setting/Resetting all bits in range[{} - {}] set_pct={}", start, start + count - 1, g_set_pct);
@@ -296,6 +279,53 @@ TEST_F(BitsetTest, RandomSetAndShrink) {
     validate_all(3);
 }
 
+TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
+    run_parallel(total_bits(), g_num_threads, [&](uint64_t start, uint32_t count) {
+        auto iter = count / g_max_bits_in_group;
+        LOGINFO("INFO: Setting/Resetting random bits (upto {} max) in range[{} - {}] with set_pct={} for {} iterations",
+                g_max_bits_in_group, start, start + count - 1, g_set_pct, iter);
+
+        while (iter--) {
+            uint64_t op_bit = (rand() % count) + start;
+            auto op_count = std::min((uint32_t)(rand() % g_max_bits_in_group) + 1, (uint32_t)(start + count - op_bit));
+            ((rand() % 100) < (int)g_set_pct) ? set(op_bit, op_count) : reset(op_bit, op_count);
+        }
+    });
+
+    validate_all(1);
+    validate_by_next_continous_bits(9);
+
+    LOGINFO("INFO: Shrink the size by {} bits and then try to obtain 10 and 1 contigous entries", total_bits() - 1);
+    shrink_head(total_bits() - 1);
+    validate_all(10);
+    validate_by_next_continous_bits(1);
+
+    LOGINFO("INFO: Empty the bitset and then try to obtain 5 and 1 contigous entries");
+    shrink_head(1);
+    validate_all(5);
+    validate_by_next_continous_bits(1);
+
+    LOGINFO("INFO: Expand the bitset to {} and set randomly similar to earlier", g_total_bits / 2);
+    expand_tail(g_total_bits / 2);
+    run_parallel(total_bits(), g_num_threads, [&](uint64_t start, uint32_t count) {
+        auto iter = count / g_max_bits_in_group;
+        LOGINFO("INFO: Setting/Resetting random bits (upto {} max) in range[{} - {}] with set_pct={} for {} iterations",
+                g_max_bits_in_group, start, start + count - 1, g_set_pct, iter);
+
+        while (iter--) {
+            uint64_t op_bit = (rand() % count) + start;
+            auto op_count = std::min((uint32_t)(rand() % g_max_bits_in_group) + 1, (uint32_t)(start + count - op_bit));
+            ((rand() % 100) < (int)g_set_pct) ? set(op_bit, op_count) : reset(op_bit, op_count);
+        }
+    });
+    validate_all(3);
+    validate_by_next_continous_bits(10);
+
+    LOGINFO("INFO: Empty the bitset again and then try to obtain 5 and 1 contigous entries");
+    shrink_head(total_bits());
+    validate_all(1);
+}
+
 SDS_OPTIONS_ENABLE(logging, test_bitset)
 
 SDS_OPTION_GROUP(test_bitset,
@@ -304,7 +334,9 @@ SDS_OPTION_GROUP(test_bitset,
                  (num_bits, "", "num_bits", "number of bits to start",
                   ::cxxopts::value< uint32_t >()->default_value("1000"), "number"),
                  (set_pct, "", "set_pct", "set percentage for randome test",
-                  ::cxxopts::value< uint32_t >()->default_value("25"), "number"));
+                  ::cxxopts::value< uint32_t >()->default_value("25"), "number"),
+                 (max_bits_in_grp, "", "max_bits_in_grp", "max bits to be set/reset at a time",
+                  ::cxxopts::value< uint32_t >()->default_value("72"), "number"));
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging, test_bitset);
@@ -315,6 +347,7 @@ int main(int argc, char* argv[]) {
     g_total_bits = SDS_OPTIONS["num_bits"].as< uint32_t >();
     g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();
     g_set_pct = SDS_OPTIONS["set_pct"].as< uint32_t >();
+    g_max_bits_in_group = SDS_OPTIONS["set_pct"].as< uint32_t >();
 
     auto ret = RUN_ALL_TESTS();
     return ret;
