@@ -12,6 +12,7 @@
 #include "bitword.hpp"
 #include "utils.hpp"
 #include <folly/SharedMutex.h>
+#include <sds_logging/logging.h>
 
 /*
  * This is a improved bitset, which can efficiently identify and get the leading bitset or reset
@@ -45,8 +46,12 @@ private:
     std::unique_ptr< Word[] > m_words;
     uint64_t m_words_cap;
 
+#ifndef NDEBUG
+    static constexpr size_t compaction_threshold() { return Word::bits() * 10; }
+#else
     // Compact every 1K entries right shifted
     static constexpr size_t compaction_threshold() { return Word::bits() * 1024; }
+#endif
 
 public:
     static constexpr uint64_t npos = (uint64_t)-1;
@@ -55,6 +60,7 @@ public:
     explicit BitsetImpl(uint64_t nbits) {
         m_words_cap = ((nbits - 1) / Word::bits() + 1);
         m_words = std::unique_ptr< Word[] >(new Word[m_words_cap]);
+        bzero((void*)m_words.get(), m_words_cap * sizeof(Word));
         m_nbits = nbits;
     }
 
@@ -66,7 +72,7 @@ public:
         m_skip_bits = others.m_skip_bits;
     }
 
-#if 0
+#ifdef SERIALIZE_SUPPORT
     explicit BitsetImpl(const sisl::blob& b) {
         auto nwords = 0U;
 
@@ -223,20 +229,25 @@ public:
      * @param nbits Total number of bits to right shift. If it is beyond total number of bits in the bitset, it throws
      * std::out_or_range exception.
      */
-    void shrink_right(uint64_t nbits) {
+    void shrink_head(uint64_t nbits) {
         if (ThreadSafeResizing) { m_lock.lock(); }
 
         if (nbits > total_bits()) { throw std::out_of_range("Right shift to out of range"); }
         m_skip_bits += nbits;
         if (m_skip_bits >= compaction_threshold()) {
-            auto shrink_words = m_skip_bits / Word::bits();
+            _resize(total_bits());
+            /*auto shrink_words = m_skip_bits / Word::bits();
+            auto new_skip_bits = m_skip_bits % Word::bits();
+
+            auto new_nbits = nbits + new_skip_bits;
+            auto new_cap = (new_nbits - 1) / Word::bits() + 1;
             auto new_cap = m_words_cap - shrink_words;
             auto new_words = std::unique_ptr< Word[] >(new Word[new_cap]);
             std::memmove((void*)new_words.get(), (void*)&(m_words.get()[shrink_words]), (sizeof(Word) * new_cap));
 
             m_words_cap = new_cap;
             m_words = std::move(new_words);
-            m_skip_bits -= (shrink_words * Word::bits());
+            m_skip_bits -= (shrink_words * Word::bits()); */
         }
 
         if (ThreadSafeResizing) { m_lock.unlock(); }
@@ -244,23 +255,7 @@ public:
 
     void resize(uint64_t nbits) {
         if (ThreadSafeResizing) { m_lock.lock(); }
-
-        // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip list
-        // size. Rest of them will be compacted.
-        auto shrink_words = m_skip_bits / Word::bits();
-        auto new_skip_bits = m_skip_bits % Word::bits();
-
-        auto new_nbits = nbits + new_skip_bits;
-        auto new_cap = (new_nbits - 1) / Word::bits() + 1;
-        auto new_words = std::unique_ptr< Word[] >(new Word[new_cap]);
-        std::memmove((void*)new_words.get(), (void*)&(m_words.get()[shrink_words]),
-                     (sizeof(Word) * std::min(m_words_cap - shrink_words, new_cap)));
-
-        m_words_cap = new_cap;
-        m_skip_bits = new_skip_bits;
-        m_words = std::move(new_words);
-        m_nbits = new_nbits;
-
+        _resize(nbits);
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
@@ -407,6 +402,27 @@ private:
         return true;
     }
 
+    void _resize(uint64_t nbits) {
+        // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip list
+        // size. Rest of them will be compacted.
+        auto shrink_words = m_skip_bits / Word::bits();
+        auto new_skip_bits = m_skip_bits % Word::bits();
+
+        auto new_nbits = nbits + new_skip_bits;
+        auto new_cap = (new_nbits - 1) / Word::bits() + 1;
+        auto new_words = std::unique_ptr< Word[] >(new Word[new_cap]);
+        std::memmove((void*)new_words.get(), (void*)&(m_words.get()[shrink_words]),
+                     (sizeof(Word) * std::min(m_words_cap - shrink_words, new_cap)));
+
+        m_words_cap = new_cap;
+        m_skip_bits = new_skip_bits;
+        m_words = std::move(new_words);
+        m_nbits = new_nbits;
+
+        LOGINFO("Resize to total_bits={} total_actual_bits={}, skip_bits={}, words_cap={}", total_bits(), m_nbits,
+                m_skip_bits, m_words_cap);
+    }
+
     Word* get_word(uint64_t b) {
         b += m_skip_bits;
         return (sisl_unlikely(b >= m_nbits)) ? nullptr : &m_words[b / Word::bits()];
@@ -426,6 +442,7 @@ private:
 }; // namespace sisl
 
 typedef BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > Bitset;
+typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, false > AtomicBitset;
 typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, true > ThreadSafeBitset;
 
 #if 0

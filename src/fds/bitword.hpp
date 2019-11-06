@@ -38,18 +38,6 @@ static uint64_t consecutive_bitmask[64] = {
     ((1ull << 56) - 1), ((1ull << 57) - 1), ((1ull << 58) - 1), ((1ull << 59) - 1), ((1ull << 60) - 1),
     ((1ull << 61) - 1), ((1ull << 62) - 1), ((1ull << 63) - 1), (uint64_t)-1};
 
-/*
-static uint64_t pow_2[64] = {
-    (1ull << 0),  (1ull << 1),  (1ull << 2),  (1ull << 3),  (1ull << 4),  (1ull << 5),  (1ull << 6),  (1ull << 7),
-    (1ull << 8),  (1ull << 9),  (1ull << 10), (1ull << 11), (1ull << 12), (1ull << 13), (1ull << 14), (1ull << 15),
-    (1ull << 16), (1ull << 17), (1ull << 18), (1ull << 19), (1ull << 20), (1ull << 21), (1ull << 22), (1ull << 23),
-    (1ull << 24), (1ull << 25), (1ull << 26), (1ull << 27), (1ull << 28), (1ull << 29), (1ull << 30), (1ull << 31),
-    (1ull << 32), (1ull << 33), (1ull << 34), (1ull << 35), (1ull << 36), (1ull << 37), (1ull << 38), (1ull << 39),
-    (1ull << 40), (1ull << 41), (1ull << 42), (1ull << 43), (1ull << 44), (1ull << 45), (1ull << 46), (1ull << 47),
-    (1ull << 48), (1ull << 49), (1ull << 50), (1ull << 51), (1ull << 52), (1ull << 53), (1ull << 54), (1ull << 55),
-    (1ull << 56), (1ull << 57), (1ull << 58), (1ull << 59), (1ull << 60), (1ull << 61), (1ull << 62), (1ull << 63)};
-*/
-
 static const char LogTable256[256] = {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
     -1,    0,     1,     1,     2,     2,     2,     2,     3,     3,     3,     3,     3,     3,     3,    3,
@@ -91,8 +79,6 @@ static uint64_t logBase2(uint64_t v) {
 
     return r;
 }
-
-// static uint64_t rshift(uint64_t v, int nbits) { return (v / pow_2[nbits]); }
 
 enum class bit_match_type : uint8_t { no_match, lsb_match, mid_match, msb_match };
 struct bit_filter {
@@ -254,40 +240,6 @@ public:
         return (uint32_t)first_0bit;
     }
 
-    /*int get_first_continous_reset_bits(word_t w, int nbits, int* start_bit) {
-        auto first_0bit = ffsll(~w) - 1;
-        *start = first_0bit;
-
-        if ((first_0bit < 0) || (first_0bit > nbits)) {
-            return 0;
-        } else if ((first_0bit == (nbits - 1))) {
-            // Only last bit is reset, set it so
-            return 1;
-        } else {
-            w = w >> (first_0bit + 1);
-            return (w ? ffsll(w) : nbits - first_0bit);
-        }
-    }
-
-    int get_first_continous_reset_bits(word_t& w, int nbits, int* start_bit, int* shifted_count) {
-        auto first_0bit = ffsll(~w) - 1;
-        *start_bit = first_0bit;
-
-        if ((first_0bit < 0) || (first_0bit > nbits)) {
-            *shifted_count = nbits;
-            return 0;
-        } else if ((first_0bit == (nbits - 1))) {
-            // Only last bit is reset, set it so
-            *shifted_count = nbits;
-            return 1;
-        } else {
-            w = w >> (first_0bit + 1);
-            count = (w ? ffsll(w) : nbits - first_0bit);
-            *shifted_count = count + first_0bit;
-            return count;
-        }
-    } */
-
     struct bit_match_result {
         bit_match_type match_type;
         int start_bit;
@@ -351,99 +303,6 @@ public:
         }
         return result;
     }
-    // 00 1100 0011
-    // 00 1100 0000
-    /*bit_match_type get_next_reset_bits_filtered(int start, const bit_filter& filter, int* match_start_bit) const {
-        bit_match_type match_type = bit_match_type::no_match;
-        int first_0bit = 0;
-        int count = 0;
-        bool lsb_search = (start == 0);
-        word_t e = extract(start, bits());
-
-        int search_nbits = bits() - start; // Whats the range we are searching for now
-        while (search_nbits > 0) {
-            count = 0;
-            first_0bit = ffsll(~e) - 1;
-            if ((first_0bit < 0) || (first_0bit > search_nbits)) {
-                // No more zero's here in our range.
-                break;
-            } else if (first_0bit == (search_nbits - 1)) {
-                // Only last bit is reset, set it so
-                e = 0;
-                count = 1;
-                break;
-            } else {
-                e = e >> (first_0bit + 1);
-                // count = e ? ffsll(e) % search_nbits : search_nbits - first_0bit;
-                count = e ? ffsll(e) : search_nbits - first_0bit;
-            }
-
-            if (lsb_search) {
-                if ((first_0bit == 0) && (count >= filter.n_lsb_reqd)) {
-                    // We matched lsb with required count
-                    match_type = bit_match_type::lsb_match;
-                    break;
-                }
-                lsb_search = false;
-            }
-
-            if (count >= filter.n_mid_reqd) {
-                match_type = bit_match_type::mid_match;
-                break;
-            }
-
-            e = e >> (count - 1);
-            start += count;
-            search_nbits -= (count + first_0bit);
-        }
-
-        if ((match_type == bit_match_type::no_match) && (count >= filter.n_msb_reqd)) {
-            match_type = bit_match_type::msb_match;
-        }
-        *match_start_bit = first_0bit + start;
-        return match_type;
-    }*/
-
-#if 0
-    auto is_word_edge(BitBlock& b, bool* is_left_edge, bool* is_right_edge) {
-        struct {
-            bool msb_edge;
-            bool lsb_edge;
-        } ret{false, false};
-
-        if (b.start_bit != 0) { ret.lsb_edge = true; }
-        if ((b.start_bit + b.nbits) == bits()) { ret.msb_edge = true; }
-
-        return ret;
-    }
-#endif
-
-#if 0
-    int get_next_reset_bits(int start, uint32_t *pcount) const {
-        uint64_t cur_bit = 0;
-        uint64_t prev_bit = 0;
-        word_t e = extract(start, bits());
-
-        *pcount = 0;
-        while ( (e != 0)) {
-            uint64_t x = e & (-e);
-            e &= ~x;
-            cur_bit = logBase2(x);
-
-            *pcount = (uint32_t)(cur_bit - prev_bit);
-            if (*pcount > 0) {
-                return (int)(prev_bit + start);
-            }
-
-            // We encountered a set bit (1), so keep moving forward
-            prev_bit = cur_bit + 1;
-        }
-
-        // Look for leading 0s
-        *pcount = (uint32_t)(bits() - start - prev_bit);
-        return (uint32_t)(prev_bit + start);
-    }
-#endif
 
     bool set_next_reset_bit(int start, int maxbits, int* p_bit) {
         bool found = get_next_reset_bit(start, p_bit);
@@ -531,7 +390,7 @@ private:
 
 private:
     Word m_bits;
-}; // namespace sisl
+};
 
 template < typename WType >
 class unsafe_bits {
@@ -597,83 +456,4 @@ public:
 private:
     std::atomic< WType > m_val;
 };
-
-#if 0
-template < typename T >
-class atomic_bitset {
-    static constexpr uint32_t entry_size() { return (sizeof(T) * 8); }
-
-public:
-    explicit atomic_bitset(int bits) { m_bits = bits; }
-
-    int get_set_count() { return sisl::Bitword< T >(m_bits.load()).get_set_count(); }
-
-    void set_bits(int start, int nbits, std::memory_order order = std::memory_order_seq_cst) {
-        set_reset_bits(start, nbits, true /* set */, order);
-    }
-
-    void reset_bits(int start, int nbits, std::memory_order order = std::memory_order_seq_cst) {
-        set_reset_bits(start, nbits, false /* set */, order);
-    }
-
-    void set_reset_bits(int start, int nbits, bool set, std::memory_order order = std::memory_order_seq_cst) {
-        T oldb;
-        T newb;
-        do {
-            oldb = m_bits.load(order);
-            newb = sisl::Bitword< T >(oldb).set_reset_bits(start, nbits, set);
-        } while (!m_bits.compare_exchange_weak(oldb, newb, order));
-    }
-
-    bool is_bit_set_reset(int start, bool check_for_set, std::memory_order order = std::memory_order_seq_cst) const {
-        return sisl::Bitword< T >(m_bits.load(order)).is_bit_set_reset(start, check_for_set);
-    }
-
-    bool is_bits_set_reset(int start, int nbits, bool check_for_set,
-                           std::memory_order order = std::memory_order_seq_cst) const {
-        return sisl::Bitword< T >(m_bits.load(order)).is_bits_set_reset(start, nbits, check_for_set);
-    }
-
-    int get_next_reset_bit(int start, int* p_reset_start, std::memory_order order = std::memory_order_seq_cst) const {
-        return sisl::Bitword< T >(m_bits.load(order)).get_next_reset_bit(start, p_reset_start);
-    }
-
-    /* @brief:
-     *
-     * bool set_next_reset_bit(int start, int maxbits, int *p_bit)
-     *
-     * Atomically set the next reset bit available in the trailing side.
-     * Parameters:
-     * Start - Start bit after which reset bit is sought after.
-     * maxbits - Maximum number of bits to look for
-     *
-     * Output
-     * *p_bit: Fills in the bit which was reset. Valid only if return is true.
-     *
-     * Returns : True if it was able to set one, False if there is not enough reset bits
-     * available.
-     */
-    bool set_next_reset_bit(int start, int maxbits, int* p_bit) {
-        uint64_t oldv;
-        Bitword< T > bset;
-        bool done;
-
-        do {
-            oldv = m_bits.load();
-            bset = sisl::Bitword< T >(oldv);
-            done = bset.set_next_reset_bit(start, maxbits, p_bit);
-        } while (!m_bits.compare_exchange_weak(oldv, bset.to_integer()));
-
-        return done;
-    }
-
-    bool set_next_reset_bit(int start, int* p_bit) { return set_next_reset_bit(start, entry_size(), p_bit); }
-
-    void print() { sisl::Bitword< T >(m_bits.load()).print(); }
-
-private:
-    std::atomic< T > m_bits;
-};
-#endif
-
 } // namespace sisl
