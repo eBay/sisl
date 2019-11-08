@@ -89,7 +89,7 @@ public:
 
         auto ret = std::move(m_base_obj);
         m_base_obj = m_buffer->create_buf();
-        return std::move(ret);
+        return ret;
     }
 
     /* This method simply makes new buffer and put it in old, however, it is not guaranteed that old buffers
