@@ -50,6 +50,8 @@ public:
         free(m_slot_data);
     }
 
+    void reinit(int64_t start_idx) { m_slot_ref_idx = start_idx; }
+
     template < class... Args >
     int64_t create_and_complete(int64_t idx, Args&&... args) {
         return do_update(idx, nullptr, true /* replace */, std::forward< Args >(args)...);

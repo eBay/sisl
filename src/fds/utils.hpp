@@ -4,6 +4,7 @@
 #include <atomic>
 #include <iostream>
 #include <array>
+#include <cstdlib>
 
 #if defined __GNUC__ || defined __llvm__
 #define sisl_likely(x) __builtin_expect(!!(x), 1)
@@ -13,9 +14,9 @@
 #define sisl_unlikely(x) (x)
 #endif
 
-namespace sisl {
-/*************** Clock/Time Related Methods/Definitions **************/
 using Clock = std::chrono::steady_clock;
+
+/*************** Clock/Time Related Methods/Definitions **************/
 #define CURRENT_CLOCK(name) Clock::time_point name = Clock::now()
 
 inline uint64_t get_elapsed_time_ns(Clock::time_point t) {
@@ -60,11 +61,6 @@ void atomic_update_min(std::atomic< T >& min_value, T const& value,
 }
 
 /*************** Memory/Array Related Methods/Definitions **************/
-struct blob {
-    uint8_t* bytes;
-    uint32_t size;
-};
-
 template < unsigned... Is >
 struct seq {};
 template < unsigned N, unsigned... Is >
@@ -99,6 +95,45 @@ template < uint32_t bits, uint32_t lshifts = 0 >
 static uint64_t constexpr get_mask() {
     return uint64_t(~((uint64_t)(-1) << bits) << lshifts);
 }
+
+namespace sisl {
+template < typename T >
+struct aligned_free {
+    void operator()(T* p) { std::free(p); }
+};
+
+template < class T >
+using aligned_unique_ptr = std::unique_ptr< T, aligned_free< T > >;
+
+template < class T >
+aligned_unique_ptr< T > make_aligned_unique(size_t align, size_t size) {
+    return aligned_unique_ptr< T >(static_cast< T* >(std::aligned_alloc(align, size)));
+}
+
+template < class T >
+std::shared_ptr< T > make_aligned_shared(size_t align, size_t size) {
+    return std::shared_ptr< T >(static_cast< T* >(std::aligned_alloc(align, size)), aligned_free< T >());
+}
+
+/*struct byte_array : public std::vector< uint8_t > {
+    byte_array(size_t sz) : std::vector< uint8_t >() { std::vector< uint8_t >::reserve(sz); }
+};*/
+
+struct blob {
+    uint8_t* bytes;
+    uint32_t size;
+
+    blob() : blob(nullptr, 0) {}
+    blob(uint8_t* _bytes, uint32_t _size) : bytes(_bytes), size(_size) {}
+};
+
+struct byte_array : public blob {
+    byte_array(uint32_t sz, uint32_t alignment = 0) :
+            blob((uint8_t*)((alignment == 0) ? std::malloc(sz) : std::aligned_alloc(alignment, sz)), sz) {}
+    ~byte_array() { std::free(bytes); }
+};
+
+inline uint32_t round_up(uint32_t num_to_round, uint32_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
 
 /********* Bitwise and math related manipulation ********/
 template < int S >

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <folly/ThreadLocal.h>
 #include <metrics/metrics.hpp>
+#include "utils.hpp"
 
 namespace sisl {
 
