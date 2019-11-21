@@ -115,10 +115,6 @@ std::shared_ptr< T > make_aligned_shared(size_t align, size_t size) {
     return std::shared_ptr< T >(static_cast< T* >(std::aligned_alloc(align, size)), aligned_free< T >());
 }
 
-/*struct byte_array : public std::vector< uint8_t > {
-    byte_array(size_t sz) : std::vector< uint8_t >() { std::vector< uint8_t >::reserve(sz); }
-};*/
-
 struct blob {
     uint8_t* bytes;
     uint32_t size;
@@ -127,11 +123,20 @@ struct blob {
     blob(uint8_t* _bytes, uint32_t _size) : bytes(_bytes), size(_size) {}
 };
 
-struct byte_array : public blob {
-    byte_array(uint32_t sz, uint32_t alignment = 0) :
+/* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
+ * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
+ */
+struct _byte_array : public blob {
+    _byte_array(uint32_t sz, uint32_t alignment = 0) :
             blob((uint8_t*)((alignment == 0) ? std::malloc(sz) : std::aligned_alloc(alignment, sz)), sz) {}
-    ~byte_array() { std::free(bytes); }
+    ~_byte_array() { std::free(bytes); }
 };
+
+using byte_array = std::shared_ptr< _byte_array >;
+
+inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0) {
+    return std::make_shared< _byte_array >(sz, alignment);
+}
 
 inline uint32_t round_up(uint32_t num_to_round, uint32_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
 

@@ -105,6 +105,9 @@ public:
 
     explicit Bitword(Word b) { m_bits.set(b); }
     explicit Bitword(word_t val) { m_bits.set(val); }
+
+    void set(word_t val) { m_bits.set(val); }
+
     /*
      * @brief:
      * Total number of bits set in the bitset

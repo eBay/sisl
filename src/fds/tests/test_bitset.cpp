@@ -121,6 +121,13 @@ protected:
         m_total_bits += nbits;
     }
 
+    sisl::byte_array serialize() { return m_bset.serialize(); }
+
+    void deserialize(sisl::byte_array buf) {
+        sisl::ThreadSafeBitset tmp_bset(*buf);
+        m_bset = std::move(tmp_bset);
+    }
+
     void validate_all(uint32_t n_continous_expected) {
         validate_by_simple_get();
         validate_by_next_bits(true);
@@ -324,6 +331,31 @@ TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
     LOGINFO("INFO: Empty the bitset again and then try to obtain 5 and 1 contigous entries");
     shrink_head(total_bits());
     validate_all(1);
+}
+
+TEST_F(BitsetTest, SerializeDeserialize) {
+    run_parallel(total_bits(), g_num_threads, [&](uint64_t start, uint32_t count) {
+        LOGINFO("INFO: Setting/Resetting all bits in range[{} - {}] set_pct={}", start, start + count - 1, g_set_pct);
+        for (auto i = start; i < start + count; ++i) {
+            ((rand() % 100) < (int)g_set_pct) ? set(i, 1) : reset(i, 1);
+        }
+    });
+
+    validate_all(1);
+    shrink_head(139);
+
+    LOGINFO("INFO: Serialize and then deserialize the bitset and then validate");
+    auto b = serialize();
+    deserialize(b);
+    validate_all(1);
+
+    run_parallel(total_bits(), g_num_threads, [&](uint64_t start, uint32_t count) {
+        LOGINFO("INFO: Setting/Resetting all bits in range[{} - {}] set_pct={}", start, start + count - 1, g_set_pct);
+        for (auto i = start; i < start + count; ++i) {
+            ((rand() % 100) < (int)g_set_pct) ? set(i, 1) : reset(i, 1);
+        }
+    });
+    validate_all(3);
 }
 
 SDS_OPTIONS_ENABLE(logging, test_bitset)

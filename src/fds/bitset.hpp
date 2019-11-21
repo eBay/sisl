@@ -36,6 +36,15 @@ struct BitBlock {
         return method_name(__VA_ARGS__);                                                                               \
     }
 
+struct bitset_serialized {
+    uint64_t nbits;
+    uint64_t skip_bits;
+    uint64_t words[0];
+
+    static uint64_t nbytes(uint64_t bits) { return sizeof(bitset_serialized) + (total_words(bits) * sizeof(uint64_t)); }
+    static uint64_t total_words(uint64_t bits) { return ((bits - 1) / 64) + 1; }
+};
+
 template < typename Word, bool ThreadSafeResizing = false >
 class BitsetImpl {
 private:
@@ -64,7 +73,7 @@ public:
         m_nbits = nbits;
     }
 
-    explicit BitsetImpl(const Word& others) {
+    explicit BitsetImpl(const BitsetImpl& others) {
         m_words_cap = others.m_words_cap;
         m_words = std::unique_ptr< Word[] >(new Word[m_words_cap]);
         std::memcpy((void*)m_words.get(), (void*)others.m_words.get(), m_words_cap * sizeof(Word));
@@ -72,63 +81,55 @@ public:
         m_skip_bits = others.m_skip_bits;
     }
 
-#ifdef SERIALIZE_SUPPORT
     explicit BitsetImpl(const sisl::blob& b) {
-        auto nwords = 0U;
+        bitset_serialized* ar = (bitset_serialized*)b.bytes;
+        assert(b.size == bitset_serialized::nbytes(ar->nbits));
 
-        if (b.size % sizeof(Word) == 0) {
-            nwords = b.size / sizeof(Word);
-        } else {
-            nwords = b.size / sizeof(Word) + 1;
+        m_nbits = ar->nbits;
+        m_skip_bits = ar->skip_bits;
+        m_words_cap = bitset_serialized::total_words(m_nbits);
+        m_words = std::unique_ptr< Word[] >(new Word[m_words_cap]);
+        for (auto i = 0ul; i < m_words_cap; ++i) {
+            m_words[i].set(ar->words[i]);
+            //(*(m_words.get()))[i].set(ar->words[i]);
         }
+    }
 
-        m_words.reserve(nwords);
+    BitsetImpl& operator=(BitsetImpl&& others) {
+        m_words_cap = others.m_words_cap;
+        m_words = std::move(others.m_words);
+        m_nbits = others.m_nbits;
+        m_skip_bits = others.m_skip_bits;
 
-        auto p = (Word*)b.bytes;
-        for (auto i = 0U; i < nwords; i++) {
-            m_words.emplace_back(p[i]);
-        }
-        m_nbits = nwords * Word::WordType::bits();
+        others.m_nbits = others.m_skip_bits = others.m_words_cap = 0;
+        return *this;
     }
 
     // Serialize the bitset into the blob provided upto blob bytes.
     // Returns if it able completely serialize within the bytes specified.
-    bool serialize(const sisl::blob& b) {
-        if (b.size < size_serialized()) { return false; }
-
+    const sisl::byte_array serialize(uint64_t alignment_size = 0) const {
         if (ThreadSafeResizing) { m_lock.lock(); }
-        uint64_t j = 0ULL;
-        for (auto& w : m_words) {
-            uint64_t t = w.to_integer();
-            // for (auto i = 7; i >= 0; i--) {
-            for (auto i = 0U; i < 8; i++) {
-                // serilize 8 bits once a time
-                b.bytes[i + j] = (uint8_t)(t & 0xffULL);
-                t >>= 8;
-            }
-            j += 8; // move on to next word which is 8 bytes;
+
+        auto b = sisl::make_byte_array(bitset_serialized::nbytes(m_nbits), alignment_size);
+        bitset_serialized* ar = (bitset_serialized*)b->bytes;
+        ar->nbits = m_nbits;
+        ar->skip_bits = m_skip_bits;
+
+        for (auto i = 0ul; i < m_words_cap; ++i) {
+            // ar->words[i] = (*(m_words.get()))[i].to_integer();
+            ar->words[i] = m_words[i].to_integer();
         }
 
         if (ThreadSafeResizing) { m_lock.unlock(); }
-        return true;
+        return b;
     }
-
-    // Returns how much bytes it will occupy when this bitset is serialized
-    // Not the size is rounded up to words, not bits;
-    uint32_t size_serialized() const {
-        if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        auto ret = (sizeof(Word) * m_words.bits());
-        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-        return ret;
-    }
-#endif
 
     /**
      * @brief Get total bits available in this bitset
      *
      * @return uint64_t
      */
-    uint64_t get_total_bits() const {
+    uint64_t size() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
         auto ret = total_bits();
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
@@ -235,7 +236,7 @@ public:
         if (nbits > total_bits()) { throw std::out_of_range("Right shift to out of range"); }
         m_skip_bits += nbits;
         if (m_skip_bits >= compaction_threshold()) {
-            _resize(total_bits());
+            _resize(total_bits(), false);
             /*auto shrink_words = m_skip_bits / Word::bits();
             auto new_skip_bits = m_skip_bits % Word::bits();
 
@@ -253,9 +254,17 @@ public:
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
-    void resize(uint64_t nbits) {
+    /**
+     * @brief resize the bitset to number of bits. If nbits is more than existing bits, it will expand the bits and set
+     * the new bits with value specified in the second parameter. If nbits is less than existing bits, it discards
+     * remaining bits.
+     *
+     * @param nbits: New count of bits the bitset to be reset to
+     * @param value: Value to set if bitset is resized up.
+     */
+    void resize(uint64_t nbits, bool value = false) {
         if (ThreadSafeResizing) { m_lock.lock(); }
-        _resize(nbits);
+        _resize(nbits, value);
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
@@ -402,7 +411,7 @@ private:
         return true;
     }
 
-    void _resize(uint64_t nbits) {
+    void _resize(uint64_t nbits, bool value) {
         // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip list
         // size. Rest of them will be compacted.
         auto shrink_words = m_skip_bits / Word::bits();
@@ -411,8 +420,12 @@ private:
         auto new_nbits = nbits + new_skip_bits;
         auto new_cap = (new_nbits - 1) / Word::bits() + 1;
         auto new_words = std::unique_ptr< Word[] >(new Word[new_cap]);
-        std::memmove((void*)new_words.get(), (void*)&(m_words.get()[shrink_words]),
-                     (sizeof(Word) * std::min(m_words_cap - shrink_words, new_cap)));
+        auto move_nwords = std::min(m_words_cap - shrink_words, new_cap);
+        std::memmove((void*)new_words.get(), (void*)&(m_words.get()[shrink_words]), (sizeof(Word) * move_nwords));
+        if (new_cap > move_nwords) {
+            // Fill in the remaining space with value passed
+            std::memset((void*)&new_words[move_nwords], value ? 0xff : 0, (sizeof(Word) * (new_cap - move_nwords)));
+        }
 
         m_words_cap = new_cap;
         m_skip_bits = new_skip_bits;
@@ -439,16 +452,31 @@ private:
     }
 
     uint64_t total_bits() const { return m_nbits - m_skip_bits; }
-}; // namespace sisl
+    Word* nth_word(uint64_t nword) { return (*(m_words.get()))[nword]; }
+};
 
+/**
+ * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is expected
+ * the user to handle that. This is equivalent to boost::dynamic_bitset
+ */
 typedef BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > Bitset;
-typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, false > AtomicBitset;
-typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, true > ThreadSafeBitset;
 
-#if 0
-class Bitset : public BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > {};
-class AtomicBitset : public BitsetImpl< Bitword< safe_bits< uint64_t > >, false > {};
-class ThreadSafeBitset : public BitsetImpl< Bitword< safe_bits< uint64_t > >, true > {};
-#endif
+/**
+ * @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be set/unset.
+ * However, set/unset concurrently along with increasing the size, setting a bit beyond original size, concurrent test
+ * of bits can produce inconsitent values
+ *
+ * NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used where resize
+ * and test set bits are all controlled externally.
+ */
+typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, false > AtomicBitset;
+
+/**
+ * @brief ThreadSafeBitset: This provides thread safe concurrent set/unset bits and also resize. However, it still
+ * can produce inconsistent result if bits are tested concurrently with set/unset bits. Hence one thread doing a set
+ * bit and other thread doing a is_bit set for same bit could return inconsistent results. If such requirement exists,
+ * use Bitset and take a lock outside the bitset container.
+ */
+typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, true > ThreadSafeBitset;
 
 } // namespace sisl
