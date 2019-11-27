@@ -412,9 +412,21 @@ public:
         return false;
     }
 
-    WType or_with(uint64_t val) { m_val |= val; }
-    WType and_with(uint64_t val) { m_val &= val; }
-    WType right_shift(uint32_t nbits) { m_val >>= nbits; }
+    WType or_with(uint64_t val) {
+        m_val |= val;
+        return m_val;
+    }
+
+    WType and_with(uint64_t val) {
+        m_val &= val;
+        return m_val;
+    }
+
+    WType right_shift(uint32_t nbits) {
+        m_val >>= nbits;
+        return m_val;
+    }
+
     WType get() const { return m_val; }
 
 private:
