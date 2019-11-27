@@ -331,7 +331,7 @@ public:
         uint32_t new_ind;
         bool inserted = false;
         std::unique_lock< std::recursive_mutex > mtx(m_mtx);
-        bool found = find_index(offset, -1, &new_ind);
+        [[maybe_unused]] bool found = find_index(offset, -1, &new_ind);
         assert(found);
         auto& mp = get_nth_piece_mutable(new_ind);
         if (mp.ptr() == nullptr) {
