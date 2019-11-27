@@ -124,7 +124,7 @@ protected:
     sisl::byte_array serialize() { return m_bset.serialize(); }
 
     void deserialize(sisl::byte_array buf) {
-        sisl::ThreadSafeBitset tmp_bset(*buf);
+        sisl::ThreadSafeBitset tmp_bset(buf);
         m_bset = std::move(tmp_bset);
     }
 
