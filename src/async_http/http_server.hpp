@@ -548,7 +548,7 @@ private:
             }
         }
 
-        return std::move(ssl_config);
+        return ssl_config;
     }
 
 private:

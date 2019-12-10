@@ -22,6 +22,10 @@ pipeline {
                 sh "docker build --rm --build-arg BUILD_TYPE=debug --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-debug ."
                 sh "docker build --rm --build-arg BUILD_TYPE=nosanitize --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-nosanitize ."
                 sh "docker build --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT} ."
+
+                sh "docker build -f Dockerfile.eoan --rm --build-arg BUILD_TYPE=debug --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-debug-eoan ."
+                sh "docker build -f Dockerfile.eoan --rm --build-arg BUILD_TYPE=nosanitize --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-nosanitize-eoan ."
+                sh "docker build -f Dockerfile.eoan --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-eoan ."
             }
         }
 
@@ -33,6 +37,9 @@ pipeline {
                 sh "docker run --rm ${PROJECT}-${GIT_COMMIT}"
                 sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-debug"
                 sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-nosanitize"
+                sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-eoan"
+                sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-nosanitize-eoan"
+                sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-debug-eoan"
                 slackSend channel: '#conan-pkgs', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has been uploaded to conan repo."
             }
         }
@@ -43,6 +50,9 @@ pipeline {
             sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}"
             sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-debug"
             sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-nosanitize"
+            sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-eoan"
+            sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-nosanitize-eoan"
+            sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-debug-eoan"
         }
     }
 }
