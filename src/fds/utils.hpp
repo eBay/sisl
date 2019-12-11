@@ -5,6 +5,7 @@
 #include <iostream>
 #include <array>
 #include <cstdlib>
+#include <memory>
 
 #if defined __GNUC__ || defined __llvm__
 #define sisl_likely(x) __builtin_expect(!!(x), 1)
