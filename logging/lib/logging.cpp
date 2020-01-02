@@ -83,7 +83,8 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
     spdlog::register_logger(glob_spdlog_logger);
 
     // Create/Setup and register critical logger. Critical logger is sync logger
-    glob_critical_logger = std::make_shared< spdlog::logger >(name + "_critical", critical_sinks.begin(), critical_sinks.end());
+    glob_critical_logger =
+        std::make_shared< spdlog::logger >(name + "_critical", critical_sinks.begin(), critical_sinks.end());
     glob_critical_logger->flush_on(spdlog::level::err);
     glob_critical_logger->set_level(spdlog::level::level_enum::err);
     spdlog::register_logger(glob_critical_logger);
@@ -126,7 +127,12 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
                 LOGWARN("Could not load module logger: {}\n{}", module_name, dlerror());
             }
         }
-        LOGINFO("Enabled modules:\t{}", std::accumulate(glob_enabled_mods.begin(), glob_enabled_mods.end(), std::string("")));
+        if (0 < glob_enabled_mods.size()) {
+            auto const dash_fold = [](std::string a, std::string b) { return std::move(a) + ", " + b; };
+            LOGINFO("Enabled modules:\t{}",
+                    std::accumulate(std::next(glob_enabled_mods.begin()), glob_enabled_mods.end(), glob_enabled_mods[0],
+                                    dash_fold));
+        }
     }
 }
 
