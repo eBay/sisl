@@ -17,7 +17,7 @@ class MetricsConan(ConanFile):
                "coverage": ['True', 'False']}
     default_options = ('shared=False', 'fPIC=True', 'coverage=False')
 
-    requires = (("sds_logging/6.0.0@sds/testing"),
+    requires = (("sds_logging/6.1.0@sds/develop"),
                 ("benchmark/1.5.0@oss/stable"),
                 ("boost_intrusive/1.69.0@bincrafters/stable"),
                 ("boost_dynamic_bitset/1.69.0@bincrafters/stable"),
@@ -25,7 +25,7 @@ class MetricsConan(ConanFile):
                 ("boost_preprocessor/1.69.0@bincrafters/stable"),
                 ("gtest/1.8.1@bincrafters/stable"),
                 ("evhtp/1.2.18.1@oss/stable"),
-                ("folly/2019.09.23.00@bincrafters/testing"),
+                ("folly/2019.09.23.00@bincrafters/stable"),
                 ("userspace-rcu/0.10.1@oss/stable"),
                 ("OpenSSL/1.1.1c@conan/stable"),
                 ("sds_prometheus/0.7.1@sds/stable"),
