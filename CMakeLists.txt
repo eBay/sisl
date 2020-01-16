@@ -19,6 +19,8 @@ if  (${MEMORY_SANITIZER_ON})
     include (cmake/mem_sanitizer.cmake)
 endif()
 
+find_package (Threads REQUIRED)
+
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)

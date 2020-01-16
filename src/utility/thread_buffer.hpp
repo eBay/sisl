@@ -40,6 +40,8 @@ struct atomic_wrapper {
 class ThreadRegistry {
 #define INVALID_CURSOR boost::dynamic_bitset<>::npos
 
+    typedef std::map< uint64_t, thread_state_cb_t > notifiers_list_t;
+
 public:
     static constexpr size_t max_tracked_threads() { return 1024U; }
 
@@ -53,8 +55,8 @@ public:
     }
 
     uint32_t attach() {
-        uint32_t                         thread_num;
-        std::vector< thread_state_cb_t > notifiers;
+        uint32_t thread_num;
+        notifiers_list_t notifiers;
 
         {
             std::unique_lock lock(m_init_mutex);
@@ -65,7 +67,7 @@ public:
             // Mark the slot as not free
             m_free_thread_slots.reset(thread_num);
 
-            char   thread_name[256] = {0};
+            char thread_name[256] = {0};
             size_t len = sizeof(thread_name);
 
 #ifdef _POSIX_THREADS
@@ -77,22 +79,22 @@ public:
         }
 
         // Notify the modules that a new thread is attached
-        for (auto cb : notifiers) {
-            cb(thread_num, thread_life_cycle::THREAD_ATTACHED);
+        for (auto& n : notifiers) {
+            n.second(thread_num, thread_life_cycle::THREAD_ATTACHED);
         }
         return thread_num;
     }
 
     void detach(uint32_t thread_num) {
-        std::vector< thread_state_cb_t > notifiers;
+        notifiers_list_t notifiers;
         {
             std::unique_lock lock(m_init_mutex);
             m_free_thread_slots.set(thread_num);
             notifiers = m_registered_notifiers;
         }
 
-        for (auto cb : notifiers) {
-            cb(thread_num, thread_life_cycle::THREAD_DETACHED);
+        for (auto& n : notifiers) {
+            n.second(thread_num, thread_life_cycle::THREAD_DETACHED);
         }
         sisl::urcu_ctl::unregister_rcu();
     }
@@ -101,12 +103,16 @@ public:
 
     void slot_release(uint32_t thread_num) { m_ref_count[thread_num].decrement_testz(); }
 
-    void register_for_sc_notification(const thread_state_cb_t& cb) {
+    uint64_t register_for_sc_notification(const thread_state_cb_t& cb) {
         std::vector< uint8_t > tnums;
+        uint64_t notify_idx;
+
         tnums.reserve(m_free_thread_slots.size());
         {
             std::unique_lock lock(m_init_mutex);
-            m_registered_notifiers.push_back(cb);
+            notify_idx = m_next_notify_idx++;
+            m_registered_notifiers[notify_idx] = cb;
+            // m_registered_notifiers.push_back(cb);
 
             // We need to make a callback to this registeree with all running threads
             auto running_thread_slots = ~m_free_thread_slots;
@@ -120,6 +126,12 @@ public:
         for (auto tnum : tnums) {
             cb(tnum, thread_life_cycle::THREAD_ATTACHED);
         }
+        return notify_idx;
+    }
+
+    void deregister_sc_notification(uint64_t notify_idx) {
+        std::unique_lock lock(m_init_mutex);
+        m_registered_notifiers.erase(notify_idx);
     }
 
     bool is_thread_running(uint32_t thread_num) {
@@ -178,7 +190,7 @@ public:
 #endif
 
     static ThreadRegistry* instance() { return &inst; }
-    static ThreadRegistry  inst;
+    static ThreadRegistry inst;
 
 private:
     uint32_t get_next_free_slot() {
@@ -216,7 +228,9 @@ private:
     // boost::dynamic_bitset<> m_refed_slots;
     std::vector< sisl::atomic_counter< int > > m_ref_count;
 
-    std::vector< thread_state_cb_t > m_registered_notifiers;
+    uint32_t m_next_notify_idx = 0;
+    notifiers_list_t m_registered_notifiers;
+    // std::vector< thread_state_cb_t >        m_registered_notifiers;
 };
 
 #define thread_registry ThreadRegistry::instance()
@@ -225,7 +239,8 @@ class ThreadLocalContext {
 public:
     ThreadLocalContext() {
         this_thread_num = thread_registry->attach();
-        // printf("Created new ThreadLocalContext with thread_num = %u\n", this_thread_num);
+        // LOGINFO("Created new ThreadLocalContext with thread_num = {}, my_thread_num = {}", this_thread_num,
+        //        my_thread_num());
     }
 
     ~ThreadLocalContext() {
@@ -241,12 +256,12 @@ public:
 
     static thread_local ThreadLocalContext inst;
 
-    uint32_t                  this_thread_num;
+    uint32_t this_thread_num;
     std::array< uint64_t, 5 > user_contexts; // To store any user contexts
 };
 
 #define THREAD_BUFFER_INIT                                                                                             \
-    sisl::ThreadRegistry                  sisl::ThreadRegistry::inst;                                                  \
+    sisl::ThreadRegistry sisl::ThreadRegistry::inst;                                                                   \
     thread_local sisl::ThreadLocalContext sisl::ThreadLocalContext::inst;
 
 template < bool IsActiveThreadsOnly, typename T, typename... Args >
@@ -259,9 +274,11 @@ public:
             m_args(std::forward< Args1 >(args)...),
             m_thread_slots(ThreadRegistry::max_tracked_threads()) {
         m_buffers.reserve(ThreadRegistry::max_tracked_threads());
-        thread_registry->register_for_sc_notification(
+        m_notify_idx = thread_registry->register_for_sc_notification(
             std::bind(&ThreadBuffer::on_thread_state_change, this, std::placeholders::_1, std::placeholders::_2));
     }
+
+    ~ThreadBuffer() { thread_registry->deregister_sc_notification(m_notify_idx); }
 
     T* get() {
         auto tnum = ThreadLocalContext::my_thread_num();
@@ -302,13 +319,11 @@ public:
         std::vector< uint32_t > can_free_thread_bufs;
         {
             std::shared_lock l(m_expand_mutex);
-            auto             tnum = m_thread_slots.find_first();
+            auto tnum = m_thread_slots.find_first();
             while (tnum != INVALID_CURSOR) {
                 auto is_running = IsActiveThreadsOnly || thread_registry->is_thread_running(tnum);
                 bool can_free = cb(m_buffers.at(tnum).get(), is_running) && !is_running;
-                if (can_free) {
-                    can_free_thread_bufs.push_back(tnum);
-                }
+                if (can_free) { can_free_thread_bufs.push_back(tnum); }
                 tnum = m_thread_slots.find_next(tnum);
             }
         }
@@ -330,9 +345,7 @@ public:
         {
             std::shared_lock l(m_expand_mutex);
             // If thread is not running or its context is already expired, then no callback.
-            if (!m_thread_slots[thread_num]) {
-                return false;
-            }
+            if (!m_thread_slots[thread_num]) { return false; }
 
             auto is_running = IsActiveThreadsOnly || thread_registry->is_thread_running(thread_num);
             can_free = cb(m_buffers.at(thread_num).get(), is_running) && !is_running;
@@ -384,9 +397,10 @@ private:
 
 private:
     sisl::sparse_vector< std::unique_ptr< T > > m_buffers;
-    std::tuple< Args... >                       m_args;
-    std::shared_mutex                           m_expand_mutex;
-    boost::dynamic_bitset<>                     m_thread_slots;
+    std::tuple< Args... > m_args;
+    std::shared_mutex m_expand_mutex;
+    boost::dynamic_bitset<> m_thread_slots;
+    uint64_t m_notify_idx = 0;
 };
 
 template < typename T, typename... Args >
@@ -398,7 +412,7 @@ public:
     ActiveOnlyThreadBuffer(Args&&... args) : ThreadBuffer< true, T, Args... >(std::forward< Args >(args)...) {}
 
     void access_all_threads(std::function< void(T*) > cb) {
-        ThreadBuffer< true, T, Args... >::access_all_threads([this, cb](T* t, bool is_thread_running) {
+        ThreadBuffer< true, T, Args... >::access_all_threads([this, cb](T* t, [[maybe_unused]] bool is_thread_running) {
             assert(is_thread_running);
             cb(t);
             return false;
@@ -406,12 +420,12 @@ public:
     }
 
     bool access_specific_thread(uint32_t thread_num, std::function< void(T*) > cb) {
-        return ThreadBuffer< true, T, Args... >::access_specific_thread(thread_num,
-                                                                        [this, cb](T* t, bool is_thread_running) {
-                                                                            assert(is_thread_running);
-                                                                            cb(t);
-                                                                            return false;
-                                                                        });
+        return ThreadBuffer< true, T, Args... >::access_specific_thread(
+            thread_num, [this, cb](T* t, [[maybe_unused]] bool is_thread_running) {
+                assert(is_thread_running);
+                cb(t);
+                return false;
+            });
     }
 };
 
