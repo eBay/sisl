@@ -82,10 +82,18 @@ public:
         return *get_slot_data(nbit);
     }
 
-    size_t truncate() {
+    size_t truncate(int64_t idx) {
         folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
 
+        auto upto_bit = idx - m_slot_ref_idx + 1;
+        if (upto_bit <= 0) { return m_slot_ref_idx - 1; }
+        return do_truncate(upto_bit);
+    }
+
+    size_t truncate() {
         if (AutoTruncate && (m_cmpltd_count_since_last_truncate.load(std::memory_order_acquire) == 0)) { return 0; }
+
+        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
 
         // Find the first bit with 0 in it
         auto first_incomplete_bit = m_comp_slot_bits.get_next_reset_bit(0);
@@ -96,23 +104,26 @@ public:
             // Nothing is completed, nothing to truncate
             return m_slot_ref_idx - 1;
         }
+        return do_truncate(first_incomplete_bit);
+    }
 
+    size_t do_truncate(int64_t upto_bit) {
         // Move all the bits upto the first incomplete bit
-        m_comp_slot_bits.shrink_head(first_incomplete_bit);
-        m_active_slot_bits.shrink_head(first_incomplete_bit);
+        m_comp_slot_bits.shrink_head(upto_bit);
+        m_active_slot_bits.shrink_head(upto_bit);
 
         // Shrink the data as well upto first_incomplete_bit. Instead of memmoving every truncate which could also
         // be frequent, we simply mark to skip that much data and then when we are really needed we compact them.
-        m_data_skip_count += first_incomplete_bit;
-        m_alloced_slots -= first_incomplete_bit;
+        m_data_skip_count += upto_bit;
+        m_alloced_slots -= upto_bit;
         if (m_data_skip_count > compaction_threshold) {
             std::memmove((void*)&m_slot_data[0], (void*)&m_slot_data[m_data_skip_count], (sizeof(T) * m_alloced_slots));
             m_data_skip_count = 0;
         }
 
         // auto prev_ref_idx = m_slot_ref_idx;
-        m_slot_ref_idx += first_incomplete_bit;
-        COUNTER_DECREMENT(m_metrics, stream_tracker_unsweeped_completions, first_incomplete_bit);
+        m_slot_ref_idx += upto_bit;
+        COUNTER_DECREMENT(m_metrics, stream_tracker_unsweeped_completions, upto_bit);
 
         // TODO: Do a callback on how much has been moved forward to
         // m_on_sweep_cb(m_slot_ref_idx - prev_ref_idx);
