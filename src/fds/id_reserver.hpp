@@ -50,7 +50,7 @@ public:
 private:
     bool find_next_reserved_id(bool first, uint32_t& last_found_id) {
         std::unique_lock lg(m_mutex);
-        size_t nbit = m_reserved_bits.get_next_reset_bit(first ? 0 : last_found_id + 1);
+        size_t nbit = m_reserved_bits.get_next_set_bit(first ? 0 : last_found_id + 1);
         if (nbit == Bitset::npos) return false;
         last_found_id = (uint32_t)nbit;
         return true;

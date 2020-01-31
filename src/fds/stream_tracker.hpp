@@ -70,7 +70,7 @@ public:
 
     void complete(int64_t start_idx, int64_t end_idx) {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
-        m_comp_slot_bits.set_bits(start_idx, end_idx - start_idx);
+        m_comp_slot_bits.set_bits(start_idx, end_idx - start_idx + 1);
     }
 
     T& at(int64_t idx) const {
@@ -230,7 +230,7 @@ private:
                                               : m_active_slot_bits.get_next_reset_bit(search_start_bit);
         if (first_incomplete_bit == AtomicBitset::npos) {
             // Seems like all the bits are completed, set it as last
-            return m_alloced_slots;
+            return m_alloced_slots - 1;
         } else {
             return m_slot_ref_idx + first_incomplete_bit - 1;
         }

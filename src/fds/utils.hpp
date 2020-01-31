@@ -140,6 +140,7 @@ inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0) {
 }
 
 inline uint32_t round_up(uint32_t num_to_round, uint32_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
+inline uint32_t round_down(uint32_t num_to_round, uint32_t multiple) { return (num_to_round / multiple) * multiple; }
 
 /********* Bitwise and math related manipulation ********/
 template < int S >

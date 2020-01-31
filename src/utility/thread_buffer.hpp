@@ -286,11 +286,23 @@ public:
         return m_buffers[tnum].get();
     }
 
+    const T* get() const {
+        auto tnum = ThreadLocalContext::my_thread_num();
+        assert(m_buffers[tnum].get() != nullptr);
+        return m_buffers[tnum].get();
+    }
+
     T& operator*() { return *(get()); }
+    const T& operator*() const { return *(get()); }
 
     T* operator->() { return get(); }
+    const T* operator->() const { return get(); }
 
     T* operator[](uint32_t n) {
+        assert(n < get_count());
+        return m_buffers[n];
+    }
+    const T* operator[](uint32_t n) const {
         assert(n < get_count());
         return m_buffers[n];
     }
@@ -313,7 +325,7 @@ public:
         }
     }
 
-    uint32_t get_count() { return m_buffers.size(); }
+    uint32_t get_count() const { return m_buffers.size(); }
 
     void access_all_threads(std::function< bool(T*, bool) > cb) {
         std::vector< uint32_t > can_free_thread_bufs;
