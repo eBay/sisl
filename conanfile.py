@@ -4,7 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "0.3.17"
+    version = "0.3.18"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -17,20 +17,16 @@ class MetricsConan(ConanFile):
                "coverage": ['True', 'False']}
     default_options = ('shared=False', 'fPIC=True', 'coverage=False')
 
-    requires = (("sds_logging/6.1.0@sds/develop"),
-                ("benchmark/1.5.0@oss/stable"),
-                ("boost_intrusive/1.69.0@bincrafters/stable"),
-                ("boost_dynamic_bitset/1.69.0@bincrafters/stable"),
-                ("boost_filesystem/1.69.0@bincrafters/stable"),
-                ("boost_preprocessor/1.69.0@bincrafters/stable"),
-                ("gtest/1.8.1@bincrafters/stable"),
-                ("evhtp/1.2.18.1@oss/stable"),
-                ("folly/2019.09.23.00@bincrafters/stable"),
-                ("userspace-rcu/0.10.1@oss/stable"),
-                ("OpenSSL/1.1.1c@conan/stable"),
-                ("sds_prometheus/0.7.1@sds/stable"),
-                ("jsonformoderncpp/3.7.0@vthiery/stable"),
-                ("zstd/1.4.0@bincrafters/stable"))
+    requires = (("sds_logging/6.1.2@sds/develop"),
+
+                ("benchmark/1.5.0"),
+                ("boost/1.72.0"),
+                ("gtest/1.10.0"),
+                ("evhtp/1.2.18.2"),
+                ("folly/2019.09.30.00"),
+                ("userspace-rcu/0.10.2"),
+                ("prometheus_cpp/0.7.1"),
+                ("nlohmann_json/3.7.3"))
 
     generators = "cmake"
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
