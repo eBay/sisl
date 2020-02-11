@@ -11,11 +11,19 @@ class MetricsConan(ConanFile):
     description = "Sisl library for fast data structures, utilities"
     revision_mode = "scm"
 
-    settings = "arch", "os", "compiler", "build_type", "sanitize"
-    options = {"shared": ['True', 'False'],
-               "fPIC": ['True', 'False'],
-               "coverage": ['True', 'False']}
-    default_options = ('shared=False', 'fPIC=True', 'coverage=False')
+    settings = "arch", "os", "compiler", "build_type"
+    options = {
+                "shared": ['True', 'False'],
+                "fPIC": ['True', 'False'],
+                "coverage": ['True', 'False'],
+                "sanitize": ['True', 'False'],
+              }
+    default_options = (
+                        'shared=False',
+                        'fPIC=True',
+                        'coverage=False',
+                        'sanitize=False',
+                        )
 
     requires = (("sds_logging/6.1.2@sds/develop"),
 
@@ -32,10 +40,8 @@ class MetricsConan(ConanFile):
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
     def configure(self):
-        if self.settings.compiler != "gcc":
-            del self.options.coverage
-        #if self.settings.sanitize != None:
-        #    del self.options.coverage
+        if self.options.sanitize:
+            self.options.coverage = False
 
     def build(self):
         cmake = CMake(self)
@@ -44,9 +50,10 @@ class MetricsConan(ConanFile):
                        'MEMORY_SANITIZER_ON': 'OFF'}
         test_target = None
 
-        if self.settings.sanitize != None:
+        if self.options.sanitize:
             definitions['MEMORY_SANITIZER_ON'] = 'ON'
-        elif self.settings.compiler == "gcc" and self.options.coverage == 'True':
+
+        if self.settings.compiler == "gcc" and self.options.coverage == 'True':
             definitions['CONAN_BUILD_COVERAGE'] = 'ON'
             test_target = 'coverage'
 
@@ -70,7 +77,7 @@ class MetricsConan(ConanFile):
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
-        if self.settings.sanitize != None:
+        if self.options.sanitize:
             self.cpp_info.sharedlinkflags.append("-fsanitize=address")
             self.cpp_info.exelinkflags.append("-fsanitize=address")
             self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
