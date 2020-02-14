@@ -139,6 +139,40 @@ inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0) {
     return std::make_shared< _byte_array >(sz, alignment);
 }
 
+struct byte_view {
+public:
+    byte_view() = default;
+    byte_view(uint32_t sz, uint32_t alignment = 0) {
+        m_base_buf = make_byte_array(sz, alignment);
+        m_view = *m_base_buf;
+    }
+    byte_view(byte_array arr) : byte_view(arr, 0, arr->size) {}
+    byte_view(byte_array buf, uint32_t offset, uint32_t sz) {
+        m_base_buf = buf;
+        m_view.bytes = buf->bytes + offset;
+        m_view.size = sz;
+    }
+
+    byte_view(byte_view v, uint32_t offset, uint32_t sz) : byte_view(v.m_base_buf, offset, sz) {}
+
+    blob get_blob() const { return m_view; }
+    uint8_t* bytes() const { return m_view.bytes; }
+    uint32_t size() const { return m_view.size; }
+    void move_forward(uint32_t by) {
+        assert(m_view.size >= by);
+        m_view.bytes += by;
+        m_view.size -= by;
+        validate();
+    }
+
+    void set_size(uint32_t sz) { m_view.size = sz; }
+    void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
+
+private:
+    byte_array m_base_buf;
+    blob m_view;
+};
+
 inline uint32_t round_up(uint32_t num_to_round, uint32_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
 inline uint32_t round_down(uint32_t num_to_round, uint32_t multiple) { return (num_to_round / multiple) * multiple; }
 

@@ -240,12 +240,12 @@ private:
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
         auto upto = _upto(completed, start_idx);
         for (auto idx = start_idx; idx <= upto; ++idx) {
-            auto proceed = cb(idx, upto, *get_slot_data(idx));
+            auto proceed = cb(idx, upto, *(get_slot_data(idx - m_slot_ref_idx)));
             if (!proceed) break;
         }
     }
 
-    T* get_slot_data(int64_t idx) const { return &m_slot_data[idx + m_data_skip_count]; }
+    T* get_slot_data(int64_t nbit) const { return &(m_slot_data[nbit + m_data_skip_count]); }
 
 private:
     // Mutex to protect the completion of last commit info
