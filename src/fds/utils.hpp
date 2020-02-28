@@ -98,6 +98,9 @@ static uint64_t constexpr get_mask() {
 }
 
 namespace sisl {
+inline uint32_t round_up(uint32_t num_to_round, uint32_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
+inline uint32_t round_down(uint32_t num_to_round, uint32_t multiple) { return (num_to_round / multiple) * multiple; }
+
 template < typename T >
 struct aligned_free {
     void operator()(T* p) { std::free(p); }
@@ -108,12 +111,13 @@ using aligned_unique_ptr = std::unique_ptr< T, aligned_free< T > >;
 
 template < class T >
 aligned_unique_ptr< T > make_aligned_unique(size_t align, size_t size) {
-    return aligned_unique_ptr< T >(static_cast< T* >(std::aligned_alloc(align, size)));
+    return aligned_unique_ptr< T >(static_cast< T* >(std::aligned_alloc(align, sisl::round_up(size, align))));
 }
 
 template < class T >
 std::shared_ptr< T > make_aligned_shared(size_t align, size_t size) {
-    return std::shared_ptr< T >(static_cast< T* >(std::aligned_alloc(align, size)), aligned_free< T >());
+    return std::shared_ptr< T >(static_cast< T* >(std::aligned_alloc(align, sisl::round_up(size, align))),
+                                aligned_free< T >());
 }
 
 struct blob {
@@ -172,9 +176,6 @@ private:
     byte_array m_base_buf;
     blob m_view;
 };
-
-inline uint32_t round_up(uint32_t num_to_round, uint32_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
-inline uint32_t round_down(uint32_t num_to_round, uint32_t multiple) { return (num_to_round / multiple) * multiple; }
 
 /********* Bitwise and math related manipulation ********/
 template < int S >
