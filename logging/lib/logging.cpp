@@ -6,6 +6,11 @@
 
 #include "logging.h"
 
+#include <filesystem>
+extern "C" {
+#include <unistd.h>
+}
+
 #include <sds_options/options.h>
 #include <spdlog/async.h>
 #include <spdlog/logger.h>
@@ -28,6 +33,10 @@ SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable
 // clang-format on
 
 namespace sds_logging {
+
+constexpr auto Ki = 1024ul;
+constexpr auto Mi = Ki * Ki;
+
 std::shared_ptr< spdlog::logger >& GetLogger() {
     if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(logger_thread_ctx.m_logger))) {
         logger_thread_ctx.m_logger = glob_spdlog_logger;
@@ -42,26 +51,30 @@ std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
     return logger_thread_ctx.m_critical_logger;
 }
 
+static std::filesystem::path log_path(std::string const& name) {
+    auto cwd = get_current_dir_name();
+    auto p = std::filesystem::path(cwd);
+    free(cwd);
+    if (0 < SDS_OPTIONS.count("logfile")) {
+        p = std::filesystem::path(SDS_OPTIONS["logfile"].as< std::string >());
+    } else {
+        p /= std::filesystem::path(name).filename();
+    }
+    return p;
+}
+
 namespace sinks = spdlog::sinks;
 template < typename N, typename S >
 static void configure_sinks(N const& name, S& sinks, S& crit_sinks) {
     if (!SDS_OPTIONS.count("stdout")) {
-        std::string const path =
-            (0 < SDS_OPTIONS.count("logfile") ? SDS_OPTIONS["logfile"].as< std::string >()
-                                              : "./" + std::string(file_name(name.c_str())) + "_log");
-        auto rotating_sink = std::make_shared< sinks::rotating_file_sink_mt >(
-            path, SDS_OPTIONS["logfile_size"].as< uint32_t >() * (1024 * 1024),
-            SDS_OPTIONS["logfile_cnt"].as< uint32_t >());
-        sinks.push_back(std::move(rotating_sink));
+        auto const base_path = log_path(name);
+        auto const rot_size = SDS_OPTIONS["logfile_size"].as< uint32_t >() * Mi;
+        auto const rot_num = SDS_OPTIONS["logfile_cnt"].as< uint32_t >();
 
-        // Create a separate sink for critical logs
-        std::string const crit_logpath =
-            (0 < SDS_OPTIONS.count("logfile") ? SDS_OPTIONS["logfile"].as< std::string >() + "_critical_log"
-                                              : "./" + std::string(file_name(name.c_str())) + "_critical_log");
-        auto critical_sink = std::make_shared< sinks::rotating_file_sink_mt >(
-            crit_logpath, SDS_OPTIONS["logfile_size"].as< uint32_t >() * (1024 * 1024),
-            SDS_OPTIONS["logfile_cnt"].as< uint32_t >());
-        crit_sinks.push_back(std::move(critical_sink));
+        sinks.push_back(
+            std::make_shared< sinks::rotating_file_sink_mt >(base_path.string() + "_log", rot_size, rot_num));
+        crit_sinks.push_back(
+            std::make_shared< sinks::rotating_file_sink_mt >(base_path.string() + "_critical_log", rot_size, rot_num));
     }
 
     if (SDS_OPTIONS.count("stdout") || (!SDS_OPTIONS.count("quiet"))) {
