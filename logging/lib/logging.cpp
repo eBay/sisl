@@ -43,10 +43,8 @@ std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
 }
 
 namespace sinks = spdlog::sinks;
-void SetLogger(std::string const& name, std::string const& pkg, std::string const& ver) {
-    std::vector< spdlog::sink_ptr > mysinks{};
-    std::vector< spdlog::sink_ptr > critical_sinks{};
-
+template < typename N, typename S >
+static void configure_sinks(N const& name, S& sinks, S& crit_sinks) {
     if (!SDS_OPTIONS.count("stdout")) {
         std::string const path =
             (0 < SDS_OPTIONS.count("logfile") ? SDS_OPTIONS["logfile"].as< std::string >()
@@ -54,7 +52,7 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
         auto rotating_sink = std::make_shared< sinks::rotating_file_sink_mt >(
             path, SDS_OPTIONS["logfile_size"].as< uint32_t >() * (1024 * 1024),
             SDS_OPTIONS["logfile_cnt"].as< uint32_t >());
-        mysinks.push_back(std::move(rotating_sink));
+        sinks.push_back(std::move(rotating_sink));
 
         // Create a separate sink for critical logs
         std::string const crit_logpath =
@@ -63,49 +61,37 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
         auto critical_sink = std::make_shared< sinks::rotating_file_sink_mt >(
             crit_logpath, SDS_OPTIONS["logfile_size"].as< uint32_t >() * (1024 * 1024),
             SDS_OPTIONS["logfile_cnt"].as< uint32_t >());
-        critical_sinks.push_back(std::move(critical_sink));
+        crit_sinks.push_back(std::move(critical_sink));
     }
 
     if (SDS_OPTIONS.count("stdout") || (!SDS_OPTIONS.count("quiet"))) {
-        mysinks.push_back(std::make_shared< sinks::stdout_color_sink_mt >());
+        sinks.push_back(std::make_shared< sinks::stdout_color_sink_mt >());
     }
+}
 
+template < typename N, typename S >
+void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
     // Create/Setup and register spdlog regular logger
     if (SDS_OPTIONS.count("synclog")) {
-        glob_spdlog_logger = std::make_shared< spdlog::logger >(name, mysinks.begin(), mysinks.end());
+        glob_spdlog_logger = std::make_shared< spdlog::logger >(name, sinks.begin(), sinks.end());
         glob_spdlog_logger->flush_on((spdlog::level::level_enum)SDS_OPTIONS["flush_every"].as< uint32_t >());
     } else {
         spdlog::init_thread_pool(SDS_OPTIONS["log_queue"].as< uint32_t >(), 1);
         glob_spdlog_logger =
-            std::make_shared< spdlog::async_logger >(name, mysinks.begin(), mysinks.end(), spdlog::thread_pool());
+            std::make_shared< spdlog::async_logger >(name, sinks.begin(), sinks.end(), spdlog::thread_pool());
     }
     glob_spdlog_logger->set_level(spdlog::level::level_enum::trace);
     spdlog::register_logger(glob_spdlog_logger);
-
+    //
     // Create/Setup and register critical logger. Critical logger is sync logger
-    glob_critical_logger =
-        std::make_shared< spdlog::logger >(name + "_critical", critical_sinks.begin(), critical_sinks.end());
+    glob_critical_logger = std::make_shared< spdlog::logger >(name + "_critical", crit_sinks.begin(), crit_sinks.end());
     glob_critical_logger->flush_on(spdlog::level::err);
     glob_critical_logger->set_level(spdlog::level::level_enum::err);
     spdlog::register_logger(glob_critical_logger);
+}
 
-    if (0 == SDS_OPTIONS.count("synclog")) {
-        spdlog::flush_every(std::chrono::seconds(SDS_OPTIONS["flush_every"].as< uint32_t >()));
-    }
-
-    auto lvl = spdlog::level::level_enum::info;
-    if (SDS_OPTIONS.count("verbosity")) {
-        lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as< uint32_t >();
-    }
-
-    if (0 < SDS_OPTIONS["version"].count()) {
-        spdlog::set_pattern("%v");
-        sds_logging::GetLogger()->info("{} - {}", pkg, ver);
-        exit(0);
-    }
-
+static void setup_modules(spdlog::level::level_enum const lvl) {
     module_level_base = lvl;
-    LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_string_view(lvl), pkg, ver);
     if (SDS_OPTIONS.count("log_mods")) {
         std::regex                 re("[\\s,]+");
         auto                       s = SDS_OPTIONS["log_mods"].as< std::string >();
@@ -134,6 +120,32 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
                                     dash_fold));
         }
     }
+}
+
+void SetLogger(std::string const& name, std::string const& pkg, std::string const& ver) {
+    std::vector< spdlog::sink_ptr > mysinks{};
+    std::vector< spdlog::sink_ptr > critical_sinks{};
+    configure_sinks(name, mysinks, critical_sinks);
+
+    set_global_logger(name, mysinks, critical_sinks);
+
+    if (0 == SDS_OPTIONS.count("synclog")) {
+        spdlog::flush_every(std::chrono::seconds(SDS_OPTIONS["flush_every"].as< uint32_t >()));
+    }
+
+    auto lvl = spdlog::level::level_enum::info;
+    if (SDS_OPTIONS.count("verbosity")) {
+        lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as< uint32_t >();
+    }
+
+    if (0 < SDS_OPTIONS["version"].count()) {
+        spdlog::set_pattern("%v");
+        sds_logging::GetLogger()->info("{} - {}", pkg, ver);
+        exit(0);
+    }
+
+    LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_string_view(lvl), pkg, ver);
+    setup_modules(lvl);
 }
 
 void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level) {
