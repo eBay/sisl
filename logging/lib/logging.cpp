@@ -6,8 +6,11 @@
 
 #include "logging.h"
 
+#include <chrono>
 #include <filesystem>
+#include <iomanip>
 extern "C" {
+#include <linux/limits.h>
 #include <unistd.h>
 }
 
@@ -53,11 +56,19 @@ std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
 
 static std::filesystem::path log_path(std::string const& name) {
     auto cwd = get_current_dir_name();
-    auto p = std::filesystem::path(cwd);
+    auto p = std::filesystem::path(cwd) / "logs";
     free(cwd);
     if (0 < SDS_OPTIONS.count("logfile")) {
         p = std::filesystem::path(SDS_OPTIONS["logfile"].as< std::string >());
     } else {
+        // Construct a unique directory path based on the current time
+        auto const current_time = std::chrono::system_clock::now();
+        auto const current_t = std::chrono::system_clock::to_time_t(current_time);
+        auto const current_tm = std::localtime(&current_t);
+        if (char c_time[PATH_MAX] = {'\0'}; strftime(c_time, PATH_MAX, "%F_%R", current_tm)) {
+            p /= c_time;
+            std::filesystem::create_directories(p);
+        }
         p /= std::filesystem::path(name).filename();
     }
     return p;
