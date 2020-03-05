@@ -3,6 +3,7 @@
 //
 #pragma once
 
+#include <condition_variable>
 #include <thread>
 #include <string>
 #include <evhtp.h>
@@ -547,7 +548,7 @@ private:
             }
         }
 
-        return std::move(ssl_config);
+        return ssl_config;
     }
 
 private:
