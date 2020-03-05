@@ -48,8 +48,8 @@ enum _publish_as {
 class CounterValue {
 public:
     CounterValue() = default;
-    void    increment(int64_t value = 1) { m_value += value; }
-    void    decrement(int64_t value = 1) { m_value -= value; }
+    void increment(int64_t value = 1) { m_value += value; }
+    void decrement(int64_t value = 1) { m_value -= value; }
     int64_t get() const { return m_value; }
     int64_t merge(const CounterValue& other) {
         this->m_value += other.m_value;
@@ -69,7 +69,7 @@ public:
         m_value.store(other.get(), std::memory_order_relaxed);
         return *this;
     }
-    void    update(int64_t value) { m_value.store(value, std::memory_order_relaxed); }
+    void update(int64_t value) { m_value.store(value, std::memory_order_relaxed); }
     int64_t get() const { return m_value.load(std::memory_order_relaxed); }
 
 private:
@@ -91,12 +91,12 @@ public:
         }
         this->m_sum += other.m_sum;
     }
-    auto&   get_freqs() const { return m_freqs; }
+    auto& get_freqs() const { return m_freqs; }
     int64_t get_sum() const { return m_sum; }
 
 private:
     std::array< int64_t, HistogramBuckets::max_hist_bkts > m_freqs;
-    int64_t                                                m_sum = 0;
+    int64_t m_sum = 0;
 };
 
 static_assert(std::is_trivially_copyable< HistogramValue >::value, "Expecting HistogramValue to be trivally copyable");
@@ -118,11 +118,11 @@ public:
     void publish(const CounterValue& value);
 
 private:
-    std::string                           m_name;
-    std::string                           m_desc;
+    std::string m_name;
+    std::string m_desc;
     std::pair< std::string, std::string > m_label_pair;
-    std::shared_ptr< ReportCounter >      m_report_counter;
-    std::shared_ptr< ReportGauge >        m_report_gauge;
+    std::shared_ptr< ReportCounter > m_report_counter;
+    std::shared_ptr< ReportGauge > m_report_gauge;
 };
 
 class GaugeInfo {
@@ -132,7 +132,7 @@ public:
     GaugeInfo(const std::string& name, const std::string& desc, const std::string& instance_name,
               const std::string& report_name = "", const metric_label& label_pair = {"", ""});
 
-    uint64_t    get() const { return m_gauge.get(); };
+    uint64_t get() const { return m_gauge.get(); };
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
     std::string label_pair() const {
@@ -143,11 +143,11 @@ public:
     void publish();
 
 private:
-    GaugeValue                            m_gauge;
-    const std::string                     m_name;
-    const std::string                     m_desc;
+    GaugeValue m_gauge;
+    const std::string m_name;
+    const std::string m_desc;
     std::pair< std::string, std::string > m_label_pair;
-    std::shared_ptr< ReportGauge >        m_report_gauge;
+    std::shared_ptr< ReportGauge > m_report_gauge;
 };
 
 class HistogramInfo {
@@ -156,9 +156,9 @@ public:
                   const std::string& report_name = "", const metric_label& label_pair = {"", ""},
                   const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets));
 
-    double  percentile(const HistogramValue& hvalue, float pcntl) const;
+    double percentile(const HistogramValue& hvalue, float pcntl) const;
     int64_t count(const HistogramValue& hvalue) const;
-    double  average(const HistogramValue& hvalue) const;
+    double average(const HistogramValue& hvalue) const;
 
     std::string name() const { return m_name; }
     std::string desc() const { return m_desc; }
@@ -168,21 +168,21 @@ public:
             : "";
     }
 
-    void                            publish(const HistogramValue& hvalue);
+    void publish(const HistogramValue& hvalue);
     const hist_bucket_boundaries_t& get_boundaries() const { return m_bkt_boundaries; }
 
 private:
-    const std::string                     m_name;
-    const std::string                     m_desc;
+    const std::string m_name;
+    const std::string m_desc;
     std::pair< std::string, std::string > m_label_pair;
-    const hist_bucket_boundaries_t&       m_bkt_boundaries;
-    std::shared_ptr< ReportHistogram >    m_report_histogram;
+    const hist_bucket_boundaries_t& m_bkt_boundaries;
+    std::shared_ptr< ReportHistogram > m_report_histogram;
 };
 
 class SafeMetrics {
 private:
-    CounterValue*                       m_counters = nullptr;
-    HistogramValue*                     m_histograms = nullptr;
+    CounterValue* m_counters = nullptr;
+    HistogramValue* m_histograms = nullptr;
     const std::vector< HistogramInfo >& m_histogram_info;
 
     uint32_t m_ncntrs;
@@ -241,8 +241,9 @@ public:
     auto get_num_metrics() const { return std::make_tuple(m_ncntrs, m_nhists); }
 };
 
-typedef std::shared_ptr< MetricsGroup >                                                              MetricsGroupPtr;
+typedef std::shared_ptr< MetricsGroup > MetricsGroupPtr;
 typedef sisl::wisr_framework< SafeMetrics, const std::vector< HistogramInfo >&, uint32_t, uint32_t > ThreadSafeMetrics;
+typedef std::function< void(void) > on_gather_cb_t;
 
 class MetricsGroupResult;
 class MetricsFarm;
@@ -270,7 +271,7 @@ public:
     uint64_t register_gauge(const GaugeInfo& gauge);
 
     uint64_t register_histogram(const std::string& name, const std::string& desc, const std::string& report_name = "",
-                                const metric_label&             label_pair = {"", ""},
+                                const metric_label& label_pair = {"", ""},
                                 const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets));
     uint64_t register_histogram(HistogramInfo& hist);
     uint64_t register_histogram(const std::string& name, const std::string& desc,
@@ -281,41 +282,47 @@ public:
     void gauge_update(uint64_t index, int64_t val);
     void histogram_observe(uint64_t index, int64_t val);
 
-    const CounterInfo&   get_counter_info(uint64_t index) const;
-    const GaugeInfo&     get_gauge_info(uint64_t index) const;
+    const CounterInfo& get_counter_info(uint64_t index) const;
+    const GaugeInfo& get_gauge_info(uint64_t index) const;
     const HistogramInfo& get_histogram_info(uint64_t index) const;
 
     nlohmann::json get_result_in_json(bool need_latest);
-    void           prepare_gather();
+    void prepare_gather();
 
-    void               publish_result();
+    void publish_result();
     const std::string& get_group_name() const;
     const std::string& get_instance_name() const;
+
+    void attach_gather_cb(const on_gather_cb_t& cb) {
+        auto locked = lock();
+        m_on_gather_cb = cb;
+    }
 
 private:
     void on_register();
 
     void gather_result(bool need_latest, std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
-                       std::function< void(GaugeInfo&) >                            gauge_cb,
+                       std::function< void(GaugeInfo&) > gauge_cb,
                        std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb);
 
 private:
-    std::string                          m_grp_name;
-    std::string                          m_inst_name;
-    std::mutex                           m_mutex;
+    std::string m_grp_name;
+    std::string m_inst_name;
+    std::mutex m_mutex;
     std::unique_ptr< ThreadSafeMetrics > m_metrics;
-    bool                                 m_gather_pending;
+    bool m_gather_pending;
+    on_gather_cb_t m_on_gather_cb = nullptr;
 
-    std::vector< CounterInfo >                                              m_counters;
-    std::vector< GaugeInfo >                                                m_gauges;
-    std::vector< HistogramInfo >                                            m_histograms;
+    std::vector< CounterInfo > m_counters;
+    std::vector< GaugeInfo > m_gauges;
+    std::vector< HistogramInfo > m_histograms;
     std::vector< std::reference_wrapper< const hist_bucket_boundaries_t > > m_bkt_boundaries;
 };
 
 class MetricsFarm {
 private:
     std::set< MetricsGroupPtr > m_mgroups;
-    std::mutex                  m_lock;
+    std::mutex m_lock;
     std::unique_ptr< Reporter > m_reporter;
 
 private:
@@ -327,7 +334,7 @@ public:
     friend class MetricsResult;
 
     static MetricsFarm& getInstance();
-    static Reporter&    get_reporter();
+    static Reporter& get_reporter();
 
     MetricsFarm(const MetricsFarm&) = delete;
     void operator=(const MetricsFarm&) = delete;
@@ -336,8 +343,8 @@ public:
     void deregister_metrics_group(MetricsGroupPtr mgroup);
 
     nlohmann::json get_result_in_json(bool need_latest = true);
-    std::string    get_result_in_json_string(bool need_latest = true);
-    std::string    report(ReportFormat format);
+    std::string get_result_in_json_string(bool need_latest = true);
+    std::string report(ReportFormat format);
 };
 
 } // namespace sisl
@@ -366,7 +373,7 @@ template < char... elements >
 struct NamedCounter< tstring< elements... > > {
 public:
     static constexpr char Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    int                   m_index = -1;
+    int m_index = -1;
 
     static NamedCounter& getInstance() {
         static NamedCounter instance;
@@ -388,7 +395,7 @@ template < char... elements >
 struct NamedGauge< tstring< elements... > > {
 public:
     static constexpr char Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    int                   m_index = -1;
+    int m_index = -1;
 
     static NamedGauge& getInstance() {
         static NamedGauge instance;
@@ -407,7 +414,7 @@ template < char... elements >
 struct NamedHistogram< tstring< elements... > > {
 public:
     static constexpr char Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    int                   m_index = -1;
+    int m_index = -1;
 
     static NamedHistogram& getInstance() {
         static NamedHistogram instance;
@@ -415,7 +422,7 @@ public:
     }
 
     HistogramInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                         const metric_label&             label_pair = {"", ""},
+                         const metric_label& label_pair = {"", ""},
                          const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets)) {
         return HistogramInfo(std::string(Name), desc, instance_name, report_name, label_pair, bkt_boundaries);
     }
@@ -438,8 +445,10 @@ public:
     MetricsGroupWrapper(const std::string& grp_name, const std::string& inst_name = "Instance1") :
             m_mg_ptr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
 
-    void           register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(m_mg_ptr); }
+    void register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(m_mg_ptr); }
+    void deregister_me_from_farm() { MetricsFarm::getInstance().deregister_metrics_group(m_mg_ptr); }
     nlohmann::json get_result_in_json(bool need_latest) { return m_mg_ptr->get_result_in_json(need_latest); }
+    void attach_gather_cb(const on_gather_cb_t& cb) { m_mg_ptr->attach_gather_cb(cb); }
 };
 
 #if 0
@@ -459,7 +468,7 @@ public:
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& nc = sisl::NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();       \
-        auto  rc = nc.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                        \
+        auto rc = nc.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                         \
         nc.m_index = this->m_mg_ptr->register_counter(rc);                                                             \
     }
 
@@ -467,7 +476,7 @@ public:
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& ng = sisl::NamedGauge< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();         \
-        auto  rg = ng.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                        \
+        auto rg = ng.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                         \
         ng.m_index = this->m_mg_ptr->register_gauge(rg);                                                               \
     }
 
@@ -475,9 +484,13 @@ public:
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& nh = sisl::NamedHistogram< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();     \
-        auto  rh = nh.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                        \
+        auto rh = nh.create(this->m_mg_ptr->get_instance_name(), __VA_ARGS__);                                         \
         nh.m_index = this->m_mg_ptr->register_histogram(rh);                                                           \
     }
+
+#define COUNTER_INDEX(name) METRIC_NAME_TO_INDEX(NamedCounter, name)
+#define GAUGE_INDEX(name) METRIC_NAME_TO_INDEX(NamedGauge, name)
+#define HISTOGRAM_INDEX(name) METRIC_NAME_TO_INDEX(NamedHistogram, name)
 
 #define METRIC_NAME_TO_INDEX(type, name)                                                                               \
     (sisl::type< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().m_index)

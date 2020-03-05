@@ -85,7 +85,9 @@ public:
         static uint64_t                                                      __unique_id = 0;
         std::shared_ptr< PrometheusReportCounter >                           ret;
         std::pair< std::string, prometheus::Family< prometheus::Counter >* > family_pair;
-        auto                                                                 it = m_counter_families.find(name);
+
+        std::unique_lock lk(m_mutex);
+        auto             it = m_counter_families.find(name);
         if (it == m_counter_families.end()) {
             auto& family = prometheus::BuildCounter().Name(name).Help(desc).Register(*m_registry);
             family_pair = std::make_pair<>(name, &family);
@@ -117,7 +119,9 @@ public:
         static uint64_t                                                    __unique_id = 0;
         std::shared_ptr< ReportGauge >                                     ret;
         std::pair< std::string, prometheus::Family< prometheus::Gauge >* > family_pair;
-        auto                                                               it = m_gauge_families.find(name);
+
+        std::unique_lock lk(m_mutex);
+        auto             it = m_gauge_families.find(name);
         if (it == m_gauge_families.end()) {
             auto& family = prometheus::BuildGauge().Name(name).Help(desc).Register(*m_registry);
             family_pair = std::make_pair<>(name, &family);
@@ -147,7 +151,9 @@ public:
         static uint64_t                                                        __unique_id = 0;
         std::shared_ptr< ReportHistogram >                                     ret;
         std::pair< std::string, prometheus::Family< prometheus::Histogram >* > family_pair;
-        auto                                                                   it = m_histogram_families.find(name);
+
+        std::unique_lock lk(m_mutex);
+        auto             it = m_histogram_families.find(name);
         if (it == m_histogram_families.end()) {
             auto& family = prometheus::BuildHistogram().Name(name).Help(desc).Register(*m_registry);
             family_pair = std::make_pair<>(name, &family);
@@ -187,6 +193,7 @@ public:
     }
 
 private:
+    std::mutex                                                                      m_mutex;
     std::shared_ptr< prometheus::Registry >                                         m_registry;
     std::unordered_map< std::string, prometheus::Family< prometheus::Counter >* >   m_counter_families;
     std::unordered_map< std::string, prometheus::Family< prometheus::Gauge >* >     m_gauge_families;

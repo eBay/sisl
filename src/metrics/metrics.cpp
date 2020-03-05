@@ -187,15 +187,16 @@ nlohmann::json MetricsGroup::get_result_in_json(bool need_latest) {
 void MetricsGroup::prepare_gather() {
     auto locked = lock();
     m_metrics->prepare_rotate();
+    if (m_on_gather_cb) m_on_gather_cb();
     m_gather_pending = true;
 }
 
 void MetricsGroup::publish_result() {
     auto locked = lock();
-    gather_result(true, /* need_latest */
-                  [](CounterInfo& c, const CounterValue& result) { c.publish(result); },
-                  [](GaugeInfo& g) { g.publish(); },
-                  [](HistogramInfo& h, const HistogramValue& result) { h.publish(result); });
+    gather_result(
+        true, /* need_latest */
+        [](CounterInfo& c, const CounterValue& result) { c.publish(result); }, [](GaugeInfo& g) { g.publish(); },
+        [](HistogramInfo& h, const HistogramValue& result) { h.publish(result); });
 }
 
 const std::string& MetricsGroup::get_group_name() const { return m_grp_name; }
@@ -250,9 +251,7 @@ CounterInfo::CounterInfo(const std::string& name, const std::string& desc, const
         m_report_gauge = MetricsFarm::get_reporter().add_gauge(m_name, desc, instance_name, label_pair);
     }
 
-    if (!label_pair.first.empty() && !label_pair.second.empty()) {
-        m_label_pair = label_pair;
-    }
+    if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
 void CounterInfo::publish(const CounterValue& value) {
@@ -271,9 +270,7 @@ GaugeInfo::GaugeInfo(const std::string& name, const std::string& desc, const std
         m_name(report_name.empty() ? name : report_name),
         m_desc(desc) {
     m_report_gauge = MetricsFarm::get_reporter().add_gauge(m_name, desc, instance_name, label_pair);
-    if (!label_pair.first.empty() && !label_pair.second.empty()) {
-        m_label_pair = label_pair;
-    }
+    if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
 void GaugeInfo::publish() { m_report_gauge->set_value((double)m_gauge.get()); }
@@ -287,9 +284,7 @@ HistogramInfo::HistogramInfo(const std::string& name, const std::string& desc, c
         m_bkt_boundaries(bkt_boundaries) {
     m_report_histogram =
         MetricsFarm::get_reporter().add_histogram(m_name, desc, instance_name, bkt_boundaries, label_pair);
-    if (!label_pair.first.empty() && !label_pair.second.empty()) {
-        m_label_pair = label_pair;
-    }
+    if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
 double HistogramInfo::percentile(const HistogramValue& hvalue, float pcntl) const {
@@ -302,8 +297,7 @@ double HistogramInfo::percentile(const HistogramValue& hvalue, float pcntl) cons
 
     int64_t pnum = fcount * pcntl / 100;
     auto    i = (std::lower_bound(cum_freq.begin(), cum_freq.end(), pnum)) - cum_freq.begin();
-    if ((hvalue.get_freqs())[i] == 0)
-        return 0;
+    if ((hvalue.get_freqs())[i] == 0) return 0;
     auto   Yl = i == 0 ? 0 : m_bkt_boundaries[i - 1];
     auto   ith_cum_freq = (i == 0) ? 0 : cum_freq[i - 1];
     double Yp = Yl + (((pnum - ith_cum_freq) * i) / (hvalue.get_freqs())[i]);
