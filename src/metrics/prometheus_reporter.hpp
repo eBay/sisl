@@ -105,9 +105,9 @@ public:
         std::map< std::string, std::string > label_pairs;
         if (!label_pair.first.empty() && !label_pair.second.empty()) {
             label_pairs = {
-                {"instance", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
+                {"entity", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
         } else {
-            label_pairs = {{"instance", instance_name}, {"unique_id", unique_name}};
+            label_pairs = {{"entity", instance_name}, {"unique_id", unique_name}};
         }
 
         return std::make_shared< PrometheusReportCounter >(*family_pair.second, label_pairs);
@@ -136,9 +136,9 @@ public:
         std::map< std::string, std::string > label_pairs;
         if (!label_pair.first.empty() && !label_pair.second.empty()) {
             label_pairs = {
-                {"instance", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
+                {"entity", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
         } else {
-            label_pairs = {{"instance", instance_name}, {"unique_id", unique_name}};
+            label_pairs = {{"entity", instance_name}, {"unique_id", unique_name}};
         }
 
         return std::make_shared< PrometheusReportGauge >(*family_pair.second, label_pairs);
@@ -168,9 +168,9 @@ public:
         std::map< std::string, std::string > label_pairs;
         if (!label_pair.first.empty() && !label_pair.second.empty()) {
             label_pairs = {
-                {"instance", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
+                {"entity", instance_name}, {"unique_id", unique_name}, {label_pair.first, label_pair.second}};
         } else {
-            label_pairs = {{"instance", instance_name}, {"unique_id", unique_name}};
+            label_pairs = {{"entity", instance_name}, {"unique_id", unique_name}};
         }
 
         return std::make_shared< PrometheusReportHistogram >(*family_pair.second, label_pairs, bkt_boundaries);
