@@ -21,16 +21,15 @@ int main(int argc, char* argv[]) {
     sds_logging::SetLogger("test_settings");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
-    // SETTINGS_SCHEMA_INIT(testapp::TestAppSettings, test_app_schema);
-    MY_SETTINGS_FACTORY.load_file("/tmp/settings_in.json");
+    // MY_SETTINGS_FACTORY.load_file("/tmp/settings_in.json");
 
     std::cout << "After Initial load values are: \n";
     std::cout << "Value of dbConnectionOptimalLoad = ? "
               << SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad) << "\n";
     MY_SETTINGS_FACTORY.save("/tmp/settings_out.json");
     SETTINGS(test_app_schema, s, {
-        std::cout << "Value of databasePort = " << s.coord.databasePort << "\n";
-        std::cout << "Value of numThreads = " << s.config.numThreads << "\n";
+        std::cout << "Value of databasePort = " << s.config.database.databasePort << "\n";
+        std::cout << "Value of numThreads = " << s.config.database.numThreads << "\n";
     });
 
     std::cout << "Reload - 1 file: restart needed ? " << MY_SETTINGS_FACTORY.reload_file("/tmp/settings_in.json")
@@ -45,20 +44,20 @@ int main(int argc, char* argv[]) {
     std::cout << "Value of dbConnectionOptimalLoad = ? "
               << SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad) << "\n";
     SETTINGS(test_app_schema, s, {
-        std::cout << "Value of databasePort = " << s.coord.databasePort << "\n";
-        std::cout << "Value of numThreads = " << s.config.numThreads << "\n";
+        std::cout << "Value of databasePort = " << s.config.database.databasePort << "\n";
+        std::cout << "Value of numThreads = " << s.config.database.numThreads << "\n";
     });
 
     j = nlohmann::json::parse(MY_SETTINGS_FACTORY.get_json());
-    j["coord"]["databasePort"] = 25000;
+    j["config"]["database"]["databasePort"] = 25000;
     std::cout << "Reload - 3 json after changes, restart needed ? " << MY_SETTINGS_FACTORY.reload_json(j.dump())
               << "\n";
     std::cout << "After reload - 3: values are: \n";
     std::cout << "Value of dbConnectionOptimalLoad = ? "
               << SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad) << "\n";
     SETTINGS(test_app_schema, s, {
-        std::cout << "Value of databasePort = " << s.coord.databasePort << "\n";
-        std::cout << "Value of numThreads = " << s.config.numThreads << "\n";
+        std::cout << "Value of databasePort = " << s.config.database.databasePort << "\n";
+        std::cout << "Value of numThreads = " << s.config.database.numThreads << "\n";
     });
 
     return 0;

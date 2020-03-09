@@ -17,34 +17,115 @@ hot-swappable and non-hot-swappable configurations.
 ## How it works
 It uses flatbuffers serialization to represent the hierarchical schema of configurations. The schema provides all
 possible values with their default values. Once defined application needs to add the generated code into their library 
-and can use the method this framework provides to access and 
+and can use the method this framework provides to access the settings with the similar cost as accessing local variable.
 
-Following are the tools it provides so far
+Here are the steps one needs to follow to use this feature
 
-## Async HTTP Server
+### Step 1: Define config schema in a .fbs file
+Create a file called .fbs in your main config source folder, with sample something like this. 
 
-Provides an HTTP REST Server for asynchronous programming model. It works on top of evhtp library, but wraps threading model
-C++ methods for evhtp C library.
+```
+native_include "utility/non_null_ptr.hpp"; // <--- Need to include this to support full default configs 
+namespace testapp;  // <--- Namespace you want this generated code to be part of.
 
-## Metrics
+attribute "hotswap";    // <---- These 2 attributes are to be included to do hotswap and deprecated keywords
+attribute "deprecated";
 
-A very high performance metrics collection (counters, histograms and gauges) and report the results in form of json or 
-sent to prometheus whichever caller choose from. It is meant to scale with multiple threads and huge amount of performance
-metrics. The collection is extremely fast <<5ns per metric, but pay penalty during metrics result gathering which is rare. It
-uses Wisr framework which will be detailed next
+// <--- Define the inner config. Levels can be arbitrary level deep, but each level would result in one more pointer
+// indirection everytime we access --->
+table DBConfig {
+    // <--- Name to use and followed by its datatype and an optional default value. Supported data types are:
+    // "string", "uint32", "uint64", "int", "bool", "byte", "short", "ushort", "long", "ulong", "float", "double",
+    // "vector", "union"
+    // If these values are not overridden during startup or runtime (in case of hotswappable), then this value is used.
+    databaseHost: string;         
+    databasePort: uint32 = 27017;
+    numThreads: uint32 = 8;
+    maxConnections: uint32 = 10 (hotswap);    // Hotswappable meaning it can be changed runtime without restart
+    maxSupportedSize: uint64 = 1099511627776;
+}
 
-## Wisr
+// <--- Top level structure. The name of the top level structure is called "SettingsName" and the filename where it is
+// stored is called "SchemaName" --->
+table TestAppSettings {
+    version: uint32;
+    dbconfig: DBConfig; // <-- Define inner level config here. The levels can be arbitrary deep.
+}
 
-WISR stands for Waitfree Inserts Snoozy Rest. This is a framework and data structures on top of this framework which provides
-ultra high performance waitfree inserts into the data structures, but pretty slow read and update operations. It is thread safe
-and thus good use cases are to collect metrics, garbage collection etc, where one would want to quickly append the data into
-some protected list, but scanning them is few and far between. It uses RCU (Read side during insert and write side during other
-operations).
+root_type TestAppSettings; // <---- root_type <SettingsName>
+```
 
-## FDS
-This is a bunch of data structures meant for high performance or specific use cases
-### Sparse Vector
-A typical vector, but insert can mention the slot to insert and thus can be sparsely populated.
+There are 2 names need to note down here
+a) SchemaName: It is the name of the file followed by .fbs. Example if the file is stored as "homestore_config.fbs", the
+SchemaName is "homestore_config"
+b) SettingsName: The name of the settings that will be used to define this. In the example it is "TestAppSettings"
 
-### Sorted Vector Set
+### Step 2: Include the following lines in your CMakeLists
+The .fbs need to convert to your source code using the following steps:
 
+```
+include(${CONAN_SISL_ROOT}/cmake/settings_gen.cmake)
+settings_gen_cpp(${CONAN_BIN_DIRS_FLATBUFFERS} ${CMAKE_CURRENT_SOURCE_DIR}/generated/ <target_to_build> <path to schema file (.fbs)>)
+
+# Example:
+# settings_gen_cpp(${CONAN_BIN_DIRS_FLATBUFFERS} ${CMAKE_CURRENT_SOURCE_DIR}/generated/ test_settings tests/test_app_schema.fbs)
+```
+
+### Step 3: Initialize in your code to include these files
+In your main include code or separate code, add the following lines outside your namespace definition
+
+```c++
+#include <settings/settings.hpp>
+#include "generated/homeblks_config_generated.h"
+
+// <--- Format is
+// SETTINGS_INIT(<namespace>::<SettingsName>, <SchemaName>)
+SETTINGS_INIT(testapp::TestAppSettings, testapp_config);
+```
+
+### Step 4: Access these config variable using the following ways 
+```c++
+std::cout << "Database port is " << SETTINGS_VALUE(testapp_config, dbconfig->databasePort) << "\n";
+```
+or
+
+```c++
+SETTINGS(testapp_config, s, {
+    std::cout << "Database port is " << s.dbconfig.databasePort << "\n";
+    std::cout << "Database port is " << s.dbconfig.numThreads << "\n";
+});
+```
+
+While the first one is quick way to access one variable, the second method ensures that if you are accessing multiple
+parameters and you wanted to be atomic (no override should happen between 2 access of the variables)
+
+Since having SETTINGS_VALUE(schemaName, ...) is typically repetitive to the application, one can define convenient
+macros to something like
+```c++
+#define MY_SETTINGS(...) SETTINGS(testapp_config, __VA_ARGS__)
+#define MY_SETTINGS_VALUE(...) SETTINGS_VALUE(testapp_config, __VA_ARGS__)
+
+// and access them as
+std::cout << "Database port is " << MY_SETTINGS_VALUE(dbconfig->databasePort) << "\n";
+```
+
+### Step 5: If you want to override
+If one wanted to override the configuration with new settings, one can put the overridden config in a json file and 
+then call
+```c++
+SETTINGS_FACTORY(testapp_config).reload_file(json_filename);
+```
+or directly generate a json string and call
+```c++
+SETTINGS_FACTORY(testapp_config).reload_json(json_string);
+```
+
+These methods return a boolean, indicating the overriden configuration needs a restart of application or not. If it 
+needs a restart, its caller responsibility to restart the app when it is convenient and until that time only settings
+are not changed.
+
+To get a reference json with existing parameters one can call
+```c++
+SETTINGS_FACTORY(testapp_config).save(json_filename);
+```
+This will write the existing settings into json file
