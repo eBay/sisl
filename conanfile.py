@@ -4,7 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "1.0.2"
+    version = "1.0.3"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -33,6 +33,7 @@ class MetricsConan(ConanFile):
                 ("folly/2019.09.30.00"),
                 ("userspace-rcu/0.10.2"),
                 ("prometheus_cpp/0.7.1"),
+                ("flatbuffers/1.11.0@oss/stable"),
                 ("nlohmann_json/3.7.3"))
 
     generators = "cmake"
@@ -72,6 +73,7 @@ class MetricsConan(ConanFile):
         self.copy("*.so", dst="lib/", keep_path=False)
         self.copy("*.dll", dst="lib/", keep_path=False)
         self.copy("*.dylib", dst="lib/", keep_path=False)
+        self.copy("*.cmake", dst="cmake/", keep_path=False)
 
     def package_info(self):
         self.cpp_info.libs = tools.collect_libs(self)

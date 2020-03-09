@@ -12,11 +12,12 @@
 #include <memory>
 #include <set>
 #include <mutex>
+#include <vector>
 
 namespace sisl {
 template < typename T >
 struct urcu_node {
-    rcu_head             head;
+    rcu_head head;
     std::shared_ptr< T > val;
 
     template < typename... Args >
@@ -26,7 +27,7 @@ struct urcu_node {
 
     std::shared_ptr< T > get() { return val; }
 
-    void        set(const T& v) { val = v; }
+    void set(const T& v) { val = v; }
     static void free(struct rcu_head* rh) {
         auto* node = (urcu_node*)rh;
         delete node;
@@ -68,9 +69,7 @@ public:
 
     ~urcu_data() {
         delete (m_rcu_node);
-        if (m_old_node != nullptr) {
-            delete (m_old_node);
-        }
+        if (m_old_node != nullptr) { delete (m_old_node); }
     }
 
     template < typename... Args >
@@ -154,7 +153,7 @@ public:
     }
 
 private:
-    std::mutex                  m_mutex;
+    std::mutex m_mutex;
     std::set< urcu_data< T >* > m_batch;
 };
 

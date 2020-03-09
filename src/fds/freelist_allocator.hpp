@@ -12,6 +12,13 @@
 
 namespace sisl {
 
+/**
+ * @brief FreeListAllocator is a high performing memory allocator for a fixed size object. It uses thread local to
+ * free list of same blob sizes. While jemalloc and tcmalloc maintains per thread buffer, it slightly outperforms them
+ * for the specific case it supports - fixed size. While others are generic size where it needs to additionally look for
+ * closest match for size requested, this allocator simply pops the top of the list and returns the buffer. It is as
+ * fast as it can get from memory allocation and deallocation perspective.
+ */
 struct free_list_header {
     free_list_header* next;
 };

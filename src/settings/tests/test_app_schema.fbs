@@ -1,0 +1,504 @@
+native_include "utility/non_null_ptr.hpp";
+
+namespace testapp;
+
+attribute "hotswap";
+attribute "deprecated";
+
+
+table DurabilityConfig {
+    w: string (hotswap);
+    j: bool = false (hotswap);
+    wtimeout: uint32 = 2000 (hotswap);
+}
+
+table DBAuth { //MongoDB authentication
+    dbauth_enabled: bool (hotswap);
+    dbauthUsernamePath: string (hotswap);
+    dbauthPasswordPath: string (hotswap);
+}
+
+//this section containts settings that are different for each replica set or even replica within a set
+//if some setting is common/constant for all replicas and all replica sets in a keyspace it should be here and instead should be place in a corresponding section
+table Coordinator /*TODO: needs to be broken down by physical subcomponents: Keyspace | Shard | Replica */ {
+    //Keyspace keyspace (required);
+    //Shard shard (required);
+    //Replica replica (required);
+
+    id: uint64 = 0 (hotswap);                		//TODO: move to Replica
+    shardId: string (hotswap);           		    //TODO: move to Shard
+    replicaSetId: string (hotswap);                 //TODO: move to Shard
+    databaseName: string;                           //TODO: move to Shard
+    channelType: string;                            //TODO: move to DatabaseSettings
+    unixSocketFile: string;                         //TODO: move to DatabaseSettings
+    durabilityConfig: DurabilityConfig;             //TODO: move to Keyspace
+    databaseHost: string;                           //TODO: move to DatabaseSettings
+    databasePort: uint32 = 27017;                   //TODO: move to DatabaseSettings
+    adminPort: uint32 = 5050;                       //TODO: move to HttpServer
+    dataPort: uint32 = 5051;                        //TODO: move to GrpcServer
+    hiddenGrpcPort: uint32 = 5051;                  // In mib testing we use different ports which can be passed here
+    coordEndpoint: string (hotswap);         		//TODO: move to Replica
+    bindAddress: string;                            //TODO: move to Config
+    dbauth: DBAuth(required);                       //TODO: move to Replica
+    keyspace: string (required);                    //TODO: move to Global
+    region: string;                                 //TODO: move to Replica
+    zone: string (hotswap);                  		//TODO: move to Replica
+    replicaName: string (hotswap);           		//TODO: move to Replica
+    tlsCACertPath: string;                          //TODO: move to Replica
+    tlsCertPath: string;                            //TODO: move to Replica
+    tlsKeyPath: string;                             //TODO: move to Replica
+    latchFile: string;
+}
+
+table ReplicationSettings {
+    logstorePath:               string;
+    validate_log_store_retries: uint32 = 5;
+    logFileReclaimerSleepSec:   uint32 = 60;
+    logFileTtlSec:              uint32 = 60;
+    maxEntriesInLogFile:        uint32 = 262144;   // 256KB
+    maxLogFileSize:             uint32 = 33554432; // 32MB
+    maxKeepingMemtableSize:     uint32 = 268435456; // 256MB
+
+    // Raft Log truncate sizes
+    raft_log_auto_extend:       bool = true (hotswap);
+    raft_log_size_lower:        uint64 = 10737418240; // 10GB,  target log size to maintain
+    raft_log_size_upper:        uint64 = 21474836480; // 20GB,  hard limit for raft log sizes
+}
+
+table MonstorThrottleSettings {
+    maxPendingReplayedLogSize: uint64 = 268435456; // 256M
+    throttleOrReplayResumeThreshold: float = 0.8;
+    defaultReplayThrottleTIme: uint64 = 100; //100ms
+    throttleLogInterval: uint64 = 10; //10s
+}
+
+table DatabaseSettings {
+    pidFilePath: string;    // pid file path for inotifying the process status
+    dbHeartbeatIntervalMillis: uint32 = 500 (hotswap);
+    dbReplStatusIntervalMillis: uint32 = 5000 (hotswap);
+    contextCleanupIntervalSecs: uint32 = 30 (hotswap);
+    contextExpirySecs: uint32 = 600 (hotswap);
+    replicationLagThresholdSecs: uint32 = 600 (hotswap);
+    aggregateMaxScan: uint32 = 10000 (hotswap);
+    aggregateMaxGroup: uint32 = 1000 (hotswap);
+    aggregatePageSize: uint32 = 500 (hotswap);
+    maxQuerySkip: uint32 = 500 (hotswap);
+    maxConcurrentGroupKeyMutate: int32 = 100 (hotswap);
+    // In DB Credential rotation, min wait time before checking if old connections are idle
+    minWaitBeforeCheckIdleMillis : uint32 = 500 (hotswap);
+    // In DB Credential rotation, max wait time for new connections are all connected
+    maxWaitForAllConnectedMillis : uint32 = 500000 (hotswap);
+    checkpointRefreshIntervalMillis: uint32 (deprecated);
+}
+
+table DBConnection {
+    minDBConnections: uint32 = 2;
+    maxDBConnections: uint32 = 10;
+    dbConnectionOptimalLoad: uint64 = 100 (hotswap);
+    dbConnectionMaxLoad: uint64 (deprecated);
+}
+
+table GrpcServer {
+    tlsEnabled: bool = false;
+    authorizedRoles: [string] (hotswap);
+    grpcMaxConcurrentStreams: uint32 = 50;
+    grpcMemoryQuota: uint64 = 167772160;
+    grpcEventDeadline: uint32 = 100 (hotswap);
+    grpcVerbosity: int32 = 1 (hotswap); //0-DEBUG, 1-INFO, 2-ERROR, -1-unset
+    grpcTrace: string (hotswap);
+}
+
+table DebugSettings {
+    requestDelayMicros: uint64 = 0(hotswap);
+    logThresholdLatency: string (hotswap);
+}
+
+table HttpAuth {
+    httpAuthorizationEnabled: bool = false;
+    httpAuthorizationCert: string;
+    authorizedRoles: [string];
+}
+
+table HttpServer {
+    tlsEnabled: bool = false;
+    adminTimeoutSecs: uint32 = 5;
+    credentialChangeStaggerSecs: uint32 = 86400;
+    httpAuth: HttpAuth;
+}
+
+table CoordinatorAuth {
+    coordAuthorizationEnabled: bool = false (hotswap);
+    coordAuthorizationCert: string (hotswap);
+}
+
+table CoordinatorClient {
+    tlsEnabled: bool = false;
+    tlsIgnoreValidation: bool = true;
+    coordNotificationTimeoutMicros: uint64 = 1000000 (hotswap);
+    coordNotificationRetrySecs: uint32 = 2 (hotswap);
+    coordAuth: CoordinatorAuth;
+}
+
+table FlowController {
+    ring_buffer_queue_size: uint64 = 10000; //number of entries; each entry holds cdc vectors of all transactions from a single commit
+    // The total entry data size must be greater than one ChangeEventPackage size, which is 16M
+    ring_buffer_total_entry_max_size: uint64 = 500000000; // total data size of the ring buffer, 50k * 10k
+    oplogBatchSize: uint32 = 50;
+    cursorSweepOnCount: uint32 = 10000 (hotswap); // Force to sweep the cursor upon this count.
+    cursorWarnCheckSecs : uint32 = 60 (hotswap);  // Raise warning alert if cursor didn't move forward for this much seconds
+}
+
+table CDCGlobal {
+    cursorPersistIntervalSec: uint32 = 10 (hotswap); // 10 seconds
+    cursorPersistOnCount: uint32 = 200 (hotswap);    // Either interval or count reaches first to do cursor write
+    oplogRolloverIntervalSecs: uint32 = 60 (hotswap);
+    oplogMinTolerableHoursUntilRollover: uint32 = 48 (hotswap);
+}
+
+table KafkaPublisherConfigVariant {
+    variantName: string (key, required);
+    hosts: string;
+    topic: string;
+
+    tlsEnabled: bool = false;
+    tlsIgnoreValidation: bool = true;
+    secure: bool = false; //enable authorization
+    saslMechanism: string;
+    authorizationCert: string;
+    subject: string;
+
+    dns_resolve_timeout_ms: uint64 = 60000; //1min
+    connect_timeout_ms: uint64 = 20000; //20sec
+    reconnect_min_delay_ms: uint64 = 1000; //1sec
+    reconnect_max_delay_ms: uint64 = 64000; //20sec
+    batch_delay_ms: uint64 = 10;
+    inactivity_check_ms: uint64 = 20000; //20sec
+    kafka_publish_timeout_ms: uint64 = 10000; //10sec
+    kafka_required_isr: uint32 = 2;
+
+    high_water_mark: uint32 = 419430400; //400MB
+    low_water_mark: uint32 = 209715200; //200MB
+    target_batch_size: uint32 = 131072; //32KB
+    max_batch_size: uint32 = 34603008; //33MB
+    publisher_id_prefix: string;
+}
+
+table KafkaPublisher {
+    enabled: bool = false;
+    activeVariant: string (required);
+    configVariants: [KafkaPublisherConfigVariant](required);
+    controller: FlowController(required);
+}
+
+table GsiShardAlgorithm {
+    hashAlgorithm : string;
+}
+
+// GsiSortKey
+// it represent all sortkey types used in GsiStore
+// for e.g.)
+// MainIndexSortKey = {path, order, type}
+// IncludeFields = {path, type}
+// AddonIndex = {fieldNumber, order}
+
+table GsiSortKey {
+    path : string;
+    order : string;
+    type : string;
+    fieldNumber : uint32;
+}
+
+table GsiMainIndexSchema {
+    name : string (required);
+    sortKeys : [GsiSortKey] (required);
+    includedFields : [GsiSortKey];
+}
+
+table GsiGlobalIndex {
+    name : string (required);
+    docSet : string (required);
+    mainIndex : GsiMainIndexSchema (required);
+    // we don't use it just for now
+    //addonIndexes : [GsiMainIndexSchema];
+}
+
+table GsiEndPoint {
+    id : string (key);
+    ip : string (required);
+    port : uint32 = 5050;
+    master : bool;
+    zone : string;
+}
+
+table GsiRange {
+    rangeStart : string;
+    rangeEnd : string;
+}
+
+table GsiPartitionRange{
+    rangeStart : string;
+    rangeEnd : string;
+    ranges : [GsiRange];
+}
+
+table GsiShardMeta {
+    id: string (key);
+    metadata : GsiPartitionRange;
+}
+
+table GsiIndexShard {
+    shard : GsiShardMeta (required);
+    replicas : [GsiEndPoint] (required, hotswap); // replica can be reconfigurable
+}
+
+table GsiIndexSpace{
+    name : string (key);
+    shardKeyType : string;
+
+    //flatbuffer config can't represent geoConfig correctly
+    //because 'the key' is the value
+    //geoConfig : GeoConfig;
+    globalIndexes : [GsiGlobalIndex] (required);
+    indexShards : [GsiIndexShard] (required, hotswap); // index shard can be reconfigurable
+
+    shardFunction : GsiShardAlgorithm;
+    shardKeyCount : uint32;
+}
+
+table ThrottleParams {
+    max_outstanding_req_count : uint32 = 200; // number of max outstanding gsi ops
+    min_throttle_threashold : uint32 = 50;   // min throttle threshold where throttling starts
+    max_throttle_threashold : uint32 = 100;   // max throttle threshold where throttling starts
+    min_timeout : uint32 = 60000;              // min timeout for gsi store op
+    max_timeout : uint32 = 65000;              // max timeout for gsi store op
+    throttle_level_count : uint32 = 10;
+}
+
+table GsiPublisherConfigVariant {
+    variantName: string (key);
+
+    globalIndexSpaces : [GsiIndexSpace];
+}
+
+table GsiPublisher {
+    enabled: bool = false;
+    mappyClientEnabled: bool = true;
+
+    // SSL/TLS enabled status
+    grpcTlsEnabled: bool = false;
+    httpTlsEnabled: bool = false;
+
+    // grpc tls hostname overriding.
+    // default value : monstor-data.monstor.tess.io
+    tlsHostnameOverriding: string;
+
+    //configuration vatiants are now used only during development when mappy client is disabled as an alternative to fetching config from coordinator.
+    activeVariant: string;
+    configVariants: [GsiPublisherConfigVariant];
+
+    controller: FlowController;
+
+    throttle_enabled : bool = true;
+    throttle_params : ThrottleParams;
+
+    num_gsi_encode_workers : uint32 = 1;
+    num_gsi_insert_workers  : uint32 = 1;
+
+    gsi_streamer_insert_batch_size : uint32 = 1000 ;
+    gsi_streamer_queue_length : uint32 = 4000 ;
+    gsi_pending_data_low : uint32 = 62914560; // 60MB
+    gsi_pending_data_high : uint32 = 104857600; // 100MB, max pending data size including streamer queue
+    gsi_pending_cep_count_limit : uint32 = 100000; // max pending cep count including streamer queue
+    memory_limit : uint64 = 536870912 ; // 512MB
+}
+
+table Glog {
+    FLAGS_v: uint32 = 1;
+    FLAGS_max_log_size: uint32 = 50;
+    FLAGS_logtostderr: uint32 = 0;
+    //Buffer log messages logged at this level or lower";0-INFO, 1-WARNING, 2-ERROR, 3-FATAL
+    FLAGS_logbuflevel: int32 = 0;
+    //copy GLOG levels at above this level to stderr;
+    FLAGS_stderrthreshold: int32 = 3;
+    FLAGS_alsologtostderr: uint32 = 0;
+    FLAGS_vmodule: string (hotswap);
+}
+
+table UmpEvent {
+    enabled: bool = false (hotswap);
+    metricsBeatEnabled: bool = false (hotswap);
+    httpPort: uint32 = 80 (hotswap);
+    nameSpace: string (hotswap);
+    serverAddress: string (hotswap);
+    consumerId: string (hotswap);
+    eventQueueLength: uint32 = 1000 (hotswap);
+    eventQueueFlushThreshold: float = 0.7 (hotswap);
+    eventQueueFlushTimerInterval: uint32 = 3000 (hotswap);
+    threadPoolSize: uint32 = 1 (hotswap);
+    httpRetries: uint32 = 3 (hotswap);
+    httpConnectionTimeout: uint32 = 2000 (hotswap);
+    httpSendRecvTimeout: uint32 = 2000 (hotswap);
+    heartbeatEventEnabled: bool = true (hotswap);
+    heartbeatEventInterval: uint32 = 600 (hotswap);
+}
+
+table AuthorizationParams {
+    //used by both client and servers
+    secret: [string]; //the secret value(s) loaded from secret file
+    loadTime: string; //the time the screts were loaded
+    md5str: string; // md5 of the content of the secret file as is
+
+    //these params are used by the clients only
+    subject: string;
+    id: string;
+    ip: string;
+    username: string;
+
+    //these params are used by the servers only
+    authorizedRoles: [string];
+    tokenCacheCleanupIntervalSec: uint64;
+}
+
+table Processed {
+    isChannelTcp: bool = false;
+    logThresholdLatencyCache: [uint32];
+    mongodbPasswordDigest: string;
+    mongodbUsername: string;
+    kafkaPublisherActiveConfigVariantIdx: int32 = -1;
+    gsiPublisherActiveConfigVariantIdx: int32 = -1;
+
+    authCoordClient: AuthorizationParams;
+    authAdminServer: AuthorizationParams;
+    authDataPath: AuthorizationParams;
+    authKafkaClient: AuthorizationParams;
+    authTTLClient: AuthorizationParams;
+    authCatchupClient: AuthorizationParams;
+}
+
+table Compaction {
+    // frequency to check for fast compaction is needed or not. This has to be 2 times higher than
+    // secondary refresh/heartbeat rate. Typically set to 3
+    fastCompactionTriggerInterval: uint32 = 1500  (hotswap);
+
+    // Irrespective of interval, trigger if it reaches this count
+    fastCompactionTriggerCount: uint32 = 300 (hotswap);
+
+    // Slow Compaction iterator size and batch wait msecs
+    slowCompactionKeysPerBatch : uint64 = 1000 (hotswap); // Number of keys to get on every throttled iteration
+    slowCompactionThrottleTimeMs: uint32 = 100 (hotswap); // Throttle wait time between every iteration
+    slowCompactionCleanupBatchSize: uint32 = 500 (hotswap); // Once reached this count, issue hard delete
+}
+
+table TxnEngine {
+    txnIdJumpOnStateChange : uint64 = 50000 ;   // Number of txnIds to jump upon state change
+    queryOpExtraRequestPercent: uint32 = 25 (hotswap) ; // Request percentage extra to query underlying DB to cover txn older version
+
+    // Time to wait after cleanup before aborted txns are merged in commit ranges. This is the also the time for all
+    // get operations response tolerance time (before failing)
+    waitTimeToMergeAfterCleanupMs: uint32 = 60000 (hotswap);
+}
+
+table CheckpointConfig {
+    triggerDBBytesPerCheckpoint: uint64 = 50000000;  // Trigger checkpoint write if db bytes written exceeds this value (default = 50Mb)
+    triggerOpsPerCheckpoint: uint32 = 100000;        // Trigger checkpoint write if ops processed exceeds this value
+    triggerCmdsPerCheckpoint: uint32 = 100000;       // Trigger checkpoint write if cmds processed exceeds this value
+    triggerTxnsPerCheckpoint: uint32 = 50000;        // Trigger checkpoint write if txns processed exceeds this value
+    triggerIntervalMs: uint32 = 30000;               // Trigger checkpoint write every "triggerIntervalMs" (default = 30s)
+    slowFsyncThresholdMs: uint32 = 5000;             // Log fsync ops which take longer than this threshold
+}
+
+table TTLClient {
+    timeoutMillis: uint32 = 1000;
+    maxTPS: uint32 = 100;
+}
+
+table TTLSampling {
+    intervalSecs: uint32 = 60;          // sample one collection every minute
+    sampleSize : uint32 = 20;           // the number of docs for sampling
+    thresholdRatio : float = 20;        // threshold for sampling_size / expired_docs; 0 will trigger if there is atleast 1 expired doc
+    maxConsecutiveSamples : int32 = 3;  // full collection scan is triggered if all samples are above thresholdRatio
+}
+
+table TTLConfig {
+    client: TTLClient;
+    sampling: TTLSampling;
+    persistedStatePath: string;        // TTL pause, resume state is persisted in this file
+    scanPageSize : uint32 = 10;        // the number of docs per page in the full table scan
+    scanIntervalHours: uint32 = 6;     // full scan should run if it did not run in the last 6 hrs
+}
+
+table SwitchoverConfig {
+    grpcBatchCount: uint64 = 30;
+    grpcBatchSizeLimit: uint64 = 1048576; // 1 MB
+    grpcTimeoutMillisec: uint64 = 5000;  // 5 seconds
+    grpcRetryIntervalSec: uint64 = 1; // 1 seconds
+    maxGrpcRetry: uint64 = 100;
+    catchupPollIntervalMillisec: uint64 = 30; // 30 ms
+    switchoverPollIntervalMillisec: uint64 = 10; // 10 ms
+}
+
+table LogCleaner {
+    scanIntervalSecs: uint32 = 10 (hotswap);    // Cleaner timer runs every so many seconds
+    maxFileCountPerType: uint32 = 10 (hotswap);   // Max files of type INFO, ERROR, WARNING, etc
+}
+
+table JungleFlushOpts {
+    callFsync: bool = true;
+    numFilesLimit: uint32 = 0;
+    fsyncDelayMicros: uint32 = 0;
+}
+
+table JungleCompactOptions {
+    preserveTombstone: bool = false;
+}
+
+table Jungle {
+    flushOpts: JungleFlushOpts;
+    compactOpts: JungleCompactOptions;
+}
+
+table Config {
+    database: DatabaseSettings;
+    dbconnection: DBConnection;
+    grpcServer: GrpcServer;
+    debug: DebugSettings;
+    httpServer: HttpServer;
+    coordClient: CoordinatorClient;
+    kafka: KafkaPublisher;
+    gsi: GsiPublisher;
+    glog: Glog;
+    umpEvent: UmpEvent;
+    compaction: Compaction;
+    txnengine: TxnEngine;
+    checkpoint: CheckpointConfig;
+    cdcGlobal: CDCGlobal;
+    numThreads: uint32 = 4;
+    auditNumRows: bool = false;
+    memoryThreshold: uint64 = 1000000000 (hotswap);
+    shutdown_wait_time_sec: uint32 = 20 (hotswap); // Time to wait for graceful shutdown, before forcing a shutdown.
+
+    //enables enforcement of authorization verification in connection to MonstorDB and GsiServer
+    dataPathAuthorizationEnabled: bool = false (hotswap);
+    dataPathAuthorizationCert: string;
+    dataPathTokenCacheCleanupIntervalSec: uint64 = 300;
+    ttl: TTLConfig;
+    switchover: SwitchoverConfig;
+    logCleaner: LogCleaner;
+
+    // new configurations for MonstorDB v1.5
+    replication: ReplicationSettings;
+
+    // configuration for MonstorDB v1.5 throttle mechanism
+    monstorThrottle: MonstorThrottleSettings;
+
+    jungle: Jungle;
+}
+table TestAppSettings {
+    version: uint32;
+    coord: Coordinator;
+    config: Config;
+    processed: Processed;
+}
+
+root_type TestAppSettings;
+

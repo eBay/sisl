@@ -40,7 +40,6 @@ namespace sisl {
 
 /* Monitors for file modification events */
 class FileMonitor {
-
 private:
     // event base passed from admin server
     struct event_base* m_base = nullptr;
