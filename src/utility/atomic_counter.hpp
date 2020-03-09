@@ -18,10 +18,10 @@ public:
     atomic_counter() = default;
     atomic_counter(T count) : m_count(count) {}
     atomic_counter(const atomic_counter& other) : m_count(other.m_count.load(std::memory_order_acquire)) {}
-    atomic_counter& operator=(const atomic_counter &other) {
+    atomic_counter& operator=(const atomic_counter& other) {
         m_count.store(other.m_count.load(std::memory_order_acquire), std::memory_order_release);
+        return *this;
     }
-
 
     T increment(int32_t n = 1) {
         T count = m_count.fetch_add(n, std::memory_order_relaxed);
@@ -46,7 +46,17 @@ public:
         return false;
     }
 
-    bool decrement_test_le(int32_t check, int32_t n = 1) {
+    bool decrement_test_eq(T check, int32_t n = 1) {
+        T count = m_count.fetch_sub(n, std::memory_order_release);
+        if (count == (check + 1)) {
+            // Fence the memory to prevent from any release (decrement) getting reordered before returning
+            std::atomic_thread_fence(std::memory_order_acquire);
+            return true;
+        }
+        return false;
+    }
+
+    bool decrement_test_le(T check, int32_t n = 1) {
         T count = m_count.fetch_sub(n, std::memory_order_release);
         if (count <= (check + 1)) {
             // Fence the memory to prevent from any release (decrement) getting reordered before returning
@@ -59,9 +69,7 @@ public:
     }
 
     bool test_le(T check) {
-        if (m_count.load(std::memory_order_relaxed) > check) {
-            return false;
-        }
+        if (m_count.load(std::memory_order_relaxed) > check) { return false; }
         return true;
     }
 
@@ -81,9 +89,7 @@ public:
     void set(int32_t n) { m_count.store(n, std::memory_order_release); }
 
     bool test_le(uint32_t check) const {
-        if (get() > check) {
-            return false;
-        }
+        if (get() > check) { return false; }
 
         std::atomic_thread_fence(std::memory_order_acquire);
         return true;
