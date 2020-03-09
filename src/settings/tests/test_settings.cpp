@@ -23,42 +23,40 @@ int main(int argc, char* argv[]) {
 
     // MY_SETTINGS_FACTORY.load_file("/tmp/settings_in.json");
 
-    std::cout << "After Initial load values are: \n";
-    std::cout << "Value of dbConnectionOptimalLoad = ? "
-              << SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad) << "\n";
-    MY_SETTINGS_FACTORY.save("/tmp/settings_out.json");
+    LOGINFO("After Initial load values are:");
+    LOGINFO("dbConnectionOptimalLoad = {} ",
+            SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
+    MY_SETTINGS_FACTORY.save("/tmp/settings_out");
     SETTINGS(test_app_schema, s, {
-        std::cout << "Value of databasePort = " << s.config.database.databasePort << "\n";
-        std::cout << "Value of numThreads = " << s.config.database.numThreads << "\n";
+        LOGINFO("databasePort = {}", s.config.database.databasePort);
+        LOGINFO("numThreads = {}", s.config.database.numThreads);
     });
 
-    std::cout << "Reload - 1 file: restart needed ? " << MY_SETTINGS_FACTORY.reload_file("/tmp/settings_in.json")
-              << "\n";
+    LOGINFO("Reload - 1 file: restart needed {}", MY_SETTINGS_FACTORY.reload_file("/tmp/settings_out.json"));
 
     nlohmann::json j;
     j = nlohmann::json::parse(MY_SETTINGS_FACTORY.get_json());
     j["config"]["dbconnection"]["dbConnectionOptimalLoad"] = 800;
-    std::cout << "Reload - 2 json after changes, restart needed ? " << MY_SETTINGS_FACTORY.reload_json(j.dump())
-              << "\n";
-    std::cout << "After reload - 2: values are: \n";
-    std::cout << "Value of dbConnectionOptimalLoad = ? "
-              << SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad) << "\n";
+    LOGINFO("Reload - 2 json after changes, restart needed {} ", MY_SETTINGS_FACTORY.reload_json(j.dump()));
+    LOGINFO("After reload - 2: values are:");
+    LOGINFO("dbConnectionOptimalLoad = {} ",
+            SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
     SETTINGS(test_app_schema, s, {
-        std::cout << "Value of databasePort = " << s.config.database.databasePort << "\n";
-        std::cout << "Value of numThreads = " << s.config.database.numThreads << "\n";
+        LOGINFO("databasePort = {}", s.config.database.databasePort);
+        LOGINFO("numThreads = {}", s.config.database.numThreads);
     });
 
     j = nlohmann::json::parse(MY_SETTINGS_FACTORY.get_json());
     j["config"]["database"]["databasePort"] = 25000;
-    std::cout << "Reload - 3 json after changes, restart needed ? " << MY_SETTINGS_FACTORY.reload_json(j.dump())
-              << "\n";
-    std::cout << "After reload - 3: values are: \n";
-    std::cout << "Value of dbConnectionOptimalLoad = ? "
-              << SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad) << "\n";
+    LOGINFO("Reload - 3 json after changes, restart needed {} ", MY_SETTINGS_FACTORY.reload_json(j.dump()));
+    LOGINFO("After reload - 3: values are:");
+    LOGINFO("dbConnectionOptimalLoad = {} ",
+            SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
     SETTINGS(test_app_schema, s, {
-        std::cout << "Value of databasePort = " << s.config.database.databasePort << "\n";
-        std::cout << "Value of numThreads = " << s.config.database.numThreads << "\n";
+        LOGINFO("databasePort = {}", s.config.database.databasePort);
+        LOGINFO("numThreads = {}", s.config.database.numThreads);
     });
 
+    MY_SETTINGS_FACTORY.save("/tmp/settings_out");
     return 0;
 }

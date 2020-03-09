@@ -39,8 +39,6 @@ public:
         return std::unique_ptr< T >::operator->();
     }
 
-    T* get() const noexcept { return std::unique_ptr< T >::get(); }
-
     T* release() noexcept {
         assert(*this);
         T* ret = std::unique_ptr< T >::release();

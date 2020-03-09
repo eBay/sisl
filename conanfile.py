@@ -33,7 +33,7 @@ class MetricsConan(ConanFile):
                 ("folly/2019.09.30.00"),
                 ("userspace-rcu/0.10.2"),
                 ("prometheus_cpp/0.7.1"),
-                ("flatbuffers/1.11.0@oss/stable"),
+                ("flatbuffers/1.11.0"),
                 ("nlohmann_json/3.7.3"))
 
     generators = "cmake"
