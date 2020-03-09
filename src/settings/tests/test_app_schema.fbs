@@ -5,51 +5,6 @@ namespace testapp;
 attribute "hotswap";
 attribute "deprecated";
 
-
-table DurabilityConfig {
-    w: string (hotswap);
-    j: bool = false (hotswap);
-    wtimeout: uint32 = 2000 (hotswap);
-}
-
-table DBAuth { //MongoDB authentication
-    dbauth_enabled: bool (hotswap);
-    dbauthUsernamePath: string (hotswap);
-    dbauthPasswordPath: string (hotswap);
-}
-
-//this section containts settings that are different for each replica set or even replica within a set
-//if some setting is common/constant for all replicas and all replica sets in a keyspace it should be here and instead should be place in a corresponding section
-table Coordinator /*TODO: needs to be broken down by physical subcomponents: Keyspace | Shard | Replica */ {
-    //Keyspace keyspace (required);
-    //Shard shard (required);
-    //Replica replica (required);
-
-    id: uint64 = 0 (hotswap);                		//TODO: move to Replica
-    shardId: string (hotswap);           		    //TODO: move to Shard
-    replicaSetId: string (hotswap);                 //TODO: move to Shard
-    databaseName: string;                           //TODO: move to Shard
-    channelType: string;                            //TODO: move to DatabaseSettings
-    unixSocketFile: string;                         //TODO: move to DatabaseSettings
-    durabilityConfig: DurabilityConfig;             //TODO: move to Keyspace
-    databaseHost: string;                           //TODO: move to DatabaseSettings
-    databasePort: uint32 = 27017;                   //TODO: move to DatabaseSettings
-    adminPort: uint32 = 5050;                       //TODO: move to HttpServer
-    dataPort: uint32 = 5051;                        //TODO: move to GrpcServer
-    hiddenGrpcPort: uint32 = 5051;                  // In mib testing we use different ports which can be passed here
-    coordEndpoint: string (hotswap);         		//TODO: move to Replica
-    bindAddress: string;                            //TODO: move to Config
-    dbauth: DBAuth(required);                       //TODO: move to Replica
-    keyspace: string (required);                    //TODO: move to Global
-    region: string;                                 //TODO: move to Replica
-    zone: string (hotswap);                  		//TODO: move to Replica
-    replicaName: string (hotswap);           		//TODO: move to Replica
-    tlsCACertPath: string;                          //TODO: move to Replica
-    tlsCertPath: string;                            //TODO: move to Replica
-    tlsKeyPath: string;                             //TODO: move to Replica
-    latchFile: string;
-}
-
 table DatabaseSettings {
     databaseHost: string;                          
     databasePort: uint32 = 27017;                   
