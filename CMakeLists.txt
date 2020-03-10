@@ -19,6 +19,7 @@ if  (${MEMORY_SANITIZER_ON})
     include (cmake/mem_sanitizer.cmake)
 endif()
 
+include(cmake/settings_gen.cmake)
 find_package (Threads REQUIRED)
 
 find_program(CCACHE_FOUND ccache)
@@ -41,6 +42,7 @@ add_subdirectory (src/async_http)
 add_subdirectory (src/wisr)
 add_subdirectory (src/metrics)
 add_subdirectory (src/fds)
+add_subdirectory (src/settings)
 
 add_library(sisl
         $<TARGET_OBJECTS:sisl_metrics>

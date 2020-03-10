@@ -15,6 +15,10 @@ namespace sisl {
 
 #define FREELIST_CACHE_COUNT 10000
 
+/**
+ * @brief Object Allocator is an object wrapper on top of freelist allocator. It provides convenient method to create
+ * a C++ object and destruct them.
+ */
 template < typename T, size_t CacheCount = FREELIST_CACHE_COUNT >
 class ObjectAllocator {
 public:

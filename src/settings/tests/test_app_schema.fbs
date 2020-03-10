@@ -1,0 +1,45 @@
+native_include "utility/non_null_ptr.hpp";
+
+namespace testapp;
+
+attribute "hotswap";
+attribute "deprecated";
+
+table DatabaseSettings {
+    databaseHost: string;                          
+    databasePort: uint32 = 27017;                   
+    numThreads: uint32 = 8;
+}
+
+table DBConnection {
+    minDBConnections: uint32 = 2;
+    maxDBConnections: uint32 = 10;
+    dbConnectionOptimalLoad: uint64 = 100 (hotswap);
+    dbConnectionMaxLoad: uint64 (deprecated);
+}
+
+table Glog {
+    FLAGS_v: uint32 = 1;
+    FLAGS_max_log_size: uint32 = 50;
+    FLAGS_logtostderr: uint32 = 0;
+    //Buffer log messages logged at this level or lower";0-INFO, 1-WARNING, 2-ERROR, 3-FATAL
+    FLAGS_logbuflevel: int32 = 0;
+    //copy GLOG levels at above this level to stderr;
+    FLAGS_stderrthreshold: int32 = 3;
+    FLAGS_alsologtostderr: uint32 = 0;
+    FLAGS_vmodule: string (hotswap);
+}
+
+table Config {
+    database: DatabaseSettings;
+    dbconnection: DBConnection;
+    glog: Glog;
+}
+
+table TestAppSettings {
+    version: uint32;
+    config: Config;
+}
+
+root_type TestAppSettings;
+
