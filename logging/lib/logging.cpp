@@ -25,8 +25,8 @@ extern "C" {
 SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable", ::cxxopts::value<std::string>(), "mod[:level][,mod2[:level2],...]"), \
                           (async_size, "", "log_queue", "Size of async log queue", ::cxxopts::value<uint32_t>()->default_value("4096"), "(power of 2)"), \
                           (log_name,   "l", "logfile", "Full path to logfile", ::cxxopts::value<std::string>(), "logfile"), \
-                          (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("3"), "count"), \
-                          (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("10"), "MiB"), \
+                          (rot_limit,  "",  "logfile_cnt", "Number of rotating files", ::cxxopts::value<uint32_t>()->default_value("5"), "count"), \
+                          (size_limit, "",  "logfile_size", "Maximum logfile size", ::cxxopts::value<uint32_t>()->default_value("25"), "MiB"), \
                           (standout,   "c", "stdout", "Stdout logging only", ::cxxopts::value<bool>(), ""), \
                           (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
                           (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
