@@ -4,7 +4,6 @@
 
 SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
 THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
 
 using namespace sisl;
 using namespace std;

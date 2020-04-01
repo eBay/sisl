@@ -8,7 +8,6 @@
 
 using namespace sisl;
 THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
 
 SDS_LOGGING_INIT(test_stream_tracker);
 

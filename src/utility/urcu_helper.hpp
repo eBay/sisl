@@ -178,5 +178,6 @@ public:
     static void sync_rcu() { synchronize_rcu(); }
 };
 
-#define RCU_REGISTER_INIT thread_local bool sisl::urcu_ctl::_rcu_registered_already = false
+thread_local bool sisl::urcu_ctl::_rcu_registered_already = false;
+#define RCU_REGISTER_INIT
 } // namespace sisl
