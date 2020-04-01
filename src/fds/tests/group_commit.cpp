@@ -10,6 +10,7 @@
 
 using namespace sisl;
 THREAD_BUFFER_INIT;
+RCU_REGISTER_INIT;
 SDS_LOGGING_INIT(group_commit)
 
 struct log_group_header {
