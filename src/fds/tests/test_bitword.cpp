@@ -6,6 +6,7 @@
 using namespace sisl;
 
 SDS_LOGGING_INIT(test_bitword);
+RCU_REGISTER_INIT;
 
 static void validate(uint64_t val, int offset, const bit_filter& filter, int exp_start, bit_match_type exp_match) {
     Bitword< unsafe_bits< uint64_t > > bword(val);
