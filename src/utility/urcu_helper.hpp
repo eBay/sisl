@@ -161,11 +161,19 @@ class urcu_ctl {
 public:
     static thread_local bool _rcu_registered_already;
 
-    static void register_rcu() { rcu_register_thread(); }
+    static void register_rcu() {
+        if (!_rcu_registered_already) {
+            rcu_register_thread();
+            _rcu_registered_already = true;
+        }
+    }
 
     static void declare_quiscent_state() { rcu_quiescent_state(); }
 
-    static void unregister_rcu() { rcu_unregister_thread(); }
+    static void unregister_rcu() {
+        rcu_unregister_thread();
+        _rcu_registered_already = false;
+    }
 
     static void sync_rcu() { synchronize_rcu(); }
 };
