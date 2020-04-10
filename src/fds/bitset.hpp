@@ -448,8 +448,8 @@ private:
         m_s->m_skip_bits = new_skip_bits;
         m_s->m_nbits = new_nbits;
 
-        LOGINFO("Resize to total_bits={} total_actual_bits={}, skip_bits={}, words_cap={}", total_bits(), m_s->m_nbits,
-                m_s->m_skip_bits, m_words_cap);
+        LOGDEBUG("Resize to total_bits={} total_actual_bits={}, skip_bits={}, words_cap={}", total_bits(), m_s->m_nbits,
+                 m_s->m_skip_bits, m_words_cap);
     }
 
     Word* get_word(uint64_t b) {

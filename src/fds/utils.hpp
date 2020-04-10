@@ -6,6 +6,8 @@
 #include <array>
 #include <cstdlib>
 #include <memory>
+#include <boost/preprocessor/repetition/repeat_from_to.hpp>
+#include <boost/preprocessor/arithmetic/inc.hpp>
 
 #if defined __GNUC__ || defined __llvm__
 #define sisl_likely(x) __builtin_expect(!!(x), 1)
@@ -98,8 +100,8 @@ static uint64_t constexpr get_mask() {
 }
 
 namespace sisl {
-inline uint32_t round_up(uint32_t num_to_round, uint32_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
-inline uint32_t round_down(uint32_t num_to_round, uint32_t multiple) { return (num_to_round / multiple) * multiple; }
+inline uint64_t round_up(uint64_t num_to_round, uint64_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
+inline uint64_t round_down(uint64_t num_to_round, uint64_t multiple) { return (num_to_round / multiple) * multiple; }
 
 template < typename T >
 struct aligned_free {
@@ -207,5 +209,9 @@ static int spaceship_oper(const T& left, const T& right) {
         return 1;
     }
 }
+
+#define _PLACEHOLDER_PARAM(z, n, text) , text##n
+#define bind_this(method, nparams)                                                                                     \
+    std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
 
 } // namespace sisl
