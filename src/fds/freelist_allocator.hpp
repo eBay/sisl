@@ -46,8 +46,8 @@ public:
 #define COUNTER_INCREMENT_IF_ENABLED(p, v) COUNTER_INCREMENT(FreeListAllocatorMetrics::instance(), p, v);
 #define COUNTER_DECREMENT_IF_ENABLED(p, v) COUNTER_DECREMENT(FreeListAllocatorMetrics::instance(), p, v);
 #else
-#define COUNTER_INCREMENT_IF_ENABLED(m, p, v) (void)
-#define COUNTER_DECREMENT_IF_ENABLED(m, p, v) (void)
+#define COUNTER_INCREMENT_IF_ENABLED(p, v) (void)
+#define COUNTER_DECREMENT_IF_ENABLED(p, v) (void)
 #endif
 
 template < uint16_t MaxListCount, std::size_t Size >
