@@ -23,6 +23,7 @@ struct free_list_header {
     free_list_header* next;
 };
 
+#if defined(FREELIST_METRICS) || !defined(NDEBUG)
 class FreeListAllocatorMetrics : public sisl::MetricsGroupWrapper {
 public:
     explicit FreeListAllocatorMetrics() : sisl::MetricsGroupWrapper("FreeListAllocator", "Singleton") {
@@ -41,6 +42,13 @@ public:
         return inst;
     }
 };
+
+#define COUNTER_INCREMENT_IF_ENABLED(p, v) COUNTER_INCREMENT(FreeListAllocatorMetrics::instance(), p, v);
+#define COUNTER_DECREMENT_IF_ENABLED(p, v) COUNTER_DECREMENT(FreeListAllocatorMetrics::instance(), p, v);
+#else
+#define COUNTER_INCREMENT_IF_ENABLED(m, p, v) (void)
+#define COUNTER_DECREMENT_IF_ENABLED(m, p, v) (void)
+#endif
 
 template < uint16_t MaxListCount, std::size_t Size >
 class FreeListAllocatorImpl {
@@ -62,35 +70,33 @@ public:
 
     uint8_t* allocate(uint32_t size_needed) {
         uint8_t* ptr;
-        // auto& metrics = FreeListAllocatorMetrics::instance();
+        [[maybe_unused]] auto& metrics = FreeListAllocatorMetrics::instance();
 
         if (m_head == nullptr) {
             ptr = (uint8_t*)malloc(size_needed);
-            // COUNTER_INCREMENT(metrics, freelist_alloc_miss, 1);
+            COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_miss, 1);
         } else {
             ptr = (uint8_t*)m_head;
-            // COUNTER_INCREMENT(metrics, freelist_alloc_hit, 1);
+            COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_hit, 1);
             m_head = m_head->next;
-            // COUNTER_DECREMENT(metrics, freelist_cache_size, size_needed);
+            COUNTER_DECREMENT_IF_ENABLED(freelist_cache_size, size_needed);
         }
 
-        // COUNTER_INCREMENT(metrics, freelist_alloc_size, size_needed);
+        COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_size, size_needed);
         m_list_count--;
         return ptr;
     }
 
     bool deallocate(uint8_t* mem, uint32_t size_alloced) {
-        auto& metrics = FreeListAllocatorMetrics::instance();
-
-        // COUNTER_DECREMENT(metrics, freelist_alloc_size, size_alloced);
+        COUNTER_DECREMENT_IF_ENABLED(freelist_alloc_size, size_alloced);
         if ((size_alloced != Size) || (m_list_count == MaxListCount)) {
-            if (size_alloced != Size) { COUNTER_INCREMENT(metrics, freelist_dealloc_passthru, 1); }
+            if (size_alloced != Size) { COUNTER_INCREMENT_IF_ENABLED(freelist_dealloc_passthru, 1); }
             free(mem);
-            // COUNTER_INCREMENT(metrics, freelist_dealloc, 1);
+            COUNTER_INCREMENT_IF_ENABLED(freelist_dealloc, 1);
             return true;
         }
         auto* hdr = (free_list_header*)mem;
-        // COUNTER_INCREMENT(metrics, freelist_cache_size, size_alloced);
+        COUNTER_INCREMENT_IF_ENABLED(freelist_cache_size, size_alloced);
         hdr->next = m_head;
         m_head = hdr;
         m_list_count++;
@@ -111,16 +117,11 @@ public:
 
     uint8_t* allocate(uint32_t size_needed) {
         if (sisl_unlikely(m_impl.get() == nullptr)) { m_impl.reset(new FreeListAllocatorImpl< MaxListCount, Size >()); }
-        // if (sisl_unlikely(m_impl.get() == nullptr)) { return (uint8_t*)malloc(size_needed); }
         return (m_impl->allocate(size_needed));
     }
 
     bool deallocate(uint8_t* mem, uint32_t size_alloced) {
         if (sisl_unlikely(m_impl.get() == nullptr)) { m_impl.reset(new FreeListAllocatorImpl< MaxListCount, Size >()); }
-        // if (sisl_unlikely(m_impl.get() == nullptr)) {
-        // free(mem);
-        // return true;
-        //}
         return m_impl->deallocate(mem, size_alloced);
     }
 
