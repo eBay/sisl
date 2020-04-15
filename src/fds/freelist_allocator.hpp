@@ -45,9 +45,11 @@ public:
 
 #define COUNTER_INCREMENT_IF_ENABLED(p, v) COUNTER_INCREMENT(FreeListAllocatorMetrics::instance(), p, v);
 #define COUNTER_DECREMENT_IF_ENABLED(p, v) COUNTER_DECREMENT(FreeListAllocatorMetrics::instance(), p, v);
+#define INIT_METRICS [[maybe_unused]] auto& metrics = FreeListAllocatorMetrics::instance();
 #else
-#define COUNTER_INCREMENT_IF_ENABLED(m, p, v) (void)
-#define COUNTER_DECREMENT_IF_ENABLED(m, p, v) (void)
+#define COUNTER_INCREMENT_IF_ENABLED(p, v) (void)
+#define COUNTER_DECREMENT_IF_ENABLED(p, v) (void)
+#define INIT_METRICS (void)
 #endif
 
 template < uint16_t MaxListCount, std::size_t Size >
@@ -70,7 +72,7 @@ public:
 
     uint8_t* allocate(uint32_t size_needed) {
         uint8_t* ptr;
-        [[maybe_unused]] auto& metrics = FreeListAllocatorMetrics::instance();
+        INIT_METRICS;
 
         if (m_head == nullptr) {
             ptr = (uint8_t*)malloc(size_needed);
@@ -127,5 +129,5 @@ public:
 
     bool owns(uint8_t* mem) const { return true; }
     bool is_thread_safe_allocator() const { return true; }
-}; // namespace sisl
+};
 } // namespace sisl
