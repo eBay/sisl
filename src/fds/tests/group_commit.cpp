@@ -7,6 +7,7 @@
 #include <sds_logging/logging.h>
 #include "obj_allocator.hpp"
 #include <spdlog/fmt/fmt.h>
+#include <boost/intrusive/slist.hpp>
 
 using namespace sisl;
 THREAD_BUFFER_INIT;
@@ -39,6 +40,7 @@ struct serialized_log_record {
 
 static constexpr uint32_t dma_boundary = 512;
 
+class LogGroup;
 struct log_record {
     static constexpr uint32_t inline_size = dma_boundary;
 
@@ -46,6 +48,7 @@ struct log_record {
     uint8_t* data_ptr;
     uint32_t size;
     void* context;
+    LogGroup* log_group; // Group this record is part of
 
     log_record(uint8_t* d, uint32_t sz, void* ctx) {
         data_ptr = d;

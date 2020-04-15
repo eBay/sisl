@@ -4,6 +4,7 @@
 #include <benchmark/benchmark.h>
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
+#include <metrics/metrics.hpp>
 #include <obj_allocator.hpp>
 #include <string>
 #include <iostream>
@@ -12,8 +13,8 @@ SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
-#define ITERATIONS 100000
-#define THREADS 64
+#define ITERATIONS 10000000
+#define THREADS 8
 
 struct my_request {
     int m_a;
@@ -34,7 +35,8 @@ void test_malloc(benchmark::State& state) {
         counter += req->m_d;
         delete (req);
     }
-    std::cout << "Counter = " << counter << "\n";
+    printf("Counter = %lu\n", counter);
+    // std::cout << "Counter = " << counter << "\n";
 }
 
 void test_obj_alloc(benchmark::State& state) {
@@ -48,7 +50,8 @@ void test_obj_alloc(benchmark::State& state) {
         counter += req->m_d;
         sisl::ObjectAllocator< my_request >::deallocate(req);
     }
-    std::cout << "Counter = " << counter << "\n";
+    printf("Counter = %lu\n", counter);
+    // std::cout << "Counter = " << counter << "\n";
 }
 
 BENCHMARK(test_malloc)->Iterations(ITERATIONS)->Threads(THREADS);
@@ -60,4 +63,5 @@ int main(int argc, char** argv) {
     setup();
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();
+    // std::cout << "Metrics: " << sisl::MetricsFarm::getInstance().get_result_in_json().dump(4) << "\n";
 }
