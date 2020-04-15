@@ -127,5 +127,5 @@ public:
 
     bool owns(uint8_t* mem) const { return true; }
     bool is_thread_safe_allocator() const { return true; }
-}; // namespace sisl
+};
 } // namespace sisl
