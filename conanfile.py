@@ -25,12 +25,12 @@ class MetricsConan(ConanFile):
                         'sanitize=False',
                         )
 
-    requires = (("sds_logging/6.1.2@sds/develop"),
+    requires = (("sds_logging/7.0.0@sds/develop"),
                 ("benchmark/1.5.0"),
                 ("boost/1.72.0"),
                 ("gtest/1.10.0"),
                 ("evhtp/1.2.18.2"),
-                ("folly/2019.09.30.00"),
+                ("folly/2020.03.02.00"),
                 ("userspace-rcu/0.10.2"),
                 ("prometheus_cpp/0.7.1"),
                 ("flatbuffers/1.11.0"),
