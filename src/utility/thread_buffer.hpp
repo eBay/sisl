@@ -43,7 +43,7 @@ class ThreadRegistry {
     typedef std::map< uint64_t, thread_state_cb_t > notifiers_list_t;
 
 public:
-    static constexpr size_t max_tracked_threads() { return 1024U; }
+    static constexpr size_t max_tracked_threads() { return 2048U; }
 
     ThreadRegistry() :
             m_free_thread_slots(max_tracked_threads()),
@@ -104,7 +104,7 @@ public:
     void slot_release(uint32_t thread_num) { m_ref_count[thread_num].decrement_testz(); }
 
     uint64_t register_for_sc_notification(const thread_state_cb_t& cb) {
-        std::vector< uint8_t > tnums;
+        std::vector< uint32_t > tnums;
         uint64_t notify_idx;
 
         tnums.reserve(m_free_thread_slots.size());
