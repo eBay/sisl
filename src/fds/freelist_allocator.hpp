@@ -81,24 +81,18 @@ public:
             ptr = (uint8_t*)m_head;
             COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_hit, 1);
             m_head = m_head->next;
-            COUNTER_DECREMENT_IF_ENABLED(freelist_cache_size, size_needed);
         }
 
-        COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_size, size_needed);
         m_list_count--;
         return ptr;
     }
 
     bool deallocate(uint8_t* mem, uint32_t size_alloced) {
-        COUNTER_DECREMENT_IF_ENABLED(freelist_alloc_size, size_alloced);
         if ((size_alloced != Size) || (m_list_count == MaxListCount)) {
-            if (size_alloced != Size) { COUNTER_INCREMENT_IF_ENABLED(freelist_dealloc_passthru, 1); }
             free(mem);
-            COUNTER_INCREMENT_IF_ENABLED(freelist_dealloc, 1);
             return true;
         }
         auto* hdr = (free_list_header*)mem;
-        COUNTER_INCREMENT_IF_ENABLED(freelist_cache_size, size_alloced);
         hdr->next = m_head;
         m_head = hdr;
         m_list_count++;
