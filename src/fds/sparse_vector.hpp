@@ -14,31 +14,27 @@ namespace sisl {
  *
  * One additional expectation to std::vector is that the type it carries should support default no argument constructor
  */
-template< typename T >
+template < typename T >
 class sparse_vector : public std::vector< T > {
 public:
-    T &operator[](const size_t index) {
+    T& operator[](const size_t index) {
         fill_void(index);
         return std::vector< T >::operator[](index);
     }
 
-    bool index_exists(const size_t index) const {
-        return (index < std::vector< T >::size());
-    }
+    bool index_exists(const size_t index) const { return (index < std::vector< T >::size()); }
 
-    T &at(const size_t index) {
+    T& at(const size_t index) {
         fill_void(index);
         return std::vector< T >::at(index);
     }
 
-    const T &operator[](const size_t index) const {
+    const T& operator[](const size_t index) const {
         assert(index < std::vector< T >::size());
         return std::vector< T >::operator[](index);
     }
 
-    const T &at(const size_t index) const {
-        return std::vector< T >::at(index);
-    }
+    const T& at(const size_t index) const { return std::vector< T >::at(index); }
 
 private:
     void fill_void(const size_t index) {
@@ -47,5 +43,4 @@ private:
         }
     }
 };
-
 } // namespace sisl

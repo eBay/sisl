@@ -59,6 +59,16 @@ struct atomic_status_counter {
     int32_t count() const { return m_val.load(std::memory_order_acquire).counter; }
 
     /**
+     * @brief Get the status count object atomicallu
+     *
+     * @return std::pair< StatusType, int32_t >: A pair of status and counter
+     */
+    std::pair< StatusType, int32_t > get_status_count() const {
+        auto val = m_val.load(std::memory_order_acquire);
+        return std::make_pair< StatusType, int32_t >(val.status, val.counter);
+    }
+
+    /**
      * @brief Update the status atomically without changing the current counter value
      *
      * @param status to set
@@ -91,6 +101,24 @@ struct atomic_status_counter {
         auto new_val = set_value([exp_status, new_status](status_counter_t& val) {
             val.counter--;
             if ((val.counter == 0) && (val.status == exp_status)) { val.status = new_status; }
+        });
+        return (new_val.counter == 0);
+    }
+
+    /**
+     * @brief If the count after decrement becomes 0 AND if the status is same as expected status, then decrement
+     * and set the new status, all done atomically.
+     *
+     * @param exp_status
+     * @param new_status
+     * @return true or false based on if the counter reached 0 and status was updated
+     */
+    bool dec_xchng_status_only_ifz(StatusType exp_status, StatusType new_status) {
+        auto new_val = set_value([exp_status, new_status](status_counter_t& val) {
+            if ((val.counter == 1) && (val.status == exp_status)) {
+                --val.counter;
+                val.status = new_status;
+            }
         });
         return (new_val.counter == 0);
     }
@@ -180,7 +208,7 @@ struct atomic_status_counter {
      * @param modifier: A callback which accepts counter and status pointers, whose values can be modified if needbe
      * @return true or false based on if the modifier has changed the value or not
      */
-    bool set_atomic_value(const std::function< bool< int32_t&, StatusType& > >& modifier) {
+    bool set_atomic_value(const std::function< bool(int32_t&, StatusType&) >& modifier) {
         status_counter_t old_v, new_v;
         bool updated = true;
         do {
