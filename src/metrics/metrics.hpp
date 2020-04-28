@@ -298,6 +298,11 @@ public:
         m_on_gather_cb = cb;
     }
 
+    void detach_gather_cb() {
+        auto locked = lock();
+        m_on_gather_cb = nullptr;
+    }
+
 private:
     void on_register();
 
@@ -449,6 +454,7 @@ public:
     void deregister_me_from_farm() { MetricsFarm::getInstance().deregister_metrics_group(m_mg_ptr); }
     nlohmann::json get_result_in_json(bool need_latest) { return m_mg_ptr->get_result_in_json(need_latest); }
     void attach_gather_cb(const on_gather_cb_t& cb) { m_mg_ptr->attach_gather_cb(cb); }
+    void detach_gather_cb() { m_mg_ptr->detach_gather_cb(); }
 };
 
 #if 0
