@@ -4,6 +4,7 @@ pipeline {
     environment {
         CONAN_USER = 'sisl'
         CONAN_PASS = credentials('CONAN_PASS')
+        ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
     }
 
     stages {
@@ -19,8 +20,8 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh "docker build --rm --build-arg BUILD_TYPE=debug --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-debug ."
-                sh "docker build --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-release ."
+                sh "docker build --rm --build-arg BUILD_TYPE=debug --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-debug ."
+                sh "docker build --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-release ."
             }
         }
 
