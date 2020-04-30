@@ -50,7 +50,7 @@ template < typename T, size_t CacheCount = VECTOR_POOL_CACHE_COUNT >
 class VectorPool {
 public:
     static std::vector< T >* alloc() { return impl().allocate(); }
-    static void free(std::vector< T >* v) { impl().deallocate(v); }
+    static void free(std::vector< T >* v, bool no_cache = false) { no_cache ? delete (v) : impl().deallocate(v); }
 
 private:
     static VectorPoolImpl< T, CacheCount >& impl() {
