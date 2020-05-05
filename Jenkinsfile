@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         CONAN_USER = 'sisl'
-        CONAN_PASS = credentials('CONAN_PASS')
         ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
     }
 
@@ -20,14 +19,16 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh "docker build --rm --build-arg BUILD_TYPE=debug --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-debug ."
-                sh "docker build --rm --build-arg CONAN_USER=${CONAN_USER} --build-arg CONAN_PASS=${CONAN_PASS} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-release ."
+                sh "docker build --rm --build-arg BUILD_TYPE=debug --build-arg CONAN_USER=${CONAN_USER} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-debug ."
+                sh "docker build --rm --build-arg BUILD_TYPE=test --build-arg CONAN_USER=${CONAN_USER} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-test ."
+                sh "docker build --rm --build-arg BUILD_TYPE=release --build-arg CONAN_USER=${CONAN_USER} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-release ."
             }
         }
 
         stage('Deploy') {
             steps {
                 sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-debug"
+                sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-test"
                 sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-release"
                 slackSend channel: '#conan-pkgs', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has been uploaded to conan repo."
             }
@@ -37,6 +38,7 @@ pipeline {
     post {
         always {
             sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-debug"
+            sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-test"
             sh "docker rmi -f ${PROJECT}-${GIT_COMMIT}-release"
         }
     }
