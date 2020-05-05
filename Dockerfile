@@ -25,7 +25,7 @@ ENV ASAN_OPTIONS=detect_leaks=0
 RUN set -eux; \
     eval $(grep 'name =' ${SOURCE_PATH}conanfile.py | sed 's, ,,g' | sed 's,name,PKG_NAME,'); \
     eval $(grep -m 1 'version =' ${SOURCE_PATH}conanfile.py | sed 's, ,,g' | sed 's,version,PKG_VERSION,'); \
-    if [ "nosanitize" = "${BUILD_TYPE}" ] && [ "true" = "${COVERAGE_ON}" ]; then \
+    if [ "debug" = "${BUILD_TYPE}" ] && [ "true" = "${COVERAGE_ON}" ]; then \
       conan install --build missing -o ${PKG_NAME}:coverage=True -pr ${BUILD_TYPE} ${SOURCE_PATH}; \
       build-wrapper-linux-x86-64 --out-dir /tmp/sonar conan build ${SOURCE_PATH}; \
       find . -name "*.gcno" -exec gcov {} \; ; \
