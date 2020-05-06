@@ -367,7 +367,7 @@ public:
             Bitword64* word = get_word(retb.start_bit + retb.nbits);
             uint32_t nbits;
             auto start_bit = word->get_next_reset_bits(0, &nbits);
-            if (start_bit != retb.start_bit + retb.nbits) { break; }
+            if (nbits == 0 || (start_bit != retb.start_bit + retb.nbits)) { break; }
             retb.nbits += nbits;
             if (nbits < Bitword64::size()) { break; }
         }
