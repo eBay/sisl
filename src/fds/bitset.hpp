@@ -84,7 +84,7 @@ public:
         m_buf = sisl::make_byte_array(bitset_serialized::nbytes(nbits), alignment_size);
         m_s = (bitset_serialized*)m_buf->bytes;
 
-        m_s = m_id;
+        m_s->m_id = m_id;
         m_words_cap = bitset_serialized::total_words(nbits);
         // memset((void*)(uint8_t*)(m_s->m_words), 0, (m_words_cap * sizeof(Word) / 2));
         m_s->m_nbits = nbits;
@@ -108,7 +108,7 @@ public:
 
     uint64_t get_id() { return m_s->m_id; }
 
-    uint64_t set_id(uint64_t id) { m_s->m_id = id; }
+    void set_id(uint64_t id) { m_s->m_id = id; }
 
     BitsetImpl& operator=(BitsetImpl&& others) {
         m_alignment_size = others.m_alignment_size;
@@ -349,7 +349,7 @@ public:
         BitBlock retb = {0, 0};
 
         while (1) {
-            Bitword64* word = get_word(start_bit);
+            Word* word = get_word(start_bit);
             if (word == nullptr) { break; }
 
             // Look for any free bits in the next iteration
@@ -358,18 +358,18 @@ public:
             retb.nbits = nbits;
             if (nbits != 0) { break; }
 
-            start_bit += (Bitword64::size() - offset);
+            start_bit += (Word::size() - offset);
             offset = 0;
         }
 
         while (retb.nbits < upto_n) {
             if (get_word_offset(retb.start_bit + retb.nbits) != 0) { break; }
-            Bitword64* word = get_word(retb.start_bit + retb.nbits);
+            Word* word = get_word(retb.start_bit + retb.nbits);
             uint32_t nbits;
             auto start_bit = word->get_next_reset_bits(0, &nbits);
             if (nbits == 0 || (start_bit != retb.start_bit + retb.nbits)) { break; }
             retb.nbits += nbits;
-            if (nbits < Bitword64::size()) { break; }
+            if (nbits < Word::size()) { break; }
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
@@ -386,173 +386,161 @@ public:
             if (word == nullptr) { break; }
 
             // Look for any free bits in the next iteration
-
-            uint64_t get_next_reset_bit(uint64_t start_bit) {
-                uint64_t ret = npos;
-                if (ThreadSafeResizing) { m_lock.lock_shared(); }
-
-                int offset = get_word_offset(start_bit);
-                while (true) {
-                    Word* word = get_word(start_bit);
-                    if (word == nullptr) { break; }
-
-                    // Look for any free bits in the next iteration
-                    int nbit;
-                    if (word->get_next_reset_bit(offset, &nbit)) {
-                        ret = start_bit + nbit - offset;
-                        if (ret >= total_bits()) ret = npos;
-                        break;
-                    }
-                    start_bit += (Word::bits() - offset);
-                    offset = 0;
-                }
-
-                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-                return ret;
+            int nbit;
+            if (word->get_next_reset_bit(offset, &nbit)) {
+                ret = start_bit + nbit - offset;
+                if (ret >= total_bits()) ret = npos;
+                break;
             }
+            start_bit += (Word::bits() - offset);
+            offset = 0;
+        }
 
-            void print() {
-                if (ThreadSafeResizing) { m_lock.lock_shared(); }
-                for (auto i = 0u; i < m_words_cap; ++i) {
-                    auto w = nth_word(i);
-                    w->print();
-                }
-                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        return ret;
+    }
+
+    void print() {
+        if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        for (auto i = 0u; i < m_words_cap; ++i) {
+            auto w = nth_word(i);
+            w->print();
+        }
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+    }
+
+    std::string to_string() {
+        if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        std::string out;
+        for (auto i = 0u; i < m_words_cap; ++i) {
+            auto w = nth_word(i);
+            out += w->to_string();
+        }
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        return out;
+    }
+
+private:
+    void set_reset_bits(uint64_t b, int nbits, bool value) {
+        if (ThreadSafeResizing) { m_lock.lock_shared(); }
+
+        int offset = get_word_offset(b);
+        while (nbits > 0) {
+            Word* word = get_word(b);
+            if (word == nullptr) {
+                throw std::out_of_range("Set/Reset bits not in range");
+                break;
             }
+            int count = std::min(nbits, (int)Word::bits() - offset);
+            word->set_reset_bits(offset, count, value);
 
-            std::string to_string() {
-                if (ThreadSafeResizing) { m_lock.lock_shared(); }
-                std::string out;
-                for (auto i = 0u; i < m_words_cap; ++i) {
-                    auto w = nth_word(i);
-                    out += w->to_string();
-                }
-                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-                return out;
-            }
+            b += count;
+            nbits -= count;
+            offset = 0;
+        }
 
-        private:
-            void set_reset_bits(uint64_t b, int nbits, bool value) {
-                if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+    }
 
-                int offset = get_word_offset(b);
-                while (nbits > 0) {
-                    Word* word = get_word(b);
-                    if (word == nullptr) {
-                        throw std::out_of_range("Set/Reset bits not in range");
-                        break;
-                    }
-                    int count = std::min(nbits, (int)Word::bits() - offset);
-                    word->set_reset_bits(offset, count, value);
+    void set_reset_bit(uint64_t b, bool value) {
+        if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-                    b += count;
-                    nbits -= count;
-                    offset = 0;
-                }
+        Word* word = get_word(b);
+        int offset = get_word_offset(b);
+        word->set_reset_bits(offset, 1, value);
 
-                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-            }
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+    }
 
-            void set_reset_bit(uint64_t b, bool value) {
-                if (ThreadSafeResizing) { m_lock.lock_shared(); }
+    bool is_bits_set_reset(uint64_t b, int nbits, bool expected) const {
+        if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-                Word* word = get_word(b);
-                int offset = get_word_offset(b);
-                word->set_reset_bits(offset, 1, value);
+        int offset = get_word_offset(b);
+        while (nbits > 0) {
+            const Word* word = get_word_const(b);
+            if (word == nullptr) { break; }
+            int count = std::min(nbits, (int)Word::bits() - offset);
+            if (!word->is_bits_set_reset(offset, count, expected)) { return false; }
 
-                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-            }
+            b += count;
+            nbits -= count;
+            offset = 0;
+        }
 
-            bool is_bits_set_reset(uint64_t b, int nbits, bool expected) const {
-                if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        return true;
+    }
 
-                int offset = get_word_offset(b);
-                while (nbits > 0) {
-                    const Word* word = get_word_const(b);
-                    if (word == nullptr) { break; }
-                    int count = std::min(nbits, (int)Word::bits() - offset);
-                    if (!word->is_bits_set_reset(offset, count, expected)) { return false; }
+    void _resize(uint64_t nbits, bool value) {
+        // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip
+        // list size. Rest of them will be compacted.
+        auto shrink_words = m_s->m_skip_bits / Word::bits();
+        auto new_skip_bits = m_s->m_skip_bits % Word::bits();
 
-                    b += count;
-                    nbits -= count;
-                    offset = 0;
-                }
+        auto new_nbits = nbits + new_skip_bits;
+        auto new_cap = bitset_serialized::total_words(new_nbits);
+        auto new_buf = sisl::make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size);
+        auto new_s = (bitset_serialized*)new_buf->bytes;
 
-                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-                return true;
-            }
+        auto move_nwords = std::min(m_words_cap - shrink_words, new_cap);
+        std::memmove((void*)&new_s->m_words[0], (void*)&m_s->m_words[shrink_words], (sizeof(Word) * move_nwords));
+        if (new_cap > move_nwords) {
+            // Fill in the remaining space with value passed
+            std::memset((void*)&new_s->m_words[move_nwords], value ? 0xff : 0,
+                        (sizeof(Word) * (new_cap - move_nwords)));
+        }
 
-            void _resize(uint64_t nbits, bool value) {
-                // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip
-                // list size. Rest of them will be compacted.
-                auto shrink_words = m_s->m_skip_bits / Word::bits();
-                auto new_skip_bits = m_s->m_skip_bits % Word::bits();
+        m_words_cap = new_cap;
+        m_buf = new_buf;
+        m_s = (bitset_serialized*)m_buf->bytes;
+        m_s->m_skip_bits = new_skip_bits;
+        m_s->m_nbits = new_nbits;
 
-                auto new_nbits = nbits + new_skip_bits;
-                auto new_cap = bitset_serialized::total_words(new_nbits);
-                auto new_buf = sisl::make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size);
-                auto new_s = (bitset_serialized*)new_buf->bytes;
+        LOGDEBUG("Resize to total_bits={} total_actual_bits={}, skip_bits={}, words_cap={}", total_bits(), m_s->m_nbits,
+                 m_s->m_skip_bits, m_words_cap);
+    }
 
-                auto move_nwords = std::min(m_words_cap - shrink_words, new_cap);
-                std::memmove((void*)&new_s->m_words[0], (void*)&m_s->m_words[shrink_words],
-                             (sizeof(Word) * move_nwords));
-                if (new_cap > move_nwords) {
-                    // Fill in the remaining space with value passed
-                    std::memset((void*)&new_s->m_words[move_nwords], value ? 0xff : 0,
-                                (sizeof(Word) * (new_cap - move_nwords)));
-                }
+    Word* get_word(uint64_t b) {
+        b += m_s->m_skip_bits;
+        return (sisl_unlikely(b >= m_s->m_nbits)) ? nullptr : nth_word(b / Word::bits());
+    }
 
-                m_words_cap = new_cap;
-                m_buf = new_buf;
-                m_s = (bitset_serialized*)m_buf->bytes;
-                m_s->m_skip_bits = new_skip_bits;
-                m_s->m_nbits = new_nbits;
+    const Word* get_word_const(uint64_t b) const {
+        b += m_s->m_skip_bits;
+        return (sisl_unlikely(b >= m_s->m_nbits)) ? nullptr : nth_word(b / Word::bits());
+    }
 
-                LOGDEBUG("Resize to total_bits={} total_actual_bits={}, skip_bits={}, words_cap={}", total_bits(),
-                         m_s->m_nbits, m_s->m_skip_bits, m_words_cap);
-            }
+    int get_word_offset(uint64_t b) const {
+        b += m_s->m_skip_bits;
+        return (int)(b % Word::bits());
+    }
 
-            Word* get_word(uint64_t b) {
-                b += m_s->m_skip_bits;
-                return (sisl_unlikely(b >= m_s->m_nbits)) ? nullptr : nth_word(b / Word::bits());
-            }
+    uint64_t total_bits() const { return m_s->m_nbits - m_s->m_skip_bits; }
+    Word* nth_word(uint64_t word_n) const { return &m_s->m_words[word_n]; }
+};
 
-            const Word* get_word_const(uint64_t b) const {
-                b += m_s->m_skip_bits;
-                return (sisl_unlikely(b >= m_s->m_nbits)) ? nullptr : nth_word(b / Word::bits());
-            }
+/**
+ * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is
+ * expected the user to handle that. This is equivalent to boost::dynamic_bitset
+ */
+typedef BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > Bitset;
 
-            int get_word_offset(uint64_t b) const {
-                b += m_s->m_skip_bits;
-                return (int)(b % Word::bits());
-            }
+/**
+ * @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be
+ * set/unset. However, set/unset concurrently along with increasing the size, setting a bit beyond original
+ * size, concurrent test of bits can produce inconsitent values
+ *
+ * NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used
+ * where resize and test set bits are all controlled externally.
+ */
+typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, false > AtomicBitset;
 
-            uint64_t total_bits() const { return m_s->m_nbits - m_s->m_skip_bits; }
-            Word* nth_word(uint64_t word_n) const { return &m_s->m_words[word_n]; }
-        };
+/**
+ * @brief ThreadSafeBitset: This provides thread safe concurrent set/unset bits and also resize. However, it
+ * still can produce inconsistent result if bits are tested concurrently with set/unset bits. Hence one thread
+ * doing a set bit and other thread doing a is_bit set for same bit could return inconsistent results. If such
+ * requirement exists, use Bitset and take a lock outside the bitset container.
+ */
+typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, true > ThreadSafeBitset;
 
-        /**
-         * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is
-         * expected the user to handle that. This is equivalent to boost::dynamic_bitset
-         */
-        typedef BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > Bitset;
-
-        /**
-         * @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be
-         * set/unset. However, set/unset concurrently along with increasing the size, setting a bit beyond original
-         * size, concurrent test of bits can produce inconsitent values
-         *
-         * NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used
-         * where resize and test set bits are all controlled externally.
-         */
-        typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, false > AtomicBitset;
-
-        /**
-         * @brief ThreadSafeBitset: This provides thread safe concurrent set/unset bits and also resize. However, it
-         * still can produce inconsistent result if bits are tested concurrently with set/unset bits. Hence one thread
-         * doing a set bit and other thread doing a is_bit set for same bit could return inconsistent results. If such
-         * requirement exists, use Bitset and take a lock outside the bitset container.
-         */
-        typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, true > ThreadSafeBitset;
-
-    } // namespace sisl
+} // namespace sisl
