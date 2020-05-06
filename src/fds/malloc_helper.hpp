@@ -15,14 +15,14 @@
 #include <regex>
 #include <string>
 
-#if defined(JEMALLOC_EXPORT)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
 #include <jemalloc/jemalloc.h>
-#else
+#elif defined(USING_TCMALLOC)
 #include <gperftools/malloc_extension.h>
 #endif
 
 namespace sisl {
-#if defined(JEMALLOC_EXPORT)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
 static size_t get_jemalloc_dirty_page_count() {
     const char* arena_dirty_prefix = "stats.arenas.";
     const char* arena_dirty_sufix = ".pdirty";
@@ -54,7 +54,7 @@ static size_t get_jemalloc_dirty_page_count() {
 [[maybe_unused]] static size_t get_total_memory(bool refresh) {
     size_t allocated = 0;
 
-#if defined(JEMALLOC_EXPORT)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
     size_t sz_allocated = sizeof(allocated);
     if (refresh) {
         uint64_t epoch = 1;
@@ -84,7 +84,7 @@ static size_t get_jemalloc_dirty_page_count() {
     return allocated;
 }
 
-#if defined(JEMALLOC_EXPORT)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
 static void print_my_jemalloc_data(void* opaque, const char* buf) {
     std::string* json_buf = (std::string*)opaque;
     *json_buf += buf;
@@ -94,13 +94,13 @@ static void print_my_jemalloc_data(void* opaque, const char* buf) {
 static nlohmann::json get_malloc_stats_detailed() {
     nlohmann::json j;
 
-#if defined(JEMALLOC_EXPORT)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
     std::string detailed;
     malloc_stats_print(print_my_jemalloc_data, (void*)&detailed, "J");
 
     j["Implementation"] = "JEMalloc";
     j["Stats"] = nlohmann::json::parse(detailed);
-#else
+#elif defined(USING_TCMALLOC)
     char _detailed[1024 * 20];
     MallocExtension::instance()->GetStats(_detailed, 1024 * 20);
 
