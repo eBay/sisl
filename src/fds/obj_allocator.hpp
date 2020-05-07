@@ -13,7 +13,7 @@
 
 namespace sisl {
 
-#define FREELIST_CACHE_COUNT 10000
+#define FREELIST_CACHE_COUNT 200
 
 /**
  * @brief Object Allocator is an object wrapper on top of freelist allocator. It provides convenient method to create
