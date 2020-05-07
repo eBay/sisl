@@ -121,9 +121,9 @@ public:
         return *this;
     }
 
-    void copy(BitsetImpl&& others) {
-        assert(serialized_size() == others.serialized_size());
-        memcpy(m_buf, others.m_buf, serialized_size());
+    void copy(BitsetImpl* others) {
+        assert(m_buf->size == others->m_buf->size);
+        memcpy(m_buf->bytes, others->m_buf->bytes, m_buf->size);
     }
 
     /**
