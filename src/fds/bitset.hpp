@@ -121,6 +121,11 @@ public:
         return *this;
     }
 
+    void copy(BitsetImpl&& others) {
+        assert(serialized_size() == others.serialized_size());
+        memcpy(m_buf, others.m_buf, serialized_size());
+    }
+
     /**
      * @brief Serialize the bitset and return the underlying serialized buffer that can be written as is (which can be
      * used to load later)
@@ -358,18 +363,19 @@ public:
             retb.nbits = nbits;
             if (nbits != 0) { break; }
 
-            start_bit += (Word::size() - offset);
+            start_bit += (Word::bits() - offset);
             offset = 0;
         }
 
         while (retb.nbits < upto_n) {
             if (get_word_offset(retb.start_bit + retb.nbits) != 0) { break; }
             Word* word = get_word(retb.start_bit + retb.nbits);
+            if (word == nullptr) { break; }
             uint32_t nbits;
             auto start_bit = word->get_next_reset_bits(0, &nbits);
-            if (nbits == 0 || (start_bit != retb.start_bit + retb.nbits)) { break; }
+            if (nbits == 0 || ((uint64_t)start_bit != (uint64_t)(retb.start_bit + retb.nbits))) { break; }
             retb.nbits += nbits;
-            if (nbits < Word::size()) { break; }
+            if (nbits < Word::bits()) { break; }
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
