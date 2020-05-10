@@ -15,6 +15,11 @@
 #include <regex>
 #include <string>
 
+#ifdef linux
+#include <sys/time.h>
+#include <sys/resource.h>
+#endif
+
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
 #include <jemalloc/jemalloc.h>
 #elif defined(USING_TCMALLOC)
@@ -134,6 +139,8 @@ static nlohmann::json get_malloc_stats_detailed() {
                 j["Stats"]["PageHeap"]["unmapped bytes (MiB)"] = match.str(34);
             }
         }
+
+        j["Stats"]["Malloc"]["MemoryReleaseRate"] = MallocExtension::instance()->GetMemoryReleaseRate();
     }
 #endif
 
@@ -150,4 +157,26 @@ static nlohmann::json get_malloc_stats_detailed() {
 
     return j;
 }
+
+static bool set_memory_release_rate(double level) {
+#if defined(USING_TCMALLOC)
+    MallocExtension::instance()->SetMemoryReleaseRate(level);
+    return true;
+#endif
+    return false;
+}
+
+static bool release_mem_if_needed(size_t threshold) {
+#if defined(USING_TCMALLOC)
+    struct rusage usage;
+    if ((getrusage(RUSAGE_SELF, &usage) == 0) && ((usage.ru_maxrss * 1024) > (long)threshold)) {
+        LOGINFO("Total memory alloced {} exceed threshold limit {}, ask tcmalloc to release memory",
+                usage.ru_maxrss * 1024, threshold);
+        MallocExtension::instance()->ReleaseFreeMemory();
+        return true;
+    }
+#endif
+    return false;
+}
+
 } // namespace sisl
