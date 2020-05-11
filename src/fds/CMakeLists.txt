@@ -17,6 +17,7 @@ target_link_libraries(group_commit sisl ${CONAN_LIBS})
 set(TEST_BITSET_SOURCES tests/test_bitset.cpp)
 add_executable(test_bitset ${TEST_BITSET_SOURCES})
 target_link_libraries(test_bitset sisl ${CONAN_LIBS})
+add_test(NAME bitset COMMAND test_bitset)
 
 set(TEST_BITWORD_SOURCES tests/test_bitword.cpp)
 add_executable(test_bitword ${TEST_BITWORD_SOURCES})

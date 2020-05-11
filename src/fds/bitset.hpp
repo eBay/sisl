@@ -51,6 +51,7 @@ template < typename Word, bool ThreadSafeResizing = false >
 class BitsetImpl {
 private:
     struct bitset_serialized {
+        uint64_t m_id; // persist ID for each bitmap. It is driven by user
         uint64_t m_nbits;
         uint64_t m_skip_bits = 0;
         Word m_words[0];
@@ -78,11 +79,14 @@ public:
     static constexpr uint64_t npos = (uint64_t)-1;
 
 public:
-    explicit BitsetImpl(uint64_t nbits, uint32_t alignment_size = 0) {
+    explicit BitsetImpl(uint64_t nbits, uint64_t m_id = 0, uint32_t alignment_size = 0) {
         m_alignment_size = alignment_size;
-        m_buf = sisl::make_byte_array(bitset_serialized::nbytes(nbits), alignment_size);
+        uint64_t size = alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                       : bitset_serialized::nbytes(nbits);
+        m_buf = sisl::make_byte_array(size, alignment_size);
         m_s = (bitset_serialized*)m_buf->bytes;
 
+        m_s->m_id = m_id;
         m_words_cap = bitset_serialized::total_words(nbits);
         // memset((void*)(uint8_t*)(m_s->m_words), 0, (m_words_cap * sizeof(Word) / 2));
         m_s->m_nbits = nbits;
@@ -104,7 +108,11 @@ public:
         m_words_cap = bitset_serialized::total_words(m_s->m_nbits);
     }
 
-    BitsetImpl& operator=(BitsetImpl&& others) {
+    uint64_t get_id() { return m_s->m_id; }
+
+    void set_id(uint64_t id) { m_s->m_id = id; }
+
+    BitsetImpl& move(BitsetImpl& others) {
         m_alignment_size = others.m_alignment_size;
         m_buf = std::move(others.m_buf);
         m_s = (bitset_serialized*)m_buf->bytes;
@@ -113,6 +121,16 @@ public:
         others.m_s = nullptr;
         others.m_words_cap = 0;
         return *this;
+    }
+
+    void copy(const BitsetImpl& others) {
+        if (!m_buf || m_buf->size != others.m_buf->size) {
+            m_buf = sisl::make_byte_array(others.m_buf->size, others.m_alignment_size);
+            m_s = (bitset_serialized*)m_buf->bytes;
+        }
+        m_alignment_size = others.m_alignment_size;
+        m_words_cap = others.m_words_cap;
+        memcpy(m_buf->bytes, others.m_buf->bytes, others.m_buf->size);
     }
 
     /**
@@ -328,6 +346,49 @@ public:
         return retb;
     }
 
+    /**
+     * @brief Get the next contiguous reset bits from the start bit upto n bits
+     *
+     * @param start_bit Start bit to search from
+     * @param n Count of required continous reset bits
+     * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+     * check if returned count satisfies what is asked for.
+     */
+    BitBlock get_next_contiguous_upto_n_reset_bits(uint64_t start_bit, uint32_t upto_n) {
+        if (ThreadSafeResizing) { m_lock.lock_shared(); }
+
+        int offset = get_word_offset(start_bit);
+        BitBlock retb = {0, 0};
+
+        while (1) {
+            Word* word = get_word(start_bit);
+            if (word == nullptr) { break; }
+
+            // Look for any free bits in the next iteration
+            uint32_t nbits;
+            retb.start_bit = start_bit + word->get_next_reset_bits(offset, &nbits);
+            retb.nbits = nbits;
+            if (nbits != 0) { break; }
+
+            start_bit += (Word::bits() - offset);
+            offset = 0;
+        }
+
+        while (retb.nbits < upto_n) {
+            if (get_word_offset(retb.start_bit + retb.nbits) != 0) { break; }
+            Word* word = get_word(retb.start_bit + retb.nbits);
+            if (word == nullptr) { break; }
+            uint32_t nbits;
+            auto start_bit = word->get_next_reset_bits(0, &nbits);
+            if (nbits == 0 || ((uint64_t)start_bit != (uint64_t)(retb.start_bit + retb.nbits))) { break; }
+            retb.nbits += nbits;
+            if (nbits < Word::bits()) { break; }
+        }
+
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        return retb;
+    }
+
     uint64_t get_next_reset_bit(uint64_t start_bit) {
         uint64_t ret = npos;
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
@@ -424,8 +485,8 @@ private:
     }
 
     void _resize(uint64_t nbits, bool value) {
-        // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip list
-        // size. Rest of them will be compacted.
+        // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip
+        // list size. Rest of them will be compacted.
         auto shrink_words = m_s->m_skip_bits / Word::bits();
         auto new_skip_bits = m_s->m_skip_bits % Word::bits();
 
@@ -472,26 +533,26 @@ private:
 };
 
 /**
- * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is expected
- * the user to handle that. This is equivalent to boost::dynamic_bitset
+ * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is
+ * expected the user to handle that. This is equivalent to boost::dynamic_bitset
  */
 typedef BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > Bitset;
 
 /**
- * @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be set/unset.
- * However, set/unset concurrently along with increasing the size, setting a bit beyond original size, concurrent test
- * of bits can produce inconsitent values
+ * @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be
+ * set/unset. However, set/unset concurrently along with increasing the size, setting a bit beyond original
+ * size, concurrent test of bits can produce inconsitent values
  *
- * NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used where resize
- * and test set bits are all controlled externally.
+ * NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used
+ * where resize and test set bits are all controlled externally.
  */
 typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, false > AtomicBitset;
 
 /**
- * @brief ThreadSafeBitset: This provides thread safe concurrent set/unset bits and also resize. However, it still
- * can produce inconsistent result if bits are tested concurrently with set/unset bits. Hence one thread doing a set
- * bit and other thread doing a is_bit set for same bit could return inconsistent results. If such requirement exists,
- * use Bitset and take a lock outside the bitset container.
+ * @brief ThreadSafeBitset: This provides thread safe concurrent set/unset bits and also resize. However, it
+ * still can produce inconsistent result if bits are tested concurrently with set/unset bits. Hence one thread
+ * doing a set bit and other thread doing a is_bit set for same bit could return inconsistent results. If such
+ * requirement exists, use Bitset and take a lock outside the bitset container.
  */
 typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, true > ThreadSafeBitset;
 
