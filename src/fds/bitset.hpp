@@ -123,15 +123,14 @@ public:
         return *this;
     }
 
-    BitsetImpl& operator=(const BitsetImpl& others) {
-        if (m_buf->size != others->m_buf->size) {
-            m_buf = sisl::make_byte_array(size, others->m_alignment_size);
+    void copy(const BitsetImpl& others) {
+        if (!m_buf || m_buf->size != others.m_buf->size) {
+            m_buf = sisl::make_byte_array(others.m_buf->size, others.m_alignment_size);
             m_s = (bitset_serialized*)m_buf->bytes;
-            m_alignment_size = others->m_alignment_size;
-            m_words_cap = others->m_words_cap;
         }
-        memcpy(m_buf->bytes, others->m_buf->bytes, m_buf->size);
-        return *this;
+        m_alignment_size = others.m_alignment_size;
+        m_words_cap = others.m_words_cap;
+        memcpy(m_buf->bytes, others.m_buf->bytes, others.m_buf->size);
     }
 
     /**
