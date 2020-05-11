@@ -123,7 +123,7 @@ public:
         return *this;
     }
 
-    BitsetImpl& operator=(BitsetImpl* others) {
+    BitsetImpl& operator=(const BitsetImpl& others) {
         if (m_buf->size != others->m_buf->size) {
             m_buf = sisl::make_byte_array(size, others->m_alignment_size);
             m_s = (bitset_serialized*)m_buf->bytes;
