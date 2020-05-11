@@ -81,7 +81,9 @@ public:
 public:
     explicit BitsetImpl(uint64_t nbits, uint64_t m_id = 0, uint32_t alignment_size = 0) {
         m_alignment_size = alignment_size;
-        m_buf = sisl::make_byte_array(bitset_serialized::nbytes(nbits), alignment_size);
+        uint64_t size = alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                       : bitset_serialized::nbytes(nbits);
+        m_buf = sisl::make_byte_array(size, alignment_size);
         m_s = (bitset_serialized*)m_buf->bytes;
 
         m_s->m_id = m_id;
@@ -110,7 +112,7 @@ public:
 
     void set_id(uint64_t id) { m_s->m_id = id; }
 
-    BitsetImpl& operator=(BitsetImpl&& others) {
+    BitsetImpl& move(BitsetImpl& others) {
         m_alignment_size = others.m_alignment_size;
         m_buf = std::move(others.m_buf);
         m_s = (bitset_serialized*)m_buf->bytes;
@@ -121,9 +123,15 @@ public:
         return *this;
     }
 
-    void copy(BitsetImpl* others) {
-        assert(m_buf->size == others->m_buf->size);
+    BitsetImpl& operator=(BitsetImpl* others) {
+        if (m_buf->size != others->m_buf->size) {
+            m_buf = sisl::make_byte_array(size, others->m_alignment_size);
+            m_s = (bitset_serialized*)m_buf->bytes;
+            m_alignment_size = others->m_alignment_size;
+            m_words_cap = others->m_words_cap;
+        }
         memcpy(m_buf->bytes, others->m_buf->bytes, m_buf->size);
+        return *this;
     }
 
     /**

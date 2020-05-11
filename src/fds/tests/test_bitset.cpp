@@ -125,7 +125,7 @@ protected:
 
     void deserialize(sisl::byte_array buf) {
         sisl::ThreadSafeBitset tmp_bset(buf);
-        m_bset = std::move(tmp_bset);
+        m_bset.move(tmp_bset);
     }
 
     void validate_all(uint32_t n_continous_expected) {
