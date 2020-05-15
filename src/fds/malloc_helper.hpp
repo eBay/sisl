@@ -14,6 +14,8 @@
 #include <cstdio>
 #include <regex>
 #include <string>
+#include <fstream>
+#include <metrics/metrics.hpp>
 
 #ifdef linux
 #include <sys/time.h>
@@ -27,6 +29,53 @@
 #endif
 
 namespace sisl {
+#ifdef USING_TCMALLOC
+class MallocMetrics;
+static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics);
+static uint64_t tcmalloc_page_size = 8192;
+#endif
+
+class MallocMetrics : public MetricsGroupWrapper {
+public:
+    explicit MallocMetrics() : sisl::MetricsGroupWrapper("MallocMetrics", "Singelton") {
+        REGISTER_COUNTER(num_times_exceed_soft_threshold, "Number of times mem usage exceeded soft threshold");
+        REGISTER_COUNTER(num_times_exceed_aggressive_threshold,
+                         "Number of times mem usage exceeded aggressive threshold");
+
+        REGISTER_GAUGE(appln_used_bytes, "Bytes used by the application");
+        REGISTER_GAUGE(page_heap_freelist_size, "Bytes in page heap freelist");
+
+#ifdef USING_TCMALLOC
+        REGISTER_GAUGE(central_cache_freelist_size, "Bytes in central cache freelist");
+        REGISTER_GAUGE(transfer_cache_freelist_size, "Bytes in transfer cache freelist");
+#endif
+        REGISTER_GAUGE(thread_cache_freelist_size, "Bytes in thread cache freelist");
+        REGISTER_GAUGE(os_released_bytes, "Bytes released to OS");
+
+        REGISTER_HISTOGRAM(free_page_span_distribution, "Continuous pages in heap freelist(higher the better)",
+                           HistogramBucketsType(LinearUpto128Buckets));
+        REGISTER_HISTOGRAM(unmapped_page_span_distribution, "Continuous pages returned back to system",
+                           HistogramBucketsType(LinearUpto128Buckets));
+        REGISTER_HISTOGRAM(inuse_page_span_distribution, "Continuous pages which are being used by app",
+                           HistogramBucketsType(LinearUpto128Buckets));
+
+        register_me_to_farm();
+        attach_gather_cb(std::bind(&MallocMetrics::on_gather, this));
+    }
+
+    void on_gather() {
+#ifdef USING_TCMALLOC
+        get_parse_tcmalloc_stats(nullptr, this);
+#endif
+    }
+
+    static void enable() { get(); }
+    static MallocMetrics& get() {
+        static MallocMetrics _m;
+        return _m;
+    }
+};
+
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
 static size_t get_jemalloc_dirty_page_count() {
     const char* arena_dirty_prefix = "stats.arenas.";
@@ -96,6 +145,101 @@ static void print_my_jemalloc_data(void* opaque, const char* buf) {
 }
 #endif
 
+#if defined(USING_TCMALLOC)
+static void update_tcmalloc_range_stats(void* arg, const base::MallocRange* range) {
+    // LOGINFO("Range: address={}, length={}, Type={}, fraction={}", range->address, range->length, range->type,
+    //        range->fraction);
+
+    auto& m = MallocMetrics::get();
+    if (range->type == base::MallocRange::Type::FREE) {
+        HISTOGRAM_OBSERVE(m, free_page_span_distribution, (range->length / tcmalloc_page_size));
+    } else if (range->type == base::MallocRange::Type::UNMAPPED) {
+        HISTOGRAM_OBSERVE(m, unmapped_page_span_distribution, (range->length / tcmalloc_page_size));
+    } else if (range->type == base::MallocRange::Type::INUSE) {
+        HISTOGRAM_OBSERVE(m, inuse_page_span_distribution, (range->length * range->fraction / tcmalloc_page_size));
+    }
+}
+
+static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics) {
+    size_t buf_len = j ? 1024 * 20 : 9999;
+    char* stats_buf = new char[buf_len];
+
+    MallocExtension::instance()->GetStats(stats_buf, buf_len);
+    LOGDEBUG("TCMalloc Detailed stats: {}", stats_buf);
+
+    std::stringstream ss(stats_buf);
+    std::string line;
+
+    std::regex re1("MALLOC:[\\s=\\+]+(\\d+) (\\(.* MiB\\)) (.*)");
+    std::regex re2("MALLOC:[\\s=\\+]+(\\d+)\\s+(.*)");
+    std::regex re3("class\\s+\\d+\\s+\\[\\s*(\\d+) bytes \\] :\\s+(\\d+) objs;\\s+(.*) MiB;\\s+(.*) cum MiB");
+    std::regex re4("PageHeap:\\s+(\\d+) sizes;\\s+(.*) MiB free;\\s+(.*) MiB unmapped");
+    std::regex re5("\\s+(\\d+) pages \\*\\s+(\\d+) spans ~\\s+(.*) MiB;\\s+.* MiB cum; unmapped:\\s+(.*) MiB;");
+    std::regex re6("(>\\d+)\\s+large \\*\\s+(\\d+) spans ~\\s+(.*) MiB;\\s+.* MiB cum; unmapped:\\s+(.*) MiB;");
+
+    while (std::getline(ss, line, '\n')) {
+        std::smatch match;
+        if (std::regex_search(line, match, re1) && match.size() > 1) {
+            if (j) {
+                (*j)["Stats"]["Malloc"][match.str(3)] = match.str(1) + match.str(2);
+            } else if (match.str(3) == "Bytes in use by application") {
+                GAUGE_UPDATE(*metrics, appln_used_bytes, std::stoi(match.str(1)));
+            } else if (match.str(3) == "Bytes in page heap freelist") {
+                GAUGE_UPDATE(*metrics, page_heap_freelist_size, std::stoi(match.str(1)));
+            } else if (match.str(3) == "Bytes in thread cache freelists") {
+                GAUGE_UPDATE(*metrics, thread_cache_freelist_size, std::stoi(match.str(1)));
+            } else if (match.str(3) == "Bytes in central cache freelist") {
+                GAUGE_UPDATE(*metrics, central_cache_freelist_size, std::stoi(match.str(1)));
+            } else if (match.str(3) == "Bytes in transfer cache freelist") {
+                GAUGE_UPDATE(*metrics, transfer_cache_freelist_size, std::stoi(match.str(1)));
+            } else if (match.str(3) == "Bytes released to OS (aka unmapped)") {
+                GAUGE_UPDATE(*metrics, os_released_bytes, std::stoi(match.str(1)));
+            }
+        } else if (std::regex_search(line, match, re2) && match.size() > 1) {
+            if (j) (*j)["Stats"]["Malloc"][match.str(2)] = match.str(1);
+            if (match.str(2) == "Tcmalloc page size") {
+                auto sz = std::stoi(match.str(1));
+                if (sz != 0) { tcmalloc_page_size = sz; }
+            }
+        } else if (j) {
+            if (std::regex_search(line, match, re3) && match.size() > 1) {
+                nlohmann::json j1;
+                j1["total_objs"] = match.str(2);
+                j1["bytes (MiB)"] = match.str(3);
+                (*j)["Stats"]["FreeListClasses"][match.str(1)] = j1;
+            } else if (std::regex_search(line, match, re4) && match.size() > 1) {
+                nlohmann::json j1;
+                (*j)["Stats"]["PageHeap"]["total sizes"] = match.str(1);
+                (*j)["Stats"]["PageHeap"]["free bytes (MiB)"] = match.str(2);
+                (*j)["Stats"]["PageHeap"]["unmapped bytes (MiB)"] = match.str(3);
+            } else if ((std::regex_search(line, match, re5) && match.size() > 1) ||
+                       (std::regex_search(line, match, re6) && match.size() > 1)) {
+                (*j)["Stats"]["PageHeap"]["Page span of"][match.str(1)]["count"] = match.str(2);
+                (*j)["Stats"]["PageHeap"]["Page span of"][match.str(1)]["unmapped"] =
+                    (std::stoi(match.str(3)) * 1048576.0) / tcmalloc_page_size;
+            } else {
+                /*uint64_t span;
+                auto span_str = match.str(1);
+                if (span_str[0] == '>') {
+                    span_str.erase(0, 1);
+                    span = std::stoi(span_str) + 1;
+                } else {
+                    span = std::stoi(span_str);
+                }
+                auto count = (std::stod(match.str(3)) * 1048576.0) / page_size;
+                auto unmapped = (std::stod(match.str(4)) * 1048576.0) / page_size;
+                LOGINFO("Adding free_page_span bucket = {} count = {}", span, count - unmapped);
+                HISTOGRAM_OBSERVE(*metrics, free_page_span_distribution, span, count - unmapped);
+                HISTOGRAM_OBSERVE(*metrics, unmapped_page_span_distribution, span, unmapped); */
+            }
+        }
+    }
+
+    if (metrics) { MallocExtension::instance()->Ranges(nullptr, update_tcmalloc_range_stats); }
+    delete (stats_buf);
+}
+#endif
+
 static nlohmann::json get_malloc_stats_detailed() {
     nlohmann::json j;
 
@@ -106,42 +250,9 @@ static nlohmann::json get_malloc_stats_detailed() {
     j["Implementation"] = "JEMalloc";
     j["Stats"] = nlohmann::json::parse(detailed);
 #elif defined(USING_TCMALLOC)
-    char _detailed[1024 * 20];
-    MallocExtension::instance()->GetStats(_detailed, 1024 * 20);
-
     j["Implementation"] = "TCMalloc (possibly)";
-    LOGDEBUG("TCMalloc Detailed stats: {}", _detailed);
-
-    std::stringstream ss(_detailed);
-    std::string line;
-    if (_detailed != NULL) {
-        std::regex re1("MALLOC:[\\s=\\+]+(\\d+) (\\(.* MiB\\)) (.*)");
-        std::regex re2("MALLOC:[\\s=\\+]+(\\d+)\\s+(.*)");
-        std::regex re3("class\\s+\\d+\\s+\\[\\s*(.*)\\] :\\s+(\\d+) objs;\\s+(.*) MiB;\\s+(.*) cum MiB");
-        std::regex re4("PageHeap:\\s+(\\d+) sizes;\\s+(.*) MiB free;\\s+(.*) MiB unmapped");
-
-        while (std::getline(ss, line, '\n')) {
-            std::smatch match;
-            if (std::regex_search(line, match, re1) && match.size() > 1) {
-                j["Stats"]["Malloc"][match.str(3)] = match.str(1) + match.str(2);
-            } else if (std::regex_search(line, match, re2) && match.size() > 1) {
-                j["Stats"]["Malloc"][match.str(2)] = match.str(1);
-            } else if (std::regex_search(line, match, re3) && match.size() > 1) {
-                nlohmann::json j1;
-                j1["total_objs"] = match.str(2);
-                j1["bytes (MiB)"] = match.str(3);
-                j1["cumulative_bytes (MiB)"] = match.str(4);
-                j["Stats"]["FreeListClasses"][match.str(1)] = j1;
-            } else if (std::regex_search(line, match, re4) && match.size() > 1) {
-                nlohmann::json j1;
-                j["Stats"]["PageHeap"]["total sizes"] = match.str(1);
-                j["Stats"]["PageHeap"]["free bytes (MiB)"] = match.str(2);
-                j["Stats"]["PageHeap"]["unmapped bytes (MiB)"] = match.str(34);
-            }
-        }
-
-        j["Stats"]["Malloc"]["MemoryReleaseRate"] = MallocExtension::instance()->GetMemoryReleaseRate();
-    }
+    get_parse_tcmalloc_stats(&j, nullptr);
+    j["Stats"]["Malloc"]["MemoryReleaseRate"] = MallocExtension::instance()->GetMemoryReleaseRate();
 #endif
 
     char* common_stats;
@@ -166,17 +277,54 @@ static bool set_memory_release_rate(double level) {
     return false;
 }
 
-static bool release_mem_if_needed(size_t threshold) {
+static bool release_mem_if_needed(size_t soft_threshold, size_t aggressive_threshold) {
+    bool ret = false;
 #if defined(USING_TCMALLOC)
-    struct rusage usage;
-    if ((getrusage(RUSAGE_SELF, &usage) == 0) && ((usage.ru_maxrss * 1024) > (long)threshold)) {
-        LOGINFO("Total memory alloced {} exceed threshold limit {}, ask tcmalloc to release memory",
-                usage.ru_maxrss * 1024, threshold);
-        MallocExtension::instance()->ReleaseFreeMemory();
-        return true;
-    }
-#endif
-    return false;
-}
+    int64_t mem_usage = 0l;
+    static std::atomic< bool > _is_aggressive_decommit = false;
+    aggressive_threshold = std::max(aggressive_threshold, soft_threshold);
 
+    struct rusage usage;
+    if ((getrusage(RUSAGE_SELF, &usage) == 0) && ((usage.ru_maxrss * 1024) <= (long)soft_threshold)) {
+        mem_usage = usage.ru_maxrss * 1024;
+    } else {
+        // On occassions get_rusage reports elevated value (including vmem). So cross verify with actual usage.
+        // The getrusage serves as initial filter to avoid doing ifstream always and also provide a way to run
+        // on docker development systems.
+        if (auto usage_file = std::ifstream("/sys/fs/cgroup/memory/memory.usage_in_bytes"); usage_file.is_open()) {
+            usage_file >> mem_usage;
+        }
+    }
+
+    if (mem_usage > (long)aggressive_threshold) {
+        LOGINFO("Total memory alloced {} exceed aggressive threshold limit {}, ask tcmalloc to aggressively decommit ",
+                mem_usage, aggressive_threshold);
+        COUNTER_INCREMENT(MallocMetrics::get(), num_times_exceed_aggressive_threshold, 1);
+        MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 1);
+        MallocExtension::instance()->ReleaseFreeMemory();
+        _is_aggressive_decommit.store(true);
+        ret = true;
+        goto done;
+    }
+
+    if (mem_usage > (long)soft_threshold) {
+        LOGINFO("Total memory alloced {} exceed threshold limit {}, ask tcmalloc to release memory", mem_usage,
+                soft_threshold);
+        COUNTER_INCREMENT(MallocMetrics::get(), num_times_exceed_soft_threshold, 1);
+        MallocExtension::instance()->ReleaseFreeMemory();
+        ret = true;
+    }
+
+    // We recovered from aggressive threshold, set the property back
+    if (_is_aggressive_decommit.load()) {
+        LOGINFO("Total memory alloced {} is restored back to less than aggressive threshold limit {}, ask tcmalloc to "
+                "relax aggressively decommit ",
+                mem_usage, aggressive_threshold);
+        MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 0);
+        _is_aggressive_decommit.store(false);
+    }
+done:
+#endif
+    return ret;
+}
 } // namespace sisl

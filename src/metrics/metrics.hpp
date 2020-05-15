@@ -78,11 +78,11 @@ private:
 
 class HistogramValue {
 public:
-    void observe(int64_t value, const hist_bucket_boundaries_t& boundaries) {
+    void observe(int64_t value, const hist_bucket_boundaries_t& boundaries, uint64_t count = 1) {
         auto lower = std::lower_bound(boundaries.begin(), boundaries.end(), value);
         auto bkt_idx = lower - boundaries.begin();
-        m_freqs[bkt_idx]++;
-        m_sum += value;
+        m_freqs[bkt_idx] += count;
+        m_sum += (value * count);
     }
 
     void merge(const HistogramValue& other, const hist_bucket_boundaries_t& boundaries) {
@@ -280,7 +280,7 @@ public:
     void counter_increment(uint64_t index, int64_t val = 1);
     void counter_decrement(uint64_t index, int64_t val = 1);
     void gauge_update(uint64_t index, int64_t val);
-    void histogram_observe(uint64_t index, int64_t val);
+    void histogram_observe(uint64_t index, int64_t val, uint64_t count = 1);
 
     const CounterInfo& get_counter_info(uint64_t index) const;
     const GaugeInfo& get_gauge_info(uint64_t index) const;

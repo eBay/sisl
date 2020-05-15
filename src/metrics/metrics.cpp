@@ -39,7 +39,7 @@ void MetricsFarm::deregister_metrics_group(MetricsGroupPtr mgroup) {
 
 nlohmann::json MetricsFarm::get_result_in_json(bool need_latest) {
     nlohmann::json json;
-    auto           locked = lock();
+    auto locked = lock();
     if (!need_latest) {
         for (auto& mgroup : m_mgroups) {
             json[mgroup->get_group_name()][mgroup->get_instance_name()] = mgroup->get_result_in_json(need_latest);
@@ -148,20 +148,20 @@ void MetricsGroup::counter_decrement(uint64_t index, int64_t val) {
 
 void MetricsGroup::gauge_update(uint64_t index, int64_t val) { m_gauges[index].m_gauge.update(val); }
 
-void MetricsGroup::histogram_observe(uint64_t index, int64_t val) {
-    m_metrics->insertable()->get_histogram(index).observe(val, m_bkt_boundaries[index]);
+void MetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
+    m_metrics->insertable()->get_histogram(index).observe(val, m_bkt_boundaries[index], count);
 #if 0
     LOGTRACE("Thread={}: Updating SafeMetrics={} histvalue = {}, index={}",
            pthread_self(), m_metrics->insertable(), &m_metrics->insertable()->get_histogram(index), index);
 #endif
 }
 
-const CounterInfo&   MetricsGroup::get_counter_info(uint64_t index) const { return m_counters[index]; }
-const GaugeInfo&     MetricsGroup::get_gauge_info(uint64_t index) const { return m_gauges[index]; }
+const CounterInfo& MetricsGroup::get_counter_info(uint64_t index) const { return m_counters[index]; }
+const GaugeInfo& MetricsGroup::get_gauge_info(uint64_t index) const { return m_gauges[index]; }
 const HistogramInfo& MetricsGroup::get_histogram_info(uint64_t index) const { return m_histograms[index]; }
 
 nlohmann::json MetricsGroup::get_result_in_json(bool need_latest) {
-    auto           locked = lock();
+    auto locked = lock();
     nlohmann::json json;
     nlohmann::json counter_entries;
     nlohmann::json gauge_entries;
@@ -207,7 +207,7 @@ void MetricsGroup::on_register() {
 }
 
 void MetricsGroup::gather_result(bool need_latest, std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
-                                 std::function< void(GaugeInfo&) >                            gauge_cb,
+                                 std::function< void(GaugeInfo&) > gauge_cb,
                                  std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) {
 
     SafeMetrics* smetrics;
@@ -289,17 +289,17 @@ HistogramInfo::HistogramInfo(const std::string& name, const std::string& desc, c
 
 double HistogramInfo::percentile(const HistogramValue& hvalue, float pcntl) const {
     std::array< int64_t, HistogramBuckets::max_hist_bkts > cum_freq;
-    int64_t                                                fcount = 0;
+    int64_t fcount = 0;
     for (auto i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
         fcount += (hvalue.get_freqs())[i];
         cum_freq[i] = fcount;
     }
 
     int64_t pnum = fcount * pcntl / 100;
-    auto    i = (std::lower_bound(cum_freq.begin(), cum_freq.end(), pnum)) - cum_freq.begin();
+    auto i = (std::lower_bound(cum_freq.begin(), cum_freq.end(), pnum)) - cum_freq.begin();
     if ((hvalue.get_freqs())[i] == 0) return 0;
-    auto   Yl = i == 0 ? 0 : m_bkt_boundaries[i - 1];
-    auto   ith_cum_freq = (i == 0) ? 0 : cum_freq[i - 1];
+    auto Yl = i == 0 ? 0 : m_bkt_boundaries[i - 1];
+    auto ith_cum_freq = (i == 0) ? 0 : cum_freq[i - 1];
     double Yp = Yl + (((pnum - ith_cum_freq) * i) / (hvalue.get_freqs())[i]);
     return Yp;
 
