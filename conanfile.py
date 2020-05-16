@@ -31,7 +31,7 @@ class MetricsConan(ConanFile):
                 ("gtest/1.10.0"),
                 ("evhtp/1.2.18.2"),
                 ("folly/2020.03.02.00"),
-                ("userspace-rcu/0.10.2"),
+                ("userspace-rcu/0.11.2"),
                 ("prometheus_cpp/0.7.1"),
                 ("flatbuffers/1.11.0"),
                 ("nlohmann_json/3.7.3"))
