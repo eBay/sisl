@@ -24,12 +24,12 @@ pipeline {
                         sh "docker build --rm --build-arg BUILD_TYPE=debug --build-arg CONAN_USER=${CONAN_USER} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-debug ."
                     }
                 }
-                stage('Debug Build') {
+                stage('Test Build') {
                     steps {
                         sh "docker build --rm --build-arg BUILD_TYPE=test --build-arg CONAN_USER=${CONAN_USER} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-test ."
                     }
                 }
-                stage('Debug Build') {
+                stage('Release Build') {
                     steps {
                         sh "docker build --rm --build-arg BUILD_TYPE=release --build-arg CONAN_USER=${CONAN_USER} --build-arg ARTIFACTORY_PASS=${ARTIFACTORY_PASS} --build-arg CONAN_CHANNEL=${CONAN_CHANNEL} -t ${PROJECT}-${GIT_COMMIT}-release ."
                     }
@@ -44,12 +44,12 @@ pipeline {
                         sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-debug"
                     }
                 }
-                stage('Debug Build') {
+                stage('Test Build') {
                     steps {
                         sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-test"
                     }
                 }
-                stage('Debug Build') {
+                stage('Release Build') {
                     steps {
                         sh "docker run --rm ${PROJECT}-${GIT_COMMIT}-release"
                     }
