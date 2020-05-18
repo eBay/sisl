@@ -280,7 +280,8 @@ public:
     void counter_increment(uint64_t index, int64_t val = 1);
     void counter_decrement(uint64_t index, int64_t val = 1);
     void gauge_update(uint64_t index, int64_t val);
-    void histogram_observe(uint64_t index, int64_t val, uint64_t count = 1);
+    void histogram_observe(uint64_t index, int64_t val, uint64_t count);
+    void histogram_observe(uint64_t index, int64_t val) { histogram_observe(index, val, 1); };
 
     const CounterInfo& get_counter_info(uint64_t index) const;
     const GaugeInfo& get_gauge_info(uint64_t index) const;
