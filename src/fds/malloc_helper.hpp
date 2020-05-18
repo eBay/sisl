@@ -183,22 +183,22 @@ static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics) 
             if (j) {
                 (*j)["Stats"]["Malloc"][match.str(3)] = match.str(1) + match.str(2);
             } else if (match.str(3) == "Bytes in use by application") {
-                GAUGE_UPDATE(*metrics, appln_used_bytes, std::stoi(match.str(1)));
+                GAUGE_UPDATE(*metrics, appln_used_bytes, std::stol(match.str(1)));
             } else if (match.str(3) == "Bytes in page heap freelist") {
-                GAUGE_UPDATE(*metrics, page_heap_freelist_size, std::stoi(match.str(1)));
+                GAUGE_UPDATE(*metrics, page_heap_freelist_size, std::stol(match.str(1)));
             } else if (match.str(3) == "Bytes in thread cache freelists") {
-                GAUGE_UPDATE(*metrics, thread_cache_freelist_size, std::stoi(match.str(1)));
+                GAUGE_UPDATE(*metrics, thread_cache_freelist_size, std::stol(match.str(1)));
             } else if (match.str(3) == "Bytes in central cache freelist") {
-                GAUGE_UPDATE(*metrics, central_cache_freelist_size, std::stoi(match.str(1)));
+                GAUGE_UPDATE(*metrics, central_cache_freelist_size, std::stol(match.str(1)));
             } else if (match.str(3) == "Bytes in transfer cache freelist") {
-                GAUGE_UPDATE(*metrics, transfer_cache_freelist_size, std::stoi(match.str(1)));
+                GAUGE_UPDATE(*metrics, transfer_cache_freelist_size, std::stol(match.str(1)));
             } else if (match.str(3) == "Bytes released to OS (aka unmapped)") {
-                GAUGE_UPDATE(*metrics, os_released_bytes, std::stoi(match.str(1)));
+                GAUGE_UPDATE(*metrics, os_released_bytes, std::stol(match.str(1)));
             }
         } else if (std::regex_search(line, match, re2) && match.size() > 1) {
             if (j) (*j)["Stats"]["Malloc"][match.str(2)] = match.str(1);
             if (match.str(2) == "Tcmalloc page size") {
-                auto sz = std::stoi(match.str(1));
+                auto sz = std::stol(match.str(1));
                 if (sz != 0) { tcmalloc_page_size = sz; }
             }
         } else if (j) {
@@ -216,21 +216,7 @@ static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics) 
                        (std::regex_search(line, match, re6) && match.size() > 1)) {
                 (*j)["Stats"]["PageHeap"]["Page span of"][match.str(1)]["count"] = match.str(2);
                 (*j)["Stats"]["PageHeap"]["Page span of"][match.str(1)]["unmapped"] =
-                    (std::stoi(match.str(3)) * 1048576.0) / tcmalloc_page_size;
-            } else {
-                /*uint64_t span;
-                auto span_str = match.str(1);
-                if (span_str[0] == '>') {
-                    span_str.erase(0, 1);
-                    span = std::stoi(span_str) + 1;
-                } else {
-                    span = std::stoi(span_str);
-                }
-                auto count = (std::stod(match.str(3)) * 1048576.0) / page_size;
-                auto unmapped = (std::stod(match.str(4)) * 1048576.0) / page_size;
-                LOGINFO("Adding free_page_span bucket = {} count = {}", span, count - unmapped);
-                HISTOGRAM_OBSERVE(*metrics, free_page_span_distribution, span, count - unmapped);
-                HISTOGRAM_OBSERVE(*metrics, unmapped_page_span_distribution, span, unmapped); */
+                    (std::stol(match.str(3)) * 1048576.0) / tcmalloc_page_size;
             }
         }
     }
