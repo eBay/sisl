@@ -148,6 +148,18 @@ void MetricsGroup::counter_decrement(uint64_t index, int64_t val) {
 
 void MetricsGroup::gauge_update(uint64_t index, int64_t val) { m_gauges[index].m_gauge.update(val); }
 
+// If we were to call the method with count parameter and compiler inlines them, binaries linked with libsisl gets
+// linker errors. At the same time we also don't want to non-inline this method, since its the most obvious call
+// everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
+// one with count and one without count. In any case this is a single line method.
+void MetricsGroup::histogram_observe(uint64_t index, int64_t val) {
+    m_metrics->insertable()->get_histogram(index).observe(val, m_bkt_boundaries[index], 1);
+#if 0
+    LOGTRACE("Thread={}: Updating SafeMetrics={} histvalue = {}, index={}",
+           pthread_self(), m_metrics->insertable(), &m_metrics->insertable()->get_histogram(index), index);
+#endif
+}
+
 void MetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
     m_metrics->insertable()->get_histogram(index).observe(val, m_bkt_boundaries[index], count);
 #if 0
