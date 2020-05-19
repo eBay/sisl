@@ -112,10 +112,23 @@ struct aligned_free {
 template < class T >
 using aligned_unique_ptr = std::unique_ptr< T, aligned_free< T > >;
 
-template < class T >
-aligned_unique_ptr< T > make_aligned_unique(size_t align, size_t size) {
-    return aligned_unique_ptr< T >(static_cast< T* >(std::aligned_alloc(align, sisl::round_up(size, align))));
+template < class T, class... Args >
+aligned_unique_ptr< T > make_aligned_sized_unique(size_t align, size_t size, Args&&... args) {
+    auto mem = std::aligned_alloc(align, sisl::round_up(size, align));
+    return aligned_unique_ptr< T >(new (mem) T(std::forward< Args >(args)...));
 }
+
+template < class T, class... Args >
+inline aligned_unique_ptr< T > make_aligned_unique(size_t align, Args&&... args) {
+    return make_aligned_sized_unique< T, Args... >(align, (size_t)sizeof(T), std::forward< Args >(args)...);
+}
+
+#if 0
+aligned_unique_ptr< uint8_t > make_aligned_unique_buf(size_t align, size_t size) {
+    return aligned_unique_ptr< uint8_t >(
+        static_cast< uint8_t* >(std::aligned_alloc(align, sisl::round_up(size, align))));
+}
+#endif
 
 template < class T >
 std::shared_ptr< T > make_aligned_shared(size_t align, size_t size) {
