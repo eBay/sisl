@@ -137,6 +137,7 @@ struct blob {
 struct _byte_array : public blob {
     _byte_array(uint32_t sz, uint32_t alignment = 0) :
             blob((uint8_t*)((alignment == 0) ? std::malloc(sz) : std::aligned_alloc(alignment, sz)), sz) {}
+    _byte_array(uint8_t* bytes, uint32_t size) : blob(bytes, size) {}
     ~_byte_array() { std::free(bytes); }
 };
 
