@@ -128,7 +128,9 @@ static void setup_modules(spdlog::level::level_enum const lvl) {
             auto sym = "module_level_" + module_name;
             if (auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str()); nullptr != mod_level) {
                 if (getline(mod_stream, module_level, ':')) {
-                    *mod_level = (spdlog::level::level_enum)strtol(module_level.data(), nullptr, 0);
+                    *mod_level = (1 == module_level.size())
+                        ? (spdlog::level::level_enum)strtol(module_level.data(), nullptr, 0)
+                        : spdlog::level::from_str(module_level.data());
                 } else {
                     *mod_level = lvl;
                 }
