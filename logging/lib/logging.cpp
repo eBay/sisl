@@ -31,7 +31,7 @@ SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable
                           (quiet,      "q", "quiet", "Disable all console logging", ::cxxopts::value<bool>(), ""), \
                           (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
                           (flush,      "",  "flush_every", "Flush logs on level (sync mode) or periodically (async mode)", ::cxxopts::value<uint32_t>()->default_value("2"), "level/seconds"), \
-                          (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level"), \
+                          (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<std::string>()->default_value("info"), "level"), \
                           (version,    "V", "version", "Print the version and exist", ::cxxopts::value<bool>(), ""))
 // clang-format on
 
@@ -128,7 +128,9 @@ static void setup_modules(spdlog::level::level_enum const lvl) {
             auto sym = "module_level_" + module_name;
             if (auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str()); nullptr != mod_level) {
                 if (getline(mod_stream, module_level, ':')) {
-                    *mod_level = (spdlog::level::level_enum)strtol(module_level.data(), nullptr, 0);
+                    *mod_level = (1 == module_level.size())
+                        ? (spdlog::level::level_enum)strtol(module_level.data(), nullptr, 0)
+                        : spdlog::level::from_str(module_level.data());
                 } else {
                     *mod_level = lvl;
                 }
@@ -159,7 +161,11 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
 
     auto lvl = spdlog::level::level_enum::info;
     if (SDS_OPTIONS.count("verbosity")) {
-        lvl = (spdlog::level::level_enum)SDS_OPTIONS["verbosity"].as< uint32_t >();
+        auto const lvl_str = SDS_OPTIONS["verbosity"].as< std::string >();
+        lvl = spdlog::level::from_str(lvl_str);
+        if (spdlog::level::level_enum::off == lvl && lvl_str.size() == 1) {
+            lvl = (spdlog::level::level_enum)std::stoi(lvl_str);
+        }
     }
 
     if (0 < SDS_OPTIONS["version"].count()) {
