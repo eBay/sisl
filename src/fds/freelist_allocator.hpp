@@ -117,8 +117,12 @@ public:
     }
 
     bool deallocate(uint8_t* mem, uint32_t size_alloced) {
-        if (sisl_unlikely(m_impl.get() == nullptr)) { m_impl.reset(new FreeListAllocatorImpl< MaxListCount, Size >()); }
-        return m_impl->deallocate(mem, size_alloced);
+        if (sisl_unlikely(m_impl.get() == nullptr)) {
+            free(mem);
+            return true;
+        } else {
+            return m_impl->deallocate(mem, size_alloced);
+        }
     }
 
     bool owns(uint8_t* mem) const { return true; }
