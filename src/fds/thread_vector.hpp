@@ -14,14 +14,14 @@ public:
     using thread_buffer_iterator = std::pair< uint32_t, std::vector< T >* >;
     using thread_vector_iterator = std::pair< thread_buffer_iterator, int >;
 
-    ThreadVector(uint64_t size) : thread_buffer(size) {}
+    ThreadVector(uint64_t size) : m_thread_buffer(size) {}
     void push_back(T& ele) {
-        auto thread_vector = thread_buffer.get();
+        auto thread_vector = m_thread_buffer.get();
         thread_vector.push_back(ele);
     }
 
     T* begin(thread_vector_iterator& v_it) {
-        auto b_it = thread_buffer.begin_iterator();
+        auto b_it = m_thread_buffer.begin_iterator();
         if (b_it.second == nullptr) { return nullptr; }
         v_it = thread_vector_iterator(b_it, -1);
         return (next(v_it));
@@ -34,7 +34,7 @@ public:
         assert(buf != nullptr);
 
         while (++ele_indx == buf.size()) {
-            b_it = thread_buffer.next_iterator(b_it);
+            b_it = m_thread_buffer.next_iterator(b_it);
             if (b_it.second == nullptr) { return nullptr; }
             buf = b_it.second;
             ele_indx = -1;
@@ -44,6 +44,6 @@ public:
     }
 
 private:
-    ExitSafeThreadBuffer< std::vector< T > > thread_buffer;
+    ExitSafeThreadBuffer< std::vector< T > > m_thread_buffer;
 };
 } // namespace sisl
