@@ -278,6 +278,26 @@ public:
     }
 
     uint32_t get_count() const { return m_buffers.size(); }
+    using thread_buffer_iterator = std::pair< uint32_t, T* >;
+
+    thread_buffer_iterator begin_iterator() {
+        std::shared_lock l(m_expand_mutex);
+        auto tnum = m_thread_slots.find_first();
+        if (tnum == INVALID_CURSOR) {
+            return std::make_pair<>(INVALID_CURSOR, nullptr);
+        } else {
+            return std::make_pair<>(tnum, m_buffers.at(tnum).get());
+        }
+    }
+    thread_buffer_iterator next(thread_buffer_iterator prev) {
+        std::shared_lock l(m_expand_mutex);
+        auto tnum = m_thread_slots.find_next(prev.first);
+        if (tnum == INVALID_CURSOR) {
+            return std::make_pair<>(INVALID_CURSOR, nullptr);
+        } else {
+            return std::make_pair<>(tnum, m_buffers.at(tnum).get());
+        }
+    }
 
     void access_all_threads(exit_safe_buffer_access_cb_t< T > cb) {
         std::vector< uint32_t > can_free_thread_bufs;
