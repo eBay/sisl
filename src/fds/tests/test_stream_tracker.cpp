@@ -5,6 +5,7 @@
 #include <thread>
 #include "stream_tracker.hpp"
 #include <nlohmann/json.hpp>
+#include <fds/thread_vector.hpp>
 
 using namespace sisl;
 THREAD_BUFFER_INIT;
