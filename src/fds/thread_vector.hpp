@@ -15,7 +15,7 @@ public:
     using thread_vector_iterator = std::pair< thread_buffer_iterator, int >;
 
     ThreadVector(uint64_t size) : thread_buffer(size) {}
-    void push_back(T ele) {
+    void push_back(T& ele) {
         auto thread_vector = thread_buffer.get();
         thread_vector.push_back(ele);
     }
