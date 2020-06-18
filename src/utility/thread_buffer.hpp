@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <mutex>
+#include <condition_variable>
 #include <boost/dynamic_bitset.hpp>
 #include <functional>
 #include "fds/flexarray.hpp"
@@ -76,12 +77,15 @@ public:
             sisl::urcu_ctl::register_rcu();
 
             notifiers = m_registered_notifiers;
+            ++m_ongoing_notifications;
         }
 
         // Notify the modules that a new thread is attached
         for (auto& n : notifiers) {
             n.second(thread_num, thread_life_cycle::THREAD_ATTACHED);
         }
+
+        finish_notification();
         return thread_num;
     }
 
@@ -91,11 +95,14 @@ public:
             std::unique_lock lock(m_init_mutex);
             m_free_thread_slots.set(thread_num);
             notifiers = m_registered_notifiers;
+            ++m_ongoing_notifications;
         }
 
         for (auto& n : notifiers) {
             n.second(thread_num, thread_life_cycle::THREAD_DETACHED);
         }
+
+        finish_notification();
         sisl::urcu_ctl::unregister_rcu();
     }
 
@@ -121,17 +128,22 @@ public:
                 tnums.push_back(tnum);
                 tnum = running_thread_slots.find_next(tnum);
             }
+            ++m_ongoing_notifications;
         }
 
         for (auto tnum : tnums) {
             cb(tnum, thread_life_cycle::THREAD_ATTACHED);
         }
+        finish_notification();
         return notify_idx;
     }
 
     void deregister_sc_notification(uint64_t notify_idx) {
         std::unique_lock lock(m_init_mutex);
         m_registered_notifiers.erase(notify_idx);
+        if (m_ongoing_notifications != 0) {
+            m_notify_cv.wait(lock, [&] { return (m_ongoing_notifications == 0); });
+        }
     }
 
     bool is_thread_running(uint32_t thread_num) {
@@ -158,6 +170,16 @@ private:
         return (uint32_t)m_slot_cursor;
     }
 
+    void finish_notification() {
+        bool ongoing_notifications = false;
+        {
+            std::unique_lock lock(m_init_mutex);
+            ongoing_notifications = (--m_ongoing_notifications > 0);
+        }
+
+        if (!ongoing_notifications) { m_notify_cv.notify_all(); }
+    }
+
 private:
     std::shared_mutex m_init_mutex;
 
@@ -173,6 +195,8 @@ private:
 
     uint32_t m_next_notify_idx = 0;
     notifiers_list_t m_registered_notifiers;
+    std::condition_variable_any m_notify_cv;
+    int32_t m_ongoing_notifications = 0;
     // std::vector< thread_state_cb_t >        m_registered_notifiers;
 };
 
