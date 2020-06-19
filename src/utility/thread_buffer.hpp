@@ -313,6 +313,7 @@ public:
             return std::make_pair<>(tnum, m_buffers.at(tnum).get());
         }
     }
+
     thread_buffer_iterator next(thread_buffer_iterator prev) {
         std::shared_lock l(m_expand_mutex);
         auto tnum = m_thread_slots.find_next(prev.first);
@@ -322,6 +323,9 @@ public:
             return std::make_pair<>(tnum, m_buffers.at(tnum).get());
         }
     }
+
+    bool is_valid(thread_buffer_iterator& it) { return (it.second != nullptr ? true : false); }
+    T* get(thread_buffer_iterator& it) { return it.second; }
 
     void access_all_threads(exit_safe_buffer_access_cb_t< T > cb) {
         std::vector< uint32_t > can_free_thread_bufs;
