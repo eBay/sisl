@@ -4,8 +4,7 @@
 namespace sisl {
 
 /* This data structure inserts elements into per thread buffer and provide apis to access the elements.
- * Note :- 1. It assumes that insert and access won't go in parallel.
- *         2. It doesn't support erase.
+ * Note :- It assumes that insert and access won't go in parallel.
  */
 template < typename T >
 class ThreadVector {
@@ -61,6 +60,17 @@ public:
             buf.erase(buf.begin(), buf.end());
             b_it = m_thread_buffer.next_iterator();
         }
+    }
+
+    uint64_t size() {
+        uint64_t size = 0;
+        auto b_it = m_thread_buffer.begin_iterator();
+        while (m_thread_buffer.is_valid(b_it)) {
+            auto buf = m_thread_buffer.get(b_it);
+            size += buf.size();
+            b_it = m_thread_buffer.next_iterator();
+        }
+        return size;
     }
 
 private:

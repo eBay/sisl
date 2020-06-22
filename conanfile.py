@@ -4,7 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "1.0.19"
+    version = "1.0.20"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
