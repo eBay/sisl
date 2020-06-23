@@ -152,7 +152,8 @@ struct std_aligned_free {
     void operator()(uint8_t* b) { return std::free(b); }
 };
 
-template < typename align_alloc_func = std_aligned_alloc, typename align_free_func = std_aligned_free, size_t align_size = 512 >
+template < typename align_alloc_func = std_aligned_alloc, typename align_free_func = std_aligned_free,
+           size_t align_size = 512 >
 struct alignable_blob : public blob {
     bool aligned = false;
 
@@ -166,18 +167,20 @@ struct alignable_blob : public blob {
     ~alignable_blob() {}
 
     void buf_alloc(bool is_aligned, size_t sz) {
+        align_alloc_func f;
         aligned = is_aligned;
         blob::size = sz;
         if (aligned) {
-            blob::bytes = align_alloc_func(align_size, sz);
+            blob::bytes = f(align_size, sz);
         } else {
             blob::bytes = (uint8_t*)malloc(sz);
         }
     }
 
     void buf_free() {
+        align_free_func f;
         if (aligned) {
-            align_free_func(blob::bytes);
+            f(blob::bytes);
         } else {
             free(blob::bytes);
         }
