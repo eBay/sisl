@@ -144,6 +144,38 @@ struct blob {
     blob(uint8_t* _bytes, uint32_t _size) : bytes(_bytes), size(_size) {}
 };
 
+template <typename align_alloc_func, typename align_free_func, size_t align_size = 512>
+struct auto_blob : public blob {
+    bool aligned = false;
+
+    auto_blob() {}
+
+    auto_blob(bool is_aligned, size_t sz) : aligned(is_aligned) {
+        blob::size = sz;
+        buf_alloc(aligned, sz);
+    }
+
+    ~auto_blob() {}
+
+    void buf_alloc(bool is_aligned, size_t sz) {
+        aligned = is_aligned;
+        blob::size = sz;
+        if (aligned) {
+            blob::bytes = align_alloc_func(align_size, sz);
+        } else {
+            blob::bytes = (uint8_t*)malloc(sz);
+        }
+    }
+
+    void buf_free() {
+        if (aligned) {
+            align_free_func(blob::bytes);
+        } else {
+            free(blob::bytes);
+        }
+    }
+};
+
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
