@@ -144,11 +144,11 @@ struct blob {
     blob(uint8_t* _bytes, uint32_t _size) : bytes(_bytes), size(_size) {}
 };
 
-struct std_aligned_alloc {
+struct default_aligned_alloc {
     uint8_t* operator()(size_t align, size_t sz) { return (uint8_t*)std::aligned_alloc(align, sz); }
 };
 
-struct std_aligned_free {
+struct default_aligned_free {
     void operator()(uint8_t* b) { return std::free(b); }
 };
 
