@@ -159,7 +159,7 @@ struct alignable_blob : public blob {
     alignable_blob() {}
 
     alignable_blob(size_t sz, bool is_aligned, size_t align_size = 512) : aligned(is_aligned) {
-        buf_alloc(aligned, sz, align_size);
+        buf_alloc(sz, aligned, align_size);
     }
 
     ~alignable_blob() {}
