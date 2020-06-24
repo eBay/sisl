@@ -152,7 +152,7 @@ struct default_aligned_free {
     void operator()(uint8_t* b) { return std::free(b); }
 };
 
-template < typename align_alloc_func = std_aligned_alloc, typename align_free_func = std_aligned_free >
+template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
 struct alignable_blob : public blob {
     bool aligned = false;
 
