@@ -13,15 +13,16 @@ public:
     using thread_buffer_iterator = std::pair< uint32_t, std::vector< T >* >;
     using thread_vector_iterator = std::pair< thread_buffer_iterator, int >;
 
+    ThreadVector() {}
     ThreadVector(uint64_t size) : m_thread_buffer(size) {}
     void push_back(const T& ele) {
         auto thread_vector = m_thread_buffer.get();
-        thread_vector.push_back(ele);
+        thread_vector->push_back(ele);
     }
 
     T* begin(thread_vector_iterator& v_it) {
         auto b_it = m_thread_buffer.begin_iterator();
-        if (unlikely(!m_thread_buffer.is_valid(b_it))) { return nullptr; }
+        if (!m_thread_buffer.is_valid(b_it)) { return nullptr; }
         v_it = thread_vector_iterator(b_it, -1);
         return (next(v_it));
     }
@@ -32,14 +33,14 @@ public:
         auto buf = m_thread_buffer.get(b_it);
         assert(buf != nullptr);
 
-        while (++ele_indx == buf.size()) {
-            b_it = m_thread_buffer.next_iterator(b_it);
-            if (unlikely(!(m_thread_buffer.is_valid(b_it)))) { return nullptr; }
+        while (++ele_indx == (int)buf->size()) {
+            b_it = m_thread_buffer.next(b_it);
+            if (!(m_thread_buffer.is_valid(b_it))) { return nullptr; }
             buf = b_it.second;
             ele_indx = -1;
         }
         v_it = thread_vector_iterator(b_it, ele_indx);
-        return (&(buf[ele_indx]));
+        return (&((*buf)[ele_indx]));
     }
 
     /* it reset the size of vector. It doesn't change the capacity */
@@ -47,8 +48,8 @@ public:
         auto b_it = m_thread_buffer.begin_iterator();
         while (m_thread_buffer.is_valid(b_it)) {
             auto buf = m_thread_buffer.get(b_it);
-            buf.clear();
-            b_it = m_thread_buffer.next_iterator();
+            buf->clear();
+            b_it = m_thread_buffer.next(b_it);
         }
     }
 
@@ -57,8 +58,8 @@ public:
         auto b_it = m_thread_buffer.begin_iterator();
         while (m_thread_buffer.is_valid(b_it)) {
             auto buf = m_thread_buffer.get(b_it);
-            buf.erase(buf.begin(), buf.end());
-            b_it = m_thread_buffer.next_iterator();
+            buf->erase(buf->begin(), buf->end());
+            b_it = m_thread_buffer.next(b_it);
         }
     }
 
@@ -67,8 +68,8 @@ public:
         auto b_it = m_thread_buffer.begin_iterator();
         while (m_thread_buffer.is_valid(b_it)) {
             auto buf = m_thread_buffer.get(b_it);
-            size += buf.size();
-            b_it = m_thread_buffer.next_iterator();
+            size += buf->size();
+            b_it = m_thread_buffer.next(b_it);
         }
         return size;
     }
