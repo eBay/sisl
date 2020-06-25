@@ -137,6 +137,7 @@ std::shared_ptr< T > make_aligned_shared(size_t align, size_t size) {
 }
 
 struct blob {
+    bool aligned = false;
     uint8_t* bytes;
     uint32_t size;
 
@@ -154,12 +155,10 @@ struct default_aligned_free {
 
 template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
 struct alignable_blob : public blob {
-    bool aligned = false;
-
     alignable_blob() {}
 
     alignable_blob(size_t sz, uint32_t align_size = 512) {
-        aligned = (align_size != 0);
+        blob::aligned = (align_size != 0);
         buf_alloc(sz, align_size);
     }
 
@@ -167,9 +166,9 @@ struct alignable_blob : public blob {
 
     void buf_alloc(size_t sz, uint32_t align_size = 512) {
         align_alloc_func f;
-        aligned = (align_size != 0);
+        blob::aligned = (align_size != 0);
         blob::size = sz;
-        if (aligned) {
+        if (blob::aligned) {
             blob::bytes = f(align_size, sz);
         } else {
             blob::bytes = (uint8_t*)malloc(sz);
@@ -178,7 +177,7 @@ struct alignable_blob : public blob {
 
     void buf_free() {
         align_free_func f;
-        if (aligned) {
+        if (blob::aligned) {
             f(blob::bytes);
         } else {
             free(blob::bytes);
@@ -191,11 +190,10 @@ struct alignable_blob : public blob {
  */
 template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
 struct _alignable_byte_array : public blob {
-    bool aligned = false;
     _alignable_byte_array(uint32_t sz, uint32_t alignment = 0) {
         align_alloc_func f;
-        aligned = (alignment != 0);
-        if (aligned) {
+        blob::aligned = (alignment != 0);
+        if (blob::aligned) {
             blob::bytes = f(alignment, sz);
         } else {
             blob::bytes = (uint8_t*)std::malloc(sz);
@@ -206,7 +204,7 @@ struct _alignable_byte_array : public blob {
 
     ~_alignable_byte_array() {
         align_free_func f;
-        if (aligned) {
+        if (blob::aligned) {
             f(blob::bytes);
         } else {
             std::free(blob::bytes);
