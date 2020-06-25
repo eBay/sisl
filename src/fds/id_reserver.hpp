@@ -13,7 +13,7 @@ namespace sisl {
 class IDReserver {
 public:
     IDReserver(uint32_t estimated_ids = 1024) : m_reserved_bits(estimated_ids) {}
-    IDReserver(const sisl::byte_array& b) : m_reserved_bits(b) {}
+    IDReserver(const sisl::byte_array<>& b) : m_reserved_bits(b) {}
 
     uint32_t reserve() {
         std::unique_lock lg(m_mutex);
@@ -39,7 +39,7 @@ public:
         return m_reserved_bits.get_bitval(id);
     }
 
-    sisl::byte_array serialize() {
+    sisl::byte_array<> serialize() {
         std::unique_lock lg(m_mutex);
         return m_reserved_bits.serialize();
     }
