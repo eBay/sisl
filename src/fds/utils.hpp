@@ -144,6 +144,47 @@ struct blob {
     blob(uint8_t* _bytes, uint32_t _size) : bytes(_bytes), size(_size) {}
 };
 
+struct default_aligned_alloc {
+    uint8_t* operator()(size_t align, size_t sz) { return (uint8_t*)std::aligned_alloc(align, sz); }
+};
+
+struct default_aligned_free {
+    void operator()(uint8_t* b) { return std::free(b); }
+};
+
+template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
+struct alignable_blob : public blob {
+    bool aligned = false;
+
+    alignable_blob() {}
+
+    alignable_blob(size_t sz, bool is_aligned, size_t align_size = 512) : aligned(is_aligned) {
+        buf_alloc(sz, aligned, align_size);
+    }
+
+    ~alignable_blob() {}
+
+    void buf_alloc(size_t sz, bool is_aligned, size_t align_size = 512) {
+        align_alloc_func f;
+        aligned = is_aligned;
+        blob::size = sz;
+        if (aligned) {
+            blob::bytes = f(align_size, sz);
+        } else {
+            blob::bytes = (uint8_t*)malloc(sz);
+        }
+    }
+
+    void buf_free() {
+        align_free_func f;
+        if (aligned) {
+            f(blob::bytes);
+        } else {
+            free(blob::bytes);
+        }
+    }
+};
+
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
