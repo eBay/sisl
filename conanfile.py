@@ -6,6 +6,7 @@ class MetricsConan(ConanFile):
     name = "sisl"
     version = "1.0.23"
 
+
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
     description = "Sisl library for fast data structures, utilities"

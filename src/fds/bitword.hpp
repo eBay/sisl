@@ -114,7 +114,7 @@ public:
      */
     int get_set_count() const {
 #ifdef __x86_64
-        return __builtin_popcount(m_bits.get());
+        return __builtin_popcountl(m_bits.get());
 #else
         int count = 0;
         word_t e = m_bits.get();
