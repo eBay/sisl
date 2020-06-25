@@ -190,9 +190,9 @@ struct alignable_blob : public blob {
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
 template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
-struct _byte_array : public blob {
+struct _alignable_byte_array : public blob {
     bool aligned = false;
-    _byte_array(uint32_t sz, uint32_t alignment = 0) {
+    _alignable_byte_array(uint32_t sz, uint32_t alignment = 0) {
         align_alloc_func f;
         aligned = (alignment != 0);
         if (aligned) {
@@ -202,9 +202,9 @@ struct _byte_array : public blob {
         }
     }
 
-    _byte_array(uint8_t* bytes, uint32_t size) : blob(bytes, size) {}
+    _alignable_byte_array(uint8_t* bytes, uint32_t size) : blob(bytes, size) {}
 
-    ~_byte_array() {
+    ~_alignable_byte_array() {
         align_free_func f;
         if (aligned) {
             f(blob::bytes);
@@ -215,11 +215,11 @@ struct _byte_array : public blob {
 };
 
 template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
-using byte_array = std::shared_ptr< _byte_array< align_alloc_func, align_free_func > >;
+using byte_array = std::shared_ptr< _alignable_byte_array< align_alloc_func, align_free_func > >;
 
 template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
 inline byte_array< align_alloc_func, align_free_func > make_byte_array(uint32_t sz, uint32_t alignment = 0) {
-    return std::make_shared< _byte_array< align_alloc_func, align_free_func > >(sz, alignment);
+    return std::make_shared< _alignable_byte_array< align_alloc_func, align_free_func > >(sz, alignment);
 }
 
 template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
