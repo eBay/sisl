@@ -194,6 +194,7 @@ struct _alignable_byte_array : public blob {
     _alignable_byte_array(uint32_t sz, uint32_t alignment = 0) {
         align_alloc_func f;
         aligned = (alignment != 0);
+        blob::size = sz;
         if (aligned) {
             blob::bytes = f(alignment, sz);
         } else {
