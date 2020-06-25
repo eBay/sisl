@@ -158,15 +158,16 @@ struct alignable_blob : public blob {
 
     alignable_blob() {}
 
-    alignable_blob(size_t sz, bool is_aligned, size_t align_size = 512) : aligned(is_aligned) {
-        buf_alloc(sz, aligned, align_size);
+    alignable_blob(size_t sz, uint32_t align_size = 512) {
+        aligned = (align_size != 0);
+        buf_alloc(sz, align_size);
     }
 
     ~alignable_blob() {}
 
-    void buf_alloc(size_t sz, bool is_aligned, size_t align_size = 512) {
+    void buf_alloc(size_t sz, uint32_t align_size = 512) {
         align_alloc_func f;
-        aligned = is_aligned;
+        aligned = (align_size != 0);
         blob::size = sz;
         if (aligned) {
             blob::bytes = f(align_size, sz);
@@ -188,19 +189,40 @@ struct alignable_blob : public blob {
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
+template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
 struct _byte_array : public blob {
-    _byte_array(uint32_t sz, uint32_t alignment = 0) :
-            blob((uint8_t*)((alignment == 0) ? std::malloc(sz) : std::aligned_alloc(alignment, sz)), sz) {}
+    bool aligned = false;
+    _byte_array(uint32_t sz, uint32_t alignment = 0) {
+        align_alloc_func f;
+        aligned = (alignment != 0);
+        if (aligned) {
+            blob::bytes = f(alignment, sz);
+        } else {
+            blob::bytes = (uint8_t*)std::malloc(sz);
+        }
+    }
+
     _byte_array(uint8_t* bytes, uint32_t size) : blob(bytes, size) {}
-    ~_byte_array() { std::free(bytes); }
+
+    ~_byte_array() {
+        align_free_func f;
+        if (aligned) {
+            f(blob::bytes);
+        } else {
+            std::free(blob::bytes);
+        }
+    }
 };
 
-using byte_array = std::shared_ptr< _byte_array >;
+template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
+using byte_array = std::shared_ptr< _byte_array< align_alloc_func, align_free_func > >;
 
-inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0) {
-    return std::make_shared< _byte_array >(sz, alignment);
+template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
+inline byte_array< align_alloc_func, align_free_func > make_byte_array(uint32_t sz, uint32_t alignment = 0) {
+    return std::make_shared< _byte_array< align_alloc_func, align_free_func > >(sz, alignment);
 }
 
+template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
 struct byte_view {
 public:
     byte_view() = default;
@@ -208,8 +230,8 @@ public:
         m_base_buf = make_byte_array(sz, alignment);
         m_view = *m_base_buf;
     }
-    byte_view(byte_array arr) : byte_view(arr, 0, arr->size) {}
-    byte_view(byte_array buf, uint32_t offset, uint32_t sz) {
+    byte_view(byte_array< align_alloc_func, align_free_func > arr) : byte_view(arr, 0, arr->size) {}
+    byte_view(byte_array< align_alloc_func, align_free_func > buf, uint32_t offset, uint32_t sz) {
         m_base_buf = buf;
         m_view.bytes = buf->bytes + offset;
         m_view.size = sz;
@@ -230,7 +252,7 @@ public:
     // Extract the byte_array so that caller can safely use the underlying byte_array. If the view represents the
     // entire array, it will not do any copy. If view represents only portion of array, create a copy of the byte array
     // and returns that value
-    byte_array extract(uint32_t alignment = 0) const {
+    byte_array< align_alloc_func, align_free_func > extract(uint32_t alignment = 0) const {
         if ((m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size)) {
             return m_base_buf;
         } else {
@@ -244,7 +266,7 @@ public:
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
 
 private:
-    byte_array m_base_buf;
+    byte_array< align_alloc_func, align_free_func > m_base_buf;
     blob m_view;
 };
 

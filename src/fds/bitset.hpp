@@ -64,7 +64,7 @@ private:
 
     bitset_serialized* m_s = nullptr;
     mutable folly::SharedMutex m_lock;
-    sisl::byte_array m_buf;
+    sisl::byte_array<> m_buf;
     uint32_t m_alignment_size = 0;
     uint64_t m_words_cap;
 
@@ -101,7 +101,7 @@ public:
         m_words_cap = others.m_words_cap;
     }
 
-    explicit BitsetImpl(const sisl::byte_array& b) {
+    explicit BitsetImpl(const sisl::byte_array<>& b) {
         m_alignment_size = 0; // Assume no alignment
         m_buf = b;
         m_s = (bitset_serialized*)m_buf->bytes;
@@ -142,7 +142,7 @@ public:
      *
      * @return sisl::byte_array
      */
-    const sisl::byte_array serialize() const {
+    const sisl::byte_array<> serialize() const {
         if (ThreadSafeResizing) { m_lock.lock(); }
         auto ret = m_buf;
         if (ThreadSafeResizing) { m_lock.unlock(); }
