@@ -173,6 +173,17 @@ public:
         return ret;
     }
 
+    uint64_t get_set_count() const {
+        uint64_t start_bit = 0;
+        uint64_t set_cnt = 0;
+        while (start_bit < size()) {
+            auto word = get_word_const(start_bit);
+            set_cnt += word->get_set_count();
+            start_bit += (Word::bits());
+        }
+        return set_cnt;
+    }
+
     /**
      * @brief Set the bit. If the bit is outside the available range throws std::out_of_range exception
      *
