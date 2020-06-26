@@ -104,43 +104,6 @@ namespace sisl {
 inline uint64_t round_up(uint64_t num_to_round, uint64_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
 inline uint64_t round_down(uint64_t num_to_round, uint64_t multiple) { return (num_to_round / multiple) * multiple; }
 
-#if 0
-template < typename T >
-struct aligned_free {
-    void operator()(T* p) {
-        p->~T();
-        std::free(p);
-    }
-};
-
-template < class T >
-using aligned_unique_ptr = std::unique_ptr< T, aligned_free< T > >;
-
-template < class T, class... Args >
-aligned_unique_ptr< T > make_aligned_sized_unique(size_t align, size_t size, Args&&... args) {
-    auto mem = std::aligned_alloc(align, sisl::round_up(size, align));
-    return aligned_unique_ptr< T >(new (mem) T(std::forward< Args >(args)...));
-}
-
-template < class T, class... Args >
-inline aligned_unique_ptr< T > make_aligned_unique(size_t align, Args&&... args) {
-    return make_aligned_sized_unique< T, Args... >(align, (size_t)sizeof(T), std::forward< Args >(args)...);
-}
-#endif
-
-#if 0
-aligned_unique_ptr< uint8_t > make_aligned_unique_buf(size_t align, size_t size) {
-    return aligned_unique_ptr< uint8_t >(
-        static_cast< uint8_t* >(std::aligned_alloc(align, sisl::round_up(size, align))));
-}
-
-template < class T >
-std::shared_ptr< T > make_aligned_shared(size_t align, size_t size) {
-    return std::shared_ptr< T >(static_cast< T* >(std::aligned_alloc(align, sisl::round_up(size, align))),
-                                aligned_free< T >());
-}
-#endif
-
 struct blob {
     uint8_t* bytes;
     uint32_t size;
@@ -149,6 +112,46 @@ struct blob {
     blob(uint8_t* _bytes, uint32_t _size) : bytes(_bytes), size(_size) {}
 };
 
+struct AlignedAllocatorImpl {
+    virtual ~AlignedAllocatorImpl() = default;
+    virtual uint8_t* aligned_alloc(size_t align, size_t sz) {
+        return (uint8_t*)std::aligned_alloc(align, sisl::round_up(sz, align));
+    }
+    virtual void aligned_free(uint8_t* b) { return std::free(b); }
+
+    template < typename T >
+    void aligned_delete(T* p) {
+        p->~T();
+        aligned_free(p);
+    }
+};
+
+struct AlignedAllocator {
+    static AlignedAllocator& instance() {
+        static AlignedAllocator _inst;
+        return _inst;
+    }
+
+    AlignedAllocator() { m_impl = new AlignedAllocatorImpl(); }
+    ~AlignedAllocator() { delete (m_impl); }
+
+    void set_allocator(AlignedAllocatorImpl* impl) {
+        delete (m_impl);
+        m_impl = impl;
+    }
+
+    AlignedAllocatorImpl* m_impl;
+};
+
+#define sisl_aligned_alloc sisl::AlignedAllocator::instance().m_impl->aligned_alloc
+#define sisl_aligned_free sisl::AlignedAllocator::instance().m_impl->aligned_free
+
+template < typename T >
+struct aligned_deleter {
+    void operator()(T* p) { sisl::AlignedAllocator::instance().m_impl->aligned_delete(p); }
+};
+
+#if 0
 struct default_aligned_alloc {
     uint8_t* operator()(size_t align, size_t sz) {
         return (uint8_t*)std::aligned_alloc(align, sisl::round_up(sz, align));
@@ -166,25 +169,26 @@ struct default_aligned_delete {
         std::free(p);
     }
 };
+#endif
 
-template < class T, class Allocator = default_aligned_alloc, class Deleter = default_aligned_delete< T > >
-class aligned_unique_ptr : public std::unique_ptr< T, Deleter > {
+template < class T >
+class aligned_unique_ptr : public std::unique_ptr< T, aligned_deleter< T > > {
 public:
     template < class... Args >
-    static inline aligned_unique_ptr< T, Allocator, Deleter > make(size_t align, Args&&... args) {
+    static inline aligned_unique_ptr< T > make(size_t align, Args&&... args) {
         return make_sized(align, sizeof(T), std::forward< Args >(args)...);
     }
 
     template < class... Args >
-    static inline aligned_unique_ptr< T, Allocator, Deleter > make_sized(size_t align, size_t size, Args&&... args) {
-        return aligned_unique_ptr< T, Allocator, Deleter >(new (Allocator()(align, size))
-                                                               T(std::forward< Args >(args)...));
+    static inline aligned_unique_ptr< T > make_sized(size_t align, size_t size, Args&&... args) {
+        return aligned_unique_ptr< T >(new (sisl_aligned_alloc(align, size)) T(std::forward< Args >(args)...));
     }
 
-    aligned_unique_ptr(T* p) : std::unique_ptr< T, Deleter >(p) {}
+    aligned_unique_ptr() = default;
+    aligned_unique_ptr(T* p) : std::unique_ptr< T, aligned_deleter< T > >(p) {}
 };
 
-template < class T, class Allocator = default_aligned_alloc, class Deleter = default_aligned_delete< T > >
+template < class T >
 class aligned_shared_ptr : public std::shared_ptr< T > {
 public:
     template < class... Args >
@@ -194,51 +198,44 @@ public:
 
     template < class... Args >
     static std::shared_ptr< T > make_sized(size_t align, size_t size, Args&&... args) {
-        return std::shared_ptr< T >(new (Allocator()(align, size)) T(std::forward< Args >(args)...), Deleter());
+        return std::shared_ptr< T >(new (sisl_aligned_alloc(align, size)) T(std::forward< Args >(args)...),
+                                    aligned_deleter< T >());
     }
 
     aligned_shared_ptr(T* p) : std::shared_ptr< T >(p) {}
 };
 
-template < class AlignedAllocator = default_aligned_alloc, class AlignedDeleter = default_aligned_free >
 struct alignable_blob : public blob {
     bool aligned = false;
 
     alignable_blob() = default;
     alignable_blob(size_t sz, uint32_t align_size = 512) { buf_alloc(sz, align_size); }
-    alignable_blob(uint8_t* bytes, uint32_t size, bool is_aligned) : aligned(is_aligned), blob(bytes, size) {}
+    alignable_blob(uint8_t* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned(is_aligned) {}
     ~alignable_blob() = default;
 
     void buf_alloc(size_t sz, uint32_t align_size = 512) {
-        blob::size = sz;
         aligned = (align_size != 0);
-        blob::bytes = aligned ? AlignedAllocator()(align_size, sz) : (uint8_t*)malloc(sz);
+        blob::size = sz;
+        blob::bytes = aligned ? sisl_aligned_alloc(align_size, sz) : (uint8_t*)malloc(sz);
     }
 
-    void buf_free() { aligned ? AlignedDeleter()(blob::bytes) : std::free(blob::bytes); }
+    void buf_free() const { aligned ? sisl_aligned_free(blob::bytes) : std::free(blob::bytes); }
 };
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
-template < class AlignedAllocator = default_aligned_alloc, class AlignedDeleter = default_aligned_free >
-struct _alignable_byte_array : public alignable_blob< AlignedAllocator, AlignedDeleter > {
-    _alignable_byte_array(uint32_t sz, uint32_t alignment = 0) :
-            alignable_blob< AlignedAllocator, AlignedDeleter >(sz, alignment)) {}
-    _alignable_byte_array(uint8_t* bytes, uint32_t size, bool is_aligned) :
-            alignable_blob< AlignedAllocator, AlignedDeleter >(bytes, size, is_aligned) {}
-    ~_alignable_byte_array() { alignable_blob< AlignedAllocator, AlignedDeleter >::buf_free(); }
+struct _alignable_byte_array : public alignable_blob {
+    _alignable_byte_array(uint32_t sz, uint32_t alignment = 0) : alignable_blob(sz, alignment) {}
+    _alignable_byte_array(uint8_t* bytes, uint32_t size, bool is_aligned) : alignable_blob(bytes, size, is_aligned) {}
+    ~_alignable_byte_array() { alignable_blob::buf_free(); }
 };
 
-template < class AlignedAllocator = default_aligned_alloc, class AlignedDeleter = default_aligned_free >
-using byte_array = std::shared_ptr< _alignable_byte_array< AlignedAllocator, AlignedDeleter > >;
-
-template < class AlignedAllocator = default_aligned_alloc, class AlignedDeleter = default_aligned_free >
-inline byte_array< align_alloc_func, align_free_func > make_byte_array(uint32_t sz, uint32_t alignment = 0) {
-    return std::make_shared< _alignable_byte_array< AlignedAllocator, AlignedDeleter > >(sz, alignment);
+using byte_array = std::shared_ptr< _alignable_byte_array >;
+inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0) {
+    return std::make_shared< _alignable_byte_array >(sz, alignment);
 }
 
-template < class AlignedAllocator = default_aligned_alloc, class AlignedDeleter = default_aligned_free >
 struct byte_view {
 public:
     byte_view() = default;
@@ -246,8 +243,8 @@ public:
         m_base_buf = make_byte_array(sz, alignment);
         m_view = *m_base_buf;
     }
-    byte_view(byte_array< AlignedAllocator, AlignedDeleter > arr) : byte_view(arr, 0, arr->size) {}
-    byte_view(byte_array< AlignedAllocator, AlignedDeleter > buf, uint32_t offset, uint32_t sz) {
+    byte_view(byte_array arr) : byte_view(arr, 0, arr->size) {}
+    byte_view(byte_array buf, uint32_t offset, uint32_t sz) {
         m_base_buf = buf;
         m_view.bytes = buf->bytes + offset;
         m_view.size = sz;
@@ -268,8 +265,8 @@ public:
     // Extract the byte_array so that caller can safely use the underlying byte_array. If the view represents the
     // entire array, it will not do any copy. If view represents only portion of array, create a copy of the byte array
     // and returns that value
-    byte_array< AlignedAllocator, AlignedDeleter > extract(uint32_t alignment = 0) const {
-        if ((m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size)) {
+    byte_array extract(uint32_t alignment = 0) const {
+        if (can_do_shallow_copy()) {
             return m_base_buf;
         } else {
             auto base_buf = make_byte_array(m_view.size, alignment);
@@ -278,11 +275,14 @@ public:
         }
     }
 
+    bool can_do_shallow_copy() const {
+        return (m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size);
+    }
     void set_size(uint32_t sz) { m_view.size = sz; }
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
 
 private:
-    byte_array< AlignedAllocator, AlignedDeleter > m_base_buf;
+    byte_array m_base_buf;
     blob m_view;
 };
 
