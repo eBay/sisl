@@ -262,7 +262,7 @@ public:
         }
     }
 
-    bool can_do_shallow_copy() { return (m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size); }
+    bool can_do_shallow_copy() const { return (m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size); }
     void set_size(uint32_t sz) { m_view.size = sz; }
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
 
