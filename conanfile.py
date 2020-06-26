@@ -4,7 +4,7 @@ from conans import ConanFile, CMake, tools
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "1.0.23"
+    version = "1.0.24"
 
 
     license = "Proprietary"

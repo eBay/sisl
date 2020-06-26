@@ -253,7 +253,7 @@ public:
     // entire array, it will not do any copy. If view represents only portion of array, create a copy of the byte array
     // and returns that value
     byte_array< align_alloc_func, align_free_func > extract(uint32_t alignment = 0) const {
-        if ((m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size)) {
+        if (can_do_shallow_copy()) {
             return m_base_buf;
         } else {
             auto base_buf = make_byte_array(m_view.size, alignment);
@@ -262,6 +262,7 @@ public:
         }
     }
 
+    bool can_do_shallow_copy() const { return (m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size); }
     void set_size(uint32_t sz) { m_view.size = sz; }
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
 
