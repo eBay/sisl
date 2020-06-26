@@ -64,7 +64,7 @@ private:
 
     bitset_serialized* m_s = nullptr;
     mutable folly::SharedMutex m_lock;
-    sisl::byte_array<> m_buf;
+    sisl::byte_array m_buf;
     uint32_t m_alignment_size = 0;
     uint64_t m_words_cap;
 
@@ -83,7 +83,7 @@ public:
         m_alignment_size = alignment_size;
         uint64_t size = alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                        : bitset_serialized::nbytes(nbits);
-        m_buf = sisl::make_byte_array(size, alignment_size);
+        m_buf = make_byte_array(size, alignment_size);
         m_s = (bitset_serialized*)m_buf->bytes;
 
         m_s->m_id = m_id;
@@ -101,7 +101,7 @@ public:
         m_words_cap = others.m_words_cap;
     }
 
-    explicit BitsetImpl(const sisl::byte_array<>& b) {
+    explicit BitsetImpl(const sisl::byte_array& b) {
         m_alignment_size = 0; // Assume no alignment
         m_buf = b;
         m_s = (bitset_serialized*)m_buf->bytes;
@@ -125,7 +125,7 @@ public:
 
     void copy(const BitsetImpl& others) {
         if (!m_buf || m_buf->size != others.m_buf->size) {
-            m_buf = sisl::make_byte_array(others.m_buf->size, others.m_alignment_size);
+            m_buf = make_byte_array(others.m_buf->size, others.m_alignment_size);
             m_s = (bitset_serialized*)m_buf->bytes;
         }
         m_alignment_size = others.m_alignment_size;
@@ -142,7 +142,7 @@ public:
      *
      * @return sisl::byte_array
      */
-    const sisl::byte_array<> serialize() const {
+    const sisl::byte_array serialize() const {
         if (ThreadSafeResizing) { m_lock.lock(); }
         auto ret = m_buf;
         if (ThreadSafeResizing) { m_lock.unlock(); }
@@ -503,7 +503,7 @@ private:
 
         auto new_nbits = nbits + new_skip_bits;
         auto new_cap = bitset_serialized::total_words(new_nbits);
-        auto new_buf = sisl::make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size);
+        auto new_buf = make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size);
         auto new_s = (bitset_serialized*)new_buf->bytes;
 
         auto move_nwords = std::min(m_words_cap - shrink_words, new_cap);
