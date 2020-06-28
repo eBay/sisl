@@ -18,7 +18,7 @@ public:
 
     ~WrapperBuf() {}
 
-    sisl::urcu_ptr< DS >  get_safe() { return m_safe_buf.get(); }
+    sisl::urcu_ptr< DS > get_safe() { return m_safe_buf.get(); }
     std::shared_ptr< DS > make_and_exchange() {
         // auto n = m_safe_buf.make_and_exchange(std::forward<Args>(m_args)...);
         // auto n = std::apply(m_safe_buf.make_and_exchange, m_args);
@@ -54,7 +54,7 @@ private:
 private:
     sisl::urcu_data< DS > m_safe_buf;
     std::tuple< Args... > m_args;
-    bool                  m_is_batch_on;
+    bool m_is_batch_on;
 };
 
 /* This class implements a generic wait free writer framework to build a wait free writer structures on top of it.
@@ -101,8 +101,8 @@ public:
      */
     void prepare_rotate() {
         std::lock_guard< std::mutex > lg(m_rotate_mutex);
-        m_buffer.access_all_threads([](WrapperBuf< DS, Args... >* ptr, bool is_thread_running) {
-            (void)is_thread_running;
+        m_buffer.access_all_threads([](WrapperBuf< DS, Args... >* ptr, [[maybe_unused]] bool is_thread_running,
+                                       [[maybe_unused]] bool is_last_thread) {
             ptr->make();
             return false;
         });
@@ -110,13 +110,11 @@ public:
 
     DS* deferred() {
         std::lock_guard< std::mutex > lg(m_rotate_mutex);
-        auto                          base_raw = m_base_obj.get();
-        m_buffer.access_all_threads([base_raw](WrapperBuf< DS, Args... >* ptr, bool is_thread_running) {
-            (void)is_thread_running;
+        auto base_raw = m_base_obj.get();
+        m_buffer.access_all_threads([base_raw](WrapperBuf< DS, Args... >* ptr, [[maybe_unused]] bool is_thread_running,
+                                               [[maybe_unused]] bool is_last_thread) {
             auto old_ptr = ptr->exchange();
-            if (old_ptr) {
-                DS::merge(base_raw, old_ptr.get());
-            }
+            if (old_ptr) { DS::merge(base_raw, old_ptr.get()); }
             return true;
         });
         return m_base_obj.get();
@@ -126,8 +124,8 @@ private:
     // This method assumes that rotate mutex is already held
     void _rotate() {
         auto base_raw = m_base_obj.get();
-        m_buffer.access_all_threads([base_raw](WrapperBuf< DS, Args... >* ptr, bool is_thread_running) {
-            (void)is_thread_running;
+        m_buffer.access_all_threads([base_raw](WrapperBuf< DS, Args... >* ptr, [[maybe_unused]] bool is_thread_running,
+                                               [[maybe_unused]] bool is_last_thread) {
             auto old_ptr = ptr->make_and_exchange();
             DS::merge(base_raw, old_ptr.get());
             return true;
@@ -136,8 +134,8 @@ private:
 
 private:
     sisl::ExitSafeThreadBuffer< WrapperBuf< DS, Args... >, Args... > m_buffer;
-    std::mutex                                                       m_rotate_mutex;
-    std::unique_ptr< DS >                                            m_base_obj;
+    std::mutex m_rotate_mutex;
+    std::unique_ptr< DS > m_base_obj;
 };
 
 } // namespace sisl
