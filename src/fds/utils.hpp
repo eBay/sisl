@@ -205,13 +205,13 @@ public:
     aligned_shared_ptr(T* p) : std::shared_ptr< T >(p) {}
 };
 
-struct alignable_blob : public blob {
+struct io_blob : public blob {
     bool aligned = false;
 
-    alignable_blob() = default;
-    alignable_blob(size_t sz, uint32_t align_size = 512) { buf_alloc(sz, align_size); }
-    alignable_blob(uint8_t* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned(is_aligned) {}
-    ~alignable_blob() = default;
+    io_blob() = default;
+    io_blob(size_t sz, uint32_t align_size = 512) { buf_alloc(sz, align_size); }
+    io_blob(uint8_t* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned(is_aligned) {}
+    ~io_blob() = default;
 
     void buf_alloc(size_t sz, uint32_t align_size = 512) {
         aligned = (align_size != 0);
@@ -225,15 +225,15 @@ struct alignable_blob : public blob {
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
-struct _alignable_byte_array : public alignable_blob {
-    _alignable_byte_array(uint32_t sz, uint32_t alignment = 0) : alignable_blob(sz, alignment) {}
-    _alignable_byte_array(uint8_t* bytes, uint32_t size, bool is_aligned) : alignable_blob(bytes, size, is_aligned) {}
-    ~_alignable_byte_array() { alignable_blob::buf_free(); }
+struct _io_byte_array : public io_blob {
+    _io_byte_array(uint32_t sz, uint32_t alignment = 0) : io_blob(sz, alignment) {}
+    _io_byte_array(uint8_t* bytes, uint32_t size, bool is_aligned) : io_blob(bytes, size, is_aligned) {}
+    ~_io_byte_array() { io_blob::buf_free(); }
 };
 
-using byte_array = std::shared_ptr< _alignable_byte_array >;
+using byte_array = std::shared_ptr< _io_byte_array >;
 inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0) {
-    return std::make_shared< _alignable_byte_array >(sz, alignment);
+    return std::make_shared< _io_byte_array >(sz, alignment);
 }
 
 struct byte_view {
