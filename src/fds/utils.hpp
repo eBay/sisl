@@ -151,26 +151,6 @@ struct aligned_deleter {
     void operator()(T* p) { sisl::AlignedAllocator::instance().m_impl->aligned_delete(p); }
 };
 
-#if 0
-struct default_aligned_alloc {
-    uint8_t* operator()(size_t align, size_t sz) {
-        return (uint8_t*)std::aligned_alloc(align, sisl::round_up(sz, align));
-    }
-};
-
-struct default_aligned_free {
-    void operator()(uint8_t* b) { return std::free(b); }
-};
-
-template < typename T >
-struct default_aligned_delete {
-    void operator()(T* p) {
-        p->~T();
-        std::free(p);
-    }
-};
-#endif
-
 template < class T >
 class aligned_unique_ptr : public std::unique_ptr< T, aligned_deleter< T > > {
 public:

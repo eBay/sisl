@@ -231,15 +231,6 @@ public:
     sisl::ThreadRegistry sisl::ThreadRegistry::inst;                                                                   \
     thread_local sisl::ThreadLocalContext sisl::ThreadLocalContext::inst;
 
-template < typename T >
-using buffer_access_cb_v1_t = std::function< bool(T*, bool) >;
-
-template < typename T >
-using buffer_access_cb_v2_t = std::function< bool(T*, bool, bool) >;
-
-template < typename T >
-using exit_safe_buffer_access_cb_t = std::variant< buffer_access_cb_v1_t< T >, buffer_access_cb_v2_t< T > >;
-
 template < bool IsActiveThreadsOnly, typename T, typename... Args >
 class ThreadBuffer {
 public:
@@ -353,42 +344,6 @@ public:
         }
     }
 
-#if 0
-    void access_all_threads(exit_safe_buffer_access_cb_t< T > cb) {
-        std::vector< uint32_t > can_free_thread_bufs;
-        {
-            std::shared_lock l(m_expand_mutex);
-            auto tnum = m_thread_slots.find_first();
-            while (tnum != INVALID_CURSOR) {
-                auto is_running = IsActiveThreadsOnly || thread_registry->is_thread_running(tnum);
-                bool can_free = false;
-                auto next_tnum = m_thread_slots.find_next(tnum);
-                if (std::holds_alternative< buffer_access_cb_v1_t< T > >(cb)) {
-                    can_free =
-                        std::get< buffer_access_cb_v1_t< T > >(cb)(m_buffers.at(tnum).get(), is_running) && !is_running;
-                } else if (std::holds_alternative< buffer_access_cb_v2_t< T > >(cb)) {
-                    can_free = std::get< buffer_access_cb_v2_t< T > >(cb)(m_buffers.at(tnum).get(), is_running,
-                                                                          (next_tnum == INVALID_CURSOR)) &&
-                        !is_running;
-                }
-                if (can_free) { can_free_thread_bufs.push_back(tnum); }
-                tnum = next_tnum;
-            }
-        }
-
-        // We have some threads which have exited and caller allowed to free this buffer, free the slot
-        // and reduce the ref count in the registry
-        if (can_free_thread_bufs.size()) {
-            std::unique_lock l(m_expand_mutex);
-            for (auto i : can_free_thread_bufs) {
-                m_buffers.at(i) = nullptr;
-                m_thread_slots.reset(i);
-                thread_registry->slot_release(i);
-            }
-        }
-    }
-#endif
-
     bool access_specific_thread(uint32_t thread_num, const auto& cb) {
         bool can_free = false;
         {
@@ -431,39 +386,10 @@ private:
 template < typename T, typename... Args >
 using ExitSafeThreadBuffer = ThreadBuffer< false, T, Args... >;
 
-template < typename T >
-using buffer_access_cb_v3_t = std::function< void(T*) >;
-
-template < typename T >
-using buffer_access_cb_v4_t = std::function< void(T*, bool) >;
-
-template < typename T >
-using active_only_buffer_access_cb_t = std::variant< buffer_access_cb_v3_t< T >, buffer_access_cb_v4_t< T > >;
-
 template < typename T, typename... Args >
 class ActiveOnlyThreadBuffer : public ThreadBuffer< true, T, Args... > {
 public:
     ActiveOnlyThreadBuffer(Args&&... args) : ThreadBuffer< true, T, Args... >(std::forward< Args >(args)...) {}
-
-#if 0
-    void access_all_threads(active_only_buffer_access_cb_t< T > cb) {
-        if (std::holds_alternative< buffer_access_cb_v3_t< T > >(cb)) {
-            return ThreadBuffer< true, T, Args... >::access_all_threads(
-                [&](T* t, [[maybe_unused]] bool is_thread_running) {
-                    assert(is_thread_running);
-                    std::get< buffer_access_cb_v3_t< T > >(cb)(t);
-                    return false;
-                });
-        } else {
-            return ThreadBuffer< true, T, Args... >::access_all_threads(
-                [&](T* t, [[maybe_unused]] bool is_thread_running, bool is_last_thread) {
-                    assert(is_thread_running);
-                    std::get< buffer_access_cb_v4_t< T > >(cb)(t, is_last_thread);
-                    return false;
-                });
-        }
-    }
-#endif
 
     void access_all_threads(const auto& cb) {
         ThreadBuffer< true, T, Args... >::access_all_threads(
