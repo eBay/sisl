@@ -121,9 +121,9 @@ protected:
         m_total_bits += nbits;
     }
 
-    sisl::byte_array<> serialize() { return m_bset.serialize(); }
+    sisl::byte_array serialize() { return m_bset.serialize(); }
 
-    void deserialize(sisl::byte_array<> buf) {
+    void deserialize(sisl::byte_array buf) {
         sisl::ThreadSafeBitset tmp_bset(buf);
         m_bset.move(tmp_bset);
     }

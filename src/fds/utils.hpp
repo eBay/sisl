@@ -104,38 +104,6 @@ namespace sisl {
 inline uint64_t round_up(uint64_t num_to_round, uint64_t multiple) { return (num_to_round + multiple - 1) & -multiple; }
 inline uint64_t round_down(uint64_t num_to_round, uint64_t multiple) { return (num_to_round / multiple) * multiple; }
 
-template < typename T >
-struct aligned_free {
-    void operator()(T* p) { std::free(p); }
-};
-
-template < class T >
-using aligned_unique_ptr = std::unique_ptr< T, aligned_free< T > >;
-
-template < class T, class... Args >
-aligned_unique_ptr< T > make_aligned_sized_unique(size_t align, size_t size, Args&&... args) {
-    auto mem = std::aligned_alloc(align, sisl::round_up(size, align));
-    return aligned_unique_ptr< T >(new (mem) T(std::forward< Args >(args)...));
-}
-
-template < class T, class... Args >
-inline aligned_unique_ptr< T > make_aligned_unique(size_t align, Args&&... args) {
-    return make_aligned_sized_unique< T, Args... >(align, (size_t)sizeof(T), std::forward< Args >(args)...);
-}
-
-#if 0
-aligned_unique_ptr< uint8_t > make_aligned_unique_buf(size_t align, size_t size) {
-    return aligned_unique_ptr< uint8_t >(
-        static_cast< uint8_t* >(std::aligned_alloc(align, sisl::round_up(size, align))));
-}
-#endif
-
-template < class T >
-std::shared_ptr< T > make_aligned_shared(size_t align, size_t size) {
-    return std::shared_ptr< T >(static_cast< T* >(std::aligned_alloc(align, sisl::round_up(size, align))),
-                                aligned_free< T >());
-}
-
 struct blob {
     uint8_t* bytes;
     uint32_t size;
@@ -144,85 +112,110 @@ struct blob {
     blob(uint8_t* _bytes, uint32_t _size) : bytes(_bytes), size(_size) {}
 };
 
-struct default_aligned_alloc {
-    uint8_t* operator()(size_t align, size_t sz) { return (uint8_t*)std::aligned_alloc(align, sz); }
+struct AlignedAllocatorImpl {
+    virtual ~AlignedAllocatorImpl() = default;
+    virtual uint8_t* aligned_alloc(size_t align, size_t sz) {
+        return (uint8_t*)std::aligned_alloc(align, sisl::round_up(sz, align));
+    }
+    virtual void aligned_free(uint8_t* b) { return std::free(b); }
+
+    template < typename T >
+    void aligned_delete(T* p) {
+        p->~T();
+        aligned_free(p);
+    }
 };
 
-struct default_aligned_free {
-    void operator()(uint8_t* b) { return std::free(b); }
-};
-
-template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
-struct alignable_blob : public blob {
-    bool aligned = false;
-    alignable_blob() {}
-
-    alignable_blob(size_t sz, uint32_t align_size = 512) {
-        aligned = (align_size != 0);
-        buf_alloc(sz, align_size);
+struct AlignedAllocator {
+    static AlignedAllocator& instance() {
+        static AlignedAllocator _inst;
+        return _inst;
     }
 
-    ~alignable_blob() {}
+    AlignedAllocator() { m_impl = new AlignedAllocatorImpl(); }
+    ~AlignedAllocator() { delete (m_impl); }
+
+    void set_allocator(AlignedAllocatorImpl* impl) {
+        delete (m_impl);
+        m_impl = impl;
+    }
+
+    AlignedAllocatorImpl* m_impl;
+};
+
+#define sisl_aligned_alloc sisl::AlignedAllocator::instance().m_impl->aligned_alloc
+#define sisl_aligned_free sisl::AlignedAllocator::instance().m_impl->aligned_free
+
+template < typename T >
+struct aligned_deleter {
+    void operator()(T* p) { sisl::AlignedAllocator::instance().m_impl->aligned_delete(p); }
+};
+
+template < class T >
+class aligned_unique_ptr : public std::unique_ptr< T, aligned_deleter< T > > {
+public:
+    template < class... Args >
+    static inline aligned_unique_ptr< T > make(size_t align, Args&&... args) {
+        return make_sized(align, sizeof(T), std::forward< Args >(args)...);
+    }
+
+    template < class... Args >
+    static inline aligned_unique_ptr< T > make_sized(size_t align, size_t size, Args&&... args) {
+        return aligned_unique_ptr< T >(new (sisl_aligned_alloc(align, size)) T(std::forward< Args >(args)...));
+    }
+
+    aligned_unique_ptr() = default;
+    aligned_unique_ptr(T* p) : std::unique_ptr< T, aligned_deleter< T > >(p) {}
+};
+
+template < class T >
+class aligned_shared_ptr : public std::shared_ptr< T > {
+public:
+    template < class... Args >
+    static std::shared_ptr< T > make(size_t align, Args&&... args) {
+        return make_sized(align, sizeof(T), std::forward< Args >(args)...);
+    }
+
+    template < class... Args >
+    static std::shared_ptr< T > make_sized(size_t align, size_t size, Args&&... args) {
+        return std::shared_ptr< T >(new (sisl_aligned_alloc(align, size)) T(std::forward< Args >(args)...),
+                                    aligned_deleter< T >());
+    }
+
+    aligned_shared_ptr(T* p) : std::shared_ptr< T >(p) {}
+};
+
+struct io_blob : public blob {
+    bool aligned = false;
+
+    io_blob() = default;
+    io_blob(size_t sz, uint32_t align_size = 512) { buf_alloc(sz, align_size); }
+    io_blob(uint8_t* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned(is_aligned) {}
+    ~io_blob() = default;
 
     void buf_alloc(size_t sz, uint32_t align_size = 512) {
-        align_alloc_func f;
         aligned = (align_size != 0);
         blob::size = sz;
-        if (aligned) {
-            blob::bytes = f(align_size, sz);
-        } else {
-            blob::bytes = (uint8_t*)malloc(sz);
-        }
+        blob::bytes = aligned ? sisl_aligned_alloc(align_size, sz) : (uint8_t*)malloc(sz);
     }
 
-    void buf_free() {
-        align_free_func f;
-        if (aligned) {
-            f(blob::bytes);
-        } else {
-            free(blob::bytes);
-        }
-    }
+    void buf_free() const { aligned ? sisl_aligned_free(blob::bytes) : std::free(blob::bytes); }
 };
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
-template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
-struct _alignable_byte_array : public blob {
-    bool aligned = false;
-    _alignable_byte_array(uint32_t sz, uint32_t alignment = 0) {
-        align_alloc_func f;
-        aligned = (alignment != 0);
-        blob::size = sz;
-        if (aligned) {
-            blob::bytes = f(alignment, sz);
-        } else {
-            blob::bytes = (uint8_t*)std::malloc(sz);
-        }
-    }
-
-    _alignable_byte_array(uint8_t* bytes, uint32_t size) : blob(bytes, size) {}
-
-    ~_alignable_byte_array() {
-        align_free_func f;
-        if (aligned) {
-            f(blob::bytes);
-        } else {
-            std::free(blob::bytes);
-        }
-    }
+struct _io_byte_array : public io_blob {
+    _io_byte_array(uint32_t sz, uint32_t alignment = 0) : io_blob(sz, alignment) {}
+    _io_byte_array(uint8_t* bytes, uint32_t size, bool is_aligned) : io_blob(bytes, size, is_aligned) {}
+    ~_io_byte_array() { io_blob::buf_free(); }
 };
 
-template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
-using byte_array = std::shared_ptr< _alignable_byte_array< align_alloc_func, align_free_func > >;
-
-template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
-inline byte_array< align_alloc_func, align_free_func > make_byte_array(uint32_t sz, uint32_t alignment = 0) {
-    return std::make_shared< _alignable_byte_array< align_alloc_func, align_free_func > >(sz, alignment);
+using byte_array = std::shared_ptr< _io_byte_array >;
+inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0) {
+    return std::make_shared< _io_byte_array >(sz, alignment);
 }
 
-template < typename align_alloc_func = default_aligned_alloc, typename align_free_func = default_aligned_free >
 struct byte_view {
 public:
     byte_view() = default;
@@ -230,8 +223,8 @@ public:
         m_base_buf = make_byte_array(sz, alignment);
         m_view = *m_base_buf;
     }
-    byte_view(byte_array< align_alloc_func, align_free_func > arr) : byte_view(arr, 0, arr->size) {}
-    byte_view(byte_array< align_alloc_func, align_free_func > buf, uint32_t offset, uint32_t sz) {
+    byte_view(byte_array arr) : byte_view(arr, 0, arr->size) {}
+    byte_view(byte_array buf, uint32_t offset, uint32_t sz) {
         m_base_buf = buf;
         m_view.bytes = buf->bytes + offset;
         m_view.size = sz;
@@ -252,7 +245,7 @@ public:
     // Extract the byte_array so that caller can safely use the underlying byte_array. If the view represents the
     // entire array, it will not do any copy. If view represents only portion of array, create a copy of the byte array
     // and returns that value
-    byte_array< align_alloc_func, align_free_func > extract(uint32_t alignment = 0) const {
+    byte_array extract(uint32_t alignment = 0) const {
         if (can_do_shallow_copy()) {
             return m_base_buf;
         } else {
@@ -262,12 +255,14 @@ public:
         }
     }
 
-    bool can_do_shallow_copy() const { return (m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size); }
+    bool can_do_shallow_copy() const {
+        return (m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size);
+    }
     void set_size(uint32_t sz) { m_view.size = sz; }
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
 
 private:
-    byte_array< align_alloc_func, align_free_func > m_base_buf;
+    byte_array m_base_buf;
     blob m_view;
 };
 

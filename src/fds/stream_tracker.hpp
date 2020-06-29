@@ -24,11 +24,12 @@ public:
 
 template < typename T, bool AutoTruncate = false >
 class StreamTracker {
-    using data_processing_t = std::function< bool(T&) >;
+    // using data_processing_t = std::function< bool(T&) >;
 
 public:
     static constexpr size_t alloc_blk_size = 10000;
     static constexpr size_t compaction_threshold = alloc_blk_size / 2;
+    static constexpr auto null_processor = [](auto... x) -> bool { return true; };
 
     static_assert(std::is_trivially_copyable< T >::value, "Cannot use StreamTracker for non-trivally copyable classes");
 
@@ -54,7 +55,7 @@ public:
 
     template < class... Args >
     int64_t create_and_complete(int64_t idx, Args&&... args) {
-        return do_update(idx, nullptr, true /* replace */, std::forward< Args >(args)...);
+        return do_update(idx, null_processor, true /* replace */, std::forward< Args >(args)...);
     }
 
     template < class... Args >
@@ -64,7 +65,7 @@ public:
     }
 
     template < class... Args >
-    int64_t update(int64_t idx, const data_processing_t& processor, Args&&... args) {
+    int64_t update(int64_t idx, const auto& processor, Args&&... args) {
         return do_update(idx, processor, false /* replace */, std::forward< Args >(args)...);
     }
 
@@ -132,13 +133,9 @@ public:
         return m_slot_ref_idx - 1;
     }
 
-    void foreach_completed(int64_t start_idx, const std::function< bool(int64_t, int64_t, T&) >& cb) {
-        _foreach(start_idx, true /* completed */, cb);
-    }
+    void foreach_completed(int64_t start_idx, const auto& cb) { _foreach(start_idx, true /* completed */, cb); }
 
-    void foreach_active(int64_t start_idx, const std::function< bool(int64_t, int64_t, T&) >& cb) {
-        _foreach(start_idx, false /* completed */, cb);
-    }
+    void foreach_active(int64_t start_idx, const auto& cb) { _foreach(start_idx, false /* completed */, cb); }
 
     int64_t completed_upto(int64_t search_hint_idx = 0) {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
@@ -152,7 +149,7 @@ public:
 
 private:
     template < class... Args >
-    int64_t do_update(int64_t idx, const data_processing_t& processor, bool replace, Args&&... args) {
+    int64_t do_update(int64_t idx, const auto& processor, bool replace, Args&&... args) {
         bool need_truncate = false;
         int64_t ret = 0;
         size_t nbit;
@@ -186,7 +183,7 @@ private:
         }
 
         // Check with processor to update any fields and return if they are completed
-        if ((processor == nullptr) || processor(*data)) {
+        if (processor(*data)) {
             // All actions on this idx is completed, truncate if needbe
             m_comp_slot_bits.set_bit(nbit);
             if (AutoTruncate) {
@@ -237,7 +234,7 @@ private:
         }
     }
 
-    void _foreach(int64_t start_idx, bool completed, const std::function< bool(int64_t, int64_t, T&) >& cb) {
+    void _foreach(int64_t start_idx, bool completed, const auto& cb) {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
         auto upto = _upto(completed, start_idx);
         for (auto idx = start_idx; idx <= upto; ++idx) {

@@ -37,6 +37,7 @@ else()
 endif()
 
 add_compile_options(-g)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fconcepts")
 
 add_subdirectory (src/async_http)
 add_subdirectory (src/wisr)

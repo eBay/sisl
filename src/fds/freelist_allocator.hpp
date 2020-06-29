@@ -9,6 +9,7 @@
 #include <folly/ThreadLocal.h>
 #include <metrics/metrics.hpp>
 #include "utils.hpp"
+#include <malloc.h>
 
 namespace sisl {
 
@@ -81,9 +82,9 @@ public:
             ptr = (uint8_t*)m_head;
             COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_hit, 1);
             m_head = m_head->next;
+            --m_list_count;
         }
 
-        m_list_count--;
         return ptr;
     }
 
@@ -95,7 +96,8 @@ public:
         auto* hdr = (free_list_header*)mem;
         hdr->next = m_head;
         m_head = hdr;
-        m_list_count++;
+        ++m_list_count;
+
         return true;
     }
 };
