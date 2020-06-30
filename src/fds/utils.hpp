@@ -8,6 +8,7 @@
 #include <memory>
 #include <boost/preprocessor/repetition/repeat_from_to.hpp>
 #include <boost/preprocessor/arithmetic/inc.hpp>
+#include <malloc.h>
 
 #if defined __GNUC__ || defined __llvm__
 #define sisl_likely(x) __builtin_expect(!!(x), 1)
@@ -117,7 +118,20 @@ struct AlignedAllocatorImpl {
     virtual uint8_t* aligned_alloc(size_t align, size_t sz) {
         return (uint8_t*)std::aligned_alloc(align, sisl::round_up(sz, align));
     }
+
     virtual void aligned_free(uint8_t* b) { return std::free(b); }
+
+    virtual uint8_t* aligned_realloc(uint8_t* old_buf, size_t align, size_t new_sz, size_t old_sz = 0) {
+        // Glibc does not have an implementation of efficient realloc and hence we are using alloc/copy method here
+        if (old_sz == 0) { old_sz = malloc_usable_size((void*)old_buf); }
+        if (old_sz >= new_sz) return old_buf;
+
+        auto new_buf = (uint8_t*)aligned_alloc(align, sisl::round_up(new_sz, align));
+        memcpy(new_buf, old_buf, old_sz);
+
+        aligned_free(old_buf);
+        return new_buf;
+    }
 
     template < typename T >
     void aligned_delete(T* p) {
@@ -145,6 +159,7 @@ struct AlignedAllocator {
 
 #define sisl_aligned_alloc sisl::AlignedAllocator::instance().m_impl->aligned_alloc
 #define sisl_aligned_free sisl::AlignedAllocator::instance().m_impl->aligned_free
+#define sisl_aligned_realloc sisl::AlignedAllocator::instance().m_impl->aligned_realloc
 
 template < typename T >
 struct aligned_deleter {
@@ -200,6 +215,25 @@ struct io_blob : public blob {
     }
 
     void buf_free() const { aligned ? sisl_aligned_free(blob::bytes) : std::free(blob::bytes); }
+
+    void buf_realloc(size_t new_size, uint32_t align_size = 512) {
+        uint8_t* new_buf = nullptr;
+        if (aligned) {
+            // aligned before, so do not need check for new align size, once aligned will be aligned on realloc also
+            new_buf = sisl_aligned_realloc(blob::bytes, align_size, new_size, blob::size);
+        } else if (align_size != 0) {
+            // Not aligned before, but need aligned now
+            auto new_buf = (uint8_t*)sisl_aligned_alloc(align_size, new_size);
+            memcpy(new_buf, blob::bytes, std::min(new_size, (size_t)blob::size));
+            std::free(blob::bytes);
+        } else {
+            // don't bother about alignment, just do standard realloc
+            new_buf = (uint8_t*)std::realloc(blob::bytes, new_size);
+        }
+
+        blob::size = new_size;
+        blob::bytes = new_buf;
+    }
 };
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
