@@ -22,7 +22,7 @@
 #include <sys/resource.h>
 #endif
 
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 #include <jemalloc/jemalloc.h>
 #elif defined(USING_TCMALLOC)
 #include <gperftools/malloc_extension.h>
