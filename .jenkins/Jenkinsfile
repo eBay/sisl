@@ -1,0 +1,55 @@
+pipeline {
+    agent {
+        label 'sds-builder'
+    }
+
+    environment {
+        ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
+        CONAN_USER = 'sisl'
+    }
+
+    stages {
+        stage('Get Version') {
+            steps {
+                script {
+                    PROJECT = sh(script: "grep -m 1 'name =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
+                    TAG = sh(script: "grep -m 1 'version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
+                    CONAN_CHANNEL = sh(script: "echo ${BRANCH_NAME} | sed -E 's,(\\w+).*,\\1,' | tr -d '\n'", returnStdout: true)
+                }
+            }
+        }
+
+        stage('Build') {
+            parallel {
+                stage('Debug Build') {
+                    steps {
+                        sh "conan create -pr debug . ${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}"
+                    }
+                }
+                stage('Test Build') {
+                    steps {
+                        sh "conan create -pr test . ${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}"
+                    }
+                }
+                stage('Release Build') {
+                    steps {
+                        sh "conan create -pr release . ${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh "conan user -r ebay-local -p ${ARTIFACTORY_PASS} _service_sds"
+                sh "conan upload ${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL} -c --all -r ebay-local"
+            }
+        }
+    }
+
+    post {
+        success {
+            slackSend channel: '#conan-pkgs', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has been uploaded to conan repo."
+        }
+    }
+}
