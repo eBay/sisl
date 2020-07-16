@@ -20,6 +20,7 @@ public:
 
         register_me_to_farm();
     }
+    ~StreamTrackerMetrics() { deregister_me_from_farm(); }
 };
 
 template < typename T, bool AutoTruncate = false >
