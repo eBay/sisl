@@ -444,15 +444,27 @@ public:
 class MetricsGroupWrapper {
 public:
     MetricsGroupPtr m_mg_ptr;
-
+    std::atomic< bool > m_is_registered = false;
     MetricsGroupWrapper(const char* grp_name, const char* inst_name = "Instance1") :
             m_mg_ptr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
 
     MetricsGroupWrapper(const std::string& grp_name, const std::string& inst_name = "Instance1") :
             m_mg_ptr(std::make_shared< MetricsGroup >(grp_name, inst_name)) {}
 
-    void register_me_to_farm() { MetricsFarm::getInstance().register_metrics_group(m_mg_ptr); }
-    void deregister_me_from_farm() { MetricsFarm::getInstance().deregister_metrics_group(m_mg_ptr); }
+    ~MetricsGroupWrapper() { deregister_me_from_farm(); }
+
+    void register_me_to_farm() {
+        MetricsFarm::getInstance().register_metrics_group(m_mg_ptr);
+        m_is_registered.store(true);
+    }
+
+    void deregister_me_from_farm() {
+        if (m_is_registered.load()) {
+            MetricsFarm::getInstance().deregister_metrics_group(m_mg_ptr);
+            m_is_registered.store(false);
+        }
+    }
+
     nlohmann::json get_result_in_json(bool need_latest) { return m_mg_ptr->get_result_in_json(need_latest); }
     void attach_gather_cb(const on_gather_cb_t& cb) { m_mg_ptr->attach_gather_cb(cb); }
     void detach_gather_cb() { m_mg_ptr->detach_gather_cb(); }

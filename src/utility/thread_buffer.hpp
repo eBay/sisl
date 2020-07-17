@@ -245,7 +245,16 @@ public:
             std::bind(&ThreadBuffer::on_thread_state_change, this, std::placeholders::_1, std::placeholders::_2));
     }
 
-    ~ThreadBuffer() { thread_registry->deregister_sc_notification(m_notify_idx); }
+    ~ThreadBuffer() {
+        thread_registry->deregister_sc_notification(m_notify_idx);
+
+        // Release all the thread slots it occupies, so ref count of the threads would go down.
+        auto tnum = m_thread_slots.find_first();
+        while (tnum != INVALID_CURSOR) {
+            thread_registry->slot_release(tnum);
+            tnum = m_thread_slots.find_next(tnum);
+        }
+    }
 
     T* get() {
         auto tnum = ThreadLocalContext::my_thread_num();
@@ -277,17 +286,18 @@ public:
     void on_thread_state_change(uint32_t thread_num, thread_life_cycle change) {
         switch (change) {
         case thread_life_cycle::THREAD_ATTACHED: {
-            std::unique_lock l(m_expand_mutex);
+            std::lock_guard< std::shared_mutex > l(m_expand_mutex);
             create_buffer(thread_num, m_args, std::index_sequence_for< Args... >());
             break;
         }
         case thread_life_cycle::THREAD_DETACHED:
-            if (IsActiveThreadsOnly) {
-                std::unique_lock l(m_expand_mutex);
-                m_buffers.at(thread_num).reset();
-                m_thread_slots.reset(thread_num);
-                thread_registry->slot_release(thread_num);
-            }
+            std::lock_guard< std::shared_mutex > l(m_expand_mutex);
+            m_thread_slots.reset(thread_num);
+            thread_registry->slot_release(thread_num);
+
+            // For ExitSafeBuffers move the buffer to a separate list.
+            if (!IsActiveThreadsOnly) { m_exited_buffers.push_back(std::move(m_buffers.at(thread_num))); }
+            m_buffers.at(thread_num).reset();
             break;
         }
     }
@@ -319,49 +329,42 @@ public:
     T* get(thread_buffer_iterator& it) { return it.second; }
 
     void access_all_threads(const auto& cb) {
-        std::vector< uint32_t > can_free_thread_bufs;
         {
             std::shared_lock l(m_expand_mutex);
             auto tnum = m_thread_slots.find_first();
             while (tnum != INVALID_CURSOR) {
                 auto is_running = IsActiveThreadsOnly || thread_registry->is_thread_running(tnum);
                 auto next_tnum = m_thread_slots.find_next(tnum);
-                bool can_free = cb(m_buffers.at(tnum).get(), is_running, (next_tnum == INVALID_CURSOR)) && !is_running;
-                if (can_free) { can_free_thread_bufs.push_back(tnum); }
+                cb(m_buffers.at(tnum).get(), is_running, (next_tnum == INVALID_CURSOR));
                 tnum = next_tnum;
             }
         }
 
-        // We have some threads which have exited and caller allowed to free this buffer, free the slot
-        // and reduce the ref count in the registry
-        if (can_free_thread_bufs.size()) {
+        // If there are any buffers whose threads already exited, call them in reverse order and if caller
+        // gives permission to remove the buffer, do so from exited buffers list
+        if (!IsActiveThreadsOnly) {
             std::unique_lock l(m_expand_mutex);
-            for (auto i : can_free_thread_bufs) {
-                m_buffers.at(i) = nullptr;
-                m_thread_slots.reset(i);
-                thread_registry->slot_release(i);
+            auto it = m_exited_buffers.end();
+            while (it > m_exited_buffers.begin()) {
+                --it;
+                auto can_free = cb(it->get(), false /* is_running */, (it == m_exited_buffers.begin()));
+                if (can_free) { it = m_exited_buffers.erase(it); }
             }
         }
     }
 
     bool access_specific_thread(uint32_t thread_num, const auto& cb) {
-        bool can_free = false;
-        {
-            std::shared_lock l(m_expand_mutex);
-            // If thread is not running or its context is already expired, then no callback.
-            if (!m_thread_slots[thread_num]) { return false; }
+        std::shared_lock l(m_expand_mutex);
+        // If thread is not running or its context is already expired, then no callback.
+        if (!m_thread_slots[thread_num]) { return false; }
 
-            auto is_running = IsActiveThreadsOnly || thread_registry->is_thread_running(thread_num);
-            can_free = cb(m_buffers.at(thread_num).get(), is_running) && !is_running;
+        auto is_running = IsActiveThreadsOnly || thread_registry->is_thread_running(thread_num);
+        try {
+            cb(m_buffers.at(thread_num).get(), is_running);
+        } catch (std::out_of_range& e) {
+            assert(0);
+            return false;
         }
-
-        if (can_free) {
-            std::unique_lock l(m_expand_mutex);
-            m_buffers.at(thread_num) = nullptr;
-            m_thread_slots.reset(thread_num);
-            thread_registry->slot_release(thread_num);
-        }
-
         return true;
     }
 
@@ -380,6 +383,7 @@ private:
     std::tuple< Args... > m_args;
     std::shared_mutex m_expand_mutex;
     boost::dynamic_bitset<> m_thread_slots;
+    std::vector< std::unique_ptr< T > > m_exited_buffers; // Holds buffers whose threads already exited
     uint64_t m_notify_idx = 0;
 };
 

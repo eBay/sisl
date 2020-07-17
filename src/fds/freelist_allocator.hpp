@@ -38,6 +38,7 @@ public:
         register_me_to_farm();
     }
 
+    ~FreeListAllocatorMetrics() { deregister_me_from_farm(); }
     static FreeListAllocatorMetrics& instance() {
         static FreeListAllocatorMetrics inst;
         return inst;
