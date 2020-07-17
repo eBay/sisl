@@ -286,12 +286,12 @@ public:
     void on_thread_state_change(uint32_t thread_num, thread_life_cycle change) {
         switch (change) {
         case thread_life_cycle::THREAD_ATTACHED: {
-            std::unique_lock l(m_expand_mutex);
+            std::lock_guard< std::shared_mutex > l(m_expand_mutex);
             create_buffer(thread_num, m_args, std::index_sequence_for< Args... >());
             break;
         }
         case thread_life_cycle::THREAD_DETACHED:
-            std::unique_lock l(m_expand_mutex);
+            std::lock_guard< std::shared_mutex > l(m_expand_mutex);
             m_thread_slots.reset(thread_num);
             thread_registry->slot_release(thread_num);
 
@@ -359,7 +359,12 @@ public:
         if (!m_thread_slots[thread_num]) { return false; }
 
         auto is_running = IsActiveThreadsOnly || thread_registry->is_thread_running(thread_num);
-        cb(m_buffers.at(thread_num).get(), is_running);
+        try {
+            cb(m_buffers.at(thread_num).get(), is_running);
+        } catch (std::out_of_range& e) {
+            assert(0);
+            return false;
+        }
         return true;
     }
 
