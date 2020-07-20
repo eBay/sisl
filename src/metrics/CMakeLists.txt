@@ -7,7 +7,7 @@ find_package (Threads REQUIRED)
 include_directories(BEFORE .)
 include_directories(BEFORE ..)
 
-set(METRICS_SOURCE_FILES metrics.cpp)
+set(METRICS_SOURCE_FILES metrics.cpp metrics_tlocal.cpp metrics_rcu.cpp metrics_group_impl.cpp)
 add_library(sisl_metrics OBJECT ${METRICS_SOURCE_FILES})
 
 set(FARM_TEST_SOURCES tests/farm_test.cpp)

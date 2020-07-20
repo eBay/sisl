@@ -13,6 +13,7 @@
 #include <set>
 #include <mutex>
 #include <vector>
+#include <tuple>
 
 namespace sisl {
 template < typename T >
@@ -168,6 +169,73 @@ public:
     static void unregister_rcu() { rcu_unregister_thread(); }
 
     static void sync_rcu() { synchronize_rcu(); }
+};
+
+template < typename T >
+class _urcu_access_ptr {
+public:
+    T* m_p;
+
+    _urcu_access_ptr(T* p) : m_p(p) { rcu_read_lock(); }
+    ~_urcu_access_ptr() { rcu_read_unlock(); }
+
+    _urcu_access_ptr(const _urcu_access_ptr& other) = delete;
+    _urcu_access_ptr& operator=(const _urcu_access_ptr& other) = delete;
+    _urcu_access_ptr(_urcu_access_ptr&& other) noexcept { std::swap(m_p, other.m_p); }
+
+    const T* operator->() const { return rcu_dereference(m_p); }
+    T* get() const { return rcu_dereference(m_p); }
+};
+
+/* Simplified urcu pointer access */
+template < typename T, typename... Args >
+class urcu_scoped_ptr {
+public:
+    template < class... Args1 >
+    urcu_scoped_ptr(Args1&&... args) : m_args(std::forward< Args1 >(args)...) {
+        m_cur_obj = new T(std::forward< Args1 >(args)...);
+    }
+
+    void read(const auto& cb) const {
+        rcu_read_lock();
+        auto s = rcu_dereference(m_cur_obj);
+        cb((const T*)s);
+        rcu_read_unlock();
+    }
+
+    _urcu_access_ptr< T > access() const { return _urcu_access_ptr< T >(m_cur_obj); }
+
+    void update(const auto& edit_cb) {
+        std::scoped_lock l(m_updater_mutex);             // TODO: Should we have it here or leave it to caller???
+        T* new_obj = new T((const T&)*(access().get())); // Create new obj from old obj
+        edit_cb(new_obj);
+
+        auto old_obj = rcu_xchg_pointer(&m_cur_obj, new_obj);
+        synchronize_rcu();
+        delete old_obj;
+    }
+
+    T* make_and_exchange() { return _make_and_exchange(m_args, std::index_sequence_for< Args... >()); }
+
+private:
+    template < std::size_t... Is >
+    T* _make_and_exchange(const std::tuple< Args... >& tuple, std::index_sequence< Is... >) {
+        T* new_obj = new T(std::get< Is >(tuple)...); // Make new object with saved constructor params
+        auto old_obj = rcu_xchg_pointer(&m_cur_obj, new_obj);
+        synchronize_rcu();
+        delete old_obj;
+        return new_obj;
+    }
+
+private:
+    // Args to hold onto for new buf
+    std::tuple< Args... > m_args;
+
+    // RCU protected pointer
+    T* m_cur_obj = nullptr;
+
+    // Mutex to protect multiple copiers to run the copy step in parallel.
+    std::mutex m_updater_mutex;
 };
 
 #define RCU_REGISTER_INIT thread_local bool sisl::urcu_ctl::_rcu_registered_already = false

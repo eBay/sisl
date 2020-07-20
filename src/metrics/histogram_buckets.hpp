@@ -6,6 +6,7 @@
 #define METRICS_HISTOGRAM_BUCKETS_HPP
 
 #include <vector>
+#include <cstdint>
 
 namespace sisl {
 typedef std::vector< double > hist_bucket_boundaries_t;

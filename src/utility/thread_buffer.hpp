@@ -49,7 +49,8 @@ public:
     ThreadRegistry() :
             m_free_thread_slots(max_tracked_threads()),
             // m_refed_slots(MAX_TRACKED_THREADS),
-            m_ref_count(max_tracked_threads(), 0) {
+            m_ref_count(max_tracked_threads(), 0),
+            m_pthread_ids(max_tracked_threads(), 0) {
         // Mark all slots as free
         m_free_thread_slots.set();
         m_slot_cursor = INVALID_CURSOR;
@@ -72,8 +73,10 @@ public:
             size_t len = sizeof(thread_name);
 
 #ifdef _POSIX_THREADS
+            m_pthread_ids[thread_num] = pthread_self();
             pthread_getname_np(pthread_self(), thread_name, len);
 #endif /* _POSIX_THREADS */
+
             sisl::urcu_ctl::register_rcu();
 
             notifiers = m_registered_notifiers;
@@ -151,6 +154,24 @@ public:
         return !m_free_thread_slots[thread_num];
     }
 
+#ifdef _POSIX_THREADS
+    void foreach_running(const auto& cb) {
+        std::shared_lock lock(m_init_mutex);
+        auto running_thread_slots = ~m_free_thread_slots;
+        auto tnum = running_thread_slots.find_first();
+        while (tnum != INVALID_CURSOR) {
+            cb(tnum, m_pthread_ids[tnum]);
+            tnum = running_thread_slots.find_next(tnum);
+        }
+    }
+
+    pthread_t get_pthread(uint32_t thread_num) const {
+        std::shared_lock lock(m_init_mutex);
+        assert(!m_free_thread_slots[thread_num]);
+        return m_pthread_ids[thread_num];
+    }
+#endif
+
     static ThreadRegistry* instance() { return &inst; }
     static ThreadRegistry inst;
 
@@ -181,7 +202,7 @@ private:
     }
 
 private:
-    std::shared_mutex m_init_mutex;
+    mutable std::shared_mutex m_init_mutex;
 
     // A bitset where 1 marks for free thread slot, 0 for not free
     boost::dynamic_bitset<> m_free_thread_slots;
@@ -192,6 +213,10 @@ private:
     // Number of buffers that are open for a given thread
     // boost::dynamic_bitset<> m_refed_slots;
     std::vector< sisl::atomic_counter< int > > m_ref_count;
+
+#ifdef _POSIX_THREADS
+    std::vector< pthread_t > m_pthread_ids;
+#endif
 
     uint32_t m_next_notify_idx = 0;
     notifiers_list_t m_registered_notifiers;
