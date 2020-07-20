@@ -12,6 +12,7 @@
 #include <map>
 #include <string>
 
+#include <mutex>
 #include <atomic>
 #include <csignal>
 #include <cstdlib>
@@ -34,21 +35,12 @@ extern "C" {
 #include "backtrace.h"
 
 namespace sds_logging {
-#if defined(__linux__)
-#define SIGUSR3 SIGRTMIN + 1
-#else
-#define SIGUSR3 SIGUSR1
-#endif
-
-const static std::map< int, std::string > kSignals = {{SIGABRT, "SIGABRT"}, {SIGFPE, "SIGFPE"}, {SIGILL, "SIGILL"},
-                                                      {SIGSEGV, "SIGSEGV"}, {SIGINT, "SIGINT"}, {SIGUSR3, "SIGUSR3"}};
-
-static std::map< int, std::string > gSignals = kSignals;
-static bool                         g_signal_handler_installed = false;
-static std::atomic< int >           g_stack_dump_outstanding = 0;
-static std::condition_variable      g_stack_dump_cv;
+static bool g_custom_signal_handler_installed = false;
+static std::atomic< int > g_stack_dump_outstanding = 0;
+static std::condition_variable g_stack_dump_cv;
 
 typedef int SignalType;
+typedef std::pair< std::string, sig_handler_t > signame_handler_pair_t;
 
 static void restore_signal_handler(int signal_number) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
@@ -60,22 +52,11 @@ static void restore_signal_handler(int signal_number) {
 #endif
 }
 
-#if 0
-/** return whether or any fatal handling is still ongoing
- *  not used
- *  only in the case of Windows exceptions (not fatal signals)
- *  are we interested in changing this from false to true to
- *  help any other exceptions handler work with 'EXCEPTION_CONTINUE_SEARCH'*/
-static bool shouldBlockForFatalHandling() {
-    return true; // For windows we will after fatal processing change it to false
-}
-#endif
-
-static bool exit_in_progress() {
+[[maybe_unused]] static bool exit_in_progress() {
     static std::atomic< pthread_t > tracing_thread_id{0};
-    bool                            ret;
-    pthread_t                       id;
-    pthread_t                       new_id;
+    bool ret;
+    pthread_t id;
+    pthread_t new_id;
 
     do {
         id = tracing_thread_id.load();
@@ -124,37 +105,15 @@ static std::string exit_reason_name(SignalType fatal_id) {
     }
 }
 
-static void signal_handler(int signal_number, siginfo_t* info, void* unused_context) {
-    // Make compiler happy about unused variables
-    (void)info;
-    (void)unused_context;
+static void crash_handler(int signal_number, [[maybe_unused]] siginfo_t* info, [[maybe_unused]] void* unused_context) {
+    std::ostringstream fatal_stream;
+    const auto fatal_reason = exit_reason_name(signal_number);
+    fatal_stream << "\n***** Received fatal SIGNAL: " << fatal_reason;
+    fatal_stream << "(" << signal_number << ")\tPID: " << getpid();
 
-    if (signal_number == SIGUSR3) {
-        logger_thread_ctx.m_stack_buff[0] = 0;
-        stack_backtrace(logger_thread_ctx.m_stack_buff, max_stacktrace_size());
-        g_stack_dump_outstanding--;
-        g_stack_dump_cv.notify_all();
-        return;
-    }
-
-    // Only one signal will be allowed past this point
-    if (exit_in_progress()) {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-    }
-
-    // No stack dump and message if signal is SIGINT, which is usually raised by user
-    if (signal_number != SIGINT) {
-        std::ostringstream fatal_stream;
-        const auto         fatal_reason = exit_reason_name(signal_number);
-        fatal_stream << "\n***** Received fatal SIGNAL: " << fatal_reason;
-        fatal_stream << "(" << signal_number << ")\tPID: " << getpid();
-
-        GetLogger()->set_pattern("%v");
-        log_stack_trace(true);
-        LOGCRITICAL("{}", fatal_stream.str());
-    }
+    GetLogger()->set_pattern("%v");
+    log_stack_trace(true);
+    LOGCRITICAL("{}", fatal_stream.str());
 
     spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) { l->flush(); });
     spdlog::shutdown();
@@ -162,58 +121,20 @@ static void signal_handler(int signal_number, siginfo_t* info, void* unused_cont
     exit_with_default_sighandler(signal_number);
 }
 
-void install_signal_handler() {
-#if !(defined(DISABLE_FATAL_SIGNALHANDLING))
-    struct sigaction action;
-    memset(&action, 0, sizeof(action));
-    sigemptyset(&action.sa_mask);
-    action.sa_sigaction = &signal_handler; // callback to crashHandler for fatal signals
-    // sigaction to use sa_sigaction file. ref: http://www.linuxprogrammingblog.com/code-examples/sigaction
-    action.sa_flags = SA_SIGINFO;
+static void sigint_handler(int signal_number, [[maybe_unused]] siginfo_t* info, [[maybe_unused]] void* unused_context) {
+    spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) { l->flush(); });
+    spdlog::shutdown();
 
-    // do it verbose style - install all signal actions
-    for (const auto& sig_pair : gSignals) {
-        if (sigaction(sig_pair.first, &action, nullptr) < 0) {
-            const std::string error = "sigaction - " + sig_pair.second;
-            perror(error.c_str());
-        }
-    }
-    g_signal_handler_installed = true;
-#endif
+    exit_with_default_sighandler(signal_number);
 }
 
-void install_crash_handler() { install_signal_handler(); }
-
-bool is_crash_handler_installed() { return g_signal_handler_installed; }
-
-void install_crash_handler_once() {
-    static std::once_flag signal_install_flag;
-    std::call_once(signal_install_flag, [] { install_signal_handler(); });
+static void bt_dumper([[maybe_unused]] int signal_number, [[maybe_unused]] siginfo_t* info,
+                      [[maybe_unused]] void* unused_context) {
+    logger_thread_ctx.m_stack_buff[0] = 0;
+    stack_backtrace(logger_thread_ctx.m_stack_buff, max_stacktrace_size());
+    g_stack_dump_outstanding--;
+    g_stack_dump_cv.notify_all();
 }
-
-/// Overrides the existing signal handling for custom signals
-/// For example: usage of zcmq relies on its own signal handler for SIGTERM
-///     so users with zcmq should then use the @ref overrideSetupSignals
-///     , likely with the original set of signals but with SIGTERM removed
-///
-/// call example:
-///  g3::overrideSetupSignals({ {SIGABRT, "SIGABRT"}, {SIGFPE, "SIGFPE"},{SIGILL, "SIGILL"},
-//                          {SIGSEGV, "SIGSEGV"},});
-void override_setup_signals(const std::map< int, std::string > override_signals) {
-    static std::mutex             signal_lock;
-    std::lock_guard< std::mutex > guard(signal_lock);
-    for (const auto& sig : gSignals) {
-        restore_signal_handler(sig.first);
-    }
-
-    gSignals = override_signals;
-    install_crash_handler(); // installs all the signal handling for gSignals
-}
-
-/// Probably only needed for unit testing. Resets the signal handling back to default
-/// which might be needed in case it was previously overridden
-/// The default signals are: SIGABRT, SIGFPE, SIGILL, SIGSEGV, SIGTERM
-void restore_signal_handler_to_default() { override_setup_signals(kSignals); }
 
 static void log_stack_trace_all_threads() {
     std::unique_lock lk(LoggerThreadContext::_logger_thread_mutex);
@@ -246,6 +167,65 @@ static void log_stack_trace_all_threads() {
     _l->flush();
 }
 
+/************************************************* Exported APIs **********************************/
+static std::map< SignalType, signame_handler_pair_t > g_sighandler_map = {
+    {SIGABRT, {"SIGABRT", &crash_handler}}, {SIGFPE, {"SIGFPE", &crash_handler}}, {SIGILL, {"SIGILL", &crash_handler}},
+    {SIGSEGV, {"SIGSEGV", &crash_handler}}, {SIGINT, {"SIGINT", &crash_handler}}, {SIGUSR3, {"SIGUSR3", &bt_dumper}},
+    {SIGINT, {"SIGINT", &sigint_handler}},
+};
+static std::mutex install_hdlr_mutex;
+
+void install_signal_handler() {
+#if !(defined(DISABLE_FATAL_SIGNALHANDLING))
+    // sigaction to use sa_sigaction file. ref: http://www.linuxprogrammingblog.com/code-examples/sigaction
+
+    // do it verbose style - install all signal actions
+    for (const auto& sig_pair : g_sighandler_map) {
+        struct sigaction action;
+        memset(&action, 0, sizeof(action));
+        sigemptyset(&action.sa_mask);
+        action.sa_sigaction = sig_pair.second.second; // callback to crashHandler for fatal signals
+        action.sa_flags = SA_SIGINFO;
+
+        if (sigaction(sig_pair.first, &action, nullptr) < 0) {
+            const std::string error = "sigaction - " + sig_pair.second.first;
+            perror(error.c_str());
+        }
+    }
+    g_custom_signal_handler_installed = true;
+#endif
+}
+
+void add_signal_handler(int sig_num, const std::string& sig_name, sig_handler_t hdlr) {
+#if !(defined(DISABLE_FATAL_SIGNALHANDLING))
+    std::scoped_lock< std::mutex > l(install_hdlr_mutex);
+
+    struct sigaction action;
+    memset(&action, 0, sizeof(action));
+    sigemptyset(&action.sa_mask);
+    action.sa_sigaction = hdlr; // callback to crashHandler for fatal signals
+    action.sa_flags = SA_SIGINFO;
+
+    if (sigaction(sig_num, &action, nullptr) < 0) {
+        const std::string error = "sigaction - " + sig_name;
+        perror(error.c_str());
+    }
+
+    g_custom_signal_handler_installed = true;
+    g_sighandler_map.emplace(std::make_pair(sig_num, std::make_pair(sig_name, hdlr)));
+#endif
+}
+
+void log_custom_signal_handlers() {
+    std::string m;
+    std::scoped_lock< std::mutex > l(install_hdlr_mutex);
+    for (auto& sp : g_sighandler_map) {
+        m += fmt::format("{}={}, ", sp.second.first, (void*)sp.second.second);
+    }
+
+    LOGINFO("Custom Signal handlers: {}", m);
+}
+
 void log_stack_trace(bool all_threads) {
     if (is_crash_handler_installed() && all_threads) {
         log_stack_trace_all_threads();
@@ -257,4 +237,11 @@ void log_stack_trace(bool all_threads) {
         LOGCRITICAL("\n\n{}", buff);
     }
 }
+
+void send_thread_signal(pthread_t thr, int sig_num) { pthread_kill(thr, sig_num); }
+
+void install_crash_handler() { install_signal_handler(); }
+
+bool is_crash_handler_installed() { return g_custom_signal_handler_installed; }
+
 } // namespace sds_logging
