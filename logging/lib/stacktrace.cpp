@@ -39,8 +39,8 @@ static bool g_custom_signal_handler_installed = false;
 static std::atomic< int > g_stack_dump_outstanding = 0;
 static std::condition_variable g_stack_dump_cv;
 
-typedef int SignalType;
-typedef std::pair< std::string, sig_handler_t > signame_handler_pair_t;
+using SignalType = int;
+using signame_handler_pair_t = std::pair< std::string, sig_handler_t >;
 
 static void restore_signal_handler(int signal_number) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
