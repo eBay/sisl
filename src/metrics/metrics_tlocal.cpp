@@ -72,6 +72,9 @@ static void flush_cache_handler([[maybe_unused]] int signal_number, [[maybe_unus
     // std::cout << "Flushing, now outstanding flushes " << _outstanding_flush << "\n";
 }
 
+/* We flush the cache in each thread by sending them a signal and then forcing them to do atomic barrier. Once
+ * all threads run atomic barrier, notify the caller and the caller waits on a CV
+ */
 void ThreadBufferMetricsGroup::flush_core_cache() {
     _outstanding_flush = 0;
     ThreadRegistry::instance()->foreach_running([&]([[maybe_unused]] uint32_t thread_num, pthread_t pt) {

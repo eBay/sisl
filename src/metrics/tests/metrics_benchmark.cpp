@@ -77,17 +77,20 @@ atomic_counter_groups glob_matomic_grp;
 #ifdef DIRECT_METRICS
 MetricsGroupImplPtr glob_tbuffer_mgroup;
 MetricsGroupImplPtr glob_rcu_mgroup;
+MetricsGroupImplPtr glob_atomic_mgroup;
 
 void setup() {
     // Initialize rcu based metric group
     glob_tbuffer_mgroup = MetricsGroup::make_group("Group1", "Instance1", group_impl_type_t::thread_buf_signal);
-    glob_rcu_mgroup = MetricsGroup::make_group("Group2", "Instance1", group_impl_type_t::thread_buf_signal);
+    glob_rcu_mgroup = MetricsGroup::make_group("Group2", "Instance1", group_impl_type_t::rcu);
+    glob_atomic_mgroup = MetricsGroup::make_group("Group3", "Instance1", group_impl_type_t::atomic);
 
     for (auto i = 0; i < NCOUNTERS; i++) {
         std::stringstream ss;
         ss << "counter" << i + 1;
         glob_tbuffer_mgroup->register_counter(ss.str(), " for test", "");
         glob_rcu_mgroup->register_counter(ss.str(), " for test", "");
+        glob_atomic_mgroup->register_counter(ss.str(), " for test", "");
     }
 
     for (auto i = 0; i < NGAUGES; i++) {
@@ -95,6 +98,7 @@ void setup() {
         ss << "gauge" << i + 1;
         glob_tbuffer_mgroup->register_gauge(ss.str(), " for test", "");
         glob_rcu_mgroup->register_gauge(ss.str(), " for test", "");
+        glob_atomic_mgroup->register_gauge(ss.str(), " for test", "");
     }
 
     for (auto i = 0; i < NHISTOGRAMS; i++) {
@@ -102,10 +106,12 @@ void setup() {
         ss << "histogram" << i + 1;
         glob_tbuffer_mgroup->register_histogram(ss.str(), " for test", "");
         glob_rcu_mgroup->register_histogram(ss.str(), " for test", "");
+        glob_atomic_mgroup->register_histogram(ss.str(), " for test", "");
     }
 
     MetricsFarm::getInstance().register_metrics_group(glob_tbuffer_mgroup);
     MetricsFarm::getInstance().register_metrics_group(glob_rcu_mgroup);
+    MetricsFarm::getInstance().register_metrics_group(glob_atomic_mgroup);
 }
 
 void test_counters_write_tbuffer(benchmark::State& state) {
@@ -137,6 +143,15 @@ void test_gauge_write_tbuffer(benchmark::State& state) {
     }
 }
 
+void test_counters_write_atomic(benchmark::State& state) {
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NCOUNTERS; i++) {
+            glob_atomic_mgroup->counter_increment(i);
+        }
+    }
+}
+
 void test_histogram_write_tbuffer(benchmark::State& state) {
     auto v = 1U;
 
@@ -156,6 +171,18 @@ void test_histogram_write_rcu(benchmark::State& state) {
     for (auto _ : state) { // Loops upto iteration count
         for (auto i = 0; i < NHISTOGRAMS; i++) {
             glob_rcu_mgroup->histogram_observe(i, v * (i + 1));
+        }
+        v++;
+    }
+}
+
+void test_histogram_write_atomic(benchmark::State& state) {
+    auto v = 1U;
+
+    // Actual test
+    for (auto _ : state) { // Loops upto iteration count
+        for (auto i = 0; i < NHISTOGRAMS; i++) {
+            glob_atomic_mgroup->histogram_observe(i, v * (i + 1));
         }
         v++;
     }
@@ -213,13 +240,27 @@ void test_histogram_write_rcu(benchmark::State& state) {
 }
 #endif
 
+void test_metrics_read_atomic(benchmark::State& state) {
+    std::string str;
+    // Actual test
+    // Loops upto iteration count
+    for (auto _ : state) {
+        // benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
+        // MetricsFarm::getInstance().gather();
+        glob_atomic_mgroup->gather();
+    }
+
+    // std::cout << "str = " << str << "\n";
+}
+
 void test_metrics_read_tbuffer(benchmark::State& state) {
     std::string str;
     // Actual test
-    for (auto _ : state) { // Loops upto iteration count
-                           // benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
-        MetricsFarm::getInstance().gather();
-        // glob_tbuffer_mgroup->gather();
+    // Loops upto iteration count
+    for (auto _ : state) {
+        // benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
+        // MetricsFarm::getInstance().gather();
+        glob_tbuffer_mgroup->gather();
     }
 
     // std::cout << "str = " << str << "\n";
@@ -228,15 +269,17 @@ void test_metrics_read_tbuffer(benchmark::State& state) {
 void test_metrics_read_rcu(benchmark::State& state) {
     std::string str;
     // Actual test
-    for (auto _ : state) { // Loops upto iteration count
-                           // benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
-        MetricsFarm::getInstance().gather();
-        // glob_rcu_mgroup->gather();
+    // Loops upto iteration count
+    for (auto _ : state) {
+        // benchmark::DoNotOptimize(str = MetricsFarm::getInstance().get_result_in_json_string());
+        // MetricsFarm::getInstance().gather();
+        glob_rcu_mgroup->gather();
     }
 
     // std::cout << "str = " << str << "\n";
 }
 
+#if 0
 void test_counters_write_atomic(benchmark::State& state) {
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
@@ -257,6 +300,7 @@ void test_gauge_write_atomic(benchmark::State& state) {
         v++;
     }
 }
+#endif
 
 void test_histogram_write_locked(benchmark::State& state) {
     auto v = 1U;
@@ -303,16 +347,17 @@ BENCHMARK(test_counters_write_atomic)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_counters_write_rcu)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_counters_write_tbuffer)->Iterations(ITERATIONS)->Threads(THREADS);
 
-BENCHMARK(test_gauge_write_atomic)->Iterations(ITERATIONS)->Threads(THREADS);
+// BENCHMARK(test_gauge_write_atomic)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_gauge_write_tbuffer)->Iterations(ITERATIONS)->Threads(THREADS);
 
-BENCHMARK(test_histogram_write_locked)->Iterations(ITERATIONS)->Threads(THREADS);
+// BENCHMARK(test_histogram_write_locked)->Iterations(ITERATIONS)->Threads(THREADS);
+BENCHMARK(test_histogram_write_atomic)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_histogram_write_rcu)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_histogram_write_tbuffer)->Iterations(ITERATIONS)->Threads(THREADS);
 
-BENCHMARK(test_counters_read_atomic)->Iterations(ITERATIONS)->Threads(1);
-BENCHMARK(test_gauge_read_atomic)->Iterations(ITERATIONS)->Threads(1);
+// BENCHMARK(test_gauge_read_atomic)->Iterations(ITERATIONS)->Threads(1);
 // BENCHMARK(test_histogram_read_locked)->Iterations(ITERATIONS)->Threads(1);
+BENCHMARK(test_metrics_read_atomic)->Iterations(ITERATIONS)->Threads(1);
 BENCHMARK(test_metrics_read_tbuffer)->Iterations(ITERATIONS)->Threads(1);
 BENCHMARK(test_metrics_read_rcu)->Iterations(ITERATIONS)->Threads(1);
 

@@ -20,6 +20,7 @@ enum class group_impl_type_t {
     rcu,
     thread_buf_volatile,
     thread_buf_signal,
+    atomic,
 };
 
 enum _publish_as {
@@ -30,6 +31,8 @@ enum _publish_as {
 
 class CounterValue {
 public:
+    friend class AtomicCounterValue;
+
     CounterValue() = default;
     void increment(int64_t value = 1) { m_value += value; }
     void decrement(int64_t value = 1) { m_value -= value; }
@@ -40,7 +43,7 @@ public:
     }
 
 private:
-    volatile int64_t m_value = 0;
+    int64_t m_value = 0;
 };
 
 class GaugeValue {
@@ -61,6 +64,8 @@ private:
 
 class HistogramValue {
 public:
+    friend class AtomicHistogramValue;
+
     void observe(int64_t value, const hist_bucket_boundaries_t& boundaries, uint64_t count = 1) {
         auto lower = std::lower_bound(boundaries.begin(), boundaries.end(), value);
         auto bkt_idx = lower - boundaries.begin();
@@ -79,7 +84,7 @@ public:
 
 private:
     std::array< int64_t, HistogramBuckets::max_hist_bkts > m_freqs;
-    volatile int64_t m_sum = 0;
+    int64_t m_sum = 0;
 };
 
 static_assert(std::is_trivially_copyable< HistogramValue >::value, "Expecting HistogramValue to be trivally copyable");

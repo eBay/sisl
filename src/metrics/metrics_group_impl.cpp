@@ -14,13 +14,17 @@ namespace sisl {
 
 #define PROMETHEUS_METRICS_REPORTER
 
-MetricsGroupImplPtr MetricsGroup::make_group(const char* grp_name, const char* inst_name, group_impl_type_t type) {
+MetricsGroupImplPtr MetricsGroup::make_group(const std::string& grp_name, const std::string& inst_name,
+                                             group_impl_type_t type) {
     if (type == group_impl_type_t::thread_buf_signal) {
         return std::dynamic_pointer_cast< MetricsGroupImpl >(
             std::make_shared< ThreadBufferMetricsGroup >(grp_name, inst_name));
     } else if (type == group_impl_type_t::rcu) {
         return std::dynamic_pointer_cast< MetricsGroupImpl >(
             std::make_shared< WisrBufferMetricsGroup >(grp_name, inst_name));
+    } else if (type == group_impl_type_t::atomic) {
+        return std::dynamic_pointer_cast< MetricsGroupImpl >(
+            std::make_shared< AtomicMetricsGroup >(grp_name, inst_name));
     } else {
         return nullptr;
     }

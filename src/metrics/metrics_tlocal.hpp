@@ -32,6 +32,18 @@ public:
 using PerThreadMetricsBuffer =
     ExitSafeThreadBuffer< PerThreadMetrics, const std::vector< HistogramInfo >&, uint32_t, uint32_t >;
 
+/*
+ * ThreadBufferMetricsGroup is a very fast metrics accumulator and unlike RCU, it gathers the metrics for reporting
+ * much faster. The logic is simply using sisl::ThreadBuffer, which is a per thread buffer with exit safety where even
+ * after thread exits, its data is protected for scrapping. The metics are accumulated on each thread and when it is
+ * time to scrap the metrics, it send a signal to all threads to flush caches (using atomic fencing) and then other
+ * thread reads the data. Of course there is no atomicity in fetching the accurate data, but it will be timeline
+ * consistent.
+ *
+ * Given that it is using no locks or atomics or even rcu critical section, during collecting metrics - it is probably
+ * the fastest we could get. During scrapping additional latency compared to AtomicMetricsGroup is in sending signal
+ * to all threads and then read thread. The difference on that is much more closer and manageable.
+ */
 class ThreadBufferMetricsGroup : public MetricsGroupImpl {
 public:
     ThreadBufferMetricsGroup(const char* grp_name, const char* inst_name) : MetricsGroupImpl(grp_name, inst_name) {}

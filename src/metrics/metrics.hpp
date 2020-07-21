@@ -16,6 +16,7 @@
 #include <nlohmann/json.hpp>
 #include "metrics_tlocal.hpp"
 #include "metrics_rcu.hpp"
+#include "metrics_atomic.hpp"
 
 // TODO: Commenting out this tempoarily till the SDS_OPTIONS and SDS_LOGGING issue is resolved
 // SDS_LOGGING_DECL(vmod_metrics_framework)
@@ -27,29 +28,12 @@ public:
     MetricsGroupImplPtr m_impl_ptr;
 
     std::atomic< bool > m_is_registered = false;
-    static MetricsGroupImplPtr make_group(const char* grp_name, const char* inst_name,
+    static MetricsGroupImplPtr make_group(const std::string& grp_name, const std::string& inst_name,
                                           group_impl_type_t type = group_impl_type_t::thread_buf_signal);
-
-    MetricsGroup(const char* grp_name, const char* inst_name = "Instance1",
-                 group_impl_type_t type = group_impl_type_t::thread_buf_signal) {
-        if (type == group_impl_type_t::thread_buf_signal) {
-            m_impl_ptr = std::dynamic_pointer_cast< MetricsGroupImpl >(
-                std::make_shared< ThreadBufferMetricsGroup >(grp_name, inst_name));
-        } else if (type == group_impl_type_t::rcu) {
-            m_impl_ptr = std::dynamic_pointer_cast< MetricsGroupImpl >(
-                std::make_shared< WisrBufferMetricsGroup >(grp_name, inst_name));
-        }
-    }
 
     MetricsGroup(const std::string& grp_name, const std::string& inst_name = "Instance1",
                  group_impl_type_t type = group_impl_type_t::thread_buf_signal) {
-        if (type == group_impl_type_t::thread_buf_signal) {
-            m_impl_ptr = std::dynamic_pointer_cast< MetricsGroupImpl >(
-                std::make_shared< ThreadBufferMetricsGroup >(grp_name, inst_name));
-        } else if (type == group_impl_type_t::rcu) {
-            m_impl_ptr = std::dynamic_pointer_cast< MetricsGroupImpl >(
-                std::make_shared< WisrBufferMetricsGroup >(grp_name, inst_name));
-        }
+        m_impl_ptr = make_group(grp_name, inst_name, type);
     }
 
     ~MetricsGroup() { deregister_me_from_farm(); }
