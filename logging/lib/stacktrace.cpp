@@ -52,7 +52,7 @@ static void restore_signal_handler(int signal_number) {
 #endif
 }
 
-[[maybe_unused]] static bool exit_in_progress() {
+static bool exit_in_progress() {
     static std::atomic< pthread_t > tracing_thread_id{0};
     bool ret;
     pthread_t id;
@@ -106,6 +106,13 @@ static std::string exit_reason_name(SignalType fatal_id) {
 }
 
 static void crash_handler(int signal_number, [[maybe_unused]] siginfo_t* info, [[maybe_unused]] void* unused_context) {
+    // Only one signal will be allowed past this point
+    if (exit_in_progress()) {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+
     std::ostringstream fatal_stream;
     const auto fatal_reason = exit_reason_name(signal_number);
     fatal_stream << "\n***** Received fatal SIGNAL: " << fatal_reason;
