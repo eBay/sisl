@@ -17,6 +17,7 @@
 #include <vector>
 #include <unordered_set>
 #include <mutex>
+#include <csignal>
 extern "C" {
 #include <dlfcn.h>
 }
@@ -122,7 +123,7 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 #define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, formatter, msg, ...)                                      \
     if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                    \
         fmt::memory_buffer _log_buf;                                                                                   \
-        const auto&        cb = formatter;                                                                             \
+        const auto& cb = formatter;                                                                                    \
         cb(_log_buf, msg, ##__VA_ARGS__);                                                                              \
         fmt::format_to(_log_buf, "{}", (char)0);                                                                       \
         _l->method(_log_buf.data());                                                                                   \
@@ -231,18 +232,19 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 #define _FMT_LOG_MSG(...) sds_logging::format_log_msg(__VA_ARGS__).c_str()
 
 #define RELEASE_ASSERT(cond, m, ...)                                                                                   \
-    _GENERIC_ASSERT(0, cond,                                                                                           \
-                    [](fmt::memory_buffer& buf, const char* msg, auto... args) { fmt::format_to(buf, msg, args...); }, \
-                    m, ##__VA_ARGS__)
+    _GENERIC_ASSERT(                                                                                                   \
+        0, cond, [](fmt::memory_buffer& buf, const char* msg, auto... args) { fmt::format_to(buf, msg, args...); }, m, \
+        ##__VA_ARGS__)
 #define RELEASE_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(0, cond, formatter, msg, ##__VA_ARGS__)
 #define RELEASE_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                            \
     _GENERIC_ASSERT(0, ((val1)cmp(val2)), formatter, _FMT_LOG_MSG(__VA_ARGS__), val1, #cmp, val2)
 #define RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                           \
-    RELEASE_ASSERT_CMP(val1, cmp, val2,                                                                                \
-                       [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                  \
-                           sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                       \
-                       },                                                                                              \
-                       ##__VA_ARGS__)
+    RELEASE_ASSERT_CMP(                                                                                                \
+        val1, cmp, val2,                                                                                               \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                                 \
+            sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+        },                                                                                                             \
+        ##__VA_ARGS__)
 
 #define RELEASE_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2, ##__VA_ARGS__)
 #define RELEASE_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2, ##__VA_ARGS__)
@@ -261,11 +263,12 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
     _GENERIC_ASSERT(1, ((val1)cmp(val2)), formatter, sds_logging::format_log_msg(__VA_ARGS__).c_str(), val1, #cmp, val2)
 
 #define LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                            \
-    LOGMSG_ASSERT_CMP(val1, cmp, val2,                                                                                 \
-                      [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                   \
-                          sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                        \
-                      },                                                                                               \
-                      ##__VA_ARGS__)
+    LOGMSG_ASSERT_CMP(                                                                                                 \
+        val1, cmp, val2,                                                                                               \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                                 \
+            sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+        },                                                                                                             \
+        ##__VA_ARGS__)
 
 #define LOGMSG_ASSERT_EQ(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_NE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2, ##__VA_ARGS__)
@@ -305,6 +308,14 @@ using shared = std::shared_ptr< T >;
 
 static constexpr uint32_t max_stacktrace_size() { return (64U * 1024U); }
 
+#if defined(__linux__)
+#define SIGUSR3 SIGRTMIN + 1
+#define SIGUSR4 SIGUSR3 + 1
+#else
+#define SIGUSR3 SIGUSR1
+#define SIGUSR4 SIGUSR2
+#endif
+
 class LoggerThreadContext {
 public:
     LoggerThreadContext();
@@ -315,7 +326,7 @@ public:
         return inst;
     }
 
-    static std::mutex                                 _logger_thread_mutex;
+    static std::mutex _logger_thread_mutex;
     static std::unordered_set< LoggerThreadContext* > _logger_thread_set;
 
     static void add_logger_thread(LoggerThreadContext* ctx) {
@@ -330,8 +341,8 @@ public:
 
     std::shared_ptr< spdlog::logger > m_logger;
     std::shared_ptr< spdlog::logger > m_critical_logger;
-    pthread_t                         m_thread_id;
-    char                              m_stack_buff[max_stacktrace_size()];
+    pthread_t m_thread_id;
+    char m_stack_buff[max_stacktrace_size()];
 };
 
 #define logger_thread_ctx LoggerThreadContext::instance()
@@ -340,9 +351,9 @@ public:
 
 extern std::shared_ptr< spdlog::logger > glob_spdlog_logger;
 extern std::shared_ptr< spdlog::logger > glob_critical_logger;
-extern shared< spdlog::logger >&         GetLogger() __attribute__((weak));
-extern shared< spdlog::logger >&         GetCriticalLogger() __attribute__((weak));
-extern std::vector< std::string >        glob_enabled_mods;
+extern shared< spdlog::logger >& GetLogger() __attribute__((weak));
+extern shared< spdlog::logger >& GetCriticalLogger() __attribute__((weak));
+extern std::vector< std::string > glob_enabled_mods;
 } // namespace sds_logging
 
 #define MODLEVELDEC(r, _, module)                                                                                      \
@@ -364,28 +375,32 @@ MODLEVELDEC(_, _, base)
         MODLEVELDEF, spdlog::level::level_enum::warn,                                                                  \
         BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base)))               \
     namespace sds_logging {                                                                                            \
-    std::shared_ptr< spdlog::logger >          glob_spdlog_logger;                                                     \
-    std::shared_ptr< spdlog::logger >          glob_critical_logger;                                                   \
-    std::vector< std::string >                 glob_enabled_mods;                                                      \
-    std::mutex                                 LoggerThreadContext::_logger_thread_mutex;                              \
+    std::shared_ptr< spdlog::logger > glob_spdlog_logger;                                                              \
+    std::shared_ptr< spdlog::logger > glob_critical_logger;                                                            \
+    std::vector< std::string > glob_enabled_mods;                                                                      \
+    std::mutex LoggerThreadContext::_logger_thread_mutex;                                                              \
     std::unordered_set< LoggerThreadContext* > LoggerThreadContext::_logger_thread_set;                                \
     }
 
 namespace sds_logging {
+typedef void (*sig_handler_t)(int, siginfo_t*, void*);
+
 void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
                std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 
-void                      SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
+void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
 spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name);
-nlohmann::json            GetAllModuleLogLevel();
-void                      SetAllModuleLogLevel(spdlog::level::level_enum level);
+nlohmann::json GetAllModuleLogLevel();
+void SetAllModuleLogLevel(spdlog::level::level_enum level);
 
 void log_stack_trace(bool all_threads = false);
 void install_signal_handler();
+void add_signal_handler(int sig_num, std::string_view sig_name, sig_handler_t hdlr);
 void install_crash_handler();
 bool is_crash_handler_installed();
 void override_setup_signals(const std::map< int, std::string > override_signals);
 void restore_signal_handler_to_default();
+void send_thread_signal(pthread_t thr, int sig_num);
 
 template < typename... Args >
 std::string format_log_msg(const char* fmt, const Args&... args) {
