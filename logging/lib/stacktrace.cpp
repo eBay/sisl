@@ -220,6 +220,10 @@ void add_signal_handler(int sig_num, const std::string& sig_name, sig_handler_t 
 
     g_custom_signal_handler_installed = true;
     g_sighandler_map.emplace(std::make_pair(sig_num, std::make_pair(sig_name, hdlr)));
+#else
+    (void)sig_num;
+    (void)sig_name;
+    (void)hdlr;
 #endif
 }
 
