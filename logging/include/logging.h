@@ -395,7 +395,7 @@ void SetAllModuleLogLevel(spdlog::level::level_enum level);
 
 void log_stack_trace(bool all_threads = false);
 void install_signal_handler();
-void add_signal_handler(int sig_num, const std::string& sig_name, sig_handler_t hdlr);
+void add_signal_handler(int sig_num, std::string_view sig_name, sig_handler_t hdlr);
 void install_crash_handler();
 bool is_crash_handler_installed();
 void override_setup_signals(const std::map< int, std::string > override_signals);

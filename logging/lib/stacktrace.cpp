@@ -203,7 +203,7 @@ void install_signal_handler() {
 #endif
 }
 
-void add_signal_handler(int sig_num, const std::string& sig_name, sig_handler_t hdlr) {
+void add_signal_handler(int sig_num, std::string_view sig_name, sig_handler_t hdlr) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     std::scoped_lock< std::mutex > l(install_hdlr_mutex);
 
@@ -214,7 +214,7 @@ void add_signal_handler(int sig_num, const std::string& sig_name, sig_handler_t 
     action.sa_flags = SA_SIGINFO;
 
     if (sigaction(sig_num, &action, nullptr) < 0) {
-        const std::string error = "sigaction - " + sig_name;
+        const std::string error = "sigaction - " + std::string(sig_name);
         perror(error.c_str());
     }
 
