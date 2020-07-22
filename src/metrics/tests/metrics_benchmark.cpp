@@ -139,7 +139,7 @@ void test_gauge_write_tbuffer(benchmark::State& state) {
         for (auto i = 0; i < NGAUGES; i++) {
             glob_tbuffer_mgroup->gauge_update(i, v * (i + 1));
         }
-        v++;
+        ++v;
     }
 }
 
@@ -160,7 +160,7 @@ void test_histogram_write_tbuffer(benchmark::State& state) {
         for (auto i = 0; i < NHISTOGRAMS; i++) {
             glob_tbuffer_mgroup->histogram_observe(i, v * (i + 1));
         }
-        v++;
+        ++v;
     }
 }
 
@@ -172,7 +172,7 @@ void test_histogram_write_rcu(benchmark::State& state) {
         for (auto i = 0; i < NHISTOGRAMS; i++) {
             glob_rcu_mgroup->histogram_observe(i, v * (i + 1));
         }
-        v++;
+        ++v;
     }
 }
 
@@ -184,7 +184,7 @@ void test_histogram_write_atomic(benchmark::State& state) {
         for (auto i = 0; i < NHISTOGRAMS; i++) {
             glob_atomic_mgroup->histogram_observe(i, v * (i + 1));
         }
-        v++;
+        ++v;
     }
 }
 #else
@@ -225,7 +225,7 @@ void test_gauge_write_rcu(benchmark::State& state) {
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
         BOOST_PP_REPEAT(NGAUGES, _UPD_GAUGE, v);
-        v++;
+        ++v;
     }
 }
 
@@ -235,7 +235,7 @@ void test_histogram_write_rcu(benchmark::State& state) {
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
         BOOST_PP_REPEAT(NHISTOGRAMS, _OBS_HISTOGRAM, v);
-        v++;
+        ++v;
     }
 }
 #endif
@@ -297,7 +297,7 @@ void test_gauge_write_atomic(benchmark::State& state) {
         for (auto i = 0; i < NGAUGES; i++) {
             glob_matomic_grp.getGauge(i).store(v * (i + 1), std::memory_order_relaxed);
         }
-        v++;
+        ++v;
     }
 }
 #endif
@@ -310,7 +310,7 @@ void test_histogram_write_locked(benchmark::State& state) {
         for (auto i = 0; i < NHISTOGRAMS; i++) {
             glob_matomic_grp.updateHist(i, v * (i + 1));
         }
-        v++;
+        ++v;
     }
 }
 
