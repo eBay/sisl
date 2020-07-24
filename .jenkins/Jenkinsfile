@@ -4,11 +4,22 @@ pipeline {
     environment {
         ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
         CONAN_USER = 'sisl'
-        MASTER_BRANCH = 'develop'
-        STABLE_BRANCH = 'testing/*'
+        MASTER_BRANCH = 'master'
+        DEVELOP_BRANCH = 'develop/v*'
+        STABLE_BRANCH = 'testing/v*'
     }
 
     stages {
+        stage('Adjust Tag for Master/PR') {
+            when { not { anyOf {
+                branch "${DEVELOP_BRANCH}"
+                branch "${STABLE_BRANCH}"
+            } } }
+            steps {
+                sh(script: "sed -Ei 's,version = .*([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*,version = \"\\1+b${env.BUILD_NUMBER}\",' conanfile.py")
+            }
+        }
+
         stage('Get Version') {
             steps {
                 script {
@@ -45,6 +56,16 @@ pipeline {
                 } }
 
                 stages {
+                    stage('Adjust Tag for Master/PR') {
+                        when { not { anyOf {
+                            branch "${DEVELOP_BRANCH}"
+                            branch "${STABLE_BRANCH}"
+                        } } }
+                        steps {
+                            sh(script: "sed -Ei 's,version = .*([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*,version = \"\\1+b${env.BUILD_NUMBER}\",' conanfile.py")
+                        }
+                    }
+
                     stage("Build") {
                         when {
                             expression { "${COVERAGE}" == 'False' }
@@ -107,7 +128,7 @@ pipeline {
 
     post {
         failure {
-            slackSend color: '#E43237', channel: '#sds-ci', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* had an error ${BUILD_URL}."
+            slackSend color: '#E43237', channel: '#sds-ci', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has had a failure : ${BUILD_URL}"
         }
         success {
             slackSend color: '#85B717', channel: '#sds-ci', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has been uploaded to conan repo."
