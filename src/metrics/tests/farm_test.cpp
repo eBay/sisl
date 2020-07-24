@@ -15,7 +15,7 @@ SDS_LOGGING_INIT(vmod_metrics_framework)
 using namespace sisl;
 
 void userA() {
-    auto mgroup = std::make_shared< MetricsGroup >("Group1", "Instance1");
+    auto mgroup = std::make_shared< ThreadBufferMetricsGroup >("Group1", "Instance1");
     mgroup->register_counter("counter1", "Counter1");
     mgroup->register_counter("counter2", "Counter2");
     mgroup->register_counter("counter3", "Counter3");
@@ -30,7 +30,7 @@ void userA() {
 }
 
 void userB() {
-    auto mgroup = std::make_shared< MetricsGroup >("Group2", "Instance1");
+    auto mgroup = std::make_shared< ThreadBufferMetricsGroup >("Group2", "Instance1");
     mgroup->register_gauge("gauge1", "Gauge1");
     mgroup->register_gauge("gauge2", "Gauge2");
     MetricsFarm::getInstance().register_metrics_group(mgroup);

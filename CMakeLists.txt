@@ -44,6 +44,7 @@ add_subdirectory (src/wisr)
 add_subdirectory (src/metrics)
 add_subdirectory (src/fds)
 add_subdirectory (src/settings)
+add_subdirectory (src/utility)
 
 add_library(sisl
         $<TARGET_OBJECTS:sisl_metrics>

@@ -63,6 +63,8 @@ public:
         attach_gather_cb(std::bind(&MallocMetrics::on_gather, this));
     }
 
+    ~MallocMetrics() { deregister_me_from_farm(); }
+
     void on_gather() {
 #ifdef USING_TCMALLOC
         get_parse_tcmalloc_stats(nullptr, this);
