@@ -85,6 +85,36 @@ public:
         return *get_slot_data(nbit);
     }
 
+    /* Returns an anonymous structure which has 3 fields
+     * is_out_of_range: Is the entry out_of_range of whats been tracked
+     * is_hole: Is the entry is in_range but no data has been created or completed.
+     * is_active: Is the entry valid and current active
+     * is_completed: Is the entry valid and completed
+     */
+    auto status(int64_t idx) const {
+        struct {
+            bool is_out_of_range = false;
+            bool is_hole = false;
+            bool is_active = false;
+            bool is_completed = false;
+        } ret;
+
+        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        if (idx < m_slot_ref_idx) {
+            ret.is_out_of_range = true;
+        } else {
+            size_t nbit = idx - m_slot_ref_idx;
+            if (m_comp_slot_bits.get_bitval(nbit)) {
+                ret.is_completed = true;
+            } else if (m_active_slot_bits.get_bitval(nbit)) {
+                ret.is_active = true;
+            } else {
+                ret.is_hole = true;
+            }
+        }
+        return ret;
+    }
+
     size_t truncate(int64_t idx) {
         folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
 
