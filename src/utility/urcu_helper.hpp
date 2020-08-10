@@ -196,6 +196,10 @@ public:
         m_cur_obj = new T(std::forward< Args1 >(args)...);
     }
 
+    ~urcu_scoped_ptr() {
+        if (m_cur_obj) delete m_cur_obj;
+    }
+
     void read(const auto& cb) const {
         rcu_read_lock();
         auto s = rcu_dereference(m_cur_obj);
@@ -223,8 +227,7 @@ private:
         T* new_obj = new T(std::get< Is >(tuple)...); // Make new object with saved constructor params
         auto old_obj = rcu_xchg_pointer(&m_cur_obj, new_obj);
         synchronize_rcu();
-        delete old_obj;
-        return new_obj;
+        return old_obj;
     }
 
 private:

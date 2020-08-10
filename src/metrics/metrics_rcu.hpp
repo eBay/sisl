@@ -31,6 +31,5 @@ private:
 
 private:
     std::unique_ptr< WisrBufferMetrics > m_metrics;
-    bool m_gather_pending;
 };
 } // namespace sisl

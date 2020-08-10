@@ -29,10 +29,10 @@ public:
 
     std::atomic< bool > m_is_registered = false;
     static MetricsGroupImplPtr make_group(const std::string& grp_name, const std::string& inst_name,
-                                          group_impl_type_t type = group_impl_type_t::thread_buf_signal);
+                                          group_impl_type_t type = group_impl_type_t::rcu);
 
     MetricsGroup(const std::string& grp_name, const std::string& inst_name = "Instance1",
-                 group_impl_type_t type = group_impl_type_t::thread_buf_signal) {
+                 group_impl_type_t type = group_impl_type_t::rcu) {
         m_impl_ptr = make_group(grp_name, inst_name, type);
     }
 

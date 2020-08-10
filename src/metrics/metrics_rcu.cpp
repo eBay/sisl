@@ -12,11 +12,11 @@ void WisrBufferMetricsGroup::on_register() {
 }
 
 void WisrBufferMetricsGroup::counter_increment(uint64_t index, int64_t val) {
-    m_metrics->insertable()->get_counter(index).increment(val);
+    m_metrics->insertable_ptr()->get_counter(index).increment(val);
 }
 
 void WisrBufferMetricsGroup::counter_decrement(uint64_t index, int64_t val) {
-    m_metrics->insertable()->get_counter(index).decrement(val);
+    m_metrics->insertable_ptr()->get_counter(index).decrement(val);
 }
 
 // If we were to call the method with count parameter and compiler inlines them, binaries linked with libsisl gets
@@ -24,11 +24,11 @@ void WisrBufferMetricsGroup::counter_decrement(uint64_t index, int64_t val) {
 // everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
 // one with count and one without count. In any case this is a single line method.
 void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val) {
-    m_metrics->insertable()->get_histogram(index).observe(val, m_bkt_boundaries[index], 1);
+    m_metrics->insertable_ptr()->get_histogram(index).observe(val, m_bkt_boundaries[index], 1);
 }
 
 void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
-    m_metrics->insertable()->get_histogram(index).observe(val, m_bkt_boundaries[index], count);
+    m_metrics->insertable_ptr()->get_histogram(index).observe(val, m_bkt_boundaries[index], count);
 }
 
 void WisrBufferMetricsGroup::gather_result(bool need_latest,
@@ -37,12 +37,7 @@ void WisrBufferMetricsGroup::gather_result(bool need_latest,
                                            std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) {
     PerThreadMetrics* tmetrics;
     if (need_latest) {
-        if (m_gather_pending) {
-            m_gather_pending = false;
-            tmetrics = m_metrics->deferred();
-        } else {
-            tmetrics = m_metrics->now();
-        }
+        tmetrics = m_metrics->now();
     } else {
         tmetrics = m_metrics->delayed();
     }
