@@ -11,7 +11,7 @@ include_directories(BEFORE ..)
 set(WISR_VECTOR_TEST tests/test_wisr_vector.cpp)
 add_executable(wisr_vector_test ${WISR_VECTOR_TEST})
 target_link_libraries(wisr_vector_test ${Boost_LIBRARIES} ${CONAN_LIBS})
-#add_test(NAME WisrVectorTest COMMAND wisr_vector_test)
+add_test(NAME WisrVectorTest COMMAND wisr_vector_test)
 
 set(WISR_VECTOR_BENCHMARK tests/wisr_vector_benchmark.cpp)
 add_executable(wisr_vector_benchmark ${WISR_VECTOR_BENCHMARK})

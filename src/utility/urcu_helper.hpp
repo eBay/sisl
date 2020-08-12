@@ -219,14 +219,16 @@ public:
         delete old_obj;
     }
 
-    T* make_and_exchange() { return _make_and_exchange(m_args, std::index_sequence_for< Args... >()); }
+    T* make_and_exchange(const bool sync_rcu_now = true) {
+        return _make_and_exchange(sync_rcu_now, m_args, std::index_sequence_for< Args... >());
+    }
 
 private:
     template < std::size_t... Is >
-    T* _make_and_exchange(const std::tuple< Args... >& tuple, std::index_sequence< Is... >) {
+    T* _make_and_exchange(const bool sync_rcu_now, const std::tuple< Args... >& tuple, std::index_sequence< Is... >) {
         T* new_obj = new T(std::get< Is >(tuple)...); // Make new object with saved constructor params
         auto old_obj = rcu_xchg_pointer(&m_cur_obj, new_obj);
-        synchronize_rcu();
+        if (sync_rcu_now) { synchronize_rcu(); }
         return old_obj;
     }
 

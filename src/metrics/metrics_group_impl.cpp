@@ -124,6 +124,7 @@ nlohmann::json MetricsGroupImpl::get_result_in_json(bool need_latest) {
     nlohmann::json gauge_entries;
     nlohmann::json hist_entries;
 
+    if (m_on_gather_cb) { m_on_gather_cb(); }
     gather_result(
         need_latest,
         [&counter_entries](CounterInfo& c, const CounterValue& result) { counter_entries[c.desc()] = result.get(); },
@@ -143,6 +144,7 @@ nlohmann::json MetricsGroupImpl::get_result_in_json(bool need_latest) {
 
 void MetricsGroupImpl::publish_result() {
     auto locked = lock();
+    if (m_on_gather_cb) { m_on_gather_cb(); }
     gather_result(
         true,                                                                       /* need_latest */
         [](CounterInfo& c, const CounterValue& result) { c.publish(result); },      // Counter
@@ -152,6 +154,7 @@ void MetricsGroupImpl::publish_result() {
 
 void MetricsGroupImpl::gather() {
     auto locked = lock();
+    if (m_on_gather_cb) { m_on_gather_cb(); }
     gather_result(
         true, /* need_latest */
         []([[maybe_unused]] CounterInfo& c, [[maybe_unused]] const CounterValue& result) {},

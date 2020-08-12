@@ -54,14 +54,23 @@ private:
     // This method assumes that rotate mutex is already held
     void _rotate_all_thread_bufs() {
         auto base_raw = m_base_obj.get();
-        m_buffer.access_all_threads([base_raw](sisl::urcu_scoped_ptr< DS, Args... >* ptr,
-                                               [[maybe_unused]] bool is_thread_running,
-                                               [[maybe_unused]] bool is_last_thread) {
-            auto old_ptr = ptr->make_and_exchange();
-            DS::merge(base_raw, old_ptr);
-            delete old_ptr;
+        std::vector< DS* > old_ptrs;
+        old_ptrs.reserve(128);
+
+        m_buffer.access_all_threads([base_raw, &old_ptrs](sisl::urcu_scoped_ptr< DS, Args... >* ptr,
+                                                          [[maybe_unused]] bool is_thread_running,
+                                                          [[maybe_unused]] bool is_last_thread) {
+            auto old_ptr = ptr->make_and_exchange(false /* sync_rcu_now */);
+            old_ptrs.push_back(old_ptr);
             return true;
         });
+
+        synchronize_rcu();
+
+        for (auto old_ptr : old_ptrs) {
+            DS::merge(base_raw, old_ptr);
+            delete old_ptr;
+        }
     }
 
     template < std::size_t... Is >
