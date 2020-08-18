@@ -14,7 +14,7 @@ SDS_OPTION_GROUP(test_settings,
                   ::cxxopts::value< uint32_t >()->default_value("1"), "number"))
 
 SDS_LOGGING_INIT(test_settings, settings)
-SETTINGS_INIT(testapp::TestAppSettings, test_app_schema);
+SETTINGS_INIT(testapp::TestAppSettings, test_app_schema, "/tmp");
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging, test_settings);

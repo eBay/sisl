@@ -361,9 +361,6 @@ private:
     log_append_cb_t m_append_cb;
 };
 
-// thread_local uint8_t LogGroup::_log_buf[inline_log_buf_size];
-// thread_local std::vector< iovec_wrapper > LogGroup::_iovecs;
-
 static void on_append_completion(int64_t idx, uint64_t offset, void* ctx) {
     std::cout << "Append completed with log_idx = " << idx << " offset = " << offset << "\n";
 }

@@ -12,8 +12,11 @@
 #include <fstream>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <filesystem>
+#include <folly/Synchronized.h>
 
-#define SETTINGS_INIT(schema_type, schema_name)                                                                        \
+#define SETTINGS_INIT(schema_type, schema_name, config_dir)                                                            \
     extern const char* schema_name##_fbs;                                                                              \
     extern int schema_name##_fbs_len;                                                                                  \
     class schema_name##_factory : public ::sisl::SettingsFactory< schema_type##T > {                                   \
@@ -25,8 +28,14 @@
                                                                                                                        \
         schema_name##_factory() {                                                                                      \
             this->m_raw_schema = std::string((const char*)&schema_name##_fbs, (size_t)schema_name##_fbs_len);          \
+            auto cdir = std::string(config_dir);                                                                       \
+            if (cdir.length()) {                                                                                       \
+                this->m_base_file = fmt::format("{}/{}.json", config_dir, #schema_name);                               \
+                this->load();                                                                                          \
+            }                                                                                                          \
+            sisl::SettingsFactoryRegistry::instance().add(#schema_name, (sisl::SettingsFactoryBase*)this);             \
         }                                                                                                              \
-    }
+    };
 
 #define SETTINGS_FACTORY(schema_name) schema_name##_factory::instance()
 
@@ -197,8 +206,16 @@ static bool diff_vector(const reflection::Schema* schema, const reflection::Fiel
     return false;
 }
 
+class SettingsFactoryBase : public boost::noncopyable {
+public:
+    virtual void load() = 0;
+    virtual void reload() = 0;
+    virtual void save() = 0;
+    virtual const std::string get_json() const = 0;
+};
+
 template < typename SettingsT >
-class SettingsFactory : boost::noncopyable {
+class SettingsFactory : public sisl::SettingsFactoryBase {
 protected:
     SettingsFactory() = default;
 
@@ -216,13 +233,25 @@ public:
         const auto& s = const_cast< const SettingsT& >(*settings.get());
         using ret_t = std::invoke_result_t< CB, decltype(s) >;
         static_assert(/*std::is_fundamental_v<ret_t> || */ !std::is_pointer_v< ret_t > && !std::is_reference_v< ret_t >,
-                      "Do you really want to return a referenence to an object? ");
+                      "Do you really want to return a reference to an object? ");
         // if constexpr () {
         return cb(s);
         // } else {
         //     decltype(cb(s))::you_are_returning_object_of_type = 1;
         // }
     }
+
+    void load() override {
+        if (!std::filesystem::is_regular_file(std::filesystem::status(m_base_file))) {
+            LOGWARN("Config file '{}'  does not exist Saving default to that file", m_base_file);
+            save(m_base_file);
+            return;
+        }
+        load_file(m_base_file);
+    }
+
+    void reload() override { reload_file(m_base_file); }
+    void save() override { save(m_base_file); }
 
     void load_file(const std::string& config_file) { load(config_file, true /* is_config_file */); }
     void load_json(const std::string& json_string) { load(json_string, false /* is_config_file */); }
@@ -239,14 +268,17 @@ public:
 
         parser.builder_.Finish(
             SettingsT::TableType::Pack(parser.builder_, m_rcu_data.get_node()->get().get(), nullptr));
-        if (!GenerateTextFile(parser, "", filepath)) { return; }
+
+        std::string fname = filepath;
+        boost::replace_all(fname, ".json", "");
+        if (!GenerateTextFile(parser, "", fname)) { return; }
     }
 
     const std::string& get_current_settings() const { return m_current_settings; }
 
     const std::string& get_last_settings_error() const { return m_last_error; }
 
-    const std::string get_json() const {
+    const std::string get_json() const override {
         std::string json;
         flatbuffers::Parser parser;
         parser.opts.strict_json = true;
@@ -378,6 +410,7 @@ private:
 
 protected:
     std::string m_raw_schema;
+    std::string m_base_file;
 
 private:
     /* Unparsed settings string */
@@ -388,7 +421,52 @@ private:
 
     /* RCU protected settings data */
     urcu_data< SettingsT > m_rcu_data;
-}; // namespace sisl
+};
+
+class SettingsFactoryRegistry {
+public:
+    static SettingsFactoryRegistry& instance() {
+        static SettingsFactoryRegistry _inst;
+        return _inst;
+    }
+
+    SettingsFactoryRegistry() = default;
+    void add(const std::string& s, SettingsFactoryBase* f) { m_factories.wlock()->insert(std::make_pair(s, f)); }
+    void remove(const std::string& s) { m_factories.wlock()->erase(s); }
+
+    bool reload_all(const auto& cb) {
+        bool ret = false;
+        m_factories.withRLock([&cb, &ret](auto& m) {
+            for (auto& e : m) {
+                auto r = e.second->reload();
+                if (r) ret = r;
+            }
+        });
+        return ret;
+    }
+
+    void save_all(const auto& cb) {
+        m_factories.withRLock([&cb](auto& m) {
+            for (auto& e : m) {
+                e.second->save();
+            }
+        });
+    }
+
+    nlohmann::json get_json() {
+        nlohmann::json j;
+        m_factories.withRLock([&j](auto& m) {
+            for (auto& e : m) {
+                j[e.first] = nlohmann::json::parse(e.second->get_json());
+            }
+        });
+        return j;
+    }
+
+private:
+    folly::Synchronized< std::unordered_map< std::string, SettingsFactoryBase* > > m_factories;
+};
+} // namespace sisl
 
 #define WITH_SETTINGS(var, ...) with_settings([](auto& var) __VA_ARGS__)
 #define WITH_SETTINGS_CAP1(var, cap1, ...) with_settings([cap1](auto& var) __VA_ARGS__)
@@ -418,5 +496,3 @@ private:
 
 //#define SETTINGS_VALUE(SType, path_expr) SETTINGS_FACTORY(SType).WITH_SETTINGS_VALUE(path_expr)
 #define SETTINGS_VALUE(sname, path_expr) SETTINGS_FACTORY(sname).WITH_SETTINGS_VALUE(path_expr)
-
-} // namespace sisl
