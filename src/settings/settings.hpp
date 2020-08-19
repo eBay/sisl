@@ -209,7 +209,7 @@ static bool diff_vector(const reflection::Schema* schema, const reflection::Fiel
 class SettingsFactoryBase : public boost::noncopyable {
 public:
     virtual void load() = 0;
-    virtual void reload() = 0;
+    virtual bool reload() = 0;
     virtual void save() = 0;
     virtual const std::string get_json() const = 0;
 };
@@ -250,8 +250,10 @@ public:
         load_file(m_base_file);
     }
 
-    void reload() override { reload_file(m_base_file); }
-    void save() override { save(m_base_file); }
+    bool reload() override { return reload_file(m_base_file); }
+    void save() override {
+        if (m_base_file.length() != 0) { save(m_base_file); }
+    }
 
     void load_file(const std::string& config_file) { load(config_file, true /* is_config_file */); }
     void load_json(const std::string& json_string) { load(json_string, false /* is_config_file */); }
@@ -263,6 +265,7 @@ public:
         std::string json;
         flatbuffers::Parser parser;
         parser.opts.strict_json = true;
+        parser.opts.output_default_scalars_in_json = true;
 
         if (!parser.Parse(m_raw_schema.c_str())) { return; }
 
@@ -434,19 +437,19 @@ public:
     void add(const std::string& s, SettingsFactoryBase* f) { m_factories.wlock()->insert(std::make_pair(s, f)); }
     void remove(const std::string& s) { m_factories.wlock()->erase(s); }
 
-    bool reload_all(const auto& cb) {
+    bool reload_all() {
         bool ret = false;
-        m_factories.withRLock([&cb, &ret](auto& m) {
+        m_factories.withRLock([&ret](auto& m) {
             for (auto& e : m) {
-                auto r = e.second->reload();
+                bool r = e.second->reload();
                 if (r) ret = r;
             }
         });
         return ret;
     }
 
-    void save_all(const auto& cb) {
-        m_factories.withRLock([&cb](auto& m) {
+    void save_all() {
+        m_factories.withRLock([](auto& m) {
             for (auto& e : m) {
                 e.second->save();
             }
