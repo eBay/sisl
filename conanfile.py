@@ -26,7 +26,7 @@ class MetricsConan(ConanFile):
                         )
 
     requires = (
-                    "sds_logging/[~=7, include_prerelease=True]@sds/master",
+                    "sds_logging/[~=7.0]@sds/testing",
 
                     "benchmark/1.5.0",
                     "boost/1.73.0",
