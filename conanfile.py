@@ -39,7 +39,7 @@ class MetricsConan(ConanFile):
                     "folly/2020.05.04.00",
                     "nlohmann_json/3.8.0",
                     ("openssl/1.1.1g", "override"),
-                    "prometheus_cpp/0.7.1",
+                    "prometheus_cpp/0.7.2",
                     "userspace-rcu/0.11.2",
                 )
 
