@@ -25,17 +25,20 @@ class MetricsConan(ConanFile):
                         'sanitize=False',
                         )
 
+    build_requires = (
+                    "benchmark/1.5.0",
+                    "gtest/1.10.0",
+                )
     requires = (
                     "sds_logging/[~=7, include_prerelease=True]@sds/master",
+                    "sds_options/[~=1, include_prerelease=True]@sds/master",
 
-                    "benchmark/1.5.0",
                     "boost/1.73.0",
                     "evhtp/1.2.18.2",
                     "flatbuffers/1.11.0",
                     "folly/2020.05.04.00",
-                    "gtest/1.10.0",
                     "nlohmann_json/3.8.0",
-                    "openssl/1.1.1g",
+                    ("openssl/1.1.1g", "override"),
                     "prometheus_cpp/0.7.1",
                     "userspace-rcu/0.11.2",
                 )
