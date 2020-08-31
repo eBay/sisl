@@ -113,7 +113,7 @@ namespace sisl {
         // NOTE: This round_up version only works for multiples a power of 2
 inline uint64_t round_up(const uint64_t num_to_round, const uint64_t multiple) {
     assert((multiple > static_cast<uint64_t>(0)) && !(multiple & (multiple - 1)));
-    return (num_to_round + multiple - 1) & -multiple;
+    return (num_to_round + multiple - 1) & (~(multiple - 1));
 }
 inline uint64_t round_down(const uint64_t num_to_round, const uint64_t multiple) { return (num_to_round / multiple) * multiple; }
 
