@@ -367,6 +367,8 @@ MODLEVELDEC(_, _, base)
     spdlog::level::level_enum BOOST_PP_CAT(module_level_, module){l};                                                  \
     }
 
+#define MOD_LEVEL_STRING(r, _, module) BOOST_PP_STRINGIZE(module),
+
 #define SDS_LOGGING_DECL(...)                                                                                          \
     BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
@@ -377,7 +379,8 @@ MODLEVELDEC(_, _, base)
     namespace sds_logging {                                                                                            \
     std::shared_ptr< spdlog::logger > glob_spdlog_logger;                                                              \
     std::shared_ptr< spdlog::logger > glob_critical_logger;                                                            \
-    std::vector< std::string > glob_enabled_mods;                                                                      \
+    std::vector< std::string > glob_enabled_mods = {                                                                   \
+        MOD_LEVEL_STRING(, , base) BOOST_PP_SEQ_FOR_EACH(MOD_LEVEL_STRING, , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};  \
     std::mutex LoggerThreadContext::_logger_thread_mutex;                                                              \
     std::unordered_set< LoggerThreadContext* > LoggerThreadContext::_logger_thread_set;                                \
     }
