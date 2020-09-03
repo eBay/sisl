@@ -374,7 +374,7 @@ MODLEVELDEC(_, _, base)
 
 #define SDS_LOGGING_INIT(...)                                                                                          \
     BOOST_PP_SEQ_FOR_EACH(                                                                                             \
-        MODLEVELDEF, spdlog::level::level_enum::warn,                                                                  \
+        MODLEVELDEF, spdlog::level::level_enum::info,                                                                  \
         BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base)))               \
     namespace sds_logging {                                                                                            \
     std::shared_ptr< spdlog::logger > glob_spdlog_logger;                                                              \
