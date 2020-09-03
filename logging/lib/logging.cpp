@@ -114,38 +114,63 @@ void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
     spdlog::register_logger(glob_critical_logger);
 }
 
-static void setup_modules(spdlog::level::level_enum const lvl) {
-    module_level_base = lvl;
-    if (SDS_OPTIONS.count("log_mods")) {
-        std::regex                 re("[\\s,]+");
-        auto                       s = SDS_OPTIONS["log_mods"].as< std::string >();
-        std::sregex_token_iterator it(s.begin(), s.end(), re, -1);
-        std::sregex_token_iterator reg_end;
-        for (; it != reg_end; ++it) {
-            auto        mod_stream = std::istringstream(it->str());
-            std::string module_name, module_level;
-            getline(mod_stream, module_name, ':');
-            auto sym = "module_level_" + module_name;
-            if (auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str()); nullptr != mod_level) {
-                if (getline(mod_stream, module_level, ':')) {
-                    *mod_level = (1 == module_level.size())
-                        ? (spdlog::level::level_enum)strtol(module_level.data(), nullptr, 0)
-                        : spdlog::level::from_str(module_level.data());
+static void _set_module_log_level(const std::string& module_name, spdlog::level::level_enum level) {
+    auto sym = "module_level_" + module_name;
+    auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str());
+    if (mod_level == nullptr) {
+        LOGWARN("Unable to locate the module {} in registered modules", module_name);
+        return;
+    }
+
+    *mod_level = level;
+}
+
+static std::string setup_modules() {
+    std::string out_str;
+
+    if (SDS_OPTIONS.count("verbosity")) {
+        auto lvl_str = SDS_OPTIONS["verbosity"].as< std::string >();
+        auto lvl = spdlog::level::from_str(lvl_str);
+        if (spdlog::level::level_enum::off == lvl && lvl_str.size() == 1) {
+            lvl = (spdlog::level::level_enum)std::stoi(lvl_str);
+            lvl_str = spdlog::level::to_string_view(lvl).data();
+        }
+
+        for (auto& module_name : glob_enabled_mods) {
+            _set_module_log_level(module_name, lvl);
+            fmt::format_to(std::back_inserter(out_str), "{}={}, ", module_name, lvl_str);
+        }
+    } else {
+        if (SDS_OPTIONS.count("log_mods")) {
+            std::regex re("[\\s,]+");
+            auto s = SDS_OPTIONS["log_mods"].as< std::string >();
+            std::sregex_token_iterator it(s.begin(), s.end(), re, -1);
+            std::sregex_token_iterator reg_end;
+            for (; it != reg_end; ++it) {
+                auto mod_stream = std::istringstream(it->str());
+                std::string module_name, module_level;
+                getline(mod_stream, module_name, ':');
+                auto sym = "module_level_" + module_name;
+                if (auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str());
+                    nullptr != mod_level) {
+                    if (getline(mod_stream, module_level, ':')) {
+                        *mod_level = (1 == module_level.size())
+                            ? (spdlog::level::level_enum)strtol(module_level.data(), nullptr, 0)
+                            : spdlog::level::from_str(module_level.data());
+                    }
                 } else {
-                    *mod_level = lvl;
+                    LOGWARN("Could not load module logger: {}\n{}", module_name, dlerror());
                 }
-                glob_enabled_mods.push_back(module_name);
-            } else {
-                LOGWARN("Could not load module logger: {}\n{}", module_name, dlerror());
             }
         }
-        if (0 < glob_enabled_mods.size()) {
-            auto const dash_fold = [](std::string a, std::string b) { return std::move(a) + ", " + b; };
-            LOGINFO("Enabled modules:\t{}",
-                    std::accumulate(std::next(glob_enabled_mods.begin()), glob_enabled_mods.end(), glob_enabled_mods[0],
-                                    dash_fold));
+
+        for (auto& module_name : glob_enabled_mods) {
+            fmt::format_to(std::back_inserter(out_str), "{}={}, ", module_name,
+                           spdlog::level::to_string_view(GetModuleLogLevel(module_name)).data());
         }
     }
+
+    return out_str;
 }
 
 void SetLogger(std::string const& name, std::string const& pkg, std::string const& ver) {
@@ -159,34 +184,18 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
         spdlog::flush_every(std::chrono::seconds(SDS_OPTIONS["flush_every"].as< uint32_t >()));
     }
 
-    auto lvl = spdlog::level::level_enum::info;
-    if (SDS_OPTIONS.count("verbosity")) {
-        auto const lvl_str = SDS_OPTIONS["verbosity"].as< std::string >();
-        lvl = spdlog::level::from_str(lvl_str);
-        if (spdlog::level::level_enum::off == lvl && lvl_str.size() == 1) {
-            lvl = (spdlog::level::level_enum)std::stoi(lvl_str);
-        }
-    }
-
     if (0 < SDS_OPTIONS["version"].count()) {
         spdlog::set_pattern("%v");
         sds_logging::GetLogger()->info("{} - {}", pkg, ver);
         exit(0);
     }
 
-    LOGINFO("Logging initialized [{}]: {}/{}", spdlog::level::to_string_view(lvl), pkg, ver);
-    setup_modules(lvl);
+    auto log_details = setup_modules();
+    LOGINFO("Logging initialized: {}/{}, [logmods: {}]", pkg, ver, log_details);
 }
 
 void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level) {
-    auto sym = "module_level_" + module_name;
-    auto mod_level = (spdlog::level::level_enum*)dlsym(RTLD_DEFAULT, sym.c_str());
-    if (mod_level == nullptr) {
-        LOGWARN("Unable to locate the module {} in registered modules", module_name);
-        return;
-    }
-
-    *mod_level = level;
+    _set_module_log_level(module_name, level);
     LOGINFO("Set module '{}' log level to '{}'", module_name, spdlog::level::to_string_view(level));
 }
 
@@ -203,14 +212,14 @@ spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name) {
 
 nlohmann::json GetAllModuleLogLevel() {
     nlohmann::json j;
-    for (auto mod_name : glob_enabled_mods) {
+    for (auto& mod_name : glob_enabled_mods) {
         j[mod_name] = spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data();
     }
     return j;
 }
 
 void SetAllModuleLogLevel(spdlog::level::level_enum level) {
-    for (auto mod_name : glob_enabled_mods) {
+    for (auto& mod_name : glob_enabled_mods) {
         SetModuleLogLevel(mod_name, level);
     }
 }
