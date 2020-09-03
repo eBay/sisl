@@ -58,14 +58,14 @@ struct flip_instance {
 
     std::string to_string() const {
         std::stringstream ss;
-        ss << "\n---------------------------" <<  m_fspec.flip_name() << "-----------------------\n";
+        ss << "\n---------------------------" << m_fspec.flip_name() << "-----------------------\n";
         ss << "Hitcount: " << m_hit_count << "\n";
         ss << "Remaining count: " << m_remain_exec_count << "\n";
         ss << m_fspec.flip_frequency().DebugString();
         ss << m_fspec.flip_action().DebugString();
         ss << "Conditions: [\n";
         auto i = 1;
-        for (const auto& cond: m_fspec.conditions()) {
+        for (const auto& cond : m_fspec.conditions()) {
             ss << std::to_string(i) << ") " << Operator_Name(cond.oper()) << " => " << cond.value().DebugString();
             ++i;
         }
@@ -74,9 +74,9 @@ struct flip_instance {
         return ss.str();
     }
 
-    FlipSpec                m_fspec;
+    FlipSpec m_fspec;
     std::atomic< uint32_t > m_hit_count;
-    std::atomic< int32_t >  m_remain_exec_count;
+    std::atomic< int32_t > m_remain_exec_count;
 };
 
 /****************************** Proto Param to Value converter ******************************/
@@ -137,7 +137,7 @@ struct val_converter< bool > {
 template < typename T >
 struct delayed_return_param {
     uint64_t delay_usec;
-    T        val;
+    T val;
 };
 
 template < typename T >
@@ -198,27 +198,35 @@ template < typename T >
 struct compare_val {
     bool operator()(const T& val1, const T& val2, Operator oper) {
         switch (oper) {
-        case Operator::DONT_CARE: return true;
+        case Operator::DONT_CARE:
+            return true;
 
-        case Operator::EQUAL: return (val1 == val2);
+        case Operator::EQUAL:
+            return (val1 == val2);
 
-        case Operator::NOT_EQUAL: return (val1 != val2);
+        case Operator::NOT_EQUAL:
+            return (val1 != val2);
 
-        case Operator::GREATER_THAN: return (val1 > val2);
+        case Operator::GREATER_THAN:
+            return (val1 > val2);
 
-        case Operator::LESS_THAN: return (val1 < val2);
+        case Operator::LESS_THAN:
+            return (val1 < val2);
 
-        case Operator::GREATER_THAN_OR_EQUAL: return (val1 >= val2);
+        case Operator::GREATER_THAN_OR_EQUAL:
+            return (val1 >= val2);
 
-        case Operator::LESS_THAN_OR_EQUAL: return (val1 <= val2);
+        case Operator::LESS_THAN_OR_EQUAL:
+            return (val1 <= val2);
 
-        default: return false;
+        default:
+            return false;
         }
     }
 };
 
-template<>
-struct compare_val<std::string> {
+template <>
+struct compare_val< std::string > {
     bool operator()(const std::string& val1, const std::string& val2, Operator oper) {
         switch (oper) {
         case Operator::DONT_CARE:
@@ -252,20 +260,24 @@ struct compare_val<std::string> {
         }
     }
 };
-template<>
-struct compare_val<const char *> {
-    bool operator()(const char *&val1, const char *&val2, Operator oper) {
+template <>
+struct compare_val< const char* > {
+    bool operator()(const char*& val1, const char*& val2, Operator oper) {
         switch (oper) {
-        case Operator::DONT_CARE: return true;
+        case Operator::DONT_CARE:
+            return true;
 
-        case Operator::EQUAL: return (val1 && val2 && (strcmp(val1, val2) == 0)) || (!val1 && !val2);
+        case Operator::EQUAL:
+            return (val1 && val2 && (strcmp(val1, val2) == 0)) || (!val1 && !val2);
 
         case Operator::NOT_EQUAL:
             return (val1 && val2 && (strcmp(val1, val2) != 0)) || (!val1 && val2) || (val1 && !val2);
 
-        case Operator::GREATER_THAN: return (val1 && val2 && (strcmp(val1, val2) > 0)) || (val1 && !val2);
+        case Operator::GREATER_THAN:
+            return (val1 && val2 && (strcmp(val1, val2) > 0)) || (val1 && !val2);
 
-        case Operator::LESS_THAN: return (val1 && val2 && (strcmp(val1, val2) < 0)) || (!val1 && val2);
+        case Operator::LESS_THAN:
+            return (val1 && val2 && (strcmp(val1, val2) < 0)) || (!val1 && val2);
 
         case Operator::GREATER_THAN_OR_EQUAL:
             return (val1 && val2 && (strcmp(val1, val2) >= 0)) || (val1 && !val2) || (!val1 && !val2);
@@ -327,10 +339,10 @@ public:
     }
 
 private:
-    io_service                     m_svc;
-    std::unique_ptr< io_work >     m_work;
-    std::mutex                     m_thr_mutex;
-    int32_t                        m_timer_count;
+    io_service m_svc;
+    std::unique_ptr< io_work > m_work;
+    std::mutex m_thr_mutex;
+    int32_t m_timer_count;
     std::unique_ptr< std::thread > m_timer_thread;
 };
 
@@ -362,8 +374,8 @@ public:
         // TODO: Add verification to see if the flip is already scheduled, any errors etc..
         std::unique_lock< std::shared_mutex > lock(m_mutex);
         m_flip_specs.emplace(std::pair< std::string, flip_instance >(fspec.flip_name(), inst));
-        LOGINFOMOD(flip, "Added new fault flip {} to the list of flips", fspec.flip_name());
-        //LOG(INFO) << "Flip details:" << inst.to_string();
+        LOGDEBUGMOD(flip, "Added new fault flip {} to the list of flips", fspec.flip_name());
+        // LOG(INFO) << "Flip details:" << inst.to_string();
         return true;
     }
 
@@ -419,31 +431,26 @@ public:
 
     template < class... Args >
     bool test_flip(std::string flip_name, Args&&... args) {
-        if (!m_flip_enabled)
-            return false;
+        if (!m_flip_enabled) return false;
         auto ret = __test_flip< bool, TEST_ONLY >(flip_name, std::forward< Args >(args)...);
         return (ret != boost::none);
     }
 
     template < typename T, class... Args >
     boost::optional< T > get_test_flip(std::string flip_name, Args&&... args) {
-        if (!m_flip_enabled)
-            return boost::none;
+        if (!m_flip_enabled) return boost::none;
 
         auto ret = __test_flip< T, RETURN_VAL >(flip_name, std::forward< Args >(args)...);
-        if (ret == boost::none)
-            return boost::none;
+        if (ret == boost::none) return boost::none;
         return boost::optional< T >(boost::get< T >(ret.get()));
     }
 
     template < class... Args >
     bool delay_flip(std::string flip_name, const std::function< void() >& closure, Args&&... args) {
-        if (!m_flip_enabled)
-            return false;
+        if (!m_flip_enabled) return false;
 
         auto ret = __test_flip< bool, SET_DELAY >(flip_name, std::forward< Args >(args)...);
-        if (ret == boost::none)
-            return false; // Not a hit
+        if (ret == boost::none) return false; // Not a hit
 
         uint64_t delay_usec = boost::get< uint64_t >(ret.get());
         m_timer.schedule(boost::posix_time::microseconds(delay_usec), closure);
@@ -452,15 +459,13 @@ public:
 
     template < typename T, class... Args >
     bool get_delay_flip(std::string flip_name, const std::function< void(T) >& closure, Args&&... args) {
-        if (!m_flip_enabled)
-            return false;
+        if (!m_flip_enabled) return false;
 
         auto ret = __test_flip< T, DELAYED_RETURN >(flip_name, std::forward< Args >(args)...);
-        if (ret == boost::none)
-            return false; // Not a hit
+        if (ret == boost::none) return false; // Not a hit
 
         auto param = boost::get< delayed_return_param< T > >(ret.get());
-        LOGINFOMOD(flip, "Returned param delay = {} val = {}", param.delay_usec, param.val);
+        LOGDEBUGMOD(flip, "Returned param delay = {} val = {}", param.delay_usec, param.val);
         m_timer.schedule(boost::posix_time::microseconds(param.delay_usec), [closure, param]() { closure(param.val); });
         return true;
     }
@@ -469,7 +474,7 @@ private:
     template < typename T, int ActionType, class... Args >
     boost::optional< boost::variant< T, bool, uint64_t, delayed_return_param< T > > > __test_flip(std::string flip_name,
                                                                                                   Args&&... args) {
-        bool           exec_completed = false; // If all the exec for the flip is completed.
+        bool exec_completed = false; // If all the exec for the flip is completed.
         flip_instance* inst = nullptr;
 
         {
@@ -495,7 +500,7 @@ private:
                 LOGDEBUGMOD(flip, "Flip {} matches, but reaches max count", flip_name);
                 return boost::none;
             }
-            LOGINFOMOD(flip, "Flip {} matches and hits", flip_name);
+            LOGDEBUGMOD(flip, "Flip {} matches and hits", flip_name);
         }
 
         boost::variant< T, bool, uint64_t, delayed_return_param< T > > val_ret;
@@ -514,11 +519,13 @@ private:
             val_ret = true;
             break;
 
-        case FlipAction::kDelays: val_ret = inst->m_fspec.flip_action().delays().delay_in_usec(); break;
+        case FlipAction::kDelays:
+            val_ret = inst->m_fspec.flip_action().delays().delay_in_usec();
+            break;
 
         case FlipAction::kDelayReturns:
             if (ActionType == DELAYED_RETURN) {
-                auto&                     flip_dr = inst->m_fspec.flip_action().delay_returns();
+                auto& flip_dr = inst->m_fspec.flip_action().delay_returns();
                 delayed_return_param< T > dr;
                 dr.delay_usec = flip_dr.delay_in_usec();
                 dr.val = val_converter< T >()(flip_dr.retval());
@@ -528,15 +535,14 @@ private:
             }
             break;
 
-        default: val_ret = true;
+        default:
+            val_ret = true;
         }
 
         if (exec_completed) {
             // If we completed the execution, need to remove them
             std::unique_lock< std::shared_mutex > lock(m_mutex);
-            if (inst->m_remain_exec_count.load(std::memory_order_relaxed) == 0) {
-                m_flip_specs.erase(flip_name);
-            }
+            if (inst->m_remain_exec_count.load(std::memory_order_relaxed) == 0) { m_flip_specs.erase(flip_name); }
         }
         return val_ret;
     }
@@ -552,12 +558,10 @@ private:
 
             // Check for all the condition match
             std::tuple< Args... > arglist(std::forward< Args >(args)...);
-            auto                  i = 0U;
-            bool                  matched = true;
+            auto i = 0U;
+            bool matched = true;
             for_each(arglist, [this, fspec, &i, &matched](auto& v) {
-                if (!condition_matches(v, fspec.conditions()[i++])) {
-                    matched = false;
-                }
+                if (!condition_matches(v, fspec.conditions()[i++])) { matched = false; }
             });
 
             // One or more conditions does not match.
@@ -645,10 +649,10 @@ private:
 #endif
 private:
     std::multimap< std::string, flip_instance, flip_name_compare > m_flip_specs;
-    std::shared_mutex                                              m_mutex;
-    bool                                                           m_flip_enabled;
-    FlipTimer                                                      m_timer;
-    std::unique_ptr< std::thread >                                 m_flip_server_thread;
+    std::shared_mutex m_mutex;
+    bool m_flip_enabled;
+    FlipTimer m_timer;
+    std::unique_ptr< std::thread > m_flip_server_thread;
 };
 
 class FlipClient {
