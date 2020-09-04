@@ -96,12 +96,12 @@ constexpr std::array< char const, N1 + N2 - 1 > const_concat(char const (&a1)[N1
 
 template < class P, class M >
 inline size_t offset_of(const M P::*member) {
-    return static_cast<size_t>(&(reinterpret_cast<const volatile P* >(nullptr)->*member));
+    return reinterpret_cast<size_t>(&(reinterpret_cast<const volatile P* >(NULL)->*member));
 }
 
 template < class P, class M >
 inline P* container_of(const M* ptr, const M P::*member) {
-    return reinterpret_cast<P*>(reinterpret_cast<uint8_t*>(ptr) - offset_of(member));
+    return reinterpret_cast<P*>(reinterpret_cast<uint8_t*>(const_cast<M*>(ptr)) - offset_of(member));
 }
 
 template < const uint32_t bits, const uint32_t lshifts = 0 >
