@@ -5,18 +5,32 @@ pipeline {
         ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
         CONAN_USER = 'sisl'
         MASTER_BRANCH = 'master'
-        DEVELOP_BRANCH = 'testing/v*'
+        TESTING_BRANCH = 'testing/v*'
         STABLE_BRANCH = 'stable/v*'
     }
 
     stages {
         stage('Adjust Tag for Master/PR') {
             when { not { anyOf {
-                branch "${DEVELOP_BRANCH}"
+                branch "${TESTING_BRANCH}"
                 branch "${STABLE_BRANCH}"
             } } }
             steps {
-                sh(script: "sed -Ei 's,version = .*\"([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*,version = \"\\1-${env.BUILD_NUMBER}\",' conanfile.py")
+                script {
+                    sh(script: "sed -Ei 's,version = .*\"([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*,version = \"\\1-${env.BUILD_NUMBER}\",' conanfile.py")
+                    BUILD_MISSING = "--build cascade --build missing"
+                }
+            }
+        }
+        stage('Adjust for Testing/Stable') {
+            when { anyOf {
+                branch "${TESTING_BRANCH}"
+                branch "${STABLE_BRANCH}"
+            } }
+            steps {
+                script {
+                    BUILD_MISSING = ""
+                }
             }
         }
 
@@ -24,9 +38,19 @@ pipeline {
             steps {
                 script {
                     PROJECT = sh(script: "grep -m 1 'name =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
-                    TAG = sh(script: "grep -m 1 'version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
+                    VER = sh(script: "grep -m 1 'version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
                     CONAN_CHANNEL = sh(script: "echo ${BRANCH_NAME} | sed -E 's,(\\w+-?\\d*)/.*,\\1,' | sed -E 's,-,_,' | tr -d '\n'", returnStdout: true)
-                    slackSend color: '#0063D1', channel: '#sds-ci', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* is building."
+                    TAG = "${VER}@${CONAN_USER}/${CONAN_CHANNEL}"
+                    slackSend color: '#0063D1', channel: '#sds-ci', message: "*${PROJECT}/${TAG}* is building."
+                }
+            }
+        }
+
+        stage('Tag Stable Build') {
+            when { branch "${STABLE_BRANCH}" }
+            steps {
+                script {
+                    TAG = "${VER}@"
                 }
             }
         }
@@ -58,7 +82,7 @@ pipeline {
                 stages {
                     stage('Adjust Tag for Master/PR') {
                         when { not { anyOf {
-                            branch "${DEVELOP_BRANCH}"
+                            branch "${TESTING_BRANCH}"
                             branch "${STABLE_BRANCH}"
                         } } }
                         steps {
@@ -71,7 +95,7 @@ pipeline {
                             expression { "${COVERAGE}" == 'False' }
                         }
                         steps {
-                            sh "conan create -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}"
+                            sh "conan create ${BUILD_MISSING} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
                     stage("Deploy") {
@@ -81,7 +105,7 @@ pipeline {
                         } }
                         steps {
                             sh "conan user -r ebay-local -p ${ARTIFACTORY_PASS} _service_sds"
-                            sh "conan upload ${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL} -c --all -r ebay-local"
+                            sh "conan upload ${PROJECT}/${TAG} -c --all -r ebay-local"
                         }
                     }
                     stage('Coverage') {
@@ -105,11 +129,11 @@ pipeline {
                                 steps {
                                     slackSend channel: '#sds-ci', message: "*${PROJECT}:${TAG}* is undergoing Code Coverage."
                                     sh "echo \"sonar.branch.name=${BRANCH_NAME}\" >> sonar-project.properties"
-                                    sh "conan install -pr ${BUILD_TYPE} --build missing -o ${PROJECT}:coverage=True ."
+                                    sh "conan install -pr ${BUILD_TYPE} ${BUILD_MISSING} -o ${PROJECT}:coverage=True ."
                                     sh "build-wrapper-linux-x86-64 --out-dir /tmp/sonar conan build ."
                                     sh "find . -name \"*.gcno\" -exec gcov {} \\;"
                                     withSonarQubeEnv('sds-sonar')  {
-                                        sh "sonar-scanner -Dsonar.projectBaseDir=. -Dsonar.projectVersion=\"${TAG}\""
+                                        sh "sonar-scanner -Dsonar.projectBaseDir=. -Dsonar.projectVersion=\"${VER}\""
                                     }
                                 }
                             }
@@ -129,10 +153,10 @@ pipeline {
 
     post {
         failure {
-            slackSend color: '#E43237', channel: '#sds-ci', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has had a failure : ${BUILD_URL}"
+            slackSend color: '#E43237', channel: '#sds-ci', message: "*${PROJECT}/${TAG}* has had a failure : ${BUILD_URL}"
         }
         success {
-            slackSend color: '#85B717', channel: '#sds-ci', message: "*${PROJECT}/${TAG}@${CONAN_USER}/${CONAN_CHANNEL}* has completed."
+            slackSend color: '#85B717', channel: '#sds-ci', message: "*${PROJECT}/${TAG}* has completed."
         }
     }
 }
