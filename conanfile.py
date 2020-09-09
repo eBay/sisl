@@ -30,7 +30,7 @@ class MetricsConan(ConanFile):
                     "gtest/1.10.0",
                 )
     requires = (
-                    "sds_logging/[~=7, include_prerelease=True]@sds/master",
+                    "sds_logging/[~=8, include_prerelease=True]@sds/master",
                     "sds_options/[~=1, include_prerelease=True]@sds/master",
 
                     "boost/1.73.0",
