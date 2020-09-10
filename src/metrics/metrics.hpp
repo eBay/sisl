@@ -4,19 +4,30 @@
  */
 #pragma once
 
-#include <boost/preprocessor/cat.hpp>
-#include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/facilities/expand.hpp>
-#include <boost/preprocessor/control/if.hpp>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+
 #include <atomic>
-#include <set>
+#include <cstdint>
+#include <iterator>
+#include <limits>
+#include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
-#include "metrics_tlocal.hpp"
-#include "metrics_rcu.hpp"
+#include <set>
+#include <string>
+#include <unordered_map>
+#include <utility>
+
+#include "boost/preprocessor/cat.hpp"
+#include "boost/preprocessor/control/if.hpp"
+#include "boost/preprocessor/facilities/expand.hpp"
+#include "boost/preprocessor/stringize.hpp"
+
 #include "metrics_atomic.hpp"
+#include "metrics_rcu.hpp"
+#include "metrics_tlocal.hpp"
+#include "nlohmann/json.hpp"
+#include "sds_logging/logging.h"
+#include "sds_options/options.h"
+
 
 // TODO: Commenting out this tempoarily till the SDS_OPTIONS and SDS_LOGGING issue is resolved
 // SDS_LOGGING_DECL(vmod_metrics_framework)
@@ -25,6 +36,11 @@ namespace sisl {
 
 class MetricsGroup {
 public:
+    MetricsGroup(const MetricsGroup&) = delete;
+    MetricsGroup(MetricsGroup&&) noexcept = delete;
+    MetricsGroup& operator=(const MetricsGroup&) = delete;
+    MetricsGroup& operator=(MetricsGroup&&) noexcept = delete;
+
     MetricsGroupImplPtr m_impl_ptr;
 
     std::atomic< bool > m_is_registered = false;
@@ -55,17 +71,19 @@ private:
 
 private:
     MetricsFarm();
-    ~MetricsFarm();
 
     [[nodiscard]] auto lock() { return std::lock_guard< decltype(m_lock) >(m_lock); }
 
 public:
+    ~MetricsFarm();
+    MetricsFarm(const MetricsFarm&) = delete;
+    MetricsFarm(MetricsFarm&&) noexcept = delete;
+    MetricsFarm& operator=(const MetricsFarm&) = delete;
+    MetricsFarm& operator=(MetricsFarm&&) noexcept = delete;
+
     static MetricsFarm& getInstance();
     static Reporter& get_reporter();
     static bool is_initialized();
-
-    MetricsFarm(const MetricsFarm&) = delete;
-    void operator=(const MetricsFarm&) = delete;
 
     void register_metrics_group(MetricsGroupImplPtr mgroup);
     void deregister_metrics_group(MetricsGroupImplPtr mgroup);
@@ -81,147 +99,162 @@ using MetricsGroupWrapper = MetricsGroup; // For backward compatibility reasons
 } // namespace sisl
 
 ////////////////////////////////////////// Helper Routine section ////////////////////////////////////////////////
-template < char... chars >
-using tstring = std::integer_sequence< char, chars... >;
-
-template < typename T, T... chars >
-constexpr tstring< chars... > operator""_tstr() {
-    return {};
-}
 
 namespace sisl {
 
-template < typename >
-struct NamedCounter;
-
-template < typename >
-struct NamedGauge;
-
-template < typename >
-struct NamedHistogram;
-
-template < char... elements >
-struct NamedCounter< tstring< elements... > > {
+class NamedCounter {
 public:
-    static constexpr char Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    int m_index = -1;
+    NamedCounter(const NamedCounter&) = delete;
+    NamedCounter(NamedCounter&&) noexcept = delete;
+    NamedCounter& operator=(const NamedCounter&) = delete;
+    NamedCounter& operator=(NamedCounter&&) noexcept = delete;
 
-    static NamedCounter& getInstance() {
-        static NamedCounter instance;
-        return instance;
+    static NamedCounter& getInstance(const std::string& name) {
+        const auto insert_pair{s_Counters.try_emplace(name, std::unique_ptr< NamedCounter >{new NamedCounter{name}})};
+        return *(insert_pair.first->second.get());
     }
 
     CounterInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                       const metric_label& label_pair = {"", ""}, _publish_as ptype = publish_as_counter) {
-        return CounterInfo(std::string(Name), desc, instance_name, report_name, label_pair, ptype);
-    }
-    CounterInfo create(const std::string& instance_name, const std::string& desc, _publish_as ptype) {
-        return CounterInfo(std::string(Name), desc, instance_name, "", {"", ""}, ptype);
+                       const metric_label& label_pair = {"", ""}, _publish_as ptype = sisl::publish_as_counter) {
+        return CounterInfo(m_Name, desc, instance_name, report_name, label_pair, ptype);
     }
 
-    const char* get_name() const { return Name; }
+    CounterInfo create(const std::string& instance_name, const std::string& desc, sisl::_publish_as ptype) {
+        return CounterInfo(m_Name, desc, instance_name, "", {"", ""}, ptype);
+    }
+
+    void set_index(const uint64_t index) { m_Index = index; }
+    [[nodiscard]] uint64_t get_index() const { return m_Index; }
+    [[nodiscard]] const std::string& get_name() const { return m_Name; }
+
+private:
+    NamedCounter(const std::string& name) : m_Name{name}, m_Index{std::numeric_limits< uint64_t >::max()} {}
+
+    std::string m_Name;
+    size_t m_Index;
+    static std::unordered_map< std::string, std::unique_ptr< NamedCounter > > s_Counters;
 };
 
-template < char... elements >
-struct NamedGauge< tstring< elements... > > {
+class NamedGauge {
 public:
-    static constexpr char Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    int m_index = -1;
+    NamedGauge(const NamedGauge&) = delete;
+    NamedGauge(NamedGauge&&) noexcept = delete;
+    NamedGauge& operator=(const NamedGauge&) = delete;
+    NamedGauge& operator=(NamedGauge&&) noexcept = delete;
 
-    static NamedGauge& getInstance() {
-        static NamedGauge instance;
-        return instance;
+    static NamedGauge& getInstance(const std::string& name) {
+        const auto insert_pair{s_Gauges.try_emplace(name, std::unique_ptr< NamedGauge >{new NamedGauge{name}})};
+        return *(insert_pair.first->second.get());
     }
 
     GaugeInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
                      const metric_label& label_pair = {"", ""}) {
-        return GaugeInfo(std::string(Name), desc, instance_name, report_name, label_pair);
+        return GaugeInfo(m_Name, desc, instance_name, report_name, label_pair);
     }
 
-    const char* get_name() const { return Name; }
+    void set_index(const uint64_t index) { m_Index = index; }
+    [[nodiscard]] uint64_t get_index() const { return m_Index; }
+    [[nodiscard]] const std::string& get_name() const { return m_Name; }
+
+private:
+    NamedGauge(const std::string& name) : m_Name{name}, m_Index{std::numeric_limits< uint64_t >::max()} {}
+
+    std::string m_Name;
+    size_t m_Index;
+    static std::unordered_map< std::string, std::unique_ptr< NamedGauge > > s_Gauges;
 };
 
-template < char... elements >
-struct NamedHistogram< tstring< elements... > > {
+class NamedHistogram {
 public:
-    static constexpr char Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    int m_index = -1;
+    NamedHistogram(const NamedHistogram&) = delete;
+    NamedHistogram(NamedHistogram&&) noexcept = delete;
+    NamedHistogram& operator=(const NamedHistogram&) = delete;
+    NamedHistogram& operator=(NamedHistogram&&) noexcept = delete;
 
-    static NamedHistogram& getInstance() {
-        static NamedHistogram instance;
-        return instance;
+    static NamedHistogram& getInstance(const std::string& name) {
+        const auto insert_pair{
+            s_Histograms.try_emplace(name, std::unique_ptr< NamedHistogram >{new NamedHistogram{name}})};
+        return *(insert_pair.first->second.get());
     }
 
     HistogramInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
                          const metric_label& label_pair = {"", ""},
                          const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets)) {
-        return HistogramInfo(std::string(Name), desc, instance_name, report_name, label_pair, bkt_boundaries);
+        return HistogramInfo(m_Name, desc, instance_name, report_name, label_pair, bkt_boundaries);
     }
 
-    HistogramInfo create(const std::string& instance_name, const std::string& desc,
-                         const hist_bucket_boundaries_t& bkt_boundaries) {
-        return HistogramInfo(std::string(Name), desc, instance_name, "", {"", ""}, bkt_boundaries);
+    sisl::HistogramInfo create(const std::string& instance_name, const std::string& desc,
+                               const sisl::hist_bucket_boundaries_t& bkt_boundaries) {
+        return sisl::HistogramInfo(m_Name, desc, instance_name, "", {"", ""}, bkt_boundaries);
     }
 
-    const char* get_name() const { return Name; }
+    void set_index(const uint64_t index) { m_Index = index; }
+    [[nodiscard]] uint64_t get_index() const { return m_Index; }
+    [[nodiscard]] const std::string& get_name() const { return m_Name; }
+
+private:
+    NamedHistogram(const std::string& name) : m_Name{name}, m_Index{std::numeric_limits< uint64_t >::max()} {}
+
+    std::string m_Name;
+    size_t m_Index;
+    static std::unordered_map< std::string, std::unique_ptr< NamedHistogram > > s_Histograms;
 };
 
 #define REGISTER_COUNTER(name, ...)                                                                                    \
     {                                                                                                                  \
-        using namespace sisl;                                                                                          \
-        auto& nc = sisl::NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();       \
-        auto rc = nc.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__);                                       \
-        nc.m_index = this->m_impl_ptr->register_counter(rc);                                                           \
+        auto& nc{sisl::NamedCounter::getInstance(BOOST_PP_STRINGIZE(name))};                                           \
+        auto rc{nc.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__)};                                        \
+        nc.set_index(this->m_impl_ptr->register_counter(rc));                                                          \
     }
 
 #define REGISTER_GAUGE(name, ...)                                                                                      \
     {                                                                                                                  \
-        using namespace sisl;                                                                                          \
-        auto& ng = sisl::NamedGauge< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();         \
-        auto rg = ng.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__);                                       \
-        ng.m_index = this->m_impl_ptr->register_gauge(rg);                                                             \
+        auto& ng{sisl::NamedGauge::getInstance(BOOST_PP_STRINGIZE(name))};                                             \
+        auto rg{ng.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__)};                                        \
+        ng.set_index(this->m_impl_ptr->register_gauge(rg));                                                            \
     }
 
 #define REGISTER_HISTOGRAM(name, ...)                                                                                  \
     {                                                                                                                  \
-        using namespace sisl;                                                                                          \
-        auto& nh = sisl::NamedHistogram< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();     \
-        auto rh = nh.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__);                                       \
-        nh.m_index = this->m_impl_ptr->register_histogram(rh);                                                         \
+        auto& nh{sisl::NamedHistogram::getInstance(BOOST_PP_STRINGIZE(name))};                                         \
+        auto rh{nh.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__)};                                        \
+        nh.set_index(this->m_impl_ptr->register_histogram(rh));                                                        \
     }
 
 #define COUNTER_INDEX(name) METRIC_NAME_TO_INDEX(NamedCounter, name)
 #define GAUGE_INDEX(name) METRIC_NAME_TO_INDEX(NamedGauge, name)
 #define HISTOGRAM_INDEX(name) METRIC_NAME_TO_INDEX(NamedHistogram, name)
 
-#define METRIC_NAME_TO_INDEX(type, name)                                                                               \
-    (sisl::type< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().m_index)
+#define METRIC_NAME_TO_INDEX(type, name)                                                                              \
+    (sisl::type::getInstance(BOOST_PP_STRINGIZE(name)).get_index())
+
 
 // TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SDS_LOGGING and SDS_OPTIONS are resolved
+
 #ifndef NDEBUG
 #define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \
     {                                                                                                                  \
-        auto i = METRIC_NAME_TO_INDEX(type, name);                                                                     \
-        if (i == -1) {                                                                                                 \
+        const auto index{ METRIC_NAME_TO_INDEX(type, name) };                                                                     \
+        if (index == std::numeric_limits<decltype(index)>::max()) {                                                                                                 \
             fprintf(stderr, "Metric name '%s' not registered yet but used\n", BOOST_PP_STRINGIZE(name));               \
             fflush(stderr);                                                                                            \
             assert(0);                                                                                                 \
         }                                                                                                              \
-        ((group).m_impl_ptr->method(i, __VA_ARGS__));                                                                  \
+        ((group).m_impl_ptr->method(index, __VA_ARGS__));                                                                  \
     }
 #else
-#define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \
+#define __VALIDATE_AND_EXECUTE2(group, type, method, name, ...)                                                         \
     {                                                                                                                  \
-        auto i = METRIC_NAME_TO_INDEX(type, name);                                                                     \
-        ((group).m_impl_ptr->method(i, __VA_ARGS__));                                                                  \
+        const auto index{METRIC_NAME_TO_INDEX(type, name)};                                                                     \
+        ((group).m_impl_ptr->method(index, __VA_ARGS__));                                                                  \
     }
 #endif
 
 #define __VALIDATE_AND_EXECUTE_IF_ELSE(group, type, method, cond, namea, nameb, ...)                                   \
     if (cond) {                                                                                                        \
-        __VALIDATE_AND_EXECUTE(group, type, method, namea, __VA_ARGS__);                                               \
+        __VALIDATE_AND_EXECUTE2(group, type, method, namea, __VA_ARGS__);                                               \
     } else {                                                                                                           \
-        __VALIDATE_AND_EXECUTE(group, type, method, nameb, __VA_ARGS__);                                               \
+        __VALIDATE_AND_EXECUTE2(group, type, method, nameb, __VA_ARGS__);                                               \
     }
 
 #define COUNTER_INCREMENT(group, name, ...)                                                                            \
@@ -245,10 +278,10 @@ public:
 #if 0
 #define COUNTER_INCREMENT(group, name, ...)                                                                            \
     {                                                                                                                  \
-        auto& nc = NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();             \
+        const auto& nc{NamedCounter::getInstance(BOOST_PP_STRINGIZE(name))};                                                 \
         std::cout << "Counter accessed for name = " << nc.get_name() << " ptr = " << (void*)&nc                        \
-                  << " index = " << nc.m_index << "\n";                                                                \
-        group->counterIncrement(nc.m_index, __VA_ARGS__);                                                              \
+                  << " index = " << nc.get_index() << "\n";                                                            \
+        group->counterIncrement(nc.get_index(), __VA_ARGS__);                                                              \
     }
 #endif
 

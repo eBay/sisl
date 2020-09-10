@@ -9,7 +9,7 @@ namespace sisl {
 
 #define PROMETHEUS_METRICS_REPORTER
 
-static std::atomic< bool > metrics_farm_initialized = false;
+static std::atomic< bool > metrics_farm_initialized{false};
 
 /**************************** MetricsFarm ***********************************/
 MetricsFarm& MetricsFarm::getInstance() {
@@ -34,20 +34,20 @@ bool MetricsFarm::is_initialized() { return metrics_farm_initialized.load(); }
 
 void MetricsFarm::register_metrics_group(MetricsGroupImplPtr mgroup) {
     assert(mgroup != nullptr);
-    auto locked = lock();
+    auto locked{lock()};
     mgroup->on_register();
     m_mgroups.insert(mgroup);
 }
 
 void MetricsFarm::deregister_metrics_group(MetricsGroupImplPtr mgroup) {
     assert(mgroup != nullptr);
-    auto locked = lock();
+    auto locked{lock()};
     m_mgroups.erase(mgroup);
 }
 
 nlohmann::json MetricsFarm::get_result_in_json(bool need_latest) {
     nlohmann::json json;
-    auto locked = lock();
+    auto locked{lock()};
     for (auto& mgroup : m_mgroups) {
         json[mgroup->get_group_name()][mgroup->get_instance_name()] = mgroup->get_result_in_json(need_latest);
     }
@@ -58,7 +58,7 @@ nlohmann::json MetricsFarm::get_result_in_json(bool need_latest) {
 std::string MetricsFarm::get_result_in_json_string(bool need_latest) { return get_result_in_json(need_latest).dump(); }
 
 std::string MetricsFarm::report(ReportFormat format) {
-    auto locked = lock();
+    auto locked{lock()};
     for (auto& mgroup : m_mgroups) {
         mgroup->publish_result();
     }
@@ -69,8 +69,8 @@ std::string MetricsFarm::report(ReportFormat format) {
 
 void MetricsFarm::gather() {
     nlohmann::json json;
-    auto flushed = false;
-    auto locked = lock();
+    auto locked{lock()};
+    bool flushed{false};
     for (auto& mgroup : m_mgroups) {
         if (!flushed && (mgroup->impl_type() == group_impl_type_t::thread_buf_signal)) {
             ThreadBufferMetricsGroup::flush_core_cache();
@@ -79,4 +79,10 @@ void MetricsFarm::gather() {
         mgroup->gather();
     }
 }
+
+////////////////////////////////////////// Helper Routine section ////////////////////////////////////////////////
+std::unordered_map< std::string, std::unique_ptr< NamedCounter > > NamedCounter::s_Counters{};
+std::unordered_map< std::string, std::unique_ptr< NamedGauge > > NamedGauge::s_Gauges{};
+std::unordered_map< std::string, std::unique_ptr< NamedHistogram > > NamedHistogram::s_Histograms{};
+
 } // namespace sisl

@@ -98,3 +98,7 @@ tags*
 .tags*
 src/tags*
 src/.tags*
+
+# Visual Studio
+CMakeSettings.json
+.vs/**
