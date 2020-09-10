@@ -243,7 +243,7 @@ private:
         ((group).m_impl_ptr->method(index, __VA_ARGS__));                                                                  \
     }
 #else
-#define __VALIDATE_AND_EXECUTE2(group, type, method, name, ...)                                                         \
+#define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \
     {                                                                                                                  \
         const auto index{METRIC_NAME_TO_INDEX(type, name)};                                                                     \
         ((group).m_impl_ptr->method(index, __VA_ARGS__));                                                                  \
@@ -252,9 +252,9 @@ private:
 
 #define __VALIDATE_AND_EXECUTE_IF_ELSE(group, type, method, cond, namea, nameb, ...)                                   \
     if (cond) {                                                                                                        \
-        __VALIDATE_AND_EXECUTE2(group, type, method, namea, __VA_ARGS__);                                               \
+        __VALIDATE_AND_EXECUTE(group, type, method, namea, __VA_ARGS__);                                               \
     } else {                                                                                                           \
-        __VALIDATE_AND_EXECUTE2(group, type, method, nameb, __VA_ARGS__);                                               \
+        __VALIDATE_AND_EXECUTE(group, type, method, nameb, __VA_ARGS__);                                               \
     }
 
 #define COUNTER_INCREMENT(group, name, ...)                                                                            \
