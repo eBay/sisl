@@ -2,8 +2,9 @@
 // Created by Kadayam, Hari on 2/5/19.
 //
 
+#include "sds_logging/logging.h"
+
 #include "metrics.hpp"
-#include <sds_logging/logging.h>
 
 namespace sisl {
 
@@ -32,17 +33,18 @@ MetricsFarm::~MetricsFarm() { metrics_farm_initialized = false; }
 
 bool MetricsFarm::is_initialized() { return metrics_farm_initialized.load(); }
 
-void MetricsFarm::register_metrics_group(MetricsGroupImplPtr mgroup) {
-    assert(mgroup != nullptr);
+void MetricsFarm::register_metrics_group(MetricsGroupImplPtr mgrp_impl) {
+    assert(mgrp_impl != nullptr);
     auto locked{lock()};
-    mgroup->on_register();
-    m_mgroups.insert(mgroup);
+    mgrp_impl->on_register();
+    m_mgroups.insert(mgrp_impl);
+    mgrp_impl->registration_completed();
 }
 
-void MetricsFarm::deregister_metrics_group(MetricsGroupImplPtr mgroup) {
-    assert(mgroup != nullptr);
+void MetricsFarm::deregister_metrics_group(MetricsGroupImplPtr mgrp_impl) {
+    assert(mgrp_impl != nullptr);
     auto locked{lock()};
-    m_mgroups.erase(mgroup);
+    m_mgroups.erase(mgrp_impl);
 }
 
 nlohmann::json MetricsFarm::get_result_in_json(bool need_latest) {
@@ -85,4 +87,19 @@ std::unordered_map< std::string, std::unique_ptr< NamedCounter > > NamedCounter:
 std::unordered_map< std::string, std::unique_ptr< NamedGauge > > NamedGauge::s_Gauges{};
 std::unordered_map< std::string, std::unique_ptr< NamedHistogram > > NamedHistogram::s_Histograms{};
 
+std::string MetricsFarm::ensure_unique(const std::string& grp_name, const std::string& inst_name) {
+    auto locked{lock()};
+
+    // If 2 instances are provided with same name (unknowingly), prometheus with same label pairs, return the same
+    // prometheus::Counter pointer, which means if one of them freed, other could access it. To prevent that, we
+    // are creating a unique instance name, so that we have one per registration.
+    const auto it{m_uniq_inst_maintainer.find(grp_name + inst_name)};
+    if (it == std::end(m_uniq_inst_maintainer)) {
+        m_uniq_inst_maintainer.insert(std::make_pair<>(grp_name + inst_name, 1));
+        return inst_name;
+    } else {
+        ++(it->second);
+        return inst_name + "_" + std::to_string(it->second);
+    }
+}
 } // namespace sisl

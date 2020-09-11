@@ -1,8 +1,11 @@
 #pragma once
 
-#include "histogram_buckets.hpp"
-#include <atomic>
+#include <algorithm>
 #include <array>
+#include <atomic>
+#include <cstdint>
+
+#include "histogram_buckets.hpp"
 #include "metrics_group_impl.hpp"
 
 namespace sisl {
@@ -55,7 +58,7 @@ public:
     AtomicMetricsGroup(const std::string& grp_name, const std::string& inst_name) :
             MetricsGroupImpl(grp_name, inst_name) {}
 
-    virtual ~AtomicMetricsGroup();
+    virtual ~AtomicMetricsGroup() = default;
     void counter_increment(uint64_t index, int64_t val = 1) override;
     void counter_decrement(uint64_t index, int64_t val = 1) override;
     void histogram_observe(uint64_t index, int64_t val) override;
@@ -65,12 +68,11 @@ public:
 
 private:
     void on_register();
-    void gather_result(bool need_latest, std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
-                       std::function< void(GaugeInfo&) > gauge_cb,
-                       std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) override;
+    void gather_result(bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
+                       const histogram_gather_cb_t& histogram_cb) override;
 
 private:
-    AtomicCounterValue* m_counter_values = nullptr;
-    AtomicHistogramValue* m_histogram_values = nullptr;
+    std::unique_ptr< AtomicCounterValue[] > m_counter_values;
+    std::unique_ptr< AtomicHistogramValue[] > m_histogram_values;
 };
 } // namespace sisl

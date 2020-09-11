@@ -3,12 +3,14 @@
 #include "histogram_buckets.hpp"
 #include <atomic>
 #include <array>
+#include <vector>
+#include <cstdint>
 #include "metrics_tlocal.hpp"
 #include "wisr/wisr_framework.hpp"
 
 namespace sisl {
 using WisrBufferMetrics =
-    sisl::wisr_framework< PerThreadMetrics, const std::vector< HistogramInfo >&, uint32_t, uint32_t >;
+    sisl::wisr_framework< PerThreadMetrics, const std::vector< HistogramStaticInfo >&, uint32_t, uint32_t >;
 
 class WisrBufferMetricsGroup : public MetricsGroupImpl {
 public:
@@ -25,9 +27,8 @@ public:
 
 private:
     void on_register();
-    void gather_result(bool need_latest, std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
-                       std::function< void(GaugeInfo&) > gauge_cb,
-                       std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) override;
+    void gather_result(bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
+                       const histogram_gather_cb_t& histogram_cb) override;
 
 private:
     std::unique_ptr< WisrBufferMetrics > m_metrics;

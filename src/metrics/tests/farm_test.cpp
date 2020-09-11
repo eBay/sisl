@@ -1,12 +1,16 @@
+#include <array>
+#include <chrono>
+#include <cstdint>
+#include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <thread>
-#include <chrono>
-#include <fstream>
-#include "metrics.hpp"
-#include <gtest/gtest.h>
-#include <sds_logging/logging.h>
 
-#define ITERATIONS 3
+#include "metrics.hpp"
+#include "gtest/gtest.h"
+#include "sds_logging/logging.h"
+
+constexpr size_t ITERATIONS{3};
 
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
@@ -96,10 +100,10 @@ nlohmann::json expected[ITERATIONS] = {
 };
 // clang-format on
 
-uint64_t delay[ITERATIONS] = {2, 3, 4};
+std::array<uint64_t, ITERATIONS> delay{2, 3, 4};
 
 void gather() {
-    for (auto i = 0U; i < ITERATIONS; i++) {
+    for (size_t i{0}; i < ITERATIONS; ++i) {
         std::this_thread::sleep_for(std::chrono::seconds(delay[i]));
         auto output = MetricsFarm::getInstance().get_result_in_json();
 

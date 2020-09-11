@@ -34,6 +34,7 @@
 
 namespace sisl {
 
+class MetricsGroupStaticInfo;
 class MetricsGroup {
 public:
     MetricsGroup(const MetricsGroup&) = delete;
@@ -66,13 +67,14 @@ public:
 class MetricsFarm {
 private:
     std::set< MetricsGroupImplPtr > m_mgroups;
-    std::mutex m_lock;
+    std::unordered_map< std::string, uint64_t > m_uniq_inst_maintainer;
+    mutable std::mutex m_lock;
     std::unique_ptr< Reporter > m_reporter;
 
 private:
     MetricsFarm();
 
-    [[nodiscard]] auto lock() { return std::lock_guard< decltype(m_lock) >(m_lock); }
+    [[nodiscard]] auto lock() const { return std::lock_guard< decltype(m_lock) >(m_lock); }
 
 public:
     ~MetricsFarm();
@@ -92,6 +94,8 @@ public:
     std::string get_result_in_json_string(bool need_latest = true);
     std::string report(ReportFormat format);
     void gather(); // Dummy call just to make it gather. Does not report
+
+    std::string ensure_unique(const std::string& grp_name, const std::string& inst_name);
 };
 
 using MetricsGroupWrapper = MetricsGroup; // For backward compatibility reasons
@@ -110,17 +114,13 @@ public:
     NamedCounter& operator=(NamedCounter&&) noexcept = delete;
 
     static NamedCounter& getInstance(const std::string& name) {
-        const auto insert_pair{s_Counters.try_emplace(name, std::unique_ptr< NamedCounter >{new NamedCounter{name}})};
-        return *(insert_pair.first->second.get());
-    }
-
-    CounterInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                       const metric_label& label_pair = {"", ""}, _publish_as ptype = sisl::publish_as_counter) {
-        return CounterInfo(m_Name, desc, instance_name, report_name, label_pair, ptype);
-    }
-
-    CounterInfo create(const std::string& instance_name, const std::string& desc, sisl::_publish_as ptype) {
-        return CounterInfo(m_Name, desc, instance_name, "", {"", ""}, ptype);
+        const auto itr{s_Counters.find(name)};
+        if (itr != std::end(s_Counters)) {
+            return *(itr->second.get());
+        } else {
+            const auto insert_pair{s_Counters.emplace(name, std::unique_ptr< NamedCounter >{new NamedCounter{name}})};
+            return *(insert_pair.first->second.get());
+        }
     }
 
     void set_index(const uint64_t index) { m_Index = index; }
@@ -143,13 +143,13 @@ public:
     NamedGauge& operator=(NamedGauge&&) noexcept = delete;
 
     static NamedGauge& getInstance(const std::string& name) {
-        const auto insert_pair{s_Gauges.try_emplace(name, std::unique_ptr< NamedGauge >{new NamedGauge{name}})};
-        return *(insert_pair.first->second.get());
-    }
-
-    GaugeInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                     const metric_label& label_pair = {"", ""}) {
-        return GaugeInfo(m_Name, desc, instance_name, report_name, label_pair);
+        const auto itr{s_Gauges.find(name)};
+        if (itr != std::end(s_Gauges)) {
+            return *(itr->second.get());
+        } else {
+            const auto insert_pair{s_Gauges.emplace(name, std::unique_ptr< NamedGauge >{new NamedGauge{name}})};
+            return *(insert_pair.first->second.get());
+        }
     }
 
     void set_index(const uint64_t index) { m_Index = index; }
@@ -172,20 +172,13 @@ public:
     NamedHistogram& operator=(NamedHistogram&&) noexcept = delete;
 
     static NamedHistogram& getInstance(const std::string& name) {
-        const auto insert_pair{
-            s_Histograms.try_emplace(name, std::unique_ptr< NamedHistogram >{new NamedHistogram{name}})};
-        return *(insert_pair.first->second.get());
-    }
-
-    HistogramInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                         const metric_label& label_pair = {"", ""},
-                         const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets)) {
-        return HistogramInfo(m_Name, desc, instance_name, report_name, label_pair, bkt_boundaries);
-    }
-
-    sisl::HistogramInfo create(const std::string& instance_name, const std::string& desc,
-                               const sisl::hist_bucket_boundaries_t& bkt_boundaries) {
-        return sisl::HistogramInfo(m_Name, desc, instance_name, "", {"", ""}, bkt_boundaries);
+        const auto itr{s_Histograms.find(name)};
+        if (itr != std::end(s_Histograms)) {
+            return *(itr->second.get());
+        } else {
+            const auto insert_pair{s_Histograms.emplace(name, std::unique_ptr< NamedHistogram >{new NamedHistogram{name}})};
+            return *(insert_pair.first->second.get());
+        }
     }
 
     void set_index(const uint64_t index) { m_Index = index; }
@@ -203,22 +196,19 @@ private:
 #define REGISTER_COUNTER(name, ...)                                                                                    \
     {                                                                                                                  \
         auto& nc{sisl::NamedCounter::getInstance(BOOST_PP_STRINGIZE(name))};                                           \
-        auto rc{nc.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__)};                                        \
-        nc.set_index(this->m_impl_ptr->register_counter(rc));                                                          \
+        nc.set_index(this->m_impl_ptr->register_counter(nc.get_name(), __VA_ARGS__));                                 \
     }
 
 #define REGISTER_GAUGE(name, ...)                                                                                      \
     {                                                                                                                  \
         auto& ng{sisl::NamedGauge::getInstance(BOOST_PP_STRINGIZE(name))};                                             \
-        auto rg{ng.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__)};                                        \
-        ng.set_index(this->m_impl_ptr->register_gauge(rg));                                                            \
+        ng.set_index(this->m_impl_ptr->register_gauge(ng.get_name(), __VA_ARGS__));                                   \
     }
 
 #define REGISTER_HISTOGRAM(name, ...)                                                                                  \
     {                                                                                                                  \
         auto& nh{sisl::NamedHistogram::getInstance(BOOST_PP_STRINGIZE(name))};                                         \
-        auto rh{nh.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__)};                                        \
-        nh.set_index(this->m_impl_ptr->register_histogram(rh));                                                        \
+        nh.set_index(this->m_impl_ptr->register_histogram(nh.get_name(), __VA_ARGS__));                               \
     }
 
 #define COUNTER_INDEX(name) METRIC_NAME_TO_INDEX(NamedCounter, name)

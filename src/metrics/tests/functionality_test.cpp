@@ -1,12 +1,16 @@
-#include <iostream>
-#include <thread>
+#include <array>
+#include <cstdint>
+#include <cstdlib>
 #include <chrono>
 #include <fstream>
-#include "metrics.hpp"
-#include <gtest/gtest.h>
-#include <sds_logging/logging.h>
+#include <iostream>
+#include <thread>
 
-#define ITERATIONS 2
+#include "metrics.hpp"
+#include "gtest/gtest.h"
+#include "sds_logging/logging.h"
+
+constexpr size_t ITERATIONS{2};
 
 // CREATE_REPORT;
 THREAD_BUFFER_INIT;
@@ -58,10 +62,10 @@ std::string expected[ITERATIONS] = {
                 }
             })result"};
 
-uint64_t delay[ITERATIONS] = {2, 4};
+std::array<uint64_t, ITERATIONS> delay{2, 4};
 
 void gather() {
-    for (auto i = 0U; i < ITERATIONS; i++) {
+    for (size_t i{0}; i < ITERATIONS; ++i) {
         std::this_thread::sleep_for(std::chrono::seconds(delay[i]));
         auto output = MetricsFarm::getInstance().get_result_in_json_string();
         output.erase(
