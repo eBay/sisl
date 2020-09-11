@@ -13,6 +13,9 @@
 #include <atomic>
 #include <set>
 #include <mutex>
+#include <unordered_map>
+#include <cstdint>
+#include <string>
 #include <nlohmann/json.hpp>
 #include "metrics_tlocal.hpp"
 #include "metrics_rcu.hpp"
@@ -23,6 +26,7 @@
 
 namespace sisl {
 
+class MetricsGroupStaticInfo;
 class MetricsGroup {
 public:
     MetricsGroupImplPtr m_impl_ptr;
@@ -50,14 +54,15 @@ public:
 class MetricsFarm {
 private:
     std::set< MetricsGroupImplPtr > m_mgroups;
-    std::mutex m_lock;
+    std::unordered_map< std::string, uint64_t > m_uniq_inst_maintainer;
+    mutable std::mutex m_lock;
     std::unique_ptr< Reporter > m_reporter;
 
 private:
     MetricsFarm();
     ~MetricsFarm();
 
-    [[nodiscard]] auto lock() { return std::lock_guard< decltype(m_lock) >(m_lock); }
+    [[nodiscard]] auto lock() const { return std::lock_guard< decltype(m_lock) >(m_lock); }
 
 public:
     static MetricsFarm& getInstance();
@@ -74,6 +79,8 @@ public:
     std::string get_result_in_json_string(bool need_latest = true);
     std::string report(ReportFormat format);
     void gather(); // Dummy call just to make it gather. Does not report
+
+    std::string ensure_unique(const std::string& grp_name, const std::string& inst_name);
 };
 
 using MetricsGroupWrapper = MetricsGroup; // For backward compatibility reasons
@@ -111,14 +118,6 @@ public:
         return instance;
     }
 
-    CounterInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                       const metric_label& label_pair = {"", ""}, _publish_as ptype = publish_as_counter) {
-        return CounterInfo(std::string(Name), desc, instance_name, report_name, label_pair, ptype);
-    }
-    CounterInfo create(const std::string& instance_name, const std::string& desc, _publish_as ptype) {
-        return CounterInfo(std::string(Name), desc, instance_name, "", {"", ""}, ptype);
-    }
-
     const char* get_name() const { return Name; }
 };
 
@@ -131,11 +130,6 @@ public:
     static NamedGauge& getInstance() {
         static NamedGauge instance;
         return instance;
-    }
-
-    GaugeInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                     const metric_label& label_pair = {"", ""}) {
-        return GaugeInfo(std::string(Name), desc, instance_name, report_name, label_pair);
     }
 
     const char* get_name() const { return Name; }
@@ -152,17 +146,6 @@ public:
         return instance;
     }
 
-    HistogramInfo create(const std::string& instance_name, const std::string& desc, const std::string& report_name = "",
-                         const metric_label& label_pair = {"", ""},
-                         const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets)) {
-        return HistogramInfo(std::string(Name), desc, instance_name, report_name, label_pair, bkt_boundaries);
-    }
-
-    HistogramInfo create(const std::string& instance_name, const std::string& desc,
-                         const hist_bucket_boundaries_t& bkt_boundaries) {
-        return HistogramInfo(std::string(Name), desc, instance_name, "", {"", ""}, bkt_boundaries);
-    }
-
     const char* get_name() const { return Name; }
 };
 
@@ -170,24 +153,21 @@ public:
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& nc = sisl::NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();       \
-        auto rc = nc.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__);                                       \
-        nc.m_index = this->m_impl_ptr->register_counter(rc);                                                           \
+        nc.m_index = this->m_impl_ptr->register_counter(std::string(nc.get_name()), __VA_ARGS__);                      \
     }
 
 #define REGISTER_GAUGE(name, ...)                                                                                      \
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& ng = sisl::NamedGauge< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();         \
-        auto rg = ng.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__);                                       \
-        ng.m_index = this->m_impl_ptr->register_gauge(rg);                                                             \
+        ng.m_index = this->m_impl_ptr->register_gauge(std::string(ng.get_name()), __VA_ARGS__);                        \
     }
 
 #define REGISTER_HISTOGRAM(name, ...)                                                                                  \
     {                                                                                                                  \
         using namespace sisl;                                                                                          \
         auto& nh = sisl::NamedHistogram< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance();     \
-        auto rh = nh.create(this->m_impl_ptr->get_instance_name(), __VA_ARGS__);                                       \
-        nh.m_index = this->m_impl_ptr->register_histogram(rh);                                                         \
+        nh.m_index = this->m_impl_ptr->register_histogram(std::string(nh.get_name()), __VA_ARGS__);                    \
     }
 
 #define COUNTER_INDEX(name) METRIC_NAME_TO_INDEX(NamedCounter, name)

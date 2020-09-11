@@ -8,7 +8,7 @@
 namespace sisl {
 
 void WisrBufferMetricsGroup::on_register() {
-    m_metrics = std::make_unique< WisrBufferMetrics >(m_histograms, m_counters.size(), m_histograms.size());
+    m_metrics = std::make_unique< WisrBufferMetrics >(m_static_info->m_histograms, num_counters(), num_histograms());
 }
 
 void WisrBufferMetricsGroup::counter_increment(uint64_t index, int64_t val) {
@@ -24,17 +24,16 @@ void WisrBufferMetricsGroup::counter_decrement(uint64_t index, int64_t val) {
 // everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
 // one with count and one without count. In any case this is a single line method.
 void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val) {
-    m_metrics->insertable_ptr()->get_histogram(index).observe(val, m_bkt_boundaries[index], 1);
+    m_metrics->insertable_ptr()->get_histogram(index).observe(val, hist_static_info(index).get_boundaries(), 1);
 }
 
 void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
-    m_metrics->insertable_ptr()->get_histogram(index).observe(val, m_bkt_boundaries[index], count);
+    m_metrics->insertable_ptr()->get_histogram(index).observe(val, hist_static_info(index).get_boundaries(), count);
 }
 
-void WisrBufferMetricsGroup::gather_result(bool need_latest,
-                                           std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
-                                           std::function< void(GaugeInfo&) > gauge_cb,
-                                           std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) {
+void WisrBufferMetricsGroup::gather_result(bool need_latest, const counter_gather_cb_t& counter_cb,
+                                           const gauge_gather_cb_t& gauge_cb,
+                                           const histogram_gather_cb_t& histogram_cb) {
     PerThreadMetrics* tmetrics;
     if (need_latest) {
         tmetrics = m_metrics->now();
@@ -42,16 +41,16 @@ void WisrBufferMetricsGroup::gather_result(bool need_latest,
         tmetrics = m_metrics->delayed();
     }
 
-    for (auto i = 0U; i < m_counters.size(); i++) {
-        counter_cb(m_counters[i], tmetrics->get_counter(i));
+    for (size_t i = 0U; i < num_counters(); i++) {
+        counter_cb(i, tmetrics->get_counter(i));
     }
 
-    for (auto i = 0U; i < m_gauges.size(); i++) {
-        gauge_cb(m_gauges[i]);
+    for (size_t i = 0U; i < num_gauges(); i++) {
+        gauge_cb(i, m_gauge_values[i]);
     }
 
-    for (auto i = 0U; i < m_histograms.size(); i++) {
-        histogram_cb(m_histograms[i], tmetrics->get_histogram(i));
+    for (size_t i = 0U; i < num_histograms(); i++) {
+        histogram_cb(i, tmetrics->get_histogram(i));
     }
 }
 } // namespace sisl

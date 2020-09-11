@@ -20,8 +20,7 @@ using namespace sisl;
 typedef std::pair< std::vector< double >, int64_t > hist_result_t;
 
 struct _locked_hist_wrapper {
-    _locked_hist_wrapper() :
-            m_hist("hist", "Sample histogram", "", "", {"", ""}, HistogramBucketsType(DefaultBuckets)) {}
+    _locked_hist_wrapper() : m_hist("hist", "Sample histogram", "", {"", ""}, HistogramBucketsType(DefaultBuckets)) {}
 
     void observe(uint64_t value) {
         std::lock_guard< std::mutex > g(m_lock);
@@ -35,7 +34,7 @@ struct _locked_hist_wrapper {
     }
 
     std::mutex m_lock;
-    HistogramInfo m_hist;
+    HistogramStaticInfo m_hist;
     HistogramValue m_value;
 };
 

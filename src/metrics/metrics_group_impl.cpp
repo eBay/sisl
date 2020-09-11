@@ -6,9 +6,9 @@
 #include "metrics_group_impl.hpp"
 #include "metrics_tlocal.hpp"
 #include <sds_logging/logging.h>
-#ifdef linux
-//#include <asm/cachectl.h>
-#endif
+#include <folly/Synchronized.h>
+#include <fmt/format.h>
+#include <string>
 
 namespace sisl {
 
@@ -51,26 +51,69 @@ void MetricsGroup::gather() { m_impl_ptr->gather(); }
 void MetricsGroup::attach_gather_cb(const on_gather_cb_t& cb) { m_impl_ptr->attach_gather_cb(cb); }
 void MetricsGroup::detach_gather_cb() { m_impl_ptr->detach_gather_cb(); }
 
-MetricsGroupImpl::MetricsGroupImpl(const char* grp_name, const char* inst_name) :
-        m_grp_name(grp_name),
-        m_inst_name(inst_name) {}
+/****************************MetricsGroupStaticInfo Section ********************************************/
+MetricsGroupStaticInfo::MetricsGroupStaticInfo(const std::string& grp_name) : m_grp_name(grp_name) {}
 
-MetricsGroupImpl::MetricsGroupImpl(const std::string& grp_name, const std::string& inst_name) :
-        m_grp_name(grp_name),
-        m_inst_name(inst_name) {}
+uint64_t MetricsGroupStaticInfo::register_counter(const std::string& name, const std::string& desc,
+                                                  const std::string& report_name, const metric_label& label_pair) {
+    m_counters.emplace_back(name, desc, report_name, label_pair);
+    return m_counters.size() - 1;
+}
+
+uint64_t MetricsGroupStaticInfo::register_gauge(const std::string& name, const std::string& desc,
+                                                const std::string& report_name, const metric_label& label_pair) {
+    m_gauges.emplace_back(name, desc, report_name, label_pair);
+    return m_gauges.size() - 1;
+}
+
+uint64_t MetricsGroupStaticInfo::register_histogram(const std::string& name, const std::string& desc,
+                                                    const std::string& report_name, const metric_label& label_pair,
+                                                    const hist_bucket_boundaries_t& bkt_boundaries) {
+    m_histograms.emplace_back(name, desc, report_name, label_pair, bkt_boundaries);
+    return m_histograms.size() - 1;
+}
+
+std::shared_ptr< MetricsGroupStaticInfo > MetricsGroupStaticInfo::create_or_get_info(const std::string& grp_name) {
+    static folly::Synchronized< std::unordered_map< std::string, std::shared_ptr< MetricsGroupStaticInfo > > > _grp_map;
+
+    std::shared_ptr< MetricsGroupStaticInfo > ret;
+
+    _grp_map.withWLock([&grp_name, &ret](auto& m) {
+        auto it_pair{m.try_emplace(grp_name, std::make_shared< MetricsGroupStaticInfo >(grp_name))};
+        ret = it_pair.first->second;
+    });
+    return ret;
+}
+
+/****************************MetricsGroupImpl Section ********************************************/
+MetricsGroupImpl::MetricsGroupImpl(const std::string& grp_name, const std::string& inst_name) {
+    m_inst_name = MetricsFarm::getInstance().ensure_unique(grp_name, inst_name);
+    m_static_info = MetricsGroupStaticInfo::create_or_get_info(grp_name);
+    m_static_info->m_mutex.lock();
+    // The metrics group info is locked and exclusive till all registrations are completed by this instance
+}
+
+void MetricsGroupImpl::registration_completed() {
+    m_gauge_values.resize(m_static_info->m_gauges.size(), GaugeValue());
+    m_static_info->m_reg_pending = false;
+    m_static_info->m_mutex.unlock();
+}
 
 uint64_t MetricsGroupImpl::register_counter(const std::string& name, const std::string& desc,
                                             const std::string& report_name, const metric_label& label_pair,
                                             _publish_as ptype) {
-    auto locked = lock();
-    m_counters.emplace_back(name, desc, m_inst_name, report_name, label_pair, ptype);
-    return m_counters.size() - 1;
+    const auto idx = m_counters_dinfo.size();
+    if (m_static_info->m_reg_pending) {
+        [[maybe_unused]] auto s_idx = m_static_info->register_counter(name, desc, report_name, label_pair);
+        assert(idx == s_idx);
+    }
+    m_counters_dinfo.emplace_back(m_static_info->m_counters[idx], m_inst_name, ptype);
+    return idx;
 }
 
-uint64_t MetricsGroupImpl::register_counter(const CounterInfo& counter) {
-    auto locked = lock();
-    m_counters.push_back(counter);
-    return m_counters.size() - 1;
+uint64_t MetricsGroupImpl::register_counter(const std::string& name, const std::string& desc,
+                                            const metric_label& label_pair, _publish_as ptype) {
+    return register_counter(name, desc, "", label_pair, ptype);
 }
 
 uint64_t MetricsGroupImpl::register_counter(const std::string& name, const std::string& desc, _publish_as ptype) {
@@ -79,43 +122,49 @@ uint64_t MetricsGroupImpl::register_counter(const std::string& name, const std::
 
 uint64_t MetricsGroupImpl::register_gauge(const std::string& name, const std::string& desc,
                                           const std::string& report_name, const metric_label& label_pair) {
-    auto locked = lock();
-    m_gauges.emplace_back(name, desc, m_inst_name, report_name, label_pair);
-    return m_gauges.size() - 1;
+    const auto idx = m_gauges_dinfo.size();
+    if (m_static_info->m_reg_pending) {
+        [[maybe_unused]] auto s_idx = m_static_info->register_gauge(name, desc, report_name, label_pair);
+        assert(idx == s_idx);
+    }
+    m_gauges_dinfo.emplace_back(m_static_info->m_gauges[idx], m_inst_name);
+    return idx;
 }
 
-uint64_t MetricsGroupImpl::register_gauge(const GaugeInfo& gauge) {
-    auto locked = lock();
-    m_gauges.push_back(gauge);
-    return m_gauges.size() - 1;
+uint64_t MetricsGroupImpl::register_gauge(const std::string& name, const std::string& desc,
+                                          const metric_label& label_pair) {
+    return register_gauge(name, desc, "", label_pair);
 }
 
 uint64_t MetricsGroupImpl::register_histogram(const std::string& name, const std::string& desc,
                                               const std::string& report_name, const metric_label& label_pair,
-                                              const hist_bucket_boundaries_t& bkt_boundaries) {
-    auto locked = lock();
-    m_histograms.emplace_back(name, desc, m_inst_name, report_name, label_pair, bkt_boundaries);
-    m_bkt_boundaries.push_back(bkt_boundaries);
-    return m_histograms.size() - 1;
-}
-
-uint64_t MetricsGroupImpl::register_histogram(HistogramInfo& hist) {
-    auto locked = lock();
-    m_histograms.push_back(hist);
-    m_bkt_boundaries.push_back(hist.get_boundaries());
-    return m_histograms.size() - 1;
+                                              const hist_bucket_boundaries_t& bkt_boundaries, _publish_as ptype) {
+    const auto idx = m_histograms_dinfo.size();
+    if (m_static_info->m_reg_pending) {
+        [[maybe_unused]] auto s_idx =
+            m_static_info->register_histogram(name, desc, report_name, label_pair, bkt_boundaries);
+        assert(idx == s_idx);
+    }
+    m_histograms_dinfo.emplace_back(m_static_info->m_histograms[idx], m_inst_name, ptype);
+    return idx;
 }
 
 uint64_t MetricsGroupImpl::register_histogram(const std::string& name, const std::string& desc,
-                                              const hist_bucket_boundaries_t& bkt_boundaries) {
-    return register_histogram(name, desc, "", {"", ""}, bkt_boundaries);
+                                              const metric_label& label_pair,
+                                              const hist_bucket_boundaries_t& bkt_boundaries, _publish_as ptype) {
+    return register_histogram(name, desc, "", label_pair, bkt_boundaries, ptype);
 }
 
-void MetricsGroupImpl::gauge_update(uint64_t index, int64_t val) { m_gauges[index].value().update(val); }
+uint64_t MetricsGroupImpl::register_histogram(const std::string& name, const std::string& desc,
+                                              const hist_bucket_boundaries_t& bkt_boundaries, _publish_as ptype) {
+    return register_histogram(name, desc, "", {"", ""}, bkt_boundaries, ptype);
+}
 
-const CounterInfo& MetricsGroupImpl::get_counter_info(uint64_t index) const { return m_counters[index]; }
-const GaugeInfo& MetricsGroupImpl::get_gauge_info(uint64_t index) const { return m_gauges[index]; }
-const HistogramInfo& MetricsGroupImpl::get_histogram_info(uint64_t index) const { return m_histograms[index]; }
+uint64_t MetricsGroupImpl::register_histogram(const std::string& name, const std::string& desc, _publish_as ptype) {
+    return register_histogram(name, desc, "", {"", ""}, HistogramBucketsType(DefaultBuckets), ptype);
+}
+
+void MetricsGroupImpl::gauge_update(uint64_t index, int64_t val) { m_gauge_values[index].update(val); }
 
 nlohmann::json MetricsGroupImpl::get_result_in_json(bool need_latest) {
     auto locked = lock();
@@ -127,13 +176,23 @@ nlohmann::json MetricsGroupImpl::get_result_in_json(bool need_latest) {
     if (m_on_gather_cb) { m_on_gather_cb(); }
     gather_result(
         need_latest,
-        [&counter_entries](CounterInfo& c, const CounterValue& result) { counter_entries[c.desc()] = result.get(); },
-        [&gauge_entries](GaugeInfo& g) { gauge_entries[g.desc()] = g.get(); },
-        [&hist_entries](HistogramInfo& h, const HistogramValue& result) {
-            std::stringstream ss;
-            ss << h.average(result) << " / " << h.percentile(result, 50) << " / " << h.percentile(result, 95) << " / "
-               << h.percentile(result, 99);
-            hist_entries[h.desc()] = ss.str();
+        [&counter_entries, this](uint64_t idx, const CounterValue& result) {
+            counter_entries[counter_static_info(idx).desc()] = result.get();
+        },
+        [&gauge_entries, this](uint64_t idx, const GaugeValue& result) {
+            gauge_entries[gauge_static_info(idx).desc()] = result.get();
+        },
+        [&hist_entries, this](uint64_t idx, const HistogramValue& result) {
+            HistogramDynamicInfo& h = hist_dynamic_info(idx);
+            if (h.is_histogram_reporter()) {
+                hist_entries[hist_static_info(idx).desc()] =
+                    fmt::format("{} / {} / {} / {}", h.average(result),
+                                h.percentile(result, hist_static_info(idx).get_boundaries(), 50),
+                                h.percentile(result, hist_static_info(idx).get_boundaries(), 95),
+                                h.percentile(result, hist_static_info(idx).get_boundaries(), 99));
+            } else {
+                hist_entries[hist_static_info(idx).desc()] = std::to_string(h.average(result));
+            }
         });
 
     json["Counters"] = counter_entries;
@@ -146,10 +205,10 @@ void MetricsGroupImpl::publish_result() {
     auto locked = lock();
     if (m_on_gather_cb) { m_on_gather_cb(); }
     gather_result(
-        true,                                                                       /* need_latest */
-        [](CounterInfo& c, const CounterValue& result) { c.publish(result); },      // Counter
-        [](GaugeInfo& g) { g.publish(); },                                          // Gauge
-        [](HistogramInfo& h, const HistogramValue& result) { h.publish(result); }); // Histogram
+        true, /* need_latest */
+        [this](uint64_t idx, const CounterValue& result) { counter_dynamic_info(idx).publish(result); }, // Counter
+        [this](uint64_t idx, const GaugeValue& result) { gauge_dynamic_info(idx).publish(result); },     // Gauge
+        [this](uint64_t idx, const HistogramValue& result) { hist_dynamic_info(idx).publish(result); }); // Histogram
 }
 
 void MetricsGroupImpl::gather() {
@@ -157,70 +216,92 @@ void MetricsGroupImpl::gather() {
     if (m_on_gather_cb) { m_on_gather_cb(); }
     gather_result(
         true, /* need_latest */
-        []([[maybe_unused]] CounterInfo& c, [[maybe_unused]] const CounterValue& result) {},
-        []([[maybe_unused]] GaugeInfo& g) {},
-        []([[maybe_unused]] HistogramInfo& h, [[maybe_unused]] const HistogramValue& result) { h.publish(result); });
+        []([[maybe_unused]] uint64_t idx, [[maybe_unused]] const CounterValue& result) {},
+        []([[maybe_unused]] uint64_t idx, [[maybe_unused]] const GaugeValue& result) {},
+        []([[maybe_unused]] uint64_t idx, [[maybe_unused]] const HistogramValue& result) {});
 }
 
-const std::string& MetricsGroupImpl::get_group_name() const { return m_grp_name; }
+const std::string& MetricsGroupImpl::get_group_name() const { return m_static_info->m_grp_name; }
 const std::string& MetricsGroupImpl::get_instance_name() const { return m_inst_name; }
 
-/***************************** CounterInfo **************************/
-CounterInfo::CounterInfo(const std::string& name, const std::string& desc, const std::string& instance_name,
-                         _publish_as ptype) :
-        CounterInfo(name, desc, instance_name, "", {"", ""}, ptype) {}
-
-CounterInfo::CounterInfo(const std::string& name, const std::string& desc, const std::string& instance_name,
-                         const std::string& report_name, const metric_label& label_pair, _publish_as ptype) :
+/***************************** CounterStaticInfo **************************/
+CounterStaticInfo::CounterStaticInfo(const std::string& name, const std::string& desc, const std::string& report_name,
+                                     const metric_label& label_pair) :
         m_name(report_name.empty() ? name : report_name),
         m_desc(desc) {
-    if (ptype == publish_as_counter) {
-        assert(m_report_counter == nullptr);
-        m_report_counter = MetricsFarm::get_reporter().add_counter(m_name, desc, instance_name, label_pair);
-    } else if (ptype == publish_as_gauge) {
-        m_report_gauge = MetricsFarm::get_reporter().add_gauge(m_name, desc, instance_name, label_pair);
-    }
-
     if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
-void CounterInfo::publish(const CounterValue& value) {
-    if (m_report_counter != nullptr) {
-        m_report_counter->set_value(value.get());
-    } else if (m_report_gauge != nullptr) {
-        m_report_gauge->set_value(value.get());
+CounterDynamicInfo::CounterDynamicInfo(const CounterStaticInfo& static_info, const std::string& instance_name,
+                                       _publish_as ptype) {
+    if (ptype == _publish_as::publish_as_counter) {
+        m_report_counter_gauge = MetricsFarm::get_reporter().add_counter(static_info.m_name, static_info.m_desc,
+                                                                         instance_name, static_info.m_label_pair);
+    } else if (ptype == _publish_as::publish_as_gauge) {
+        m_report_counter_gauge = MetricsFarm::get_reporter().add_gauge(static_info.m_name, static_info.m_desc,
+                                                                       instance_name, static_info.m_label_pair);
+    }
+}
+
+void CounterDynamicInfo::publish(const CounterValue& value) {
+    if (is_counter_reporter()) {
+        as_counter()->set_value(value.get());
     } else {
-        assert(0);
+        as_gauge()->set_value(value.get());
     }
 }
 
-/***************************** GaugeInfo **************************/
-GaugeInfo::GaugeInfo(const std::string& name, const std::string& desc, const std::string& instance_name,
-                     const std::string& report_name, const metric_label& label_pair) :
+/***************************** GaugeStaticInfo **************************/
+GaugeStaticInfo::GaugeStaticInfo(const std::string& name, const std::string& desc, const std::string& report_name,
+                                 const metric_label& label_pair) :
         m_name(report_name.empty() ? name : report_name),
         m_desc(desc) {
-    m_report_gauge = MetricsFarm::get_reporter().add_gauge(m_name, desc, instance_name, label_pair);
     if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
-void GaugeInfo::publish() { m_report_gauge->set_value((double)m_gauge.get()); }
+GaugeDynamicInfo::GaugeDynamicInfo(const GaugeStaticInfo& static_info, const std::string& instance_name) {
+    m_report_gauge = MetricsFarm::get_reporter().add_gauge(static_info.m_name, static_info.m_desc, instance_name,
+                                                           static_info.m_label_pair);
+}
 
-/***************************** HistogramInfo **************************/
-HistogramInfo::HistogramInfo(const std::string& name, const std::string& desc, const std::string& instance_name,
-                             const std::string& report_name, const metric_label& label_pair,
-                             const hist_bucket_boundaries_t& bkt_boundaries) :
+void GaugeDynamicInfo::publish(const GaugeValue& value) { m_report_gauge->set_value((double)value.get()); }
+
+/***************************** HistogramStaticInfo **************************/
+HistogramStaticInfo::HistogramStaticInfo(const std::string& name, const std::string& desc,
+                                         const std::string& report_name, const metric_label& label_pair,
+                                         const hist_bucket_boundaries_t& bkt_boundaries) :
         m_name(report_name.empty() ? name : report_name),
         m_desc(desc),
         m_bkt_boundaries(bkt_boundaries) {
-    m_report_histogram =
-        MetricsFarm::get_reporter().add_histogram(m_name, desc, instance_name, bkt_boundaries, label_pair);
     if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
-double HistogramInfo::percentile(const HistogramValue& hvalue, float pcntl) const {
+HistogramDynamicInfo::HistogramDynamicInfo(const HistogramStaticInfo& static_info, const std::string& instance_name,
+                                           _publish_as ptype) {
+    if (ptype == _publish_as::publish_as_histogram) {
+        m_report_histogram_gauge =
+            MetricsFarm::get_reporter().add_histogram(static_info.m_name, static_info.m_desc, instance_name,
+                                                      static_info.get_boundaries(), static_info.m_label_pair);
+    } else {
+        m_report_histogram_gauge = MetricsFarm::get_reporter().add_gauge(static_info.m_name, static_info.m_desc,
+                                                                         instance_name, static_info.m_label_pair);
+    }
+}
+
+void HistogramDynamicInfo::publish(const HistogramValue& hvalue) {
+    if (is_histogram_reporter()) {
+        const auto arr = hvalue.get_freqs();
+        as_histogram()->set_value(std::vector< double >(arr.cbegin(), arr.cend()), hvalue.get_sum());
+    } else {
+        as_gauge()->set_value(average(hvalue));
+    }
+}
+
+double HistogramDynamicInfo::percentile(const HistogramValue& hvalue, const hist_bucket_boundaries_t& bkt_boundaries,
+                                        float pcntl) const {
     std::array< int64_t, HistogramBuckets::max_hist_bkts > cum_freq;
     int64_t fcount = 0;
-    for (auto i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
+    for (size_t i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
         fcount += (hvalue.get_freqs())[i];
         cum_freq[i] = fcount;
     }
@@ -228,7 +309,7 @@ double HistogramInfo::percentile(const HistogramValue& hvalue, float pcntl) cons
     int64_t pnum = fcount * pcntl / 100;
     auto i = (std::lower_bound(cum_freq.begin(), cum_freq.end(), pnum)) - cum_freq.begin();
     if ((hvalue.get_freqs())[i] == 0) return 0;
-    auto Yl = i == 0 ? 0 : m_bkt_boundaries[i - 1];
+    auto Yl = i == 0 ? 0 : bkt_boundaries[i - 1];
     auto ith_cum_freq = (i == 0) ? 0 : cum_freq[i - 1];
     double Yp = Yl + (((pnum - ith_cum_freq) * i) / (hvalue.get_freqs())[i]);
     return Yp;
@@ -241,21 +322,16 @@ double HistogramInfo::percentile(const HistogramValue& hvalue, float pcntl) cons
      */
 }
 
-int64_t HistogramInfo::count(const HistogramValue& hvalue) const {
+int64_t HistogramDynamicInfo::count(const HistogramValue& hvalue) const {
     int64_t cnt = 0;
-    for (auto i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
+    for (size_t i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
         cnt += (hvalue.get_freqs())[i];
     }
     return cnt;
 }
 
-double HistogramInfo::average(const HistogramValue& hvalue) const {
+double HistogramDynamicInfo::average(const HistogramValue& hvalue) const {
     auto cnt = count(hvalue);
     return (cnt ? hvalue.get_sum() / cnt : 0);
-}
-
-void HistogramInfo::publish(const HistogramValue& hvalue) {
-    auto arr = hvalue.get_freqs();
-    m_report_histogram->set_value(std::vector< double >(arr.begin(), arr.end()), hvalue.get_sum());
 }
 } // namespace sisl
