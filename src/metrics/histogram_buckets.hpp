@@ -7,14 +7,19 @@
 
 #include <vector>
 #include <cstdint>
+#include <limits> // std::numeric_limits
 
 namespace sisl {
 typedef std::vector< double > hist_bucket_boundaries_t;
 
 /* For any new histogram buckets, define a name and its values here */
 #define HIST_BKTS_TYPES                                                                                                \
-    X(DefaultBuckets, 300, 450, 750, 1000, 3000, 5000, 7000, 9000, 11000, 13000, 15000, 17000, 19000, 21000, 32000,    \
-      45000, 75000, 110000, 160000, 240000, 360000, 540000, 800000, 1200000, 1800000, 2700000, 4000000)                \
+    X(DefaultBuckets, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300, 320,  \
+      340, 360, 380, 400, 425, 450, 475, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1100, 1200, 1300,     \
+      1400, 1500, 1600, 1700, 1800, 1900, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000, 7500,      \
+      8000, 8500, 9000, 9500, 10000, 11000, 12000, 13000, 14000, 15000, 16000, 17000, 18000, 19000, 20000, 21000,      \
+      30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000, 110000, 130000, 150000, 180000, 210000, 240000, 300000, \
+      360000, 450000, 540000, 800000, 1200000, 1800000, 2700000, 4000000)                                              \
                                                                                                                        \
     X(ExponentialOfTwoBuckets, 1, exp2(1), exp2(2), exp2(3), exp2(4), exp2(5), exp2(6), exp2(7), exp2(8), exp2(9),     \
       exp2(10), exp2(11), exp2(12), exp2(13), exp2(14), exp2(15), exp2(16), exp2(17), exp2(18), exp2(19), exp2(20),    \
@@ -28,10 +33,12 @@ typedef std::vector< double > hist_bucket_boundaries_t;
       25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52,  \
       53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,  \
       81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106,   \
-      107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128)
+      107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128)    \
+                                                                                                                       \
+    X(SingleValueBucket, std::numeric_limits< double >::max())
 
 template < typename... V >
-constexpr size_t _hist_bkt_count(__attribute__((unused)) V&&... v) {
+constexpr size_t _hist_bkt_count([[maybe_unused]] V&&... v) {
     return sizeof...(V);
 }
 
@@ -44,7 +51,7 @@ constexpr size_t _get_max_hist_bkts(V&&... v) {
     return max_size;
 }
 
-constexpr int64_t exp2(int exponent) { return exponent == 0 ? 1 : 2 * exp2(exponent - 1); }
+constexpr int64_t exp2(const int64_t exponent) { return exponent == 0 ? 1 : 2 * exp2(exponent - 1); }
 
 #define HistogramBucketsType(name) (sisl::HistogramBuckets::getInstance().name)
 

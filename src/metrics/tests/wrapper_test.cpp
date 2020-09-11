@@ -19,9 +19,10 @@ using namespace sisl;
 
 class TreeMetrics : public MetricsGroupWrapper {
 public:
-    explicit TreeMetrics(const char *inst_name) : MetricsGroupWrapper("Tree", inst_name) {
+    explicit TreeMetrics(const char* inst_name) : MetricsGroupWrapper("Tree", inst_name) {
         REGISTER_COUNTER(tree_node_count, "Total number of nodes in tree", "");
-        REGISTER_COUNTER(tree_op_write_count, "Total number of write ops in tree", "tree_op_count", {"op_type", "write"});
+        REGISTER_COUNTER(tree_op_write_count, "Total number of write ops in tree", "tree_op_count",
+                         {"op_type", "write"});
         REGISTER_COUNTER(tree_op_read_count, "Total number of read ops in tree", "tree_op_count", {"op_type", "read"});
         REGISTER_COUNTER(tree_obj_count, "Total tree object count");
 
@@ -31,7 +32,7 @@ public:
 
 class CacheMetrics : public MetricsGroupWrapper {
 public:
-    explicit CacheMetrics(const char *inst_name) : MetricsGroupWrapper("Cache", inst_name) {
+    explicit CacheMetrics(const char* inst_name) : MetricsGroupWrapper("Cache", inst_name) {
         REGISTER_GAUGE(cache_size, "Total cache size");
         REGISTER_GAUGE(cache_eviction_pct, "Cache Eviction Percent");
         REGISTER_GAUGE(cache_writes_rate, "Cache Write rate", "");
@@ -50,7 +51,7 @@ public:
         REGISTER_COUNTER(num_open_connections, "Total number of connections", sisl::_publish_as::publish_as_gauge);
         REGISTER_GAUGE(mem_utilization, "Total memory utilization");
         REGISTER_HISTOGRAM(request_per_txn, "Distribution of request per transactions",
-                HistogramBucketsType(LinearUpto64Buckets));
+                           HistogramBucketsType(LinearUpto64Buckets));
 
         register_me_to_farm();
     }
@@ -61,7 +62,7 @@ private:
     TreeMetrics m_metrics;
 
 public:
-    Tree(const char *grp_name) : m_metrics(grp_name) {}
+    Tree(const char* grp_name) : m_metrics(grp_name) {}
     void update1() {
         COUNTER_INCREMENT(m_metrics, tree_node_count, 1);
         COUNTER_INCREMENT(m_metrics, tree_op_write_count, 4);
@@ -77,7 +78,6 @@ public:
         COUNTER_INCREMENT(m_metrics, tree_op_read_count, 50);
         COUNTER_INCREMENT(m_metrics, tree_obj_count, 100);
     }
-
 };
 
 class Cache {
@@ -85,7 +85,7 @@ private:
     CacheMetrics m_metrics;
 
 public:
-    Cache(const char *inst_name) : m_metrics(inst_name) {}
+    Cache(const char* inst_name) : m_metrics(inst_name) {}
     void update1() {
         GAUGE_UPDATE(m_metrics, cache_size, 1);
         GAUGE_UPDATE(m_metrics, cache_size, 4);
@@ -93,7 +93,8 @@ public:
         GAUGE_UPDATE(m_metrics, cache_writes_rate, 2);
 
 #ifndef NDEBUG
-        ASSERT_DEATH(GAUGE_UPDATE(m_metrics, invalid_gauge, 2), "Metric name 'invalid_gauge' not registered yet but used");
+        ASSERT_DEATH(GAUGE_UPDATE(m_metrics, invalid_gauge, 2),
+                     "Metric name 'invalid_gauge' not registered yet but used");
 #endif
 
         HISTOGRAM_OBSERVE(m_metrics, cache_write_latency, 100);
@@ -108,7 +109,8 @@ public:
         GAUGE_UPDATE(m_metrics, cache_writes_rate, 200);
 
 #ifndef NDEBUG
-        ASSERT_DEATH(GAUGE_UPDATE(m_metrics, invalid_gauge, 2), "Metric name 'invalid_gauge' not registered yet but used");
+        ASSERT_DEATH(GAUGE_UPDATE(m_metrics, invalid_gauge, 2),
+                     "Metric name 'invalid_gauge' not registered yet but used");
 #endif
 
         HISTOGRAM_OBSERVE(m_metrics, cache_write_latency, 200);
@@ -116,10 +118,9 @@ public:
         HISTOGRAM_OBSERVE(m_metrics, cache_read_latency, 350);
         HISTOGRAM_OBSERVE(m_metrics, cache_delete_latency, 400);
     }
+
 private:
-    void write_invald_gauge() {
-        GAUGE_UPDATE(m_metrics, invalid_gauge, 2);
-    }
+    void write_invald_gauge() { GAUGE_UPDATE(m_metrics, invalid_gauge, 2); }
 };
 
 class MyServer {
@@ -138,6 +139,7 @@ public:
         HISTOGRAM_OBSERVE(m_metrics, request_per_txn, 48);
         HISTOGRAM_OBSERVE(m_metrics, request_per_txn, 1);
     }
+
 private:
     GlobalMetrics m_metrics;
 };
@@ -153,12 +155,12 @@ nlohmann::json expected = {
                 {"Total cache size", 4}
             }},
             {"Histograms percentiles (usecs) avg/50/95/99", {
-                {"Cache Delete Latency", "200 / 0 / 0 / 0" },
-                {"Cache Read Latency", "150 / 0 / 0 / 0" },
-                {"Cache Write Latency", "125 / 0 / 0 / 0"}
+                {"Cache Delete Latency", "200.0 / 0.0 / 0.0 / 0.0" },
+                {"Cache Read Latency", "150.0 / 0.0 / 0.0 / 0.0" },
+                {"Cache Write Latency", "125.0 / 99.0 / 99.0 / 99.0"}
             }}
         }},
-        {"cache2", {
+        {"cache1_2", {
             {"Counters", {}},
             {"Gauges", {
                 {"Cache Eviction Percent", 30},
@@ -166,9 +168,9 @@ nlohmann::json expected = {
                 {"Total cache size", 20}
             }},
             {"Histograms percentiles (usecs) avg/50/95/99", {
-                {"Cache Delete Latency", "275 / 0 / 0 / 0" },
-                {"Cache Read Latency", "350 / 0 / 0 / 0" },
-                {"Cache Write Latency", "200 / 0 / 0 / 0"}
+                {"Cache Delete Latency", "275.0 / 152.0 / 152.0 / 152.0" },
+                {"Cache Read Latency", "350.0 / 0.0 / 0.0 / 0.0" },
+                {"Cache Write Latency", "200.0 / 0.0 / 0.0 / 0.0"}
             }}
         }},
     }},
@@ -203,7 +205,7 @@ nlohmann::json expected = {
                 {"Total memory utilization", 980}
             }},
             {"Histograms percentiles (usecs) avg/50/95/99", {
-                {"Distribution of request per transactions", "18 / 15 / 31 / 31"}
+                {"Distribution of request per transactions", "18.0 / 15.0 / 31.0 / 31.0"}
             }}
         }}
     }}
@@ -215,7 +217,7 @@ TEST(counterTest, wrapperTest) {
     tree1.update1();
     tree2.update2();
 
-    Cache cache1("cache1"), cache2("cache2");
+    Cache cache1("cache1"), cache2("cache1");
     cache1.update1();
     cache2.update2();
 
@@ -232,13 +234,13 @@ TEST(counterTest, wrapperTest) {
     }
 
     auto prometheus_bytes = MetricsFarm::getInstance().report(ReportFormat::kTextFormat);
-    //std::cout << "Prometheus serialized format: " << prometheus_bytes << "\n";
+    // std::cout << "Prometheus serialized format: " << prometheus_bytes << "\n";
 }
 
-//SDS_OPTIONS_ENABLE(logging)
+// SDS_OPTIONS_ENABLE(logging)
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    //sds_logging::SetLogger("metrics_wrapper_test");
-    //spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
+    // sds_logging::SetLogger("metrics_wrapper_test");
+    // spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
     return RUN_ALL_TESTS();
 }

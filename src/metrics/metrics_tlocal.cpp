@@ -9,7 +9,7 @@
 
 namespace sisl {
 
-PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramInfo >& hinfo, uint32_t ncntrs, uint32_t nhists) :
+PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, uint32_t ncntrs, uint32_t nhists) :
         m_histogram_info(hinfo),
         m_ncntrs(ncntrs),
         m_nhists(nhists) {
@@ -97,16 +97,18 @@ void ThreadBufferMetricsGroup::on_register() {
     static std::once_flag flag1;
     std::call_once(flag1, [&]() { sds_logging::add_signal_handler(SIGUSR4, "SIGUSR4", &flush_cache_handler); });
 
-    m_metrics_buf = std::make_unique< PerThreadMetricsBuffer >(m_histograms, m_counters.size(), m_histograms.size());
-    m_gather_metrics = std::make_unique< PerThreadMetrics >(m_histograms, m_counters.size(), m_histograms.size());
+    m_metrics_buf =
+        std::make_unique< PerThreadMetricsBuffer >(m_static_info->m_histograms, num_counters(), num_histograms());
+    m_gather_metrics =
+        std::make_unique< PerThreadMetrics >(m_static_info->m_histograms, num_counters(), num_histograms());
 }
 
-void ThreadBufferMetricsGroup::gather_result(
-    bool need_latest, std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
-    std::function< void(GaugeInfo&) > gauge_cb,
-    std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) {
+void ThreadBufferMetricsGroup::gather_result(bool need_latest, const counter_gather_cb_t& counter_cb,
+                                             const gauge_gather_cb_t& gauge_cb,
+                                             const histogram_gather_cb_t& histogram_cb) {
     if (need_latest) {
-        m_gather_metrics = std::make_unique< PerThreadMetrics >(m_histograms, m_counters.size(), m_histograms.size());
+        m_gather_metrics =
+            std::make_unique< PerThreadMetrics >(m_static_info->m_histograms, num_counters(), num_histograms());
 
         m_metrics_buf->access_all_threads([&](PerThreadMetrics* tmetrics, [[maybe_unused]] bool is_thread_running,
                                               [[maybe_unused]] bool is_last_thread) {
@@ -115,16 +117,16 @@ void ThreadBufferMetricsGroup::gather_result(
         });
     }
 
-    for (auto i = 0u; i < m_counters.size(); ++i) {
-        counter_cb(m_counters[i], m_gather_metrics->get_counter(i));
+    for (size_t i = 0U; i < num_counters(); ++i) {
+        counter_cb(i, m_gather_metrics->get_counter(i));
     }
 
-    for (auto i = 0U; i < m_gauges.size(); i++) {
-        gauge_cb(m_gauges[i]);
+    for (size_t i = 0U; i < num_gauges(); i++) {
+        gauge_cb(i, m_gauge_values[i]);
     }
 
-    for (auto i = 0U; i < m_histograms.size(); i++) {
-        histogram_cb(m_histograms[i], m_gather_metrics->get_histogram(i));
+    for (size_t i = 0U; i < num_histograms(); i++) {
+        histogram_cb(i, m_gather_metrics->get_histogram(i));
     }
 }
 
@@ -141,10 +143,10 @@ void ThreadBufferMetricsGroup::counter_decrement(uint64_t index, int64_t val) {
 // everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
 // one with count and one without count. In any case this is a single line method.
 void ThreadBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val) {
-    m_metrics_buf->get()->get_histogram(index).observe(val, m_bkt_boundaries[index], 1);
+    m_metrics_buf->get()->get_histogram(index).observe(val, m_static_info->m_histograms[index].get_boundaries(), 1);
 }
 
 void ThreadBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
-    m_metrics_buf->get()->get_histogram(index).observe(val, m_bkt_boundaries[index], count);
+    m_metrics_buf->get()->get_histogram(index).observe(val, m_static_info->m_histograms[index].get_boundaries(), count);
 }
 } // namespace sisl

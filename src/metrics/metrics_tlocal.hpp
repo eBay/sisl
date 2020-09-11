@@ -3,23 +3,26 @@
 #include "histogram_buckets.hpp"
 #include <atomic>
 #include <array>
+#include <vector>
+#include <cstdint>
+#include <string>
 #include "metrics_group_impl.hpp"
 
 namespace sisl {
 static_assert(std::is_trivially_copyable< HistogramValue >::value, "Expecting HistogramValue to be trivally copyable");
 
-class HistogramInfo;
+class HistogramStaticInfo;
 class PerThreadMetrics {
 private:
     CounterValue* m_counters = nullptr;
     HistogramValue* m_histograms = nullptr;
-    const std::vector< HistogramInfo >& m_histogram_info;
+    const std::vector< HistogramStaticInfo >& m_histogram_info;
 
     uint32_t m_ncntrs;
     uint32_t m_nhists;
 
 public:
-    PerThreadMetrics(const std::vector< HistogramInfo >& hinfo, uint32_t ncntrs, uint32_t nhists);
+    PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, uint32_t ncntrs, uint32_t nhists);
     ~PerThreadMetrics();
 
     static void merge(PerThreadMetrics* a, PerThreadMetrics* b);
@@ -30,7 +33,7 @@ public:
 };
 
 using PerThreadMetricsBuffer =
-    ExitSafeThreadBuffer< PerThreadMetrics, const std::vector< HistogramInfo >&, uint32_t, uint32_t >;
+    ExitSafeThreadBuffer< PerThreadMetrics, const std::vector< HistogramStaticInfo >&, uint32_t, uint32_t >;
 
 /*
  * ThreadBufferMetricsGroup is a very fast metrics accumulator and unlike RCU, it gathers the metrics for reporting
@@ -61,9 +64,8 @@ public:
 
 private:
     void on_register();
-    void gather_result(bool need_latest, std::function< void(CounterInfo&, const CounterValue&) > counter_cb,
-                       std::function< void(GaugeInfo&) > gauge_cb,
-                       std::function< void(HistogramInfo&, const HistogramValue&) > histogram_cb) override;
+    void gather_result(bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
+                       const histogram_gather_cb_t& histogram_cb) override;
 
 private:
     std::unique_ptr< PerThreadMetricsBuffer > m_metrics_buf;
