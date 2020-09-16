@@ -6,9 +6,10 @@
 #include <iostream>
 #include <thread>
 
+#include <gtest/gtest.h>
+#include <sds_logging/logging.h>
+
 #include "metrics.hpp"
-#include "gtest/gtest.h"
-#include "sds_logging/logging.h"
 
 constexpr size_t ITERATIONS{3};
 

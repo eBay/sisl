@@ -2,20 +2,20 @@
 // Created by Kadayam, Hari on 2/5/19.
 //
 
-#include "metrics_atomic.hpp"
-#include <sds_logging/logging.h>
 #include <atomic>
 #include <iostream>
 #include <memory>
 
+#include <sds_logging/logging.h>
+
+#include "metrics_atomic.hpp"
+
 namespace sisl {
 
 void AtomicMetricsGroup::on_register() {
+    // std::make_unique<[]> will allocate and construct
     m_counter_values = std::make_unique< AtomicCounterValue[] >(num_counters());
     m_histogram_values = std::make_unique< AtomicHistogramValue[] >(num_histograms());
-
-    memset((void*)m_counter_values.get(), 0, (sizeof(AtomicCounterValue) * num_counters()));
-    memset((void*)m_histogram_values.get(), 0, (sizeof(AtomicHistogramValue) * num_histograms()));
 }
 
 void AtomicMetricsGroup::gather_result([[maybe_unused]] bool need_latest, const counter_gather_cb_t& counter_cb,

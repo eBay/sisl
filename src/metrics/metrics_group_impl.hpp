@@ -16,8 +16,9 @@
 #include <variant>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "histogram_buckets.hpp"
-#include "nlohmann/json.hpp"
 #include "prometheus_reporter.hpp"
 #include "utility/thread_buffer.hpp"
 
@@ -119,25 +120,26 @@ private:
 class GaugeValue {
 public:
     GaugeValue() :
-            m_value{std::make_unique< std::atomic< int64_t > >(0)} {}
+            m_value{0} {}
     GaugeValue(const std::atomic< int64_t >& oval) :
-            m_value{std::make_unique< std::atomic< int64_t > >(oval.load(std::memory_order_relaxed))} {}
-    GaugeValue(const GaugeValue& other) : m_value{std::make_unique< std::atomic< int64_t > >(other.get())} {}
+            m_value{oval.load(std::memory_order_relaxed)} {}
+    GaugeValue(const GaugeValue& other) : m_value{other.get()} {}
     GaugeValue& operator=(const GaugeValue& rhsOther) {
-        m_value->store(rhsOther.get(), std::memory_order_relaxed);
+        m_value.store(rhsOther.get(), std::memory_order_relaxed);
         return *this;
     }
-    GaugeValue(GaugeValue&& other) noexcept : m_value(std::move(other.m_value)) {}
+    // use copy operations for move since std::atomic is not movable
+    GaugeValue(GaugeValue&& other) noexcept : m_value{other.get()} {}
     GaugeValue& operator=(GaugeValue&& rhsOther) noexcept {
-        m_value = std::move(rhsOther.m_value);
+        m_value.store(rhsOther.get(), std::memory_order_relaxed);
         return *this;
     }
 
-    inline void update(const int64_t value) { m_value->store(value, std::memory_order_relaxed); }
-    [[nodiscard]] int64_t get() const { return m_value->load(std::memory_order_relaxed); }
+    inline void update(const int64_t value) { m_value.store(value, std::memory_order_relaxed); }
+    [[nodiscard]] int64_t get() const { return m_value.load(std::memory_order_relaxed); }
 
 private:
-    std::unique_ptr<std::atomic< int64_t >> m_value;
+    std::atomic< int64_t > m_value;
 };
 
 class GaugeStaticInfo {

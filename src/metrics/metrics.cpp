@@ -2,7 +2,7 @@
 // Created by Kadayam, Hari on 2/5/19.
 //
 
-#include "sds_logging/logging.h"
+#include <sds_logging/logging.h>
 
 #include "metrics.hpp"
 
@@ -83,10 +83,7 @@ void MetricsFarm::gather() {
 }
 
 ////////////////////////////////////////// Helper Routine section ////////////////////////////////////////////////
-std::unordered_map< std::string, std::unique_ptr< NamedCounter > > NamedCounter::s_Counters{};
-std::unordered_map< std::string, std::unique_ptr< NamedGauge > > NamedGauge::s_Gauges{};
-std::unordered_map< std::string, std::unique_ptr< NamedHistogram > > NamedHistogram::s_Histograms{};
-
+///
 std::string MetricsFarm::ensure_unique(const std::string& grp_name, const std::string& inst_name) {
     auto locked{lock()};
 
