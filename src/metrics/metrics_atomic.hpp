@@ -26,7 +26,7 @@ public:
     [[nodiscard]] int64_t get() const { return m_value.load(std::memory_order_relaxed); }
 
     [[nodiscard]] CounterValue to_counter_value() const {
-        CounterValue v;
+        CounterValue v{};
         v.m_value = get();
         return v;
     }
@@ -44,10 +44,13 @@ public:
     AtomicHistogramValue& operator=(AtomicHistogramValue&&) noexcept = delete;
 
     void observe(const int64_t value, const hist_bucket_boundaries_t& boundaries, const uint64_t count = 1) {
-        const auto lower{std::lower_bound(boundaries.begin(), boundaries.end(), value)};
-        const auto bkt_idx{std::distance(std::cbegin(boundaries), lower)};
-        m_freqs[bkt_idx].fetch_add(count, std::memory_order_relaxed);
-        m_sum.fetch_add((value * count), std::memory_order_relaxed);
+        const auto lower{std::lower_bound(std::cbegin(boundaries), std::cend(boundaries),
+                                          value)};
+        if (lower != std::cend(boundaries)) {
+            const auto bkt_idx{std::distance(std::cbegin(boundaries), lower)};
+            m_freqs[bkt_idx].fetch_add(count, std::memory_order_relaxed);
+            m_sum.fetch_add((value * count), std::memory_order_relaxed);
+        }
     }
 
     [[nodiscard]] auto& get_freqs() const { return m_freqs; }
@@ -55,7 +58,7 @@ public:
         return m_sum.load(std::memory_order_relaxed); }
 
     [[nodiscard]] HistogramValue to_histogram_value() const {
-        HistogramValue h;
+        HistogramValue h{};
         std::copy(std::cbegin(m_freqs), std::cend(m_freqs), std::begin(h.m_freqs));
         h.m_sum = get_sum();
         return h;
