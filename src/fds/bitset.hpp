@@ -6,13 +6,18 @@
  */
 
 #pragma once
-#include <cassert>
-#include <vector>
+
 #include <algorithm>
-#include "bitword.hpp"
-#include "utils.hpp"
+#include <cassert>
+#include <cstdint>
+#include <vector>
+
 #include <folly/SharedMutex.h>
 #include <sds_logging/logging.h>
+
+#include "bitword.hpp"
+#include "utils.hpp"
+
 
 /*
  * This is a improved bitset, which can efficiently identify and get the leading bitset or reset
@@ -257,7 +262,7 @@ public:
             if (word == nullptr) { break; }
 
             // Look for any free bits in the next iteration
-            int nbit;
+            uint8_t nbit;
             if (word->get_next_set_bit(offset, &nbit)) {
                 ret = start_bit + nbit - offset;
                 break;
@@ -321,7 +326,7 @@ public:
             Word* word = get_word(start_bit);
             if (word == nullptr) { break; }
 
-            bit_filter filter = {std::min(n_remaining, (int)Word::bits()), (int)n, 1};
+            bit_filter filter = {std::min<uint32_t>(n_remaining, Word::bits()), n, 1};
             auto result = word->get_next_reset_bits_filtered(offset, filter);
 
             if (result.match_type == bit_match_type::no_match) {
@@ -410,7 +415,7 @@ public:
             if (word == nullptr) { break; }
 
             // Look for any free bits in the next iteration
-            int nbit;
+            uint8_t nbit;
             if (word->get_next_reset_bit(offset, &nbit)) {
                 ret = start_bit + nbit - offset;
                 if (ret >= total_bits()) ret = npos;
