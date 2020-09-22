@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <limits>
+#include <strings.h>
 #include <vector>
 
 #include <folly/SharedMutex.h>
@@ -19,18 +21,23 @@
 #include "utils.hpp"
 
 
-/*
- * This is a improved bitset, which can efficiently identify and get the leading bitset or reset
- * without walking through every bit. At the moment, the std::bitset or boost::dynamic_bitset are
- * not able to provide such features. Also it provides features like atomically set the next available
- * bits and also will potentially have identify effectively the contiguous bits, max contiguous blocks,
- * atomics for each of these.
- */
+//
+// This is a improved bitset, which can efficiently identify and get the leading bitset or reset
+// without walking through every bit. At the moment, the std::bitset or boost::dynamic_bitset are
+// not able to provide such features. Also it provides features like atomically set the next available
+// bits and also will potentially have identify effectively the contiguous bits, max contiguous blocks,
+// atomics for each of these.
+//
 
 namespace sisl {
 struct BitBlock {
     uint64_t start_bit;
     uint32_t nbits;
+    BitBlock(const uint64_t start, const uint32_t bits) : start_bit{start}, nbits{bits} {}
+    BitBlock(const BitBlock&) = default;
+    BitBlock(BitBlock&&) noexcept = default;
+    BitBlock& operator=(const BitBlock&) = default;
+    BitBlock& operator=(BitBlock&&) noexcept = default;
 };
 
 #define call_method(method_name, ...)                                                                                  \
@@ -41,37 +48,45 @@ struct BitBlock {
         return method_name(__VA_ARGS__);                                                                               \
     }
 
-#if 0
-struct bitset_serialized {
-    uint64_t nbits;
-    uint64_t skip_bits;
-    uint64_t words[0];
-
-    static uint64_t nbytes(uint64_t bits) { return sizeof(bitset_serialized) + (total_words(bits) * sizeof(uint64_t)); }
-    static uint64_t total_words(uint64_t bits) { return ((bits - 1) / 64) + 1; }
-};
-#endif
-
 template < typename Word, bool ThreadSafeResizing = false >
 class BitsetImpl {
+    static_assert(Word::bits() == 8 || Word::bits() == 16 || Word::bits() == 32 ||Word::bits() == 64,
+                  "Word::bits() must be power of two in size");
+
 private:
+#pragma pack(1)
     struct bitset_serialized {
         uint64_t m_id; // persist ID for each bitmap. It is driven by user
         uint64_t m_nbits;
-        uint64_t m_skip_bits = 0;
-        Word m_words[0];
+        uint64_t m_skip_bits;
+        Word m_words[1];
 
-        static uint64_t nbytes(uint64_t nbits) {
-            return sizeof(bitset_serialized) + (total_words(nbits) * sizeof(Word));
+        bitset_serialized(const uint64_t id, const uint64_t nbits, const uint64_t skip_bits = 0) :
+                m_id{id},
+                m_nbits{nbits},
+                m_skip_bits{skip_bits} {
+            ::memset(static_cast< void* >(m_words), 0, total_words(nbits) * sizeof(Word));
         }
-        static uint64_t total_words(uint64_t nbits) { return ((nbits - 1) / Word::bits()) + 1; }
+        bitset_serialized(const bitset_serialized&) = delete;
+        bitset_serialized(bitset_serialized&&) noexcept = delete;
+        bitset_serialized& operator=(const bitset_serialized&) = delete;
+        bitset_serialized& operator=(bitset_serialized&&) noexcept = delete;
+        static constexpr uint64_t nbytes(const uint64_t nbits) {
+            return sizeof(bitset_serialized) + (total_words(nbits) - 1) * sizeof(Word);
+        }
+        static constexpr uint64_t total_words(const uint64_t nbits)
+        {
+            return ((nbits / Word::bits()) + (((nbits & m_word_mask) > 0) ? 1 : 0));
+        }
     };
+#pragma pack()
 
-    bitset_serialized* m_s = nullptr;
-    mutable folly::SharedMutex m_lock;
+    uint32_t m_alignment_size{0};
     sisl::byte_array m_buf;
-    uint32_t m_alignment_size = 0;
+    bitset_serialized* m_s{nullptr};
     uint64_t m_words_cap;
+    mutable folly::SharedMutex m_lock;
+    static constexpr uint64_t m_word_mask{Word::bits() - 1};
 
 #ifndef NDEBUG
     static constexpr size_t compaction_threshold() { return Word::bits() * 10; }
@@ -81,160 +96,180 @@ private:
 #endif
 
 public:
-    static constexpr uint64_t npos = (uint64_t)-1;
+    static constexpr uint64_t npos{std::numeric_limits< uint64_t >::max()};
 
 public:
-    explicit BitsetImpl(uint64_t nbits, uint64_t m_id = 0, uint32_t alignment_size = 0) {
-        m_alignment_size = alignment_size;
-        uint64_t size = alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
-                                       : bitset_serialized::nbytes(nbits);
+    explicit BitsetImpl(const uint64_t nbits, const uint64_t m_id = 0, const uint32_t alignment_size = 0) :
+        m_alignment_size{alignment_size}
+    {
+        const uint64_t size{alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                           : bitset_serialized::nbytes(nbits)};
         m_buf = make_byte_array(size, alignment_size);
-        m_s = (bitset_serialized*)m_buf->bytes;
-
-        m_s->m_id = m_id;
+        m_s = new (m_buf->bytes) bitset_serialized{m_id, nbits};
         m_words_cap = bitset_serialized::total_words(nbits);
-        // memset((void*)(uint8_t*)(m_s->m_words), 0, (m_words_cap * sizeof(Word) / 2));
-        m_s->m_nbits = nbits;
-        m_s->m_skip_bits = 0;
-        bzero((void*)(uint8_t*)(m_s->m_words), m_words_cap * sizeof(Word));
     }
 
-    explicit BitsetImpl(const BitsetImpl& others) {
-        m_alignment_size = others.m_alignment_size;
-        m_buf = others.m_buf;
-        m_s = (bitset_serialized*)m_buf->bytes;
-        m_words_cap = others.m_words_cap;
+    explicit BitsetImpl(const BitsetImpl& others) :
+        m_alignment_size{others.m_alignment_size},
+        m_buf{others.m_buf},
+        m_s{reinterpret_cast< bitset_serialized* >(m_buf->bytes)},
+        m_words_cap{others.m_words_cap} {
     }
 
     explicit BitsetImpl(const sisl::byte_array& b) {
+        // NOTE: This assumes that the passed byte_array already has an initialized bitset_serialized structure
         m_alignment_size = 0; // Assume no alignment
         m_buf = b;
-        m_s = (bitset_serialized*)m_buf->bytes;
+        m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
         m_words_cap = bitset_serialized::total_words(m_s->m_nbits);
     }
 
-    uint64_t get_id() { return m_s->m_id; }
-
-    void set_id(uint64_t id) { m_s->m_id = id; }
-
-    BitsetImpl& move(BitsetImpl& others) {
-        m_alignment_size = others.m_alignment_size;
-        m_buf = std::move(others.m_buf);
-        m_s = (bitset_serialized*)m_buf->bytes;
-        m_words_cap = others.m_words_cap;
-
+    BitsetImpl(BitsetImpl&& others) noexcept : m_alignment_size{std::move(others.m_alignment_size)},
+        m_buf{std::move(others.m_buf)},
+        m_s{reinterpret_cast< bitset_serialized* >(m_buf->bytes)},
+        m_words_cap{std::move(others.m_words_cap)} {
+        others.m_alignment_size = 0;
         others.m_s = nullptr;
         others.m_words_cap = 0;
+    }
+
+    BitsetImpl& operator=(const BitsetImpl& rhs)
+    {
+        if (this != &rhs) {
+            m_alignment_size = rhs.m_alignment_size;
+            m_buf = rhs.m_buf;
+            m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
+            m_words_cap = rhs.m_words_cap;
+        }
         return *this;
     }
+
+    BitsetImpl& operator=(BitsetImpl&& rhs) noexcept
+    {
+        if (this != &rhs)
+        {
+            m_alignment_size = std::move(rhs.m_alignment_size);
+            m_buf = std::move(rhs.m_buf);
+            m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
+            m_words_cap = std::move(rhs.m_words_cap);
+
+            rhs.m_alignment_size = 0;
+            rhs.m_s = nullptr;
+            rhs.m_words_cap = 0;
+        }
+        return *this;
+    }
+
+
+    uint64_t get_id() const { return m_s->m_id; }
+
+    void set_id(uint64_t id) { m_s->m_id = id; }
 
     void copy(const BitsetImpl& others) {
         if (!m_buf || m_buf->size != others.m_buf->size) {
             m_buf = make_byte_array(others.m_buf->size, others.m_alignment_size);
-            m_s = (bitset_serialized*)m_buf->bytes;
+            m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
         }
         m_alignment_size = others.m_alignment_size;
         m_words_cap = others.m_words_cap;
-        memcpy(m_buf->bytes, others.m_buf->bytes, others.m_buf->size);
+        ::memcpy(static_cast<void*>(m_buf->bytes), static_cast<const void*>(others.m_buf->bytes), others.m_buf->size);
     }
 
-    /**
-     * @brief Serialize the bitset and return the underlying serialized buffer that can be written as is (which can be
-     * used to load later)
-     *
-     * NOTE: The returned buffer is a const byte array and thus it is expected not to be modified. If modified then it
-     * can result in corruption to the bitset.
-     *
-     * @return sisl::byte_array
-     */
+    //
+    // @brief Serialize the bitset and return the underlying serialized buffer that can be written as is (which can be
+    // used to load later)
+    //
+    // NOTE: The returned buffer is a const byte array and thus it is expected not to be modified. If modified then it
+    // can result in corruption to the bitset.
+    //
+    // @return sisl::byte_array
+    //
     const sisl::byte_array serialize() const {
         if (ThreadSafeResizing) { m_lock.lock(); }
-        auto ret = m_buf;
+        const auto ret{m_buf};
         if (ThreadSafeResizing) { m_lock.unlock(); }
         return ret;
     }
 
-    /**
-     * @brief Return the bytes it will have upon serializing
-     *
-     * @return uint64_t
-     */
+    //
+    // @brief Return the bytes it will have upon serializing
+    //
+    // @return uint64_t
+    //
     uint64_t serialized_size() const {
         if (ThreadSafeResizing) { m_lock.lock(); }
-        auto sz = bitset_serialized::nbytes(m_s->m_nbits);
+        const auto sz{bitset_serialized::nbytes(m_s->m_nbits)};
         if (ThreadSafeResizing) { m_lock.unlock(); }
         return sz;
     }
 
-    /**
-     * @brief Get total bits available in this bitset
-     *
-     * @return uint64_t
-     */
+    //
+    // @brief Get total bits available in this bitset
+    //
+    // @return uint64_t
+    //
     uint64_t size() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        auto ret = total_bits();
+        const auto ret{total_bits()};
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return ret;
     }
 
     uint64_t get_set_count() const {
-        uint64_t start_bit = 0;
-        uint64_t set_cnt = 0;
-        while (start_bit < size()) {
-            auto word = get_word_const(start_bit);
-            set_cnt += word->get_set_count();
-            start_bit += (Word::bits());
+        uint64_t set_cnt{0};
+        for(uint64_t start_bit{0}; start_bit < size(); start_bit += Word::bits()) {
+            const auto word_ptr{get_word_const(start_bit)};
+            set_cnt += word_ptr->get_set_count();
         }
         return set_cnt;
     }
 
-    /**
-     * @brief Set the bit. If the bit is outside the available range throws std::out_of_range exception
-     *
-     * @param b Bit to set
-     */
-    void set_bit(uint64_t b) { set_reset_bit(b, true); }
+    //
+    // @brief Set the bit. If the bit is outside the available range throws std::out_of_range exception
+    //
+    // @param b Bit to set
+    ///
+    void set_bit(const uint64_t b) { set_reset_bit(b, true); }
 
-    /**
-     * @brief Set multiple bits. If the bit is outside the available range throws std::out_of_range exception
-     *
-     * @param b Starting bit of the sequence to set
-     * @param nbits Total number of bits from starting bit
-     */
-    void set_bits(uint64_t b, int nbits) { set_reset_bits(b, nbits, true); }
+    //
+    // @brief Set multiple bits. If the bit is outside the available range throws std::out_of_range exception
+    //
+    // @param b Starting bit of the sequence to set
+    // @param nbits Total number of bits from starting bit
+    //
+    void set_bits(const uint64_t b, const uint64_t nbits) { set_reset_bits(b, nbits, true); }
 
-    /**
-     * @brief Reset the bit. If the bit is outside the available range throws std::out_of_range exception
-     *
-     * @param b Bit to reset
-     */
-    void reset_bit(uint64_t b) { set_reset_bit(b, false); }
+    //
+    // @brief Reset the bit. If the bit is outside the available range throws std::out_of_range exception
+    //
+    // @param b Bit to reset
+    //
+    void reset_bit(const uint64_t b) { set_reset_bit(b, false); }
 
-    /**
-     * @brief Reset multiple bits. If the bit is outside the available range throws std::out_of_range exception
-     *
-     * @param b Starting bit of the sequence to reset
-     * @param nbits Total number of bits from starting bit
-     */
-    void reset_bits(uint64_t b, int nbits) { set_reset_bits(b, nbits, false); }
+    //
+    // @brief Reset multiple bits. If the bit is outside the available range throws std::out_of_range exception
+    //
+    // @param b Starting bit of the sequence to reset
+    // @param nbits Total number of bits from starting bit
+    //
+    void reset_bits(const uint64_t b, const uint64_t nbits) { set_reset_bits(b, nbits, false); }
 
-    /**
-     * @brief Is a particular bit is set/reset. If the bit is outside the available range throws std::out_of_range
-     * exception
-     *
-     * @param b Starting bit of the sequence to check
-     * @param nbits Total number of bits from starting bit
-     */
-    bool is_bits_set(uint64_t b, int nbits) const { return is_bits_set_reset(b, nbits, true); }
-    bool is_bits_reset(uint64_t b, int nbits) const { return is_bits_set_reset(b, nbits, false); }
+    //
+    // @brief Is a particular bit is set/reset. If the bit is outside the available range throws std::out_of_range
+    // exception
+    //
+    // @param b Starting bit of the sequence to check
+    // @param nbits Total number of bits from starting bit
+    //
+    bool is_bits_set(const uint64_t b, const uint64_t nbits) const { return is_bits_set_reset(b, nbits, true); }
+    bool is_bits_reset(const uint64_t b, const uint64_t nbits) const { return is_bits_set_reset(b, nbits, false); }
 
-    /**
-     * @brief Get the value of the bit
-     *
-     * @param b Bit to get the value of
-     * @return true or false based on if bit is set or reset respectively
-     */
+    //
+    // @brief Get the value of the bit
+    //
+    // @param b Bit to get the value of
+    // @return true or false based on if bit is set or reset respectively
+    //
     bool get_bitval(uint64_t b) const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
@@ -504,7 +539,7 @@ private:
         // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip
         // list size. Rest of them will be compacted.
         auto shrink_words = m_s->m_skip_bits / Word::bits();
-        auto new_skip_bits = m_s->m_skip_bits % Word::bits();
+        auto new_skip_bits = m_s->m_skip_bits & m_word_mask;
 
         auto new_nbits = nbits + new_skip_bits;
         auto new_cap = bitset_serialized::total_words(new_nbits);
@@ -529,23 +564,25 @@ private:
                  m_s->m_skip_bits, m_words_cap);
     }
 
-    Word* get_word(uint64_t b) {
-        b += m_s->m_skip_bits;
-        return (sisl_unlikely(b >= m_s->m_nbits)) ? nullptr : nth_word(b / Word::bits());
+    Word* get_word(const uint64_t b) {
+        const uint64_t offset{b + m_s->m_skip_bits};
+        return (sisl_unlikely(offset >= m_s->m_nbits)) ? nullptr : nth_word(offset / Word::bits());
     }
 
-    const Word* get_word_const(uint64_t b) const {
-        b += m_s->m_skip_bits;
-        return (sisl_unlikely(b >= m_s->m_nbits)) ? nullptr : nth_word(b / Word::bits());
+    const Word* get_word_const(const uint64_t b) const {
+        const uint64_t offset{b + m_s->m_skip_bits};
+        return (sisl_unlikely(offset >= m_s->m_nbits)) ? nullptr : nth_word(offset / Word::bits());
     }
 
-    int get_word_offset(uint64_t b) const {
-        b += m_s->m_skip_bits;
-        return (int)(b % Word::bits());
+    uint64_t get_word_offset(const uint64_t b) const {
+        const uint64_t offset{b + m_s->m_skip_bits};
+        return (offset & m_word_mask);
     }
 
     uint64_t total_bits() const { return m_s->m_nbits - m_s->m_skip_bits; }
-    Word* nth_word(uint64_t word_n) const { return &m_s->m_words[word_n]; }
+
+    Word* nth_word(const uint64_t word_n) { return &m_s->m_words[word_n]; }
+    const Word* nth_word(const uint64_t word_n) const { return &m_s->m_words[word_n]; }
 };
 
 /**
