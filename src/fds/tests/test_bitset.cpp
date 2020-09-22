@@ -235,6 +235,12 @@ void run_parallel(const uint64_t total_bits, const uint32_t nthreads, const std:
     }
 }
 
+TEST_F(BitsetTest, TestSetCount)
+{
+    m_bset.set_bits(0, g_total_bits);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits);
+}
+
 TEST_F(BitsetTest, AlternateSetAndShrink) {
     run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
         LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);

@@ -10,8 +10,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <limits>
-#include <strings.h>
 #include <vector>
 
 #include <folly/SharedMutex.h>
@@ -71,6 +71,9 @@ private:
         bitset_serialized(bitset_serialized&&) noexcept = delete;
         bitset_serialized& operator=(const bitset_serialized&) = delete;
         bitset_serialized& operator=(bitset_serialized&&) noexcept = delete;
+
+        bool valid_bit(const uint64_t bit) const { return bit + m_skip_bits < m_nbits; }
+        const Word* end_words() const { return m_words + total_words(m_nbits); }
         static constexpr uint64_t nbytes(const uint64_t nbits) {
             return sizeof(bitset_serialized) + (total_words(nbits) - 1) * sizeof(Word);
         }
@@ -160,7 +163,6 @@ public:
         return *this;
     }
 
-
     uint64_t get_id() const { return m_s->m_id; }
 
     void set_id(uint64_t id) { m_s->m_id = id; }
@@ -216,11 +218,32 @@ public:
     }
 
     uint64_t get_set_count() const {
+        if (ThreadSafeResizing) { m_lock.lock_shared(); }
+
+        // get first word count which may be partial
         uint64_t set_cnt{0};
-        for(uint64_t start_bit{0}; start_bit < size(); start_bit += Word::bits()) {
-            const auto word_ptr{get_word_const(start_bit)};
-            set_cnt += word_ptr->get_set_count();
+        const Word* word_ptr{get_word_const(0)};
+        const uint8_t offset{get_word_offset(0)};
+        set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
+
+        // count rest of words
+        const uint64_t skip_bits{static_cast<uint64_t>(Word::bits() - offset)};
+        uint64_t bits_remaining{skip_bits > total_bits() ? 0 : total_bits() - skip_bits};
+        while (bits_remaining >= Word::bits())
+        {
+            set_cnt += (++word_ptr)->get_set_count();
+            bits_remaining -= Word::bits();
         }
+
+        // count last possibly partial word
+        if (bits_remaining)
+        {
+            const uint8_t shift{static_cast<uint8_t>(Word::bits() - bits_remaining)};
+            const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
+            set_cnt += get_set_bit_count((++word_ptr)->to_integer() & mask);
+        }
+
+        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return set_cnt;
     }
 
@@ -229,40 +252,42 @@ public:
     //
     // @param b Bit to set
     ///
-    void set_bit(const uint64_t b) { set_reset_bit(b, true); }
+    void set_bit(const uint64_t start) { set_reset_bit(start, true); }
 
     //
     // @brief Set multiple bits. If the bit is outside the available range throws std::out_of_range exception
     //
-    // @param b Starting bit of the sequence to set
+    // @param start Starting bit of the sequence to set
     // @param nbits Total number of bits from starting bit
     //
-    void set_bits(const uint64_t b, const uint64_t nbits) { set_reset_bits(b, nbits, true); }
+    void set_bits(const uint64_t start, const uint64_t nbits) { set_reset_bits(start, nbits, true); }
 
     //
     // @brief Reset the bit. If the bit is outside the available range throws std::out_of_range exception
     //
-    // @param b Bit to reset
+    // @param start Bit to reset
     //
-    void reset_bit(const uint64_t b) { set_reset_bit(b, false); }
+    void reset_bit(const uint64_t start) { set_reset_bit(start, false); }
 
     //
     // @brief Reset multiple bits. If the bit is outside the available range throws std::out_of_range exception
     //
-    // @param b Starting bit of the sequence to reset
+    // @param start Starting bit of the sequence to reset
     // @param nbits Total number of bits from starting bit
     //
-    void reset_bits(const uint64_t b, const uint64_t nbits) { set_reset_bits(b, nbits, false); }
+    void reset_bits(const uint64_t start, const uint64_t nbits) { set_reset_bits(start, nbits, false); }
 
     //
     // @brief Is a particular bit is set/reset. If the bit is outside the available range throws std::out_of_range
     // exception
     //
-    // @param b Starting bit of the sequence to check
+    // @param start Starting bit of the sequence to check
     // @param nbits Total number of bits from starting bit
     //
-    bool is_bits_set(const uint64_t b, const uint64_t nbits) const { return is_bits_set_reset(b, nbits, true); }
-    bool is_bits_reset(const uint64_t b, const uint64_t nbits) const { return is_bits_set_reset(b, nbits, false); }
+    bool is_bits_set(const uint64_t start, const uint64_t nbits) const { return is_bits_set_reset(start, nbits, true); }
+    bool is_bits_reset(const uint64_t start, const uint64_t nbits) const {
+        return is_bits_set_reset(start, nbits, false);
+    }
 
     //
     // @brief Get the value of the bit
@@ -270,55 +295,78 @@ public:
     // @param b Bit to get the value of
     // @return true or false based on if bit is set or reset respectively
     //
-    bool get_bitval(uint64_t b) const {
+    bool get_bitval(const uint64_t bit) const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        assert(m_s->valid_bit(bit));
 
-        const Word* word = get_word_const(b);
-        int offset = get_word_offset(b);
-        auto ret = word->get_bitval(offset);
+        const Word* word_ptr{get_word_const(bit)};
+        const uint8_t offset{get_word_offset(bit)};
+        const bool ret{word_ptr->get_bitval(offset)};
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return ret;
     }
 
-    /**
-     * @brief Get the next set bit from given bit
-     *
-     * @param start_bit Start bit after which (inclusive) search for next bit is on
-     * @return uint64_t Returns the next set bit, if one available, else Bitset::npos is returned
-     */
-    uint64_t get_next_set_bit(uint64_t start_bit) {
-        uint64_t ret = npos;
+    //
+    // @brief Get the next set bit from given bit
+    //
+    // @param start_bit Start bit after which (inclusive) search for next bit is on
+    // @return uint64_t Returns the next set bit, if one available, else Bitset::npos is returned
+    //
+    uint64_t get_next_set_bit(const uint64_t start_bit) {
+        uint64_t ret{npos};
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-        int offset = get_word_offset(start_bit);
-        while (true) {
-            Word* word = get_word(start_bit);
-            if (word == nullptr) { break; }
+        // check first word which may be partial
+        const uint8_t offset{get_word_offset(start_bit)};
+        const Word* word_ptr{get_word_const(start_bit)};
+        if (word_ptr == nullptr)
+        {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return ret;
+        }
+        uint8_t nbit;
+        if (word_ptr->get_next_set_bit(offset, &nbit)) {
+            ret = start_bit + nbit - offset;
+        }
 
-            // Look for any free bits in the next iteration
-            uint8_t nbit;
-            if (word->get_next_set_bit(offset, &nbit)) {
-                ret = start_bit + nbit - offset;
-                break;
+        if (ret == npos) {
+            // test rest of whole words
+            uint64_t current_bit{start_bit + (Word::bits() - offset)};
+            uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
+            while (bits_remaining >= Word::bits()) {
+                if ((++word_ptr)->get_next_set_bit(0, &nbit)) {
+                    ret = current_bit + nbit;
+                    break;
+                }
+                current_bit += Word::bits();
+                bits_remaining -= Word::bits();
             }
-            start_bit += (Word::bits() - offset);
-            offset = 0;
+
+            // test last possible partial word
+            if ((ret == npos) && (bits_remaining > 0)) {
+                const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
+                const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
+                const Bitword< unsafe_bits< typename Word::word_t > > val{
+                    static_cast< typename Word::word_t >((++word_ptr)->to_integer() & mask)};
+                if (val.get_next_set_bit(0, &nbit)) { ret = current_bit + nbit; }
+            }
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        if (ret >= total_bits()) ret = npos;
         return ret;
     }
 
-    /**
-     * @brief Right shift the bitset with number of bits provided.
-     * NOTE: To be efficient, This method does not immediately right shifts the entire set, rather set the marker and
-     * once critical mass (typically 8K right shifts), it actually performs the move of data to right shift.
-     *
-     * @param nbits Total number of bits to right shift. If it is beyond total number of bits in the bitset, it throws
-     * std::out_or_range exception.
-     */
-    void shrink_head(uint64_t nbits) {
+    //
+    // @brief Right shift the bitset with number of bits provided.
+    // NOTE: To be efficient, This method does not immediately right shifts the entire set, rather set the marker and
+    // once critical mass (typically 8K right shifts), it actually performs the move of data to right shift.
+    //
+    // @param nbits Total number of bits to right shift. If it is beyond total number of bits in the bitset, it throws
+    // std::out_or_range exception.
+    //
+    void shrink_head(const uint64_t nbits) {
         if (ThreadSafeResizing) { m_lock.lock(); }
 
         if (nbits > total_bits()) { throw std::out_of_range("Right shift to out of range"); }
@@ -328,66 +376,66 @@ public:
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
-    /**
-     * @brief resize the bitset to number of bits. If nbits is more than existing bits, it will expand the bits and set
-     * the new bits with value specified in the second parameter. If nbits is less than existing bits, it discards
-     * remaining bits.
-     *
-     * @param nbits: New count of bits the bitset to be reset to
-     * @param value: Value to set if bitset is resized up.
-     */
-    void resize(uint64_t nbits, bool value = false) {
+    //
+    // @brief resize the bitset to number of bits. If nbits is more than existing bits, it will expand the bits and set
+    // the new bits with value specified in the second parameter. If nbits is less than existing bits, it discards
+    // remaining bits.
+    //
+    // @param nbits: New count of bits the bitset to be reset to
+    // @param value: Value to set if bitset is resized up.
+    //
+    void resize(const uint64_t nbits, const bool value = false) {
         if (ThreadSafeResizing) { m_lock.lock(); }
         _resize(nbits, value);
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
-    /**
-     * @brief Get the next contiguous n reset bits from the start bit
-     *
-     * @param start_bit Start bit to search from
-     * @param n Count of required continous reset bits
-     * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
-     * check if returned count satisfies what is asked for.
-     */
-    BitBlock get_next_contiguous_n_reset_bits(uint64_t start_bit, uint32_t n) {
+    //
+    // @brief Get the next contiguous n reset bits from the start bit
+    //
+    // @param start_bit Start bit to search from
+    // @param n Count of required continous reset bits
+    // @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+    // check if returned count satisfies what is asked for.
+    //
+    BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-        BitBlock retb = {start_bit, 0};
-        int n_remaining = (int)n;
-
-        int offset = get_word_offset(start_bit);
+        BitBlock retb{start_bit, 0};
+        uint32_t n_remaining{n};
+        uint8_t offset{get_word_offset(start_bit)};
+        uint64_t current_bit{start_bit};
         while (n_remaining > 0) {
-            Word* word = get_word(start_bit);
-            if (word == nullptr) { break; }
+            const Word* word_ptr{get_word_const(current_bit)};
+            if (word_ptr == nullptr) { break; }
 
-            bit_filter filter = {std::min<uint32_t>(n_remaining, Word::bits()), n, 1};
-            auto result = word->get_next_reset_bits_filtered(offset, filter);
+            const bit_filter filter{std::min<uint32_t>(n_remaining, Word::bits()), n, 1};
+            const auto result{word_ptr->get_next_reset_bits_filtered(offset, filter)};
 
             if (result.match_type == bit_match_type::no_match) {
                 // No match, reset everything to what it was before search.
-                n_remaining = (int)n;
-                retb.start_bit = start_bit + Word::bits() - offset;
+                n_remaining = n;
+                retb.start_bit = current_bit + Word::bits() - offset;
             } else if (result.match_type == bit_match_type::mid_match) {
-                retb.start_bit = start_bit + result.start_bit - offset;
+                retb.start_bit = current_bit + result.start_bit - offset;
                 retb.nbits = n;
                 goto done;
             } else if (result.match_type == bit_match_type::msb_match) {
                 // We didn't get what we want, but there are some residue bits, start creating a chain
-                n_remaining = (int)n - result.count;
-                retb.start_bit = start_bit + result.start_bit - offset;
+                n_remaining = n - result.count;
+                retb.start_bit = current_bit + result.start_bit - offset;
             } else if (result.match_type == bit_match_type::lsb_match) {
-                // We got howmuch ever we need for leading bits. If we have enough to satisy n (note: We might need more
-                // than a word width), then respond.
+                // We got how much ever we need for leading bits. If we have enough to satisfy n
+                // (note: We might need more than a word width), then respond.
                 assert(offset == 0);
-                n_remaining -= result.count;
-                if (n_remaining <= 0) {
+                if (n_remaining <= result.count) {
                     retb.nbits = n;
                     goto done;
-                }
+                } else
+                n_remaining -= result.count;
             }
 
-            start_bit += (Word::bits() - offset);
+            current_bit += (Word::bits() - offset);
             offset = 0;
         }
 
@@ -397,16 +445,17 @@ public:
         return retb;
     }
 
-    /**
-     * @brief Get the next contiguous reset bits from the start bit upto n bits
-     *
-     * @param start_bit Start bit to search from
-     * @param n Count of required continous reset bits
-     * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
-     * check if returned count satisfies what is asked for.
-     */
-    BitBlock get_next_contiguous_upto_n_reset_bits(uint64_t start_bit, uint32_t upto_n) {
+    //
+    // @brief Get the next contiguous reset bits from the start bit upto n bits
+    //
+    // @param start_bit Start bit to search from
+    // @param n Count of required continous reset bits
+    // @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+    // check if returned count satisfies what is asked for.
+    //
+    BitBlock get_next_contiguous_upto_n_reset_bits(const uint64_t start_bit, const uint32_t upto_n) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        assert(m_s->valid_bit(start_bit));
 
         int offset = get_word_offset(start_bit);
         BitBlock retb = {0, 0};
@@ -440,123 +489,173 @@ public:
         return retb;
     }
 
-    uint64_t get_next_reset_bit(uint64_t start_bit) {
-        uint64_t ret = npos;
+    uint64_t get_next_reset_bit(const uint64_t start_bit) {
+        uint64_t ret{npos};
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-        int offset = get_word_offset(start_bit);
-        while (true) {
-            Word* word = get_word(start_bit);
-            if (word == nullptr) { break; }
+        // check first word which may be partial
+        const uint8_t offset{get_word_offset(start_bit)};
+        const Word* word_ptr{get_word_const(start_bit)};
+        if (word_ptr == nullptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return ret;
+        }
+        uint8_t nbit;
+        if (word_ptr->get_next_reset_bit(offset, &nbit)) {
+            ret = start_bit + nbit - offset;
+        }
 
-            // Look for any free bits in the next iteration
-            uint8_t nbit;
-            if (word->get_next_reset_bit(offset, &nbit)) {
-                ret = start_bit + nbit - offset;
-                if (ret >= total_bits()) ret = npos;
-                break;
+        if (ret == npos) {
+            // test rest of whole words
+            uint64_t current_bit{start_bit + (Word::bits() - offset)};
+            uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
+            while (bits_remaining >= Word::bits()) {
+                if ((++word_ptr)->get_next_reset_bit(0, &nbit)) {
+                    ret = current_bit + nbit;
+                    break;
+                }
+                current_bit += Word::bits();
+                bits_remaining -= Word::bits();
             }
-            start_bit += (Word::bits() - offset);
-            offset = 0;
+
+            // test last possible partial word
+            if ((ret == npos) && (bits_remaining > 0)) {
+                const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
+                const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
+                const Bitword< unsafe_bits< typename Word::word_t > > val{
+                    static_cast< typename Word::word_t >((++word_ptr)->to_integer() & mask)};
+                if (val.get_next_reset_bit(0, &nbit)) { ret = current_bit + nbit; }
+            }
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        if (ret >= total_bits()) ret = npos;
         return ret;
     }
 
+    // This prints the entire word memory irregardless of skip bits and partial last word
     void print() {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        for (auto i = 0u; i < m_words_cap; ++i) {
-            auto w = nth_word(i);
-            w->print();
+        for (uint64_t i{0}; i < m_words_cap; ++i) {
+            const Word* word_ptr{nth_word(i)};
+            word_ptr->print();
         }
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
     }
 
-    std::string to_string() {
+    // This prints the entire word memory irregardless of skip bits and partial last word
+    std::string to_string() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        std::string out;
-        for (auto i = 0u; i < m_words_cap; ++i) {
-            auto w = nth_word(i);
-            out += w->to_string();
+        std::string out{};
+        for (uint64_t i{0}; i < m_words_cap; ++i) {
+            const Word* word_ptr{nth_word(i)};
+            out += word_ptr->to_string();
         }
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return out;
     }
 
 private:
-    void set_reset_bits(uint64_t b, int nbits, bool value) {
+    void set_reset_bits(const uint64_t start, const uint64_t nbits, const bool value) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        assert(m_s->valid_bit(start));
 
-        int offset = get_word_offset(b);
-        while (nbits > 0) {
-            Word* word = get_word(b);
-            if (word == nullptr) {
-                throw std::out_of_range("Set/Reset bits not in range");
-                break;
-            }
-            int count = std::min(nbits, (int)Word::bits() - offset);
-            word->set_reset_bits(offset, count, value);
+        // set first possibly partial word
+        Word* word_ptr{get_word(start)};
+        if (word_ptr == nullptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            throw std::out_of_range("Set/Reset bits not in range");
+        }
+        const uint8_t offset{get_word_offset(start)};
+        uint8_t count{static_cast< uint8_t >(
+            (nbits > static_cast< uint8_t >(Word::bits() - offset)) ? (Word::bits() - offset) : nbits)};
+        word_ptr->set_reset_bits(offset, count, value);
 
-            b += count;
-            nbits -= count;
-            offset = 0;
+        // set rest of words
+        uint64_t current_bit{start + count};
+        uint64_t bits_remaining{nbits - count};
+        const Word* end_words_ptr{m_s->end_words()};
+        while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
+            count = static_cast<uint8_t>((bits_remaining > Word::bits()) ? Word::bits() : bits_remaining);
+            word_ptr->set_reset_bits(0, count, value);
+
+            current_bit += count;
+            bits_remaining -= count;
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+        if (bits_remaining > 0) { throw std::out_of_range("Set/Reset bits not in range"); }
     }
 
-    void set_reset_bit(uint64_t b, bool value) {
+    void set_reset_bit(const uint64_t bit, const bool value) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        assert(m_s->valid_bit(bit));
 
-        Word* word = get_word(b);
-        int offset = get_word_offset(b);
-        word->set_reset_bits(offset, 1, value);
+        Word* word_ptr{get_word(bit)};
+        const uint8_t offset{get_word_offset(bit)};
+        word_ptr->set_reset_bits(offset, 1, value);
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
     }
 
-    bool is_bits_set_reset(uint64_t b, int nbits, bool expected) const {
+    bool is_bits_set_reset(const uint64_t start, const uint64_t nbits, const bool expected) const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
+        assert(m_s->valid_bit(start));
 
-        int offset = get_word_offset(b);
-        while (nbits > 0) {
-            const Word* word = get_word_const(b);
-            if (word == nullptr) { break; }
-            int count = std::min(nbits, (int)Word::bits() - offset);
-            if (!word->is_bits_set_reset(offset, count, expected)) { return false; }
+        // test first possibly partial word
+        const Word* word_ptr{get_word_const(start)};
+        const uint8_t offset{get_word_offset(start)};
+        uint8_t count{static_cast< uint8_t >(
+            (nbits > static_cast< uint8_t >(Word::bits() - offset)) ? (Word::bits() - offset) : nbits)};
+        if (!word_ptr->is_bits_set_reset(offset, count, expected))
+        {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return false;
+        }
 
-            b += count;
-            nbits -= count;
-            offset = 0;
+        // test rest of words
+        uint64_t current_bit{start + count};
+        uint64_t bits_remaining{nbits - count};
+        const Word* end_words_ptr{m_s->end_words()};
+        while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
+            count = static_cast< uint8_t >((bits_remaining > Word::bits()) ? Word::bits() : bits_remaining);
+            if (!word_ptr->is_bits_set_reset(offset, count, expected))
+            {
+                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+                return false;
+            }
+
+            current_bit += count;
+            bits_remaining -= count;
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return true;
     }
 
-    void _resize(uint64_t nbits, bool value) {
-        // We use the resize oppurtunity to compact bits. So we only to need to allocate nbits + first word skip
+    void _resize(const uint64_t nbits, const bool value) {
+        // We use the resize opportunity to compact bits. So we only to need to allocate nbits + first word skip
         // list size. Rest of them will be compacted.
-        auto shrink_words = m_s->m_skip_bits / Word::bits();
-        auto new_skip_bits = m_s->m_skip_bits & m_word_mask;
+        const uint64_t shrink_words{m_s->m_skip_bits / Word::bits()};
+        const uint64_t new_skip_bits{m_s->m_skip_bits & m_word_mask};
 
-        auto new_nbits = nbits + new_skip_bits;
-        auto new_cap = bitset_serialized::total_words(new_nbits);
-        auto new_buf = make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size);
-        auto new_s = (bitset_serialized*)new_buf->bytes;
+        const uint64_t new_nbits{nbits + new_skip_bits};
+        const uint64_t new_cap{bitset_serialized::total_words(new_nbits)};
+        auto new_buf{make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size)};
+        auto new_s{reinterpret_cast< bitset_serialized* >(new_buf->bytes)};
 
-        auto move_nwords = std::min(m_words_cap - shrink_words, new_cap);
-        std::memmove((void*)&new_s->m_words[0], (void*)&m_s->m_words[shrink_words], (sizeof(Word) * move_nwords));
+        const uint64_t move_nwords{std::min(m_words_cap - shrink_words, new_cap)};
+        ::memmove(static_cast<void*>(new_s->m_words), static_cast<const void*>(&(m_s->m_words[shrink_words])),
+                  sizeof(Word) * move_nwords);
         if (new_cap > move_nwords) {
             // Fill in the remaining space with value passed
-            std::memset((void*)&new_s->m_words[move_nwords], value ? 0xff : 0,
-                        (sizeof(Word) * (new_cap - move_nwords)));
+            ::memset(static_cast<void*>(&(new_s->m_words[move_nwords])), value ? 0xff : 0x00,
+                        sizeof(Word) * (new_cap - move_nwords));
         }
 
         m_words_cap = new_cap;
         m_buf = new_buf;
-        m_s = (bitset_serialized*)m_buf->bytes;
+        m_s = new_s;
         m_s->m_skip_bits = new_skip_bits;
         m_s->m_nbits = new_nbits;
 
@@ -564,25 +663,25 @@ private:
                  m_s->m_skip_bits, m_words_cap);
     }
 
-    Word* get_word(const uint64_t b) {
-        const uint64_t offset{b + m_s->m_skip_bits};
+    Word* get_word(const uint64_t bit) {
+        const uint64_t offset{bit + m_s->m_skip_bits};
         return (sisl_unlikely(offset >= m_s->m_nbits)) ? nullptr : nth_word(offset / Word::bits());
     }
 
-    const Word* get_word_const(const uint64_t b) const {
-        const uint64_t offset{b + m_s->m_skip_bits};
+    const Word* get_word_const(const uint64_t bit) const {
+        const uint64_t offset{bit + m_s->m_skip_bits};
         return (sisl_unlikely(offset >= m_s->m_nbits)) ? nullptr : nth_word(offset / Word::bits());
     }
 
-    uint64_t get_word_offset(const uint64_t b) const {
-        const uint64_t offset{b + m_s->m_skip_bits};
-        return (offset & m_word_mask);
+    uint8_t get_word_offset(const uint64_t bit) const {
+        const uint64_t offset{bit + m_s->m_skip_bits};
+        return static_cast<uint8_t>(offset & m_word_mask);
     }
 
     uint64_t total_bits() const { return m_s->m_nbits - m_s->m_skip_bits; }
 
-    Word* nth_word(const uint64_t word_n) { return &m_s->m_words[word_n]; }
-    const Word* nth_word(const uint64_t word_n) const { return &m_s->m_words[word_n]; }
+    Word* nth_word(const uint64_t word_n) { return &(m_s->m_words[word_n]); }
+    const Word* nth_word(const uint64_t word_n) const { return &(m_s->m_words[word_n]); }
 };
 
 /**
