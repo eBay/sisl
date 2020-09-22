@@ -605,10 +605,12 @@ private:
         assert(m_s->valid_bit(start));
 
         // test first possibly partial word
+        uint64_t bits_remaining{nbits > total_bits() - start ? total_bits() - start : nbits};
         const Word* word_ptr{get_word_const(start)};
         const uint8_t offset{get_word_offset(start)};
-        uint8_t count{static_cast< uint8_t >(
-            (nbits > static_cast< uint8_t >(Word::bits() - offset)) ? (Word::bits() - offset) : nbits)};
+        uint8_t count{static_cast< uint8_t >((bits_remaining > static_cast< uint8_t >(Word::bits() - offset))
+                                                 ? (Word::bits() - offset)
+                                                 : bits_remaining)};
         if (!word_ptr->is_bits_set_reset(offset, count, expected))
         {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
@@ -617,7 +619,7 @@ private:
 
         // test rest of words
         uint64_t current_bit{start + count};
-        uint64_t bits_remaining{nbits - count};
+        bits_remaining -= count;
         const Word* end_words_ptr{m_s->end_words()};
         while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
             count = static_cast< uint8_t >((bits_remaining > Word::bits()) ? Word::bits() : bits_remaining);
@@ -632,7 +634,7 @@ private:
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-        return true;
+        return (bits_remaining == 0);
     }
 
     void _resize(const uint64_t nbits, const bool value) {
