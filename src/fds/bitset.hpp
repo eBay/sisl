@@ -325,7 +325,7 @@ public:
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return ret;
         }
-        uint8_t nbit;
+        uint8_t nbit{};
         if (word_ptr->get_next_set_bit(offset, &nbit)) {
             ret = start_bit + nbit - offset;
         }
@@ -440,40 +440,68 @@ public:
     // @brief Get the next contiguous reset bits from the start bit upto n bits
     //
     // @param start_bit Start bit to search from
-    // @param n Count of required continous reset bits
-    // @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+    // @param n Count of required continuous reset bits
+    // @return BitBlock Retuns a BitBlock which provides the start bit and total number of bits found. Caller need to
     // check if returned count satisfies what is asked for.
     //
     BitBlock get_next_contiguous_upto_n_reset_bits(const uint64_t start_bit, const uint32_t upto_n) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
         assert(m_s->valid_bit(start_bit));
 
-        int offset = get_word_offset(start_bit);
-        BitBlock retb = {0, 0};
+        uint8_t offset{get_word_offset(start_bit)};
+        BitBlock retb{0, 0};
 
-        while (1) {
-            Word* word = get_word(start_bit);
-            if (word == nullptr) { break; }
-
-            // Look for any free bits in the next iteration
-            uint32_t nbits;
-            retb.start_bit = start_bit + word->get_next_reset_bits(offset, &nbits);
-            retb.nbits = nbits;
-            if (nbits != 0) { break; }
-
-            start_bit += (Word::bits() - offset);
+        uint64_t current_bit{start_bit};
+        for (;;) {
+            const Word* word_ptr{get_word_const(current_bit)};
+            if (word_ptr == nullptr) {
+                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+                return retb;
+            }
+            uint8_t nbits{};
+            const uint8_t first_0bit{word_ptr->get_next_reset_bits(offset, &nbits)};
+            if (nbits > 0)
+            {
+                const uint64_t bit_position{current_bit + first_0bit - offset};
+                if (bit_position < total_bits()) {
+                    const uint32_t num_bits{static_cast< uint32_t >(
+                        ((total_bits() - bit_position) > nbits) ? nbits : total_bits() - bit_position)};
+                    if (num_bits > 0) {
+                        retb.start_bit = bit_position;
+                        retb.nbits = num_bits;
+                        current_bit += num_bits;
+                        break;
+                    }
+                }
+            }
+            current_bit += Word::bits() - offset;
             offset = 0;
         }
-
+        
         while (retb.nbits < upto_n) {
-            if (get_word_offset(retb.start_bit + retb.nbits) != 0) { break; }
-            Word* word = get_word(retb.start_bit + retb.nbits);
-            if (word == nullptr) { break; }
-            uint32_t nbits;
-            auto start_bit = word->get_next_reset_bits(0, &nbits);
-            if (nbits == 0 || ((uint64_t)start_bit != (uint64_t)(retb.start_bit + retb.nbits))) { break; }
-            retb.nbits += nbits;
-            if (nbits < Word::bits()) { break; }
+            if (get_word_offset(start_bit) != 0)
+            {
+                // not at beginning of word
+                break; 
+            }
+            const Word* word_ptr{get_word_const(current_bit)};
+            if (word_ptr == nullptr) { break; }
+
+            uint8_t nbits{};
+            const uint8_t first_0bit{word_ptr->get_next_reset_bits(0, &nbits)};
+            if ((nbits == 0) || (first_0bit != 0)) {
+                break;
+            } else {
+                const uint8_t num_bits{static_cast<uint8_t>(((total_bits() - current_bit) > nbits) ? 
+                                                            nbits : total_bits() - current_bit)};
+                if (num_bits > 0) {
+                    retb.nbits += num_bits;
+                    current_bit += num_bits;
+                } else
+                {
+                    break;
+                }
+            }
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
@@ -491,7 +519,7 @@ public:
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return ret;
         }
-        uint8_t nbit;
+        uint8_t nbit{};
         if (word_ptr->get_next_reset_bit(offset, &nbit)) {
             ret = start_bit + nbit - offset;
         }
