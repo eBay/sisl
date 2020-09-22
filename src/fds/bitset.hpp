@@ -220,7 +220,7 @@ public:
     uint64_t get_set_count() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-        // get first word count which may be partial
+        // get first word count which may be partial and we assume that at least 1 word worth of bits
         uint64_t set_cnt{0};
         const Word* word_ptr{get_word_const(0)};
         const uint8_t offset{get_word_offset(0)};
@@ -334,22 +334,13 @@ public:
             // test rest of whole words
             uint64_t current_bit{start_bit + (Word::bits() - offset)};
             uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
-            while (bits_remaining >= Word::bits()) {
+            while (bits_remaining > 0) {
                 if ((++word_ptr)->get_next_set_bit(0, &nbit)) {
                     ret = current_bit + nbit;
                     break;
                 }
                 current_bit += Word::bits();
-                bits_remaining -= Word::bits();
-            }
-
-            // test last possible partial word
-            if ((ret == npos) && (bits_remaining > 0)) {
-                const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
-                const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
-                const Bitword< unsafe_bits< typename Word::word_t > > val{
-                    static_cast< typename Word::word_t >((++word_ptr)->to_integer() & mask)};
-                if (val.get_next_set_bit(0, &nbit)) { ret = current_bit + nbit; }
+                bits_remaining -= std::min< uint64_t >(bits_remaining, Word::bits());
             }
         }
 
@@ -509,22 +500,13 @@ public:
             // test rest of whole words
             uint64_t current_bit{start_bit + (Word::bits() - offset)};
             uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
-            while (bits_remaining >= Word::bits()) {
+            while (bits_remaining > 0) {
                 if ((++word_ptr)->get_next_reset_bit(0, &nbit)) {
                     ret = current_bit + nbit;
                     break;
                 }
                 current_bit += Word::bits();
-                bits_remaining -= Word::bits();
-            }
-
-            // test last possible partial word
-            if ((ret == npos) && (bits_remaining > 0)) {
-                const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
-                const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
-                const Bitword< unsafe_bits< typename Word::word_t > > val{
-                    static_cast< typename Word::word_t >((++word_ptr)->to_integer() & mask)};
-                if (val.get_next_reset_bit(0, &nbit)) { ret = current_bit + nbit; }
+                bits_remaining -= std::min<uint64_t>(bits_remaining, Word::bits());
             }
         }
 
@@ -533,26 +515,46 @@ public:
         return ret;
     }
 
-    // This prints the entire word memory irregardless of skip bits and partial last word
-    void print() {
-        if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        for (uint64_t i{0}; i < m_words_cap; ++i) {
-            const Word* word_ptr{nth_word(i)};
-            word_ptr->print();
-        }
-        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-    }
-
-    // This prints the entire word memory irregardless of skip bits and partial last word
     std::string to_string() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        std::string out{};
-        for (uint64_t i{0}; i < m_words_cap; ++i) {
-            const Word* word_ptr{nth_word(i)};
-            out += word_ptr->to_string();
+
+        std::ostringstream oSS{};
+
+        // print first possibly partial word
+        const Word* word_ptr{get_word_const(0)};
+        const uint8_t offset{get_word_offset(0)};
+        const uint8_t valid_bits{static_cast<uint8_t>(Word::bits() - offset)};
+
+        typename Word::word_t val{word_ptr->to_integer() >> offset};
+        typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[valid_bits - 1])};
+        for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
+           oSS << (((val & mask) == mask) ? '1' : '0');
         }
+
+        // print whole words
+        uint64_t bits_remaining{valid_bits > total_bits() ? 0 : total_bits() - valid_bits};
+        while (bits_remaining >= Word::bits())
+        {
+           typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[Word::bits() - 1])};
+           val = (++word_ptr)->to_integer();
+           for (uint8_t bit{0}; bit < Word::bits(); ++bit, mask >>= 1) {
+               oSS << (((val & mask) == mask) ? '1' : '0');
+           }
+           bits_remaining -= Word::bits();
+        }
+
+        // print last possibly partial word
+        if (bits_remaining > 0)
+        {
+            typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[bits_remaining - 1])};
+            val = (++word_ptr)->to_integer();
+            for (uint8_t bit{0}; bit < bits_remaining; ++bit, mask >>= 1) {
+                oSS << (((val & mask) == mask) ? '1' : '0');
+            }
+        }
+
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-        return out;
+        return oSS.str();
     }
 
 private:

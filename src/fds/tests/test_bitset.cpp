@@ -241,6 +241,19 @@ TEST_F(BitsetTest, TestSetCount)
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits);
 }
 
+TEST_F(BitsetTest, TestPrint) {
+    const std::string str1{m_bset.to_string()};
+    for (const char x : str1) {
+        ASSERT_EQ(x, '0');
+    }
+
+    m_bset.set_bits(0, g_total_bits);
+    const std::string str2{m_bset.to_string()};
+    for (const char x : str2) {
+        ASSERT_EQ(x, '1');
+    }
+}
+
 TEST_F(BitsetTest, AlternateSetAndShrink) {
     run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
         LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);
