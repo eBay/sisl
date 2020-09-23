@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <limits>
 #include <vector>
 
@@ -452,12 +453,12 @@ public:
         BitBlock retb{0, 0};
 
         uint64_t current_bit{start_bit};
-        for (;;) {
-            const Word* word_ptr{get_word_const(current_bit)};
-            if (word_ptr == nullptr) {
-                if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-                return retb;
-            }
+        const Word* word_ptr{get_word_const(current_bit)};
+        if (word_ptr == nullptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return retb;
+        }
+        while (word_ptr < m_s->end_words()) {
             uint8_t nbits{};
             const uint8_t first_0bit{word_ptr->get_next_reset_bits(offset, &nbits)};
             if (nbits > 0)
@@ -469,23 +470,23 @@ public:
                     if (num_bits > 0) {
                         retb.start_bit = bit_position;
                         retb.nbits = num_bits;
-                        current_bit += num_bits;
+                        current_bit = bit_position + num_bits;
                         break;
                     }
                 }
             }
             current_bit += Word::bits() - offset;
             offset = 0;
+            ++word_ptr;
         }
         
         while (retb.nbits < upto_n) {
-            if (get_word_offset(start_bit) != 0)
+            if (get_word_offset(current_bit) != 0)
             {
                 // not at beginning of word
                 break; 
             }
-            const Word* word_ptr{get_word_const(current_bit)};
-            if (word_ptr == nullptr) { break; }
+            ++word_ptr;
 
             uint8_t nbits{};
             const uint8_t first_0bit{word_ptr->get_next_reset_bits(0, &nbits)};
@@ -496,7 +497,7 @@ public:
                                                             nbits : total_bits() - current_bit)};
                 if (num_bits > 0) {
                     retb.nbits += num_bits;
-                    current_bit += num_bits;
+                    current_bit += first_0bit + num_bits;
                 } else
                 {
                     break;
@@ -542,6 +543,8 @@ public:
         if (ret >= total_bits()) ret = npos;
         return ret;
     }
+
+    void print() const { std::cout << to_string << std::endl; }
 
     std::string to_string() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
@@ -590,6 +593,8 @@ private:
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
         assert(m_s->valid_bit(start));
 
+        // NOTE: we ignore the fact here that the total number of bits may not consume the entire
+        // last word
         // set first possibly partial word
         Word* word_ptr{get_word(start)};
         if (word_ptr == nullptr) {
@@ -715,6 +720,23 @@ private:
     Word* nth_word(const uint64_t word_n) { return &(m_s->m_words[word_n]); }
     const Word* nth_word(const uint64_t word_n) const { return &(m_s->m_words[word_n]); }
 };
+
+template < typename charT, typename traits, typename Word, bool ThreadSafeResizing = false >
+std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& outStream,
+                                                const BitsetImpl<Word, ThreadSafeResizing>& bitset)
+{
+    // copy the stream formatting
+    std::basic_ostringstream< charT, traits > outStringStream;
+    outStringStream.copyfmt(outStream);
+
+    // output the date time
+    outStringStream << bitset.to_string();
+
+    // print the stream
+    outStream << outStringStream.str();
+
+    return outStream;
+}
 
 /**
  * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is

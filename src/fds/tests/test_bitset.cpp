@@ -254,6 +254,33 @@ TEST_F(BitsetTest, TestPrint) {
     }
 }
 
+TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
+    m_bset.set_bits(0, g_total_bits);
+    m_bset.reset_bits(1, 2);
+    m_bset.reset_bits(64, 4);
+    m_bset.reset_bits(127, 8);
+
+    const auto result1{m_bset.get_next_contiguous_upto_n_reset_bits(0, 8)};
+    ASSERT_EQ(result1.start_bit, static_cast< uint64_t >(1));
+    ASSERT_EQ(result1.nbits, static_cast< uint64_t >(2));
+
+    const auto result2{m_bset.get_next_contiguous_upto_n_reset_bits(1, 8)};
+    ASSERT_EQ(result2.start_bit, static_cast< uint64_t >(1));
+    ASSERT_EQ(result2.nbits, static_cast< uint64_t >(2));
+
+    const auto result3{m_bset.get_next_contiguous_upto_n_reset_bits(2, 8)};
+    ASSERT_EQ(result3.start_bit, static_cast< uint64_t >(2));
+    ASSERT_EQ(result3.nbits, static_cast< uint64_t >(1));
+
+    const auto result4{m_bset.get_next_contiguous_upto_n_reset_bits(4, 8)};
+    ASSERT_EQ(result4.start_bit, static_cast< uint64_t >(64));
+    ASSERT_EQ(result4.nbits, static_cast< uint64_t >(4));
+
+    const auto result5{m_bset.get_next_contiguous_upto_n_reset_bits(70, 8)};
+    ASSERT_EQ(result5.start_bit, static_cast< uint64_t >(127));
+    ASSERT_EQ(result5.nbits, static_cast< uint64_t >(8));
+}
+
 TEST_F(BitsetTest, AlternateSetAndShrink) {
     run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
         LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);

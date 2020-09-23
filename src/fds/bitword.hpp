@@ -344,7 +344,8 @@ public:
                 // No more zero's here in our range.
                 first_0bit = bits();
             } else {
-                *pcount = bits() - start - get_set_bit_count(e);
+                *pcount = std::min<uint8_t>(get_trailing_zeros(e >> (first_0bit - start)),
+                                            bits()-first_0bit);
             }
         }
         return first_0bit;
@@ -517,6 +518,22 @@ private:
 private:
     Word m_Bits;
 };
+
+template < typename charT, typename traits, typename Word >
+std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& outStream,
+                                                const Bitword< Word >& bitwordt) {
+    // copy the stream formatting
+    std::basic_ostringstream< charT, traits > outStringStream;
+    outStringStream.copyfmt(outStream);
+
+    // output the date time
+    outStringStream << bitwordt.to_string();
+
+    // print the stream
+    outStream << outStringStream.str();
+
+    return outStream;
+}
 
 template < typename WType >
 class unsafe_bits {
