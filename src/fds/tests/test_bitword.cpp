@@ -54,6 +54,15 @@ TEST_F(BitwordTest, TestTrailingZeros)
     ASSERT_EQ(get_trailing_zeros(0x01), static_cast<uint8_t>(0));
     ASSERT_EQ(get_trailing_zeros(0x00), static_cast<uint8_t>(64));
     ASSERT_EQ(get_trailing_zeros(0xf000000000), static_cast<uint8_t>(36));
+    ASSERT_EQ(get_trailing_zeros(0xf00f000000000), static_cast< uint8_t >(36));
+}
+
+TEST_F(BitwordTest, TestLeadingZeros) {
+    ASSERT_EQ(get_leading_zeros(0x00), static_cast<uint8_t>(64));
+    ASSERT_EQ(get_leading_zeros(0xFFFFFFFFFFFFFFFF), static_cast< uint8_t >(0));
+    ASSERT_EQ(get_leading_zeros(0x0FFFFFFFFFFFFFFF), static_cast< uint8_t >(4));
+    ASSERT_EQ(get_leading_zeros(0x00FFFFFFFFFFFFFF), static_cast< uint8_t >(8));
+    ASSERT_EQ(get_leading_zeros(0x00F0FFFFFFFFFFFF), static_cast< uint8_t >(8));
 }
 
 TEST_F(BitwordTest, TestSetCount) {
@@ -195,6 +204,13 @@ TEST_F(BitwordTest, GetNextResetBits) {
     const Bitword< unsafe_bits< uint64_t > > word4{0xFFFFFFFFFFFFFFFF};
     ASSERT_EQ(word4.get_next_reset_bits(0, &pcount), static_cast< uint8_t >(64));
     ASSERT_EQ(word4.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(64));
+
+    const Bitword< unsafe_bits< uint64_t > > word5{0x3FFFFFFFFFFFFFF0};
+    ASSERT_EQ(word5.get_next_reset_bits(0, &pcount), static_cast< uint8_t >(0));
+    ASSERT_EQ(pcount, static_cast< uint8_t >(4));
+    ASSERT_EQ(word5.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(62));
+    ASSERT_EQ(pcount, static_cast< uint8_t >(2));
+
 }
 
 TEST_F(BitwordTest, SetNextResetBit) {
@@ -247,6 +263,8 @@ TEST_F(BitwordTest, GetNextResetBitsFiltered)
     ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 0, {11, 11, 1}, 40, bit_match_type::mid_match));
     ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {2, 2, 1}, 5, bit_match_type::mid_match));
     ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {8, 8, 1}, 16, bit_match_type::mid_match));
+
+    ASSERT_TRUE(validate(0x0ff000ffff00ff0f, 5, {8, 64, 4}, 60, bit_match_type::msb_match));
 }
 
 TEST_F(BitwordTest, GetMaxContiguousResetBits) {

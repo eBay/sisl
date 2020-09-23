@@ -181,6 +181,19 @@ static constexpr uint8_t get_set_bit_count(const uint64_t v) {
 //#endif
 }
 
+static constexpr uint8_t get_leading_zeros(const uint64_t v) {
+    if (!v) return 64;
+
+    uint64_t x{v};
+    x |= (x >> 1);
+    x |= (x >> 2);
+    x |= (x >> 4);
+    x |= (x >> 8);
+    x |= (x >> 16);
+    x |= (x >> 32);
+    return (64 - get_set_bit_count(x));
+}
+
 enum class bit_match_type : uint8_t { no_match, lsb_match, mid_match, msb_match };
 
 struct bit_filter {
@@ -405,20 +418,49 @@ public:
                 lsb_search = false;
             }
 
-            if (result.count >= filter.n_mid_reqd) {
-                result.match_type = bit_match_type::mid_match;
-                break;
+            if (filter.n_mid_reqd > nbits)
+            {
+                // mid match not possible, keep going by removing 0's group
+                e = e >> result.count;
+                if (e == static_cast< word_t >(0)) {
+                    // this group of 0's was at the end(msb)
+                    if (result.count >= filter.n_msb_reqd) { result.match_type = bit_match_type::msb_match; }
+                    break;
+                } else
+                {
+                    // try only at end
+                    if (((m_Bits.get() ^ bit_mask[bits() - 1]) & bit_mask[bits() - 1]) != bit_mask[bits() - 1])
+                    {
+                        // top bit was 1
+                        break;
+                    } else
+                    {
+                        // top bit is 0
+                        const uint8_t leading_zeros{get_leading_zeros(m_Bits.get())};
+                        if (leading_zeros >= filter.n_msb_reqd)
+                        {
+                            result.match_type = bit_match_type::msb_match;
+                            result.start_bit = (bits() - leading_zeros);
+                        }
+                        break;
+                    }
+                }
+
+            } else {
+                if (result.count >= filter.n_mid_reqd) {
+                    result.match_type = bit_match_type::mid_match;
+                    break;
+                }
+
+                // Not enough count for lsb and mid match, keep going by removing 0's group
+                e = e >> result.count;
+                if (e == static_cast< word_t >(0)) {
+                    // this group of 0's was at the end(msb)
+                    if (result.count >= filter.n_msb_reqd) { result.match_type = bit_match_type::msb_match; }
+                    break;
+                }
             }
 
-            // Not enough count for lsb and mid match, keep going by removing 0's group
-            e = e >> result.count;
-            if (e == static_cast< word_t >(0))
-            {
-                // this group of 0's was at the end(msb)
-                if (result.count >= filter.n_msb_reqd) { result.match_type = bit_match_type::msb_match; }
-                break;
-            }
-             
             nbits -= result.count;
             result.start_bit += result.count;
         }

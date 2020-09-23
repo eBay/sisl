@@ -386,8 +386,8 @@ public:
     // @brief Get the next contiguous n reset bits from the start bit
     //
     // @param start_bit Start bit to search from
-    // @param n Count of required continous reset bits
-    // @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+    // @param n Count of required continuous reset bits
+    // @return BitBlock returns a BitBlock which provides the start bit and total number of bits found. Caller needs to
     // check if returned count satisfies what is asked for.
     //
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
@@ -397,10 +397,15 @@ public:
         uint32_t n_remaining{n};
         uint8_t offset{get_word_offset(start_bit)};
         uint64_t current_bit{start_bit};
-        while (n_remaining > 0) {
-            const Word* word_ptr{get_word_const(current_bit)};
-            if (word_ptr == nullptr) { break; }
+        const Word* word_ptr{get_word_const(current_bit)};
+        if (word_ptr == nullptr)
+        {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return retb;
+        }
 
+        const Word* const end_words_ptr{m_s->end_words()};
+        while ((n_remaining > 0) && (word_ptr != end_words_ptr)) {
             const bit_filter filter{std::min<uint32_t>(n_remaining, Word::bits()), n, 1};
             const auto result{word_ptr->get_next_reset_bits_filtered(offset, filter)};
 
@@ -429,6 +434,7 @@ public:
 
             current_bit += (Word::bits() - offset);
             offset = 0;
+            ++word_ptr;
         }
 
     done:
@@ -458,7 +464,9 @@ public:
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return retb;
         }
-        while (word_ptr < m_s->end_words()) {
+
+        const Word* const end_words_ptr{m_s->end_words()};
+        while (word_ptr != end_words_ptr) {
             uint8_t nbits{};
             const uint8_t first_0bit{word_ptr->get_next_reset_bits(offset, &nbits)};
             if (nbits > 0)
@@ -609,7 +617,7 @@ private:
         // set rest of words
         uint64_t current_bit{start + count};
         uint64_t bits_remaining{nbits - count};
-        const Word* end_words_ptr{m_s->end_words()};
+        const Word* const end_words_ptr{m_s->end_words()};
         while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
             count = static_cast<uint8_t>((bits_remaining > Word::bits()) ? Word::bits() : bits_remaining);
             word_ptr->set_reset_bits(0, count, value);
@@ -653,7 +661,7 @@ private:
         // test rest of words
         uint64_t current_bit{start + count};
         bits_remaining -= count;
-        const Word* end_words_ptr{m_s->end_words()};
+        const Word* const end_words_ptr{m_s->end_words()};
         while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
             count = static_cast< uint8_t >((bits_remaining > Word::bits()) ? Word::bits() : bits_remaining);
             if (!word_ptr->is_bits_set_reset(offset, count, expected))
