@@ -361,10 +361,14 @@ public:
     void shrink_head(const uint64_t nbits) {
         if (ThreadSafeResizing) { m_lock.lock(); }
 
-        if (nbits > total_bits()) { throw std::out_of_range("Right shift to out of range"); }
-        m_s->m_skip_bits += nbits;
-        if (m_s->m_skip_bits >= compaction_threshold()) { _resize(total_bits(), false); }
-
+        if (nbits > total_bits())
+        {
+            if (ThreadSafeResizing) { m_lock.unlock(); }
+            throw std::out_of_range("Right shift to out of range");
+        } else {
+            m_s->m_skip_bits += nbits;
+            if (m_s->m_skip_bits >= compaction_threshold()) { _resize(total_bits(), false); }
+        }
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
