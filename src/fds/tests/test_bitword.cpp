@@ -49,24 +49,8 @@ protected:
     void TearDown() override {}
 };
 
-TEST_F(BitwordTest, TestTrailingZeros)
-{
-    ASSERT_EQ(get_trailing_zeros(0x01), static_cast<uint8_t>(0));
-    ASSERT_EQ(get_trailing_zeros(0x00), static_cast<uint8_t>(64));
-    ASSERT_EQ(get_trailing_zeros(0xf000000000), static_cast<uint8_t>(36));
-    ASSERT_EQ(get_trailing_zeros(0xf00f000000000), static_cast< uint8_t >(36));
-}
-
-TEST_F(BitwordTest, TestLeadingZeros) {
-    ASSERT_EQ(get_leading_zeros(0x00), static_cast<uint8_t>(64));
-    ASSERT_EQ(get_leading_zeros(0xFFFFFFFFFFFFFFFF), static_cast< uint8_t >(0));
-    ASSERT_EQ(get_leading_zeros(0x0FFFFFFFFFFFFFFF), static_cast< uint8_t >(4));
-    ASSERT_EQ(get_leading_zeros(0x00FFFFFFFFFFFFFF), static_cast< uint8_t >(8));
-    ASSERT_EQ(get_leading_zeros(0x00F0FFFFFFFFFFFF), static_cast< uint8_t >(8));
-}
-
 TEST_F(BitwordTest, TestSetCount) {
-    const Bitword< unsafe_bits<uint64_t> > word1{0x1};
+    const Bitword< unsafe_bits< uint64_t > > word1{0x1};
     ASSERT_EQ(word1.get_set_count(), 1);
 
     const Bitword< unsafe_bits< uint64_t > > word2{0x0};
@@ -77,6 +61,26 @@ TEST_F(BitwordTest, TestSetCount) {
 
     const Bitword< unsafe_bits< uint64_t > > word4{0xFFFFFFFFFFFFFFFF};
     ASSERT_EQ(word4.get_set_count(), 64);
+}
+
+TEST_F(BitwordTest, TestTrailingZeros)
+{
+    ASSERT_EQ(get_trailing_zeros(0x01), static_cast<uint8_t>(0));
+    ASSERT_EQ(get_trailing_zeros(0x02), static_cast< uint8_t >(1));
+    ASSERT_EQ(get_trailing_zeros(0x00), static_cast<uint8_t>(64));
+    ASSERT_EQ(get_trailing_zeros(0xf000000000), static_cast<uint8_t>(36));
+    ASSERT_EQ(get_trailing_zeros(0xf00f000000000), static_cast< uint8_t >(36));
+    ASSERT_EQ(get_trailing_zeros(0x8000000000000000), static_cast< uint8_t >(63));
+}
+
+TEST_F(BitwordTest, TestLeadingZeros) {
+    ASSERT_EQ(get_leading_zeros(0x01), static_cast< uint8_t >(63));
+    ASSERT_EQ(get_leading_zeros(0x00), static_cast<uint8_t>(64));
+    ASSERT_EQ(get_leading_zeros(0xFFFFFFFFFFFFFFFF), static_cast< uint8_t >(0));
+    ASSERT_EQ(get_leading_zeros(0x7FFFFFFFFFFFFFFF), static_cast< uint8_t >(1));
+    ASSERT_EQ(get_leading_zeros(0x0FFFFFFFFFFFFFFF), static_cast< uint8_t >(4));
+    ASSERT_EQ(get_leading_zeros(0x00FFFFFFFFFFFFFF), static_cast< uint8_t >(8));
+    ASSERT_EQ(get_leading_zeros(0x00F0FFFFFFFFFFFF), static_cast< uint8_t >(8));
 }
 
 TEST_F(BitwordTest, TestResetCount) {

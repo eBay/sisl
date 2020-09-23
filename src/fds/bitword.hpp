@@ -10,6 +10,9 @@
 #include <array>
 #include <atomic>
 #include <algorithm>
+#if __cplusplus > 201703L
+ #include <bit>
+#endif
 #include <cassert>
 #include <cstdint>
 #include <iostream>
@@ -147,6 +150,11 @@ static constexpr uint8_t logBase2(const uint64_t v) {
 }
 
  static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
+#if __cplusplus > 201703L
+     return static_cast<uint8_t>(std::countr_zero(v));
+#elif defined __GNUC__ && defined __x86_64
+     return static_cast< uint8_t >(__builtin_ctzll(v));
+#else
     constexpr std::array< uint8_t, 64 > MultiplyDeBruijnBitPosition{
         0,  47, 1,  56, 48, 27, 2,  60, 57,
         49, 41, 37, 28, 16, 3,  61, 54, 58,
@@ -159,12 +167,15 @@ static constexpr uint8_t logBase2(const uint64_t v) {
 
     if (!v) return 64;
     return MultiplyDeBruijnBitPosition[((v ^ (v-1)) * static_cast<uint64_t>(0x03F79D71B4CB0A89)) >> 58];
+#endif
 }
 
 static constexpr uint8_t get_set_bit_count(const uint64_t v) {
-//#ifdef __x86_64
-    // return __builtin_popcountl(m_Bits.get());
-//#else
+#if __cplusplus > 201703L
+    return static_cast<uint8_t>(std::popcount(v));
+#elif defined __GNUC__ && defined __x86_64
+    return static_cast< uint8_t >(__builtin_popcountll(v));
+#else
     constexpr uint64_t m1{0x5555555555555555}; // binary: 0101...
     constexpr uint64_t m2{0x3333333333333333}; // binary: 00110011..
     constexpr uint64_t m4{0x0f0f0f0f0f0f0f0f}; // binary:  4 zeros,  4 ones ...
@@ -178,10 +189,15 @@ static constexpr uint8_t get_set_bit_count(const uint64_t v) {
     x = (x & m2) + ((x >> 2) & m2);                 // put count of each 4 bits into those 4 bits
     x = (x + (x >> 4)) & m4;                        // put count of each 8 bits into those 8 bits
     return static_cast< uint8_t >((x * h01) >> 56); // returns left 8 bits of x + (x<<8) + (x<<16) + (x<<24) + ...
-//#endif
+#endif
 }
 
 static constexpr uint8_t get_leading_zeros(const uint64_t v) {
+#if __cplusplus > 201703L
+    return std::countl_zero(v);
+#elif defined __GNUC__ && defined __x86_64
+    return std::min<uint8_t>(static_cast<unsigned int>(__builtin_clzll(v)), 64);
+#else
     if (!v) return 64;
 
     uint64_t x{v};
@@ -192,6 +208,7 @@ static constexpr uint8_t get_leading_zeros(const uint64_t v) {
     x |= (x >> 16);
     x |= (x >> 32);
     return (64 - get_set_bit_count(x));
+#endif
 }
 
 enum class bit_match_type : uint8_t { no_match, lsb_match, mid_match, msb_match };
@@ -428,22 +445,14 @@ public:
                     break;
                 } else
                 {
-                    // try only at end
-                    if (((m_Bits.get() ^ bit_mask[bits() - 1]) & bit_mask[bits() - 1]) != bit_mask[bits() - 1])
+                    // try only at end(msb)
+                    const uint8_t leading_zeros{get_leading_zeros(m_Bits.get())};
+                    if (leading_zeros >= filter.n_msb_reqd)
                     {
-                        // top bit was 1
-                        break;
-                    } else
-                    {
-                        // top bit is 0
-                        const uint8_t leading_zeros{get_leading_zeros(m_Bits.get())};
-                        if (leading_zeros >= filter.n_msb_reqd)
-                        {
-                            result.match_type = bit_match_type::msb_match;
-                            result.start_bit = (bits() - leading_zeros);
-                        }
-                        break;
+                        result.match_type = bit_match_type::msb_match;
+                        result.start_bit = (bits() - leading_zeros);
                     }
+                    break;
                 }
 
             } else {
