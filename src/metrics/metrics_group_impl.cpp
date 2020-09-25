@@ -2,13 +2,15 @@
 // Created by Kadayam, Hari on 2/5/19.
 //
 
-#include "metrics.hpp"
-#include "metrics_group_impl.hpp"
-#include "metrics_tlocal.hpp"
-#include <sds_logging/logging.h>
-#include <folly/Synchronized.h>
+#include <algorithm>
+
 #include <fmt/format.h>
-#include <string>
+#include <folly/Synchronized.h>
+#include <sds_logging/logging.h>
+
+#include "metrics_group_impl.hpp"
+#include "metrics.hpp"
+#include "metrics_tlocal.hpp"
 
 namespace sisl {
 
@@ -298,20 +300,24 @@ void HistogramDynamicInfo::publish(const HistogramValue& hvalue) {
 }
 
 double HistogramDynamicInfo::percentile(const HistogramValue& hvalue, const hist_bucket_boundaries_t& bkt_boundaries,
-                                        float pcntl) const {
+                                        const float pcntl) const {
+    assert((pcntl > 0.0f) && (pcntl <= 100.0f));
     std::array< int64_t, HistogramBuckets::max_hist_bkts > cum_freq;
-    int64_t fcount = 0;
-    for (size_t i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
-        fcount += (hvalue.get_freqs())[i];
+    int64_t fcount{0};
+    const auto& freqs{hvalue.get_freqs()};
+    for (size_t i{0}; i < HistogramBuckets::max_hist_bkts; ++i) {
+        fcount += freqs[i];
         cum_freq[i] = fcount;
     }
 
-    int64_t pnum = fcount * pcntl / 100;
-    auto i = (std::lower_bound(cum_freq.begin(), cum_freq.end(), pnum)) - cum_freq.begin();
-    if ((hvalue.get_freqs())[i] == 0) return 0;
-    auto Yl = i == 0 ? 0 : bkt_boundaries[i - 1];
-    auto ith_cum_freq = (i == 0) ? 0 : cum_freq[i - 1];
-    double Yp = Yl + (((pnum - ith_cum_freq) * i) / (hvalue.get_freqs())[i]);
+    const int64_t pnum{static_cast< int64_t >(fcount * (pcntl / 100.0f))};
+    const auto itr{std::lower_bound(std::cbegin(cum_freq), std::cend(cum_freq), pnum)};
+    if (itr == std::cend(cum_freq)) return 0.0;
+    const auto index{std::distance(std::cbegin(cum_freq), itr)};
+    if (freqs[index] == 0) return 0.0;
+    const auto Yl{(index == 0) ? 0.0 : bkt_boundaries[index - 1]};
+    const auto ith_cum_freq{(index == 0) ? static_cast< int64_t >(0) : cum_freq[index - 1]};
+    const double Yp{Yl + static_cast<double>((pnum - ith_cum_freq) * index) / static_cast<double>(freqs[index])};
     return Yp;
 
     /* Formula:
@@ -323,15 +329,12 @@ double HistogramDynamicInfo::percentile(const HistogramValue& hvalue, const hist
 }
 
 int64_t HistogramDynamicInfo::count(const HistogramValue& hvalue) const {
-    int64_t cnt = 0;
-    for (size_t i = 0U; i < HistogramBuckets::max_hist_bkts; i++) {
-        cnt += (hvalue.get_freqs())[i];
-    }
-    return cnt;
+    const auto& freqs{hvalue.get_freqs()};
+    return std::accumulate(std::cbegin(freqs), std::cend(freqs), static_cast< int64_t >(0));
 }
 
 double HistogramDynamicInfo::average(const HistogramValue& hvalue) const {
-    auto cnt = count(hvalue);
-    return (cnt ? hvalue.get_sum() / cnt : 0);
+    const auto cnt = count(hvalue);
+    return (cnt ? static_cast<double>(hvalue.get_sum()) / static_cast<double>(cnt) : 0.0);
 }
 } // namespace sisl
