@@ -205,7 +205,7 @@ nlohmann::json expected = {
                 {"Total memory utilization", 980}
             }},
             {"Histograms percentiles (usecs) avg/50/95/99", {
-                {"Distribution of request per transactions", "18.0 / 15.0 / 31.0 / 31.0"}
+                {"Distribution of request per transactions", "18.25 / 15.0 / 31.0 / 31.0"}
             }}
         }}
     }}

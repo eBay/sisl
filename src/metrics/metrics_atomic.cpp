@@ -2,33 +2,33 @@
 // Created by Kadayam, Hari on 2/5/19.
 //
 
-#include "metrics_atomic.hpp"
-#include <sds_logging/logging.h>
 #include <atomic>
 #include <iostream>
 #include <memory>
 
+#include <sds_logging/logging.h>
+
+#include "metrics_atomic.hpp"
+
 namespace sisl {
 
 void AtomicMetricsGroup::on_register() {
+    // std::make_unique<[]> will allocate and construct
     m_counter_values = std::make_unique< AtomicCounterValue[] >(num_counters());
     m_histogram_values = std::make_unique< AtomicHistogramValue[] >(num_histograms());
-
-    memset((void*)m_counter_values.get(), 0, (sizeof(AtomicCounterValue) * num_counters()));
-    memset((void*)m_histogram_values.get(), 0, (sizeof(AtomicHistogramValue) * num_histograms()));
 }
 
 void AtomicMetricsGroup::gather_result([[maybe_unused]] bool need_latest, const counter_gather_cb_t& counter_cb,
                                        const gauge_gather_cb_t& gauge_cb, const histogram_gather_cb_t& histogram_cb) {
-    for (size_t i = 0U; i < num_counters(); ++i) {
+    for (size_t i{0}; i < num_counters(); ++i) {
         counter_cb(i, m_counter_values[i].to_counter_value());
     }
 
-    for (size_t i = 0U; i < num_gauges(); i++) {
+    for (size_t i{0}; i < num_gauges(); ++i) {
         gauge_cb(i, m_gauge_values[i]);
     }
 
-    for (size_t i = 0U; i < num_histograms(); i++) {
+    for (size_t i{0}; i < num_histograms(); ++i) {
         histogram_cb(i, m_histogram_values[i].to_histogram_value());
     }
 }

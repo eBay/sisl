@@ -4,16 +4,17 @@
 
 #pragma once
 
-#include <folly/SharedMutex.h>
 #include "bitset.hpp"
-#include "metrics/metrics.hpp"
+#include "folly/SharedMutex.h"
+#include "../metrics/metrics_group_impl.hpp"
+#include "../metrics/metrics.hpp"
 
 namespace sisl {
 class StreamTrackerMetrics : public MetricsGroupWrapper {
 public:
     explicit StreamTrackerMetrics(const char* inst_name) : MetricsGroupWrapper("StreamTracker", inst_name) {
         REGISTER_COUNTER(stream_tracker_unsweeped_completions, "How many completions are unsweeped yet", "", {"", ""},
-                         publish_as_gauge);
+                         _publish_as::publish_as_gauge);
 
         REGISTER_GAUGE(stream_tracker_mem_size, "Total Memsize for stream tracker");
         REGISTER_GAUGE(stream_tracker_completed_upto, "Idx upto which stream tracker cursor is completed");

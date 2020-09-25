@@ -36,11 +36,11 @@ void PerThreadMetrics::merge(PerThreadMetrics* a, PerThreadMetrics* b) {
                pthread_self(), a, b, a->m_ncntrs, b->m_ncntrs, a->m_nhists, b->m_nhists);
 #endif
 
-    for (auto i = 0U; i < a->m_ncntrs; i++) {
+    for (decltype(m_ncntrs) i{0}; i < a->m_ncntrs; ++i) {
         a->m_counters[i].merge(b->m_counters[i]);
     }
 
-    for (auto i = 0U; i < a->m_nhists; i++) {
+    for (decltype(m_nhists) i{0}; i < a->m_nhists; ++i) {
         a->m_histograms[i].merge(b->m_histograms[i], a->m_histogram_info[i].get_boundaries());
     }
 }
@@ -117,15 +117,15 @@ void ThreadBufferMetricsGroup::gather_result(bool need_latest, const counter_gat
         });
     }
 
-    for (size_t i = 0U; i < num_counters(); ++i) {
+    for (size_t i{0}; i < num_counters(); ++i) {
         counter_cb(i, m_gather_metrics->get_counter(i));
     }
 
-    for (size_t i = 0U; i < num_gauges(); i++) {
+    for (size_t i{0}; i < num_gauges(); ++i) {
         gauge_cb(i, m_gauge_values[i]);
     }
 
-    for (size_t i = 0U; i < num_histograms(); i++) {
+    for (size_t i{0}; i < num_histograms(); ++i) {
         histogram_cb(i, m_gather_metrics->get_histogram(i));
     }
 }

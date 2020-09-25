@@ -41,15 +41,15 @@ void WisrBufferMetricsGroup::gather_result(bool need_latest, const counter_gathe
         tmetrics = m_metrics->delayed();
     }
 
-    for (size_t i = 0U; i < num_counters(); i++) {
+    for (size_t i{0}; i < num_counters(); ++i) {
         counter_cb(i, tmetrics->get_counter(i));
     }
 
-    for (size_t i = 0U; i < num_gauges(); i++) {
+    for (size_t i{0}; i < num_gauges(); ++i) {
         gauge_cb(i, m_gauge_values[i]);
     }
 
-    for (size_t i = 0U; i < num_histograms(); i++) {
+    for (size_t i{0}; i < num_histograms(); ++i) {
         histogram_cb(i, tmetrics->get_histogram(i));
     }
 }
