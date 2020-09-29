@@ -301,22 +301,27 @@ using io_service = boost::asio::io_service;
 using deadline_timer = boost::asio::deadline_timer;
 using io_work = boost::asio::io_service::work;
 
-class FlipTimer {
+class FlipTimerBase {
 public:
-    FlipTimer() : m_timer_count(0) {}
-    ~FlipTimer() {
+    virtual void schedule(boost::posix_time::time_duration delay_us, const std::function< void() >& closure) = 0;
+};
+
+class FlipTimerAsio : public FlipTimerBase {
+public:
+    FlipTimerAsio() : m_timer_count(0) {}
+    ~FlipTimerAsio() {
         if (m_timer_thread != nullptr) {
             m_work.reset();
             m_timer_thread->join();
         }
     }
 
-    void schedule(boost::posix_time::time_duration delay_us, const std::function< void() >& closure) {
+    void schedule(boost::posix_time::time_duration delay_us, const std::function< void() >& closure) override {
         std::unique_lock< std::mutex > lk(m_thr_mutex);
         ++m_timer_count;
         if (m_work == nullptr) {
             m_work = std::make_unique< io_work >(m_svc);
-            m_timer_thread = std::make_unique< std::thread >(std::bind(&FlipTimer::timer_thr, this));
+            m_timer_thread = std::make_unique< std::thread >(std::bind(&FlipTimerAsio::timer_thr, this));
         }
 
         auto t = std::make_shared< deadline_timer >(m_svc, delay_us);
@@ -373,6 +378,12 @@ public:
 
         // TODO: Add verification to see if the flip is already scheduled, any errors etc..
         std::unique_lock< std::shared_mutex > lock(m_mutex);
+
+        // Create a timer instance only when we have delays/delayreturns flip added
+        auto action_type = fspec.flip_action().action_case();
+        if ((action_type == FlipAction::kDelays) || (action_type == FlipAction::kDelayReturns)) {
+            if (m_timer == nullptr) { m_timer = std::make_unique< FlipTimerAsio >(); }
+        }
         m_flip_specs.emplace(std::pair< std::string, flip_instance >(fspec.flip_name(), inst));
         LOGDEBUGMOD(flip, "Added new fault flip {} to the list of flips", fspec.flip_name());
         // LOG(INFO) << "Flip details:" << inst.to_string();
@@ -453,7 +464,7 @@ public:
         if (ret == boost::none) return false; // Not a hit
 
         uint64_t delay_usec = boost::get< uint64_t >(ret.get());
-        m_timer.schedule(boost::posix_time::microseconds(delay_usec), closure);
+        get_timer().schedule(boost::posix_time::microseconds(delay_usec), closure);
         return true;
     }
 
@@ -466,8 +477,14 @@ public:
 
         auto param = boost::get< delayed_return_param< T > >(ret.get());
         LOGDEBUGMOD(flip, "Returned param delay = {} val = {}", param.delay_usec, param.val);
-        m_timer.schedule(boost::posix_time::microseconds(param.delay_usec), [closure, param]() { closure(param.val); });
+        get_timer().schedule(boost::posix_time::microseconds(param.delay_usec),
+                             [closure, param]() { closure(param.val); });
         return true;
+    }
+
+    void override_timer(std::unique_ptr< FlipTimerBase > t) {
+        std::unique_lock< std::shared_mutex > lock(m_mutex);
+        m_timer = std::move(t);
     }
 
 private:
@@ -588,6 +605,8 @@ private:
         }
     }
 
+    FlipTimerBase& get_timer() { return *m_timer; }
+
 #if 0
     template< typename T >
     bool compare_val(T &val1, T &val2, Operator oper) {
@@ -651,7 +670,7 @@ private:
     std::multimap< std::string, flip_instance, flip_name_compare > m_flip_specs;
     std::shared_mutex m_mutex;
     bool m_flip_enabled;
-    FlipTimer m_timer;
+    std::unique_ptr< FlipTimerBase > m_timer;
     std::unique_ptr< std::thread > m_flip_server_thread;
 };
 
