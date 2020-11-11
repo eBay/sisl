@@ -452,6 +452,7 @@ private:
         while (nbits > 0) {
             Word* word = get_word(b);
             if (word == nullptr) {
+                LOGDEBUG("Exception will be thrown for Set/Reset bits, nbits: {}, offset: {}", nbits, offset);
                 throw std::out_of_range("Set/Reset bits not in range");
                 break;
             }
