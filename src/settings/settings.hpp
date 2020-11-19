@@ -241,6 +241,12 @@ public:
         // }
     }
 
+    void modifiable_settings(const auto& cb) {
+        assert(m_rcu_data.get_node() != nullptr);
+        auto settings = m_rcu_data.get(); // RAII
+        return cb(*settings.get());
+    }
+
     void load() override {
         if (!std::filesystem::is_regular_file(std::filesystem::status(m_base_file))) {
             LOGWARN("Config file '{}'  does not exist Saving default to that file", m_base_file);
@@ -486,16 +492,18 @@ private:
  * naming it with var
  */
 #define SETTINGS(sname, var, ...) SETTINGS_FACTORY(sname).WITH_SETTINGS(var, __VA_ARGS__)
-#define SETTINGS_CAP1(var, cap1, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_CAP1(var, cap1, __VA_ARGS__)
-#define SETTINGS_CAP2(var, cap1, cap2, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_CAP2(var, cap1, cap2, __VA_ARGS__)
+#define SETTINGS_CAP1(sname, var, cap1, ...) SETTINGS_FACTORY(sname).WITH_SETTINGS_CAP1(var, cap1, __VA_ARGS__)
+#define SETTINGS_CAP2(sname, var, cap1, cap2, ...)                                                                     \
+    SETTINGS_FACTORY(sname).WITH_SETTINGS_CAP2(var, cap1, cap2, __VA_ARGS__)
 
 /*
  * same as above but for lambdas that capture this
  */
-#define SETTINGS_THIS(var, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_THIS(var, __VA_ARGS__)
-#define SETTINGS_THIS_CAP1(var, cap1, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_THIS_CAP1(var, cap1, __VA_ARGS__)
-#define SETTINGS_THIS_CAP2(var, cap1, cap2, ...)                                                                       \
-    MY_SETTINGS_FACTORY.WITH_SETTINGS_THIS_CAP2(var, cap1, cap2, __VA_ARGS__)
+#define SETTINGS_THIS(sname, var, ...) SETTINGS_FACTORY(sname).WITH_SETTINGS_THIS(var, __VA_ARGS__)
+#define SETTINGS_THIS_CAP1(sname, var, cap1, ...)                                                                      \
+    SETTINGS_FACTORY(sname).WITH_SETTINGS_THIS_CAP1(var, cap1, __VA_ARGS__)
+#define SETTINGS_THIS_CAP2(sname, var, cap1, cap2, ...)                                                                \
+    SETTINGS_FACTORY(sname).WITH_SETTINGS_THIS_CAP2(var, cap1, cap2, __VA_ARGS__)
 
 //#define SETTINGS_VALUE(SType, path_expr) SETTINGS_FACTORY(SType).WITH_SETTINGS_VALUE(path_expr)
 #define SETTINGS_VALUE(sname, path_expr) SETTINGS_FACTORY(sname).WITH_SETTINGS_VALUE(path_expr)

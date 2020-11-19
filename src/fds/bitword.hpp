@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <string.h>
 #include <sstream>
+#include <utility/enum.hpp>
+#include <fmt/format.h>
 
 namespace sisl {
 static uint64_t bit_mask[64] = {
@@ -80,17 +82,31 @@ static uint64_t logBase2(uint64_t v) {
     return r;
 }
 
-enum class bit_match_type : uint8_t { no_match, lsb_match, mid_match, msb_match };
+ENUM(bit_match_type, uint8_t, no_match, full_match, lsb_match, mid_match, msb_match);
+
 struct bit_filter {
     // All of them are or'd
-    int n_lsb_reqd;
-    int n_mid_reqd;
-    int n_msb_reqd;
+    uint32_t n_lsb_reqd;
+    uint32_t n_mid_reqd;
+    uint32_t n_msb_reqd;
 
     std::string to_string() const {
-        std::stringstream ss;
-        ss << "n_lsb_reqd=" << n_lsb_reqd << " n_mid_reqd=" << n_mid_reqd << " n_msb_reqd=" << n_msb_reqd;
-        return ss.str();
+        return fmt::format("n_lsb_reqd={} n_mid_reqd={} n_msb_reqd={} ", n_lsb_reqd, n_mid_reqd, n_msb_reqd);
+    }
+};
+
+struct bit_match_result {
+    bit_match_type match_type{bit_match_type::no_match};
+    uint8_t start_bit;
+    uint8_t count{0};
+
+    std::string to_string() const {
+
+        std::string str = fmt::format("{}", enum_name(match_type));
+        if (match_type != bit_match_type::no_match) {
+            fmt::format_to(std::back_inserter(str), " start={} count={}", start_bit, count);
+        }
+        return str;
     }
 };
 
@@ -243,36 +259,21 @@ public:
         return (uint32_t)first_0bit;
     }
 
-    struct bit_match_result {
-        bit_match_type match_type;
-        int start_bit;
-        int count;
-
-        std::string to_string() const {
-            std::stringstream ss;
-            ss << "match_type=" << (uint8_t)match_type << " start_bit=" << start_bit << " count=" << count;
-            return ss.str();
-        }
-    };
-
-    bit_match_result get_next_reset_bits_filtered(int offset, const bit_filter& filter) const {
+    bit_match_result get_next_reset_bits_filtered(const int offset, const bit_filter& filter) const {
         bit_match_result result;
-        int first_0bit = 0;
+        int first_0bit{0};
         bool lsb_search = (offset == 0);
 
-        result.match_type = bit_match_type::no_match;
         result.start_bit = offset;
-
         word_t e = extract(offset, bits());
         int nbits = bits() - offset; // Whats the range we are searching for now
-        while (nbits > 0) {
-            result.count = 0;
 
+        while (nbits > 0) {
             first_0bit = ffsll(~e) - 1;
             result.start_bit += first_0bit;
             if ((first_0bit < 0) || (first_0bit > nbits)) {
-                // No more zero's here in our range.
-                break;
+                result.count = 0;
+                break; // No more zero's here in our range.
             }
 
             e = e >> first_0bit;
@@ -281,28 +282,25 @@ public:
 
             if (lsb_search) {
                 if ((first_0bit == 0) && (result.count >= filter.n_lsb_reqd)) {
-                    // We matched lsb with required count
-                    result.match_type = bit_match_type::lsb_match;
+                    result.match_type = (e == 0) ? bit_match_type::full_match : bit_match_type::lsb_match;
                     break;
                 }
-                lsb_search = false;
             }
 
-            if (result.count >= filter.n_mid_reqd) {
+            if (e == 0) {
+                if ((result.count >= filter.n_mid_reqd) || (result.count >= filter.n_msb_reqd)) {
+                    result.match_type = bit_match_type::msb_match;
+                }
+                break;
+            } else if (result.count >= filter.n_mid_reqd) {
                 result.match_type = bit_match_type::mid_match;
                 break;
             }
 
-            // Not enought count for lsb and mid match, keep going
             e = e >> result.count;
-            if (e == 0) { break; }
-
+            lsb_search = false;
             nbits -= result.count;
             result.start_bit += result.count;
-        }
-
-        if ((result.match_type == bit_match_type::no_match) && (result.count >= filter.n_msb_reqd)) {
-            result.match_type = bit_match_type::msb_match;
         }
         return result;
     }

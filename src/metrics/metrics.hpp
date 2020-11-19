@@ -56,11 +56,14 @@ public:
 
     void register_me_to_farm();
     void deregister_me_from_farm();
+    void register_me_to_parent(MetricsGroup* parent);
 
     nlohmann::json get_result_in_json(bool need_latest);
     void gather();
     void attach_gather_cb(const on_gather_cb_t& cb);
     void detach_gather_cb();
+
+    [[nodiscard]] std::string instance_name() const { return m_impl_ptr->instance_name(); }
 };
 
 class MetricsFarm {
@@ -86,7 +89,7 @@ public:
     static Reporter& get_reporter();
     static bool is_initialized();
 
-    void register_metrics_group(MetricsGroupImplPtr mgroup);
+    void register_metrics_group(MetricsGroupImplPtr mgroup, const bool add_to_farm_list = true);
     void deregister_metrics_group(MetricsGroupImplPtr mgroup);
 
     nlohmann::json get_result_in_json(bool need_latest = true);

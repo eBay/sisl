@@ -33,11 +33,11 @@ MetricsFarm::~MetricsFarm() { metrics_farm_initialized = false; }
 
 bool MetricsFarm::is_initialized() { return metrics_farm_initialized.load(); }
 
-void MetricsFarm::register_metrics_group(MetricsGroupImplPtr mgrp_impl) {
+void MetricsFarm::register_metrics_group(MetricsGroupImplPtr mgrp_impl, const bool add_to_farm_list) {
     assert(mgrp_impl != nullptr);
     auto locked{lock()};
     mgrp_impl->on_register();
-    m_mgroups.insert(mgrp_impl);
+    if (add_to_farm_list) { m_mgroups.insert(mgrp_impl); }
     mgrp_impl->registration_completed();
 }
 

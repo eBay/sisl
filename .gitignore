@@ -102,3 +102,6 @@ src/.tags*
 # Visual Studio
 CMakeSettings.json
 .vs/**
+
+debug/*
+release/*

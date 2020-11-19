@@ -57,12 +57,11 @@ public:
                 } else {
                     ret.nbits++;
                 }
-                if (ret.nbits == n) { return ret; }
+                if (ret.nbits == n) { break; }
             } else {
                 ret.nbits = 0;
             }
         }
-
         return ret;
     }
 
@@ -128,17 +127,17 @@ protected:
         m_bset.move(tmp_bset);
     }
 
-    void validate_all(uint32_t n_continous_expected) {
+    void validate_all(uint32_t n_contiguous_expected) {
         validate_by_simple_get();
         validate_by_next_bits(true);
         validate_by_next_bits(false);
-        validate_by_next_continous_bits(n_continous_expected);
+        validate_by_next_contiguous_bits(n_contiguous_expected);
     }
 
     void validate_by_simple_get() {
         LOGINFO("INFO: Validate upto total bits {} by cross-checking every entity", m_total_bits);
         for (auto i = 0u; i < m_total_bits; i++) {
-            EXPECT_EQ(m_bset.get_bitval(i), m_shadow_bm.is_set(i)) << "Bit mismatch for bit=" << i;
+            ASSERT_EQ(m_bset.get_bitval(i), m_shadow_bm.is_set(i)) << "Bit mismatch for bit=" << i;
         }
     }
 
@@ -154,45 +153,98 @@ protected:
                 by_set ? m_bset.get_next_set_bit(next_bset_bit) : m_bset.get_next_reset_bit(next_bset_bit);
 
             if (expected_bit == boost::dynamic_bitset<>::npos) {
-                EXPECT_EQ(actual_bit, Bitset::npos) << "Next " << (by_set ? "set" : "reset") << " bit after "
+                ASSERT_EQ(actual_bit, Bitset::npos) << "Next " << (by_set ? "set" : "reset") << " bit after "
                                                     << next_bset_bit << " is expected to be EOB, but not";
                 break;
             }
-            EXPECT_EQ(expected_bit, actual_bit)
+            ASSERT_EQ(expected_bit, actual_bit)
                 << "Next " << (by_set ? "set" : "reset") << " bit after " << next_bset_bit << " is not expected ";
             next_bset_bit = actual_bit + 1;
             next_shadow_bit = expected_bit;
         } while (true);
     }
 
-    void validate_by_next_continous_bits(uint32_t n_continous = 1) {
+    void validate_by_next_contiguous_bits(uint32_t n_contiguous = 1) {
         uint64_t next_start_bit = 0;
         auto n_retrival = 0;
 
-        LOGINFO("INFO: Validate upto total bits {} by checking n_continous={} reset bits", m_total_bits, n_continous);
+        LOGINFO("INFO: Validate upto total bits {} by checking n_contiguous={} reset bits", m_total_bits, n_contiguous);
         do {
-            auto expected = m_shadow_bm.get_next_contiguous_n_reset_bits(next_start_bit, n_continous);
-            auto actual = m_bset.get_next_contiguous_n_reset_bits(next_start_bit, n_continous);
+            auto expected = m_shadow_bm.get_next_contiguous_n_reset_bits(next_start_bit, n_contiguous);
+            auto actual = m_bset.get_next_contiguous_n_reset_bits(next_start_bit, n_contiguous);
 
-            LOGTRACE("next continous bit for start_bit={}, expected.start_bit={}, expected.nbits={}, "
+            LOGTRACE("next contiguous bit for start_bit={}, expected.start_bit={}, expected.nbits={}, "
                      "actual.start_bit={}, actual.nbits={}",
                      next_start_bit, expected.start_bit, expected.nbits, actual.start_bit, actual.nbits);
-            if (expected.nbits != n_continous) {
-                EXPECT_NE(actual.nbits, n_continous)
-                    << "Next continous reset bit after " << next_start_bit << " is expected to be EOB, but not";
+            if (expected.nbits != n_contiguous) {
+                ASSERT_NE(actual.nbits, n_contiguous)
+                    << "Next contiguous reset bit after " << next_start_bit << " is expected to be EOB, but not";
                 break;
             }
 
-            EXPECT_EQ(expected.start_bit, actual.start_bit)
-                << "Next continous reset bit after " << next_start_bit << " start_bit value is not expected ";
-            EXPECT_EQ(expected.nbits, actual.nbits)
-                << "Next continous reset bit after " << next_start_bit << " nbits value is not expected ";
+            ASSERT_EQ(expected.start_bit, actual.start_bit)
+                << "Next contiguous reset bit after " << next_start_bit << " start_bit value is not expected ";
+            ASSERT_EQ(expected.nbits, actual.nbits)
+                << "Next contiguous reset bit after " << next_start_bit << " nbits value is not expected ";
 
             if (actual.nbits) { ++n_retrival; }
             next_start_bit = expected.start_bit + expected.nbits;
         } while (true);
 
-        LOGINFO("Got total {} instances of continous bits {}", n_retrival, n_continous);
+        LOGINFO("Got total {} instances of contiguous bits {}", n_retrival, n_contiguous);
+    }
+
+    void validate_range(uint64_t start_bit, uint32_t nbits) {
+        for (auto i = start_bit; ((i < (start_bit + nbits)) && (i < m_total_bits)); ++i) {
+            ASSERT_FALSE(m_shadow_bm.is_set(i)) << "Expect range " << i << " to be unset";
+        }
+
+        if ((start_bit + nbits) < m_total_bits) {
+            ASSERT_TRUE(m_shadow_bm.is_set((start_bit + nbits)))
+                << "Expect end of range bit " << start_bit + nbits << " is set ";
+        }
+    }
+
+    void validate_by_range_continuous_needed(uint32_t min_contiguous, uint32_t max_contiguous) {
+        uint64_t next_shadow_bit = 0;
+        uint64_t next_bitset_bit = 0;
+        uint64_t n_bitset_retrival = 0;
+        uint64_t n_shadow_retrival = 0;
+
+        LOGINFO("INFO: Validate upto total bits {} by checking contiguous range=[{}-{}] reset bits", m_total_bits,
+                min_contiguous, max_contiguous);
+        do {
+            auto shadow = m_shadow_bm.get_next_contiguous_n_reset_bits(next_shadow_bit, max_contiguous);
+            auto actual =
+                m_bset.get_next_contiguous_n_reset_bits(next_bitset_bit, m_bset.size(), min_contiguous, max_contiguous);
+
+            LOGTRACE("next contiguous bit for next_shadow_bit={}, next_bitset_bit={} shadow.start_bit={}, "
+                     "shadow.nbits={}, actual.start_bit={}, actual.nbits={}",
+                     next_shadow_bit, next_bitset_bit, shadow.start_bit, shadow.nbits, actual.start_bit, actual.nbits);
+            if (actual.nbits < min_contiguous) {
+                ASSERT_LT(shadow.nbits, max_contiguous)
+                    << "EOB has reached for actual but not on shadow for actual_bit " << next_bitset_bit
+                    << " shadow bits " << next_shadow_bit;
+                break;
+            }
+
+            if (actual.nbits < max_contiguous) {
+                validate_range(actual.start_bit, actual.nbits);
+            } else {
+                ASSERT_EQ(actual.start_bit, shadow.start_bit)
+                    << "Next contiguous reset bit after " << next_shadow_bit << " start_bit value is not expected ";
+                ASSERT_EQ(actual.nbits, shadow.nbits)
+                    << "Next contiguous reset bit after " << next_shadow_bit << " nbits value is not expected ";
+                ++n_shadow_retrival;
+                next_shadow_bit = shadow.start_bit + shadow.nbits;
+            }
+            next_bitset_bit = actual.start_bit + actual.nbits;
+            ++n_bitset_retrival;
+
+        } while (true);
+
+        LOGINFO("Contiguous bits range [{}-{}] has shadow retrival of {} ranges and bset has {} ranges", min_contiguous,
+                max_contiguous, n_shadow_retrival, n_bitset_retrival);
     }
 
 public:
@@ -261,7 +313,8 @@ TEST_F(BitsetTest, SequentialSetAndExpand) {
     });
 
     validate_all(6);
-    validate_by_next_continous_bits(161);
+    validate_by_next_contiguous_bits(161);
+    validate_by_range_continuous_needed(1, 101);
 }
 
 TEST_F(BitsetTest, RandomSetAndShrink) {
@@ -284,6 +337,7 @@ TEST_F(BitsetTest, RandomSetAndShrink) {
         }
     });
     validate_all(3);
+    validate_by_range_continuous_needed(1, 3);
 }
 
 TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
@@ -300,17 +354,18 @@ TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
     });
 
     validate_all(1);
-    validate_by_next_continous_bits(9);
+    validate_by_next_contiguous_bits(9);
+    validate_by_range_continuous_needed(6, 9);
 
     LOGINFO("INFO: Shrink the size by {} bits and then try to obtain 10 and 1 contigous entries", total_bits() - 1);
     shrink_head(total_bits() - 1);
     validate_all(10);
-    validate_by_next_continous_bits(1);
+    validate_by_next_contiguous_bits(1);
 
     LOGINFO("INFO: Empty the bitset and then try to obtain 5 and 1 contigous entries");
     shrink_head(1);
     validate_all(5);
-    validate_by_next_continous_bits(1);
+    validate_by_next_contiguous_bits(1);
 
     LOGINFO("INFO: Expand the bitset to {} and set randomly similar to earlier", g_total_bits / 2);
     expand_tail(g_total_bits / 2);
@@ -326,7 +381,8 @@ TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
         }
     });
     validate_all(3);
-    validate_by_next_continous_bits(10);
+    validate_by_next_contiguous_bits(10);
+    validate_by_range_continuous_needed(2, 7);
 
     LOGINFO("INFO: Empty the bitset again and then try to obtain 5 and 1 contigous entries");
     shrink_head(total_bits());
@@ -371,8 +427,8 @@ SDS_OPTION_GROUP(test_bitset,
                   ::cxxopts::value< uint32_t >()->default_value("72"), "number"));
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_bitset);
     ::testing::InitGoogleTest(&argc, argv);
+    SDS_OPTIONS_LOAD(argc, argv, logging, test_bitset);
     sds_logging::SetLogger("test_bitset");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 

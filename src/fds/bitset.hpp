@@ -13,6 +13,7 @@
 #include "utils.hpp"
 #include <folly/SharedMutex.h>
 #include <sds_logging/logging.h>
+#include <optional>
 
 /*
  * This is a improved bitset, which can efficiently identify and get the leading bitset or reset
@@ -35,17 +36,6 @@ struct BitBlock {
     } else {                                                                                                           \
         return method_name(__VA_ARGS__);                                                                               \
     }
-
-#if 0
-struct bitset_serialized {
-    uint64_t nbits;
-    uint64_t skip_bits;
-    uint64_t words[0];
-
-    static uint64_t nbytes(uint64_t bits) { return sizeof(bitset_serialized) + (total_words(bits) * sizeof(uint64_t)); }
-    static uint64_t total_words(uint64_t bits) { return ((bits - 1) / 64) + 1; }
-};
-#endif
 
 template < typename Word, bool ThreadSafeResizing = false >
 class BitsetImpl {
@@ -306,94 +296,66 @@ public:
      * @brief Get the next contiguous n reset bits from the start bit
      *
      * @param start_bit Start bit to search from
-     * @param n Count of required continous reset bits
+     * @param n Count of required continuous reset bits
      * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
      * check if returned count satisfies what is asked for.
      */
-    BitBlock get_next_contiguous_n_reset_bits(uint64_t start_bit, uint32_t n) {
-        if (ThreadSafeResizing) { m_lock.lock_shared(); }
-
-        BitBlock retb = {start_bit, 0};
-        int n_remaining = (int)n;
-
-        int offset = get_word_offset(start_bit);
-        while (n_remaining > 0) {
-            Word* word = get_word(start_bit);
-            if (word == nullptr) { break; }
-
-            bit_filter filter = {std::min(n_remaining, (int)Word::bits()), (int)n, 1};
-            auto result = word->get_next_reset_bits_filtered(offset, filter);
-
-            if (result.match_type == bit_match_type::no_match) {
-                // No match, reset everything to what it was before search.
-                n_remaining = (int)n;
-                retb.start_bit = start_bit + Word::bits() - offset;
-            } else if (result.match_type == bit_match_type::mid_match) {
-                retb.start_bit = start_bit + result.start_bit - offset;
-                retb.nbits = n;
-                goto done;
-            } else if (result.match_type == bit_match_type::msb_match) {
-                // We didn't get what we want, but there are some residue bits, start creating a chain
-                n_remaining = (int)n - result.count;
-                retb.start_bit = start_bit + result.start_bit - offset;
-            } else if (result.match_type == bit_match_type::lsb_match) {
-                // We got howmuch ever we need for leading bits. If we have enough to satisy n (note: We might need more
-                // than a word width), then respond.
-                assert(offset == 0);
-                n_remaining -= result.count;
-                if (n_remaining <= 0) {
-                    retb.nbits = n;
-                    goto done;
-                }
-            }
-
-            start_bit += (Word::bits() - offset);
-            offset = 0;
-        }
-
-    done:
-        if ((retb.start_bit + retb.nbits) > total_bits()) { retb = {npos, 0}; }
-        if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-        return retb;
+    BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
+        return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
     }
 
-    /**
-     * @brief Get the next contiguous reset bits from the start bit upto n bits
-     *
-     * @param start_bit Start bit to search from
-     * @param n Count of required continous reset bits
-     * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
-     * check if returned count satisfies what is asked for.
-     */
-    BitBlock get_next_contiguous_upto_n_reset_bits(uint64_t start_bit, uint32_t upto_n) {
+    BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const std::optional< uint64_t > end_bit,
+                                              const uint32_t min_needed, const uint32_t max_needed) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-        int offset = get_word_offset(start_bit);
-        BitBlock retb = {0, 0};
+        BitBlock retb{start_bit, 0};
+        uint64_t current_bit{start_bit};
+        const uint64_t final_bit{end_bit ? *end_bit : total_bits()};
 
-        while (1) {
-            Word* word = get_word(start_bit);
+        int offset = get_word_offset(start_bit);
+        while ((retb.nbits < max_needed) && (current_bit < final_bit)) {
+            Word* word = get_word(current_bit);
             if (word == nullptr) { break; }
 
-            // Look for any free bits in the next iteration
-            uint32_t nbits;
-            retb.start_bit = start_bit + word->get_next_reset_bits(offset, &nbits);
-            retb.nbits = nbits;
-            if (nbits != 0) { break; }
+            const bit_filter filter{(retb.nbits >= min_needed) ? 1 : std::min(min_needed - retb.nbits, Word::bits()),
+                                    min_needed, 1u};
+            const auto result = word->get_next_reset_bits_filtered(offset, filter);
+            LOGTRACE("current_bit={} word filter={} result={}", current_bit, filter.to_string(), result.to_string());
 
-            start_bit += (Word::bits() - offset);
+            if (result.match_type == bit_match_type::full_match) {
+                // We got the entire word, keep adding to the chain
+                assert(offset == 0);
+                retb.nbits += result.count;
+            } else if (result.match_type == bit_match_type::lsb_match) {
+                // We got atleast min from the chain, keep adding to the chain
+                assert(offset == 0);
+                retb.nbits += result.count;
+                if (retb.nbits >= min_needed) { break; }
+            } else if (result.match_type == bit_match_type::mid_match) {
+                assert(result.count >= min_needed);
+                if (result.count > retb.nbits) { retb = {current_bit + result.start_bit - offset, result.count}; }
+                break;
+            } else if (result.match_type == bit_match_type::msb_match) {
+                if (retb.nbits >= min_needed) { break; } // It has met the min with previous scan, use it - greedy algo
+                retb = {current_bit + result.start_bit - offset, result.count};
+            } else if (result.match_type == bit_match_type::no_match) {
+                if (retb.nbits >= min_needed) { break; } // It has met the min with previous scan, use it - greedy algo
+                retb = {current_bit + Word::bits() - offset, 0}; // Reset everything and start over
+            }
+
+            current_bit += (Word::bits() - offset);
             offset = 0;
         }
 
-        while (retb.nbits < upto_n) {
-            if (get_word_offset(retb.start_bit + retb.nbits) != 0) { break; }
-            Word* word = get_word(retb.start_bit + retb.nbits);
-            if (word == nullptr) { break; }
-            uint32_t nbits;
-            auto start_bit = word->get_next_reset_bits(0, &nbits);
-            if (nbits == 0 || ((uint64_t)start_bit != (uint64_t)(retb.start_bit + retb.nbits))) { break; }
-            retb.nbits += nbits;
-            if (nbits < Word::bits()) { break; }
+        // Do alignment adjustments if need be
+        if (retb.nbits > max_needed) retb.nbits = max_needed;
+        if ((retb.start_bit + retb.nbits) > final_bit) {
+            // It is an unlikely path - only when total bits are not 64 bit aligned and retb happens to be at the end
+            if (retb.start_bit >= final_bit) {
+                retb = {npos, 0};
+            } else {
+                retb.nbits = static_cast< uint32_t >(final_bit - retb.start_bit);
+            }
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
@@ -542,7 +504,7 @@ private:
 
     uint64_t total_bits() const { return m_s->m_nbits - m_s->m_skip_bits; }
     Word* nth_word(uint64_t word_n) const { return &m_s->m_words[word_n]; }
-};
+}; // namespace sisl
 
 /**
  * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is
@@ -553,7 +515,7 @@ typedef BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > Bitset;
 /**
  * @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be
  * set/unset. However, set/unset concurrently along with increasing the size, setting a bit beyond original
- * size, concurrent test of bits can produce inconsitent values
+ * size, concurrent test of bits can produce inconsistent values
  *
  * NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used
  * where resize and test set bits are all controlled externally.
