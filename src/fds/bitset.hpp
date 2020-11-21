@@ -304,6 +304,11 @@ public:
         return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
     }
 
+    /* A backward compatible API */
+    BitBlock get_next_contiguous_upto_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
+        return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
+    }
+
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const std::optional< uint64_t > end_bit,
                                               const uint32_t min_needed, const uint32_t max_needed) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
