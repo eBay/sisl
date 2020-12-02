@@ -266,33 +266,48 @@ TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
     m_bset.reset_bits(64, 4);
     m_bset.reset_bits(127, 8);
 
-    const auto result1{m_bset.get_next_contiguous_upto_n_reset_bits(0, 2)};
+    const auto result1{m_bset.get_next_contiguous_n_reset_bits(0, 2)};
     ASSERT_EQ(result1.start_bit, static_cast< uint64_t >(1));
     ASSERT_EQ(result1.nbits, static_cast< uint64_t >(2));
 
-    const auto result2{m_bset.get_next_contiguous_upto_n_reset_bits(1, 2)};
+    const auto result2{m_bset.get_next_contiguous_n_reset_bits(1, 2)};
     ASSERT_EQ(result2.start_bit, static_cast< uint64_t >(1));
     ASSERT_EQ(result2.nbits, static_cast< uint64_t >(2));
 
-    const auto result3{m_bset.get_next_contiguous_upto_n_reset_bits(0, 4)};
+    const auto result3{m_bset.get_next_contiguous_n_reset_bits(0, 4)};
     ASSERT_EQ(result3.start_bit, static_cast< uint64_t >(64));
     ASSERT_EQ(result3.nbits, static_cast< uint64_t >(4));
 
-    const auto result4{m_bset.get_next_contiguous_upto_n_reset_bits(8, 4)};
+    const auto result4{m_bset.get_next_contiguous_n_reset_bits(8, 4)};
     ASSERT_EQ(result4.start_bit, static_cast< uint64_t >(64));
     ASSERT_EQ(result4.nbits, static_cast< uint64_t >(4));
 
-    const auto result5{m_bset.get_next_contiguous_upto_n_reset_bits(0, 8)};
+    const auto result5{m_bset.get_next_contiguous_n_reset_bits(0, 8)};
     ASSERT_EQ(result5.start_bit, static_cast< uint64_t >(127));
     ASSERT_EQ(result5.nbits, static_cast< uint64_t >(8));
 
-    const auto result6{m_bset.get_next_contiguous_upto_n_reset_bits(4, 8)};
+    const auto result6{m_bset.get_next_contiguous_n_reset_bits(4, 8)};
     ASSERT_EQ(result6.start_bit, static_cast< uint64_t >(127));
     ASSERT_EQ(result6.nbits, static_cast< uint64_t >(8));
 
-    const auto result7{m_bset.get_next_contiguous_upto_n_reset_bits(70, 8)};
+    const auto result7{m_bset.get_next_contiguous_n_reset_bits(70, 8)};
     ASSERT_EQ(result7.start_bit, static_cast< uint64_t >(127));
     ASSERT_EQ(result7.nbits, static_cast< uint64_t >(8));
+
+    // test end bit out of range
+    const auto result8{m_bset.get_next_contiguous_n_reset_bits(0, std::optional< uint64_t >{g_total_bits + 1}, 16, 16)};
+    ASSERT_EQ(result8.start_bit, decltype(m_bset)::npos);
+    ASSERT_EQ(result8.nbits, static_cast< uint64_t >(0));
+
+    // test start out of range
+    const auto result9{m_bset.get_next_contiguous_n_reset_bits(g_total_bits + 1, std::optional< uint64_t >{}, 16, 16)};
+    ASSERT_EQ(result9.start_bit, decltype(m_bset)::npos);
+    ASSERT_EQ(result9.nbits, static_cast< uint64_t >(0));
+
+    // test null result
+    const auto result10{m_bset.get_next_contiguous_n_reset_bits(0, std::optional< uint64_t >{}, 16, 16)};
+    ASSERT_EQ(result10.start_bit, decltype(m_bset)::npos);
+    ASSERT_EQ(result10.nbits, static_cast< uint64_t >(0));
 }
 
 TEST_F(BitsetTest, AlternateSetAndShrink) {
