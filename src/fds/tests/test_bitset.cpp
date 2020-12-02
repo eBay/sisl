@@ -295,12 +295,12 @@ TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
     ASSERT_EQ(result7.nbits, static_cast< uint64_t >(8));
 
     // test end bit out of range
-    const auto result8{m_bset.get_next_contiguous_n_reset_bits(0, std::optional< uint64_t >{g_total_bits + 1}, 16, 16)};
+    const auto result8{m_bset.get_next_contiguous_n_reset_bits(0, std::optional< uint64_t >{ 2 * g_total_bits}, 16, 16)};
     ASSERT_EQ(result8.start_bit, decltype(m_bset)::npos);
     ASSERT_EQ(result8.nbits, static_cast< uint64_t >(0));
 
     // test start out of range
-    const auto result9{m_bset.get_next_contiguous_n_reset_bits(g_total_bits + 1, std::optional< uint64_t >{}, 16, 16)};
+    const auto result9{m_bset.get_next_contiguous_n_reset_bits(2 * g_total_bits, std::optional< uint64_t >{}, 16, 16)};
     ASSERT_EQ(result9.start_bit, decltype(m_bset)::npos);
     ASSERT_EQ(result9.nbits, static_cast< uint64_t >(0));
 
