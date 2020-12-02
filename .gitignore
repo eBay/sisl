@@ -94,7 +94,7 @@ src/.tags*
 
 # build generated products
 debug/**
-release/*
+release/**
 cmake-*/**
 
 # vscode

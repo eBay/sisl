@@ -8,8 +8,8 @@
 #pragma once
 
 #include <array>
-#include <atomic>
 #include <algorithm>
+#include <atomic>
 #if __cplusplus > 201703L
 #include <bit>
 #endif
@@ -17,6 +17,11 @@
 #include <cstdint>
 #include <iostream>
 #include <sstream>
+
+#include <fmt/format.h>
+
+#include "utility/enum.hpp"
+
 
 namespace sisl {
 
@@ -161,13 +166,14 @@ static constexpr uint8_t get_leading_zeros(const uint64_t v) {
 #endif
 }
 
-enum class bit_match_type : uint8_t { no_match, lsb_match, mid_match, msb_match };
+ENUM(bit_match_type, uint8_t, no_match, full_match, lsb_match, mid_match, msb_match);
 
 struct bit_filter {
     // All of them are or'd
     uint32_t n_lsb_reqd;
     uint32_t n_mid_reqd;
     uint32_t n_msb_reqd;
+
     bit_filter(const uint32_t lsb_reqd = 0, const uint32_t mid_reqd = 0, const uint32_t msb_reqd = 0) :
             n_lsb_reqd{lsb_reqd}, n_mid_reqd{mid_reqd}, n_msb_reqd{msb_reqd} {}
     bit_filter(const bit_filter&) = default;
@@ -176,15 +182,35 @@ struct bit_filter {
     bit_filter& operator=(bit_filter&&) noexcept = delete;
 
     std::string to_string() const {
-        std::ostringstream ss{};
-        ss << "n_lsb_reqd=" << n_lsb_reqd << " n_mid_reqd=" << n_mid_reqd << " n_msb_reqd=" << n_msb_reqd;
-        return ss.str();
+        return fmt::format("n_lsb_reqd={} n_mid_reqd={} n_msb_reqd={} ", n_lsb_reqd, n_mid_reqd, n_msb_reqd);
     }
 };
+
+struct bit_match_result {
+    bit_match_type match_type;
+    uint8_t start_bit;
+    uint8_t count;
+
+    bit_match_result(const bit_match_type match_type = bit_match_type::no_match, const uint8_t start_bit = 0,
+                     const uint8_t count = 0) :
+            match_type{match_type}, start_bit{start_bit}, count{count} {}
+    bit_match_result(const bit_match_result&) = default;
+    bit_match_result(bit_match_result&&) noexcept = default;
+    bit_match_result& operator=(const bit_match_result&) = delete;
+    bit_match_result& operator=(bit_match_result&&) noexcept = delete;
+
+    std::string to_string() const {
+
+        std::string str{fmt::format("{}", enum_name(match_type))};
+        if (match_type != bit_match_type::no_match) {
+            fmt::format_to(std::back_inserter(str), " start={} count={}", start_bit, count);
+        }
+        return str;
+    }
+};
+
 template < typename Word >
 class Bitword {
-    // class __attribute__((__packed__)) Bitword {
-
 public:
     static constexpr uint8_t bits() { return (sizeof(Word) * 8); }
     typedef typename Word::word_t word_t;
@@ -327,27 +353,6 @@ public:
         return first_0bit;
     }
 
-    struct bit_match_result {
-        bit_match_type match_type;
-        uint8_t start_bit;
-        uint8_t count;
-
-        bit_match_result(const bit_match_type match_type = bit_match_type::no_match, const uint8_t start_bit = 0,
-                         const uint8_t count = 0) :
-                match_type{match_type}, start_bit{start_bit}, count{count} {}
-        bit_match_result(const bit_match_result&) = default;
-        bit_match_result(bit_match_result&&) noexcept = default;
-        bit_match_result& operator=(const bit_match_result&) = delete;
-        bit_match_result& operator=(bit_match_result&&) noexcept = delete;
-
-        std::string to_string() const {
-            std::ostringstream ss{};
-            ss << "match_type=" << static_cast< uint16_t >(match_type)
-               << " start_bit=" << static_cast< uint16_t >(start_bit) << " count=" << static_cast< uint16_t >(count);
-            return ss.str();
-        }
-    };
-
     // match the number of bits required at the beginning(lsb), middle(mid), end(msb) of the value
     bit_match_result get_next_reset_bits_filtered(const uint8_t offset, const bit_filter& filter) const {
         assert(offset < bits());
@@ -357,11 +362,11 @@ public:
         word_t e{extract(offset, bits())};
         uint8_t nbits{static_cast< uint8_t >(bits() - offset)}; // Whats the range we are searching for now
         while (nbits > 0) {
-            result.count = 0;
             uint8_t first_0bit{get_trailing_zeros(~e)};
             result.start_bit += first_0bit;
-            if (first_0bit > nbits) {
+            if ((first_0bit > nbits) || (first_0bit >= bits())) {
                 // No more zero's here in our range.
+                result.count = 0;
                 break;
             }
 
@@ -370,53 +375,31 @@ public:
                 e = e >> first_0bit;
                 nbits -= first_0bit;
             }
-            result.count = (e > static_cast< word_t >(0)) ? get_trailing_zeros(e) : nbits;
+            result.count = ((e > static_cast< word_t >(0)) ? get_trailing_zeros(e) : nbits);
 
             if (lsb_search) {
                 if ((first_0bit == static_cast< uint8_t >(0)) && (result.count >= filter.n_lsb_reqd)) {
                     // We matched lsb with required count
-                    result.match_type = bit_match_type::lsb_match;
-                    break;
-                }
-                lsb_search = false;
-            }
-
-            if (filter.n_mid_reqd > nbits) {
-                // mid match not possible, keep going by removing 0's group
-                e = e >> result.count;
-                if (e == static_cast< word_t >(0)) {
-                    // this group of 0's was at the end(msb)
-                    if (result.count >= filter.n_msb_reqd) { result.match_type = bit_match_type::msb_match; }
-                    break;
-                } else {
-                    // try only at end(msb)
-                    const uint8_t leading_zeros{get_leading_zeros(m_Bits.get())};
-                    if (leading_zeros >= filter.n_msb_reqd) {
-                        result.match_type = bit_match_type::msb_match;
-                        result.start_bit = (bits() - leading_zeros);
-                    }
-                    break;
-                }
-
-            } else {
-                if (result.count >= filter.n_mid_reqd) {
-                    result.match_type = bit_match_type::mid_match;
-                    break;
-                }
-
-                // Not enough count for lsb and mid match, keep going by removing 0's group
-                e = e >> result.count;
-                if (e == static_cast< word_t >(0)) {
-                    // this group of 0's was at the end(msb)
-                    if (result.count >= filter.n_msb_reqd) { result.match_type = bit_match_type::msb_match; }
+                    result.match_type = ((e == 0) ? bit_match_type::full_match : bit_match_type::lsb_match);
                     break;
                 }
             }
 
+            if (e == 0) {
+                if ((result.count >= filter.n_mid_reqd) || (result.count >= filter.n_msb_reqd)) {
+                    result.match_type = bit_match_type::msb_match;
+                }
+                break;
+            } else if (result.count >= filter.n_mid_reqd) {
+                result.match_type = bit_match_type::mid_match;
+                break;
+            }
+
+            e = e >> result.count;
+            lsb_search = false;
             nbits -= result.count;
             result.start_bit += result.count;
         }
-
         return result;
     }
 
