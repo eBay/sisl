@@ -1,25 +1,41 @@
 //
 // Created by Kadayam, Hari on Sept 25 2019
 //
-#include <gtest/gtest.h>
+#include <cstdint>
+#include <random>
 #include <thread>
-#include "stream_tracker.hpp"
+
 #include <nlohmann/json.hpp>
-#include <fds/thread_vector.hpp>
+
+#include "fds/thread_vector.hpp"
+#include "stream_tracker.hpp"
+
+#include <gtest/gtest.h>
 
 using namespace sisl;
 THREAD_BUFFER_INIT;
 
 SDS_LOGGING_INIT(test_stream_tracker);
 
+namespace {
 struct TestData {
     TestData(int val) : m_value(val) {}
     int m_value = 0;
 };
 
 struct StreamTrackerTest : public testing::Test {
+public:
+    StreamTrackerTest(const StreamTrackerTest&) = delete;
+    StreamTrackerTest(StreamTrackerTest&&) noexcept = delete;
+    StreamTrackerTest& operator=(const StreamTrackerTest&) = delete;
+    StreamTrackerTest& operator=(StreamTrackerTest&&) noexcept = delete;
+    virtual ~StreamTrackerTest() override = default;
+
 protected:
     StreamTracker< TestData > m_tracker;
+
+    void SetUp() override {}
+    void TearDown() override {}
 
 public:
     StreamTrackerTest() {}
@@ -28,10 +44,15 @@ public:
         return (size_t)json["StreamTracker"]["StreamTracker"]["Gauges"]["Total Memsize for stream tracker"];
     }
 };
+} // namespace
 
 TEST_F(StreamTrackerTest, SimpleCompletions) {
+    static std::random_device s_rd{};
+    static std::default_random_engine s_engine{s_rd()};
+    std::uniform_int_distribution< int64_t > gen{0, 999};
+
     for (auto i = 0; i < 100; ++i) {
-        m_tracker.create_and_complete(i, rand() % 1000);
+        m_tracker.create_and_complete(i, gen(s_engine));
     }
     EXPECT_EQ(m_tracker.completed_upto(), 99);
     m_tracker.truncate();
@@ -40,7 +61,7 @@ TEST_F(StreamTrackerTest, SimpleCompletions) {
     // Do it in reverse
     for (auto i = 150; i >= 100; --i) {
         EXPECT_EQ(m_tracker.completed_upto(), 99);
-        m_tracker.create_and_complete(i, rand() % 1000);
+        m_tracker.create_and_complete(i, gen(s_engine));
     }
     EXPECT_EQ(m_tracker.completed_upto(), 150);
 
@@ -50,26 +71,30 @@ TEST_F(StreamTrackerTest, SimpleCompletions) {
     bool front = true;
     while (start_idx < end_idx) {
         if (front) {
-            m_tracker.create_and_complete(start_idx++, rand() % 1000);
+            m_tracker.create_and_complete(start_idx++, gen(s_engine));
         } else {
-            m_tracker.create_and_complete(end_idx--, rand() % 1000);
+            m_tracker.create_and_complete(end_idx--, gen(s_engine));
         }
         EXPECT_EQ(m_tracker.completed_upto(), start_idx - 1);
         front = !front;
     }
-    m_tracker.create_and_complete(start_idx, rand() % 1000);
+    m_tracker.create_and_complete(start_idx, gen(s_engine));
     EXPECT_EQ(m_tracker.completed_upto(), 200);
 }
 
 TEST_F(StreamTrackerTest, ForceRealloc) {
+    static std::random_device s_rd{};
+    static std::default_random_engine s_engine{s_rd()};
+    std::uniform_int_distribution< int64_t > gen{0, 999};
+
     auto prev_size = get_mem_size();
     auto far_idx = (int64_t)StreamTracker< TestData >::alloc_blk_size + 1;
-    m_tracker.create_and_complete(far_idx, rand() % 1000);
+    m_tracker.create_and_complete(far_idx, gen(s_engine));
     // EXPECT_EQ(m_tracker.completed_upto(), -1);
     EXPECT_EQ(get_mem_size(), (prev_size * 2));
 
     for (int64_t i = 0; i < far_idx; ++i) {
-        m_tracker.create_and_complete(i, rand() % 1000);
+        m_tracker.create_and_complete(i, gen(s_engine));
     }
     EXPECT_EQ(m_tracker.completed_upto(), far_idx);
     EXPECT_EQ(get_mem_size(), prev_size);

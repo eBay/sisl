@@ -20,10 +20,11 @@ using namespace sisl;
 
 SDS_LOGGING_INIT(test_bitset);
 
-static uint64_t g_total_bits;
-static uint32_t g_num_threads;
-static uint32_t g_set_pct;
-static uint32_t g_max_bits_in_group;
+namespace {
+uint64_t g_total_bits;
+uint32_t g_num_threads;
+uint32_t g_set_pct;
+uint32_t g_max_bits_in_group;
 
 class ShadowBitset {
 public:
@@ -115,14 +116,13 @@ public:
     BitsetTest& operator=(BitsetTest&&) noexcept = delete;
     virtual ~BitsetTest() override = default;
 
- protected:
+protected:
     uint64_t m_total_bits;
     ShadowBitset m_shadow_bm;
     sisl::ThreadSafeBitset m_bset;
 
     void SetUp() override {}
     void TearDown() override {}
-
 
     void set(const uint64_t start_bit, const uint32_t nbits) {
         m_bset.set_bits(start_bit, nbits);
@@ -224,13 +224,14 @@ public:
     uint64_t total_bits() const { return m_total_bits; }
 };
 
-void run_parallel(const uint64_t total_bits, const uint32_t nthreads, const std::function< void(const uint64_t, const uint32_t) >& thr_fn) {
+void run_parallel(const uint64_t total_bits, const uint32_t nthreads,
+                  const std::function< void(const uint64_t, const uint32_t) >& thr_fn) {
     uint64_t start{0};
-    const uint32_t n_per_thread{static_cast< uint32_t >(std::ceil(static_cast<double>(total_bits) / nthreads))};
+    const uint32_t n_per_thread{static_cast< uint32_t >(std::ceil(static_cast< double >(total_bits) / nthreads))};
     std::vector< std::thread > threads;
 
     while (start < total_bits) {
-        threads.emplace_back(thr_fn, start, std::min<uint32_t>(n_per_thread, total_bits - start));
+        threads.emplace_back(thr_fn, start, std::min< uint32_t >(n_per_thread, total_bits - start));
         start += n_per_thread;
     }
 
@@ -238,6 +239,7 @@ void run_parallel(const uint64_t total_bits, const uint32_t nthreads, const std:
         if (t.joinable()) t.join();
     }
 }
+} // namespace
 
 TEST_F(BitsetTest, TestSetCount)
 {

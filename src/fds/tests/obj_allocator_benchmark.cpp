@@ -1,20 +1,25 @@
 //
 // Created by Kadayam, Hari on 2/1/19.
 //
+
+#include <cstdint>
+#include <iostream>
+#include <string>
+
 #include <benchmark/benchmark.h>
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
-#include <metrics/metrics.hpp>
-#include <obj_allocator.hpp>
-#include <string>
-#include <iostream>
+
+#include "metrics/metrics.hpp"
+#include "obj_allocator.hpp"
 
 SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
 THREAD_BUFFER_INIT;
 RCU_REGISTER_INIT;
 
-#define ITERATIONS 1000000
-#define THREADS 8
+namespace {
+constexpr size_t ITERATIONS{1000000};
+constexpr size_t THREADS{8};
 
 struct my_request {
     int m_a;
@@ -53,6 +58,7 @@ void test_obj_alloc(benchmark::State& state) {
     printf("Counter = %lu\n", counter);
     // std::cout << "Counter = " << counter << "\n";
 }
+} // namespace
 
 BENCHMARK(test_malloc)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_obj_alloc)->Iterations(ITERATIONS)->Threads(THREADS);
