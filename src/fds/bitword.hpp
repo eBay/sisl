@@ -125,7 +125,7 @@ static constexpr uint8_t logBase2(const DataType v) {
             }
         }
     } else if constexpr (sizeof(DataType) == 2) {
-        if (const uint16_t t1{v >> 8}) {
+        if (const uint16_t t1{static_cast<uint16_t>(v >> 8)}) {
             r = 8 + LogTable256[static_cast<uint8_t>(t1)];
         } else {
             r = LogTable256[static_cast<uint8_t>(v)];
@@ -549,7 +549,6 @@ std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, trait
 
 template < typename WType >
 class unsafe_bits {
-    // class __attribute__((__packed__)) unsafe_bits {
 public:
     typedef WType word_t;
 
@@ -591,7 +590,6 @@ private:
 
 template < typename WType >
 class safe_bits {
-    // class __attribute__((__packed__)) safe_bits {
 public:
     typedef WType word_t;
 

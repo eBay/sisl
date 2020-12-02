@@ -1,7 +1,9 @@
 
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <limits>
+#include <type_traits>
 
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
@@ -15,28 +17,27 @@ using namespace sisl;
 SDS_LOGGING_INIT(test_bitword);
 SDS_OPTIONS_ENABLE(logging)
 
-static bool validate(const uint64_t val, const uint8_t offset, bit_filter filter, const uint8_t exp_start,
-                     const bit_match_type exp_match) {
+namespace {
+bool validate(const uint64_t val, const uint8_t offset, bit_filter filter, const uint8_t exp_start,
+              const bit_match_type exp_match, const uint8_t exp_count) {
     Bitword< unsafe_bits< uint64_t > > bword(val);
 
     const auto result{bword.get_next_reset_bits_filtered(offset, filter)};
     if (result.match_type != exp_match) {
-        // LOGINFO("Val={} offset={} filter[{}] Expected type={} but got {}, result[{}]: FAILED", val,
-        // static_cast<uint16_t>(offset),
-        //        filter.to_string(), static_cast<uint16_t>(exp_match), static_cast<uint16_t>(result.match_type),
-        //        result.to_string());
+        LOGINFO("Val={} offset={} filter[{}] Expected type={} but got {}, result[{}]: FAILED", val,
+                static_cast<uint16_t>(offset), filter.to_string(), static_cast<uint16_t>(exp_match),
+                static_cast<uint16_t>(result.match_type), result.to_string());
         return false;
     }
 
-    if ((result.match_type != bit_match_type::no_match) && (result.start_bit != exp_start)) {
-        // LOGINFO("Val={} offset={} filter[{}] Expected start bit={} but got {}, result[{}] : FAILED", val,
-        // static_cast<uint16_t>(offset),
-        //        filter.to_string(), static_cast<uint16_t>(exp_start), static_cast<uint16_t>(result.start_bit),
-        //        result.to_string());
+    if ((result.match_type != bit_match_type::no_match) && 
+        ((result.start_bit != exp_start) || (result.count != exp_count))) {
+        LOGINFO("Val={} offset={} filter[{}] Expected start bit={} & count={} but got {} & {}, result[{}] : FAILED",
+                val, static_cast< uint16_t >(offset), filter.to_string(), static_cast< uint16_t >(exp_start),
+                static_cast< uint16_t >(exp_count), static_cast< uint16_t >(result.start_bit),
+                static_cast< uint16_t >(result.count), result.to_string());
         return false;
     }
-    // LOGINFO("Val={:064b}(0x{:x}) offset={} filter=[{}] result=[{}] : Passed", val, val, offset, filter.to_string(),
-    //        result.to_string());
     return true;
 }
 
@@ -53,6 +54,35 @@ protected:
     void SetUp() override {}
     void TearDown() override {}
 };
+
+
+template< typename DataType >
+void testLog2Base()
+{
+    static_assert(std::is_unsigned_v< DataType >, "DataType must be unsigned.");
+    ASSERT_EQ(logBase2(static_cast< DataType >(0)), static_cast<uint8_t>(255));
+    DataType v{1};
+    for (uint8_t bit{0}; bit<std::numeric_limits<DataType>::digits; ++bit, v <<= 1)
+    {
+        ASSERT_EQ(logBase2(v), bit);
+    }
+}
+} // namespace
+
+TEST_F(BitwordTest, TestLog2Base)
+{
+    for (uint8_t x{0}; x<255; ++x)
+    {
+        const uint8_t val{static_cast<uint8_t>(x + 1)};
+        ASSERT_EQ(logBase2(val), 
+                  static_cast<uint8_t>(std::trunc(std::log2(val) + val * std::numeric_limits<double>::epsilon())));
+    }
+
+    testLog2Base< uint8_t >();
+    testLog2Base< uint16_t >();
+    testLog2Base< uint32_t >();
+    testLog2Base< uint64_t >();
+}
 
 TEST_F(BitwordTest, TestSetCount) {
     const Bitword< unsafe_bits< uint64_t > > word1{0x1};
@@ -254,29 +284,36 @@ TEST_F(BitwordTest, ToString) {
 }
 
 TEST_F(BitwordTest, GetNextResetBitsFiltered) {
-    ASSERT_TRUE(validate(0xfff0, 0, {5, 5, 1}, 16, bit_match_type::msb_match));
-    ASSERT_TRUE(validate(0xfff0, 0, {4, 5, 1}, 0, bit_match_type::lsb_match));
+    ASSERT_TRUE(validate(0xfff0, 0, {5, 5, 1}, 16, bit_match_type::msb_match, 48));
+    ASSERT_TRUE(validate(0xfff0, 0, {4, 5, 1}, 0, bit_match_type::lsb_match, 4));
 
-    ASSERT_TRUE(validate(0x0, 0, {5, 5, 1}, 0, bit_match_type::full_match));
-    ASSERT_TRUE(validate(0x0, 0, {64, 70, 1}, 0, bit_match_type::full_match));
-    ASSERT_TRUE(validate(0xffffffffffffffff, 0, {5, 5, 1}, 0, bit_match_type::no_match));
 
-    ASSERT_TRUE(validate(0x7fffffffffffffff, 0, {2, 2, 1}, 63, bit_match_type::msb_match));
-    ASSERT_TRUE(validate(0x7f0f0f0f0f0f0f0f, 0, {2, 2, 1}, 4, bit_match_type::mid_match));
+    ASSERT_TRUE(validate(0x0, 0, {5, 5, 1}, 0, bit_match_type::full_match, 64));
+    ASSERT_TRUE(validate(0x0, 0, {64, 70, 1}, 0, bit_match_type::full_match, 64));
+    ASSERT_TRUE(validate(0xffffffffffffffff, 0, {5, 5, 1}, 0, bit_match_type::no_match, 0));
 
-    ASSERT_TRUE(validate(0x8000000000000000, 0, {5, 8, 1}, 0, bit_match_type::lsb_match));
-    ASSERT_TRUE(validate(0x8000000000000001, 0, {5, 8, 1}, 1, bit_match_type::mid_match));
-    ASSERT_TRUE(validate(0x8000000000000001, 10, {8, 8, 1}, 10, bit_match_type::mid_match));
+    ASSERT_TRUE(validate(0x7fffffffffffffff, 0, {2, 2, 1}, 63, bit_match_type::msb_match, 1));
+    ASSERT_TRUE(validate(0x7f0f0f0f0f0f0f0f, 0, {2, 2, 1}, 4, bit_match_type::mid_match, 4));
+    ASSERT_TRUE(validate(0x7f0f0f0f0f0f0f0f, 29, {2, 2, 1}, 29, bit_match_type::mid_match, 3));
 
-    ASSERT_TRUE(validate(0x7fffffffffffffff, 0, {1, 1, 1}, 63, bit_match_type::msb_match));
-    ASSERT_TRUE(validate(0x7fffffffffffffff, 56, {1, 1, 1}, 63, bit_match_type::msb_match));
-    ASSERT_TRUE(validate(0x7fffffffffffffff, 56, {2, 2, 1}, 63, bit_match_type::msb_match));
+    ASSERT_TRUE(validate(0x8000000000000000, 0, {5, 8, 1}, 0, bit_match_type::lsb_match, 63));
+    ASSERT_TRUE(validate(0x8000000000000001, 0, {5, 8, 1}, 1, bit_match_type::mid_match, 62));
+    ASSERT_TRUE(validate(0x8000000000000001, 10, {8, 8, 1}, 10, bit_match_type::mid_match, 53));
 
-    ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 0, {11, 11, 1}, 40, bit_match_type::mid_match));
-    ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {2, 2, 1}, 5, bit_match_type::mid_match));
-    ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {8, 8, 1}, 16, bit_match_type::mid_match));
+    ASSERT_TRUE(validate(0x7fffffffffffffff, 0, {1, 1, 1}, 63, bit_match_type::msb_match, 1));
+    ASSERT_TRUE(validate(0x7fffffffffffffff, 56, {1, 1, 1}, 63, bit_match_type::msb_match, 1));
+    ASSERT_TRUE(validate(0x7fffffffffffffff, 56, {2, 2, 1}, 63, bit_match_type::msb_match, 1));
 
-    ASSERT_TRUE(validate(0x0ff000ffff00ff0f, 5, {8, 64, 4}, 60, bit_match_type::msb_match));
+    ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 0, {11, 11, 1}, 40, bit_match_type::mid_match, 12));
+    ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {2, 2, 1}, 5, bit_match_type::mid_match, 3));
+    ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {8, 8, 1}, 16, bit_match_type::mid_match, 8));
+  
+    ASSERT_TRUE(validate(0x0ff000ffff00ff0f, 5, {8, 64, 4}, 60, bit_match_type::msb_match, 4));
+
+    ASSERT_TRUE(validate(0x8fffff0f0f0f00f4, 0, {3, 9, 1}, 0, bit_match_type::no_match, 0));
+    ASSERT_TRUE(validate(0x8ff00f0f0f0f00f4, 1, {3, 9, 1}, 0, bit_match_type::no_match, 0));
+    ASSERT_TRUE(validate(0x7ff00f0f0f0f00f4, 0, {3, 9, 2}, 0, bit_match_type::no_match, 0));
+    ASSERT_TRUE(validate(0x00ff0f0f0f0ff0f4, 0, {3, 9, 9}, 0, bit_match_type::no_match, 0));
 }
 
 TEST_F(BitwordTest, GetMaxContiguousResetBits) {
