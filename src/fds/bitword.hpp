@@ -64,7 +64,10 @@ static constexpr std::array< uint64_t, 64 > consecutive_bitmask = {
     (bit_mask[56] - 1), (bit_mask[57] - 1), (bit_mask[58] - 1), (bit_mask[59] - 1),         (bit_mask[60] - 1),
     (bit_mask[61] - 1), (bit_mask[62] - 1), (bit_mask[63] - 1), ~static_cast< uint64_t >(0)};
 
-static constexpr uint8_t logBase2(const uint64_t v) {
+template < typename DataType >
+static constexpr uint8_t logBase2(const DataType v) {
+    static_assert(std::is_unsigned< DataType >::value, "logBase2: DataType must be unsigned.");
+
     constexpr std::array< uint8_t, 256 > LogTable256{
         255, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
         5,   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -76,43 +79,72 @@ static constexpr uint8_t logBase2(const uint64_t v) {
 
     uint8_t r{0};
 
-    if (uint64_t t1{v >> 32}) {
-        if (const uint64_t t2{t1 >> 16}) {
-            if (const uint64_t t3{t2 >> 8}) {
-                r = 56 + LogTable256[t3];
+    if constexpr (sizeof(DataType) == 8) {
+        if (const uint64_t t1{v >> 32}) {
+            if (const uint64_t t2{t1 >> 16}) {
+                if (const uint64_t t3{t2 >> 8}) {
+                    r = 56 + LogTable256[static_cast<uint8_t>(t3)];
+                } else {
+                    r = 48 + LogTable256[static_cast<uint8_t>(t2)];
+                }
             } else {
-                r = 48 + LogTable256[t2];
+                if (const uint64_t t2{t1 >> 8}) {
+                    r = 40 + LogTable256[static_cast<uint8_t>(t2)];
+                } else {
+                    r = 32 + LogTable256[static_cast<uint8_t>(t1)];
+                }
             }
         } else {
-            if (const uint64_t t2{t1 >> 8}) {
-                r = 40 + LogTable256[t2];
+            if (const uint64_t t1{v >> 16}) {
+                if (const uint64_t t2{t1 >> 8}) {
+                    r = 24 + LogTable256[static_cast<uint8_t>(t2)];
+                } else {
+                    r = 16 + LogTable256[static_cast<uint8_t>(t1)];
+                }
             } else {
-                r = 32 + LogTable256[t1];
+                if (const uint64_t t1{v >> 8}) {
+                    r = 8 + LogTable256[static_cast<uint8_t>(t1)];
+                } else {
+                    r = LogTable256[static_cast<uint8_t>(v)];
+                }
             }
         }
-    } else {
-        if ((t1 = (v >> 16))) {
-            if (const uint64_t t2{t1 >> 8}) {
-                r = 24 + LogTable256[t2];
-            } else {
-                r = 16 + LogTable256[t1];
+    } else if constexpr (sizeof(DataType) == 4) {
+        if (const uint32_t t1{v >> 16}) {
+            if (const uint32_t t2{t1 >> 8}) {
+                r = 24 + LogTable256[static_cast<uint8_t>(t2)];
+            }
+            else {
+                r = 16 + LogTable256[static_cast<uint8_t>(t1)];
             }
         } else {
-            if ((t1 = (v >> 8))) {
-                r = 8 + LogTable256[t1];
+            if (const uint32_t t1{v >> 8}) {
+                r = 8 + LogTable256[static_cast<uint8_t>(t1)];
             } else {
-                r = LogTable256[v];
+                r = LogTable256[static_cast<uint8_t>(v)];
             }
         }
+    } else if constexpr (sizeof(DataType) == 2) {
+        if (const uint16_t t1{v >> 8}) {
+            r = 8 + LogTable256[static_cast<uint8_t>(t1)];
+        } else {
+            r = LogTable256[static_cast<uint8_t>(v)];
+        }
+    }
+    else {
+        r = LogTable256[static_cast<uint8_t>(v)];
     }
 
     return r;
 }
 
-static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
 #if __cplusplus > 201703L
-    return static_cast< uint8_t >(std::countr_zero(v));
-#elif defined __GNUC__ && defined __x86_64
+template < typename DataType >
+static constexpr uint8_t get_trailing_zeros(const DataType v) {
+    return static_cast< uint8_t >(std::countr_zero(std::make_unsigned_t<DataType>(v)));
+#else
+static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
+#if defined __GNUC__ && defined __x86_64
     return static_cast< uint8_t >(__builtin_ctzll(v));
 #else
     constexpr std::array< uint8_t, 64 > MultiplyDeBruijnBitPosition{
@@ -123,12 +155,16 @@ static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
     if (!v) return 64;
     return MultiplyDeBruijnBitPosition[((v ^ (v - 1)) * static_cast< uint64_t >(0x03F79D71B4CB0A89)) >> 58];
 #endif
+#endif
 }
 
-static constexpr uint8_t get_set_bit_count(const uint64_t v) {
 #if __cplusplus > 201703L
-    return static_cast< uint8_t >(std::popcount(v));
-#elif defined __GNUC__ && defined __x86_64
+template < typename DataType >
+static constexpr uint8_t get_set_bit_count(const DataType v) {
+    return static_cast< uint8_t >(std::popcount(std::make_unsigned_t< DataType >(v)));
+#else
+static constexpr uint8_t get_set_bit_count(const uint64_t v) {
+#if defined __GNUC__ && defined __x86_64
     return static_cast< uint8_t >(__builtin_popcountll(v));
 #else
     constexpr uint64_t m1{0x5555555555555555}; // binary: 0101...
@@ -145,12 +181,16 @@ static constexpr uint8_t get_set_bit_count(const uint64_t v) {
     x = (x + (x >> 4)) & m4;                        // put count of each 8 bits into those 8 bits
     return static_cast< uint8_t >((x * h01) >> 56); // returns left 8 bits of x + (x<<8) + (x<<16) + (x<<24) + ...
 #endif
+#endif
 }
 
-static constexpr uint8_t get_leading_zeros(const uint64_t v) {
 #if __cplusplus > 201703L
-    return std::countl_zero(v);
-#elif defined __GNUC__ && defined __x86_64
+template < typename DataType >
+static constexpr uint8_t get_leading_zeros(const DataType v) {
+    return static_cast< uint8_t >(std::countl_zero(std::make_unsigned_t< DataType >(v)));
+#else
+static constexpr uint8_t get_leading_zeros(const uint64_t v) {
+#if defined __GNUC__ && defined __x86_64
     return std::min< uint8_t >(static_cast< unsigned int >(__builtin_clzll(v)), 64);
 #else
     if (!v) return 64;
@@ -163,6 +203,7 @@ static constexpr uint8_t get_leading_zeros(const uint64_t v) {
     x |= (x >> 16);
     x |= (x >> 32);
     return (64 - get_set_bit_count(x));
+#endif
 #endif
 }
 
@@ -364,7 +405,7 @@ public:
         while (nbits > 0) {
             uint8_t first_0bit{get_trailing_zeros(~e)};
             result.start_bit += first_0bit;
-            if ((first_0bit > nbits) || (first_0bit >= bits())) {
+            if (first_0bit >= nbits) {
                 // No more zero's here in our range.
                 result.count = 0;
                 break;

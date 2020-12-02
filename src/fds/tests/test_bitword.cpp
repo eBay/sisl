@@ -35,20 +35,20 @@ static bool validate(const uint64_t val, const uint8_t offset, bit_filter filter
         //        result.to_string());
         return false;
     }
-    //LOGINFO("Val={:064b}(0x{:x}) offset={} filter=[{}] result=[{}] : Passed", val, val, offset, filter.to_string(),
+    // LOGINFO("Val={:064b}(0x{:x}) offset={} filter=[{}] result=[{}] : Passed", val, val, offset, filter.to_string(),
     //        result.to_string());
     return true;
 }
 
 class BitwordTest : public testing::Test {
 public:
-    BitwordTest() : testing::Test() {};
+    BitwordTest() : testing::Test(){};
     BitwordTest(const BitwordTest&) = delete;
     BitwordTest(BitwordTest&&) noexcept = delete;
     BitwordTest& operator=(const BitwordTest&) = delete;
     BitwordTest& operator=(BitwordTest&&) noexcept = delete;
     virtual ~BitwordTest() override = default;
-   
+
 protected:
     void SetUp() override {}
     void TearDown() override {}
@@ -68,19 +68,25 @@ TEST_F(BitwordTest, TestSetCount) {
     ASSERT_EQ(word4.get_set_count(), 64);
 }
 
-TEST_F(BitwordTest, TestTrailingZeros)
-{
-    ASSERT_EQ(get_trailing_zeros(0x01), static_cast<uint8_t>(0));
+TEST_F(BitwordTest, TestTrailingZeros) {
+    ASSERT_EQ(get_trailing_zeros(0x01), static_cast< uint8_t >(0));
     ASSERT_EQ(get_trailing_zeros(0x02), static_cast< uint8_t >(1));
-    ASSERT_EQ(get_trailing_zeros(0x00), static_cast<uint8_t>(64));
-    ASSERT_EQ(get_trailing_zeros(0xf000000000), static_cast<uint8_t>(36));
+    ASSERT_EQ(get_trailing_zeros(static_cast< uint64_t >(0x00)), static_cast< uint8_t >(64));
+#if __cplusplus > 201703L
+    ASSERT_EQ(get_trailing_zeros(static_cast< uint32_t >(0x00)), static_cast< uint8_t >(32));
+#endif
+    ASSERT_EQ(get_trailing_zeros(0xf000000000), static_cast< uint8_t >(36));
     ASSERT_EQ(get_trailing_zeros(0xf00f000000000), static_cast< uint8_t >(36));
     ASSERT_EQ(get_trailing_zeros(0x8000000000000000), static_cast< uint8_t >(63));
 }
 
 TEST_F(BitwordTest, TestLeadingZeros) {
-    ASSERT_EQ(get_leading_zeros(0x01), static_cast< uint8_t >(63));
-    ASSERT_EQ(get_leading_zeros(0x00), static_cast<uint8_t>(64));
+    ASSERT_EQ(get_leading_zeros(static_cast<uint64_t>(0x01)), static_cast< uint8_t >(63));
+    ASSERT_EQ(get_leading_zeros(static_cast<uint64_t>(0x00)), static_cast< uint8_t >(64));
+#if __cplusplus > 201703L
+    ASSERT_EQ(get_leading_zeros(static_cast< uint32_t >(0x01)), static_cast< uint8_t >(31));
+    ASSERT_EQ(get_leading_zeros(static_cast< uint32_t >(0x00)), static_cast< uint8_t >(32));
+#endif
     ASSERT_EQ(get_leading_zeros(0xFFFFFFFFFFFFFFFF), static_cast< uint8_t >(0));
     ASSERT_EQ(get_leading_zeros(0x7FFFFFFFFFFFFFFF), static_cast< uint8_t >(1));
     ASSERT_EQ(get_leading_zeros(0x0FFFFFFFFFFFFFFF), static_cast< uint8_t >(4));
@@ -104,15 +110,14 @@ TEST_F(BitwordTest, TestResetCount) {
 
 TEST_F(BitwordTest, SetResetBit) {
     Bitword< unsafe_bits< uint64_t > > word1{0x0};
-    ASSERT_EQ(word1.set_reset_bit(0,true), static_cast<uint64_t>(0x01));
-    ASSERT_EQ(word1.set_reset_bit(63, true), static_cast<uint64_t>(0x8000000000000001));
+    ASSERT_EQ(word1.set_reset_bit(0, true), static_cast< uint64_t >(0x01));
+    ASSERT_EQ(word1.set_reset_bit(63, true), static_cast< uint64_t >(0x8000000000000001));
 
     ASSERT_EQ(word1.set_reset_bit(0, false), static_cast< uint64_t >(0x8000000000000000));
     ASSERT_EQ(word1.set_reset_bit(63, false), static_cast< uint64_t >(0x00));
 }
 
-TEST_F(BitwordTest, SetBits)
-{
+TEST_F(BitwordTest, SetBits) {
     Bitword< unsafe_bits< uint64_t > > word1{0x0};
     ASSERT_EQ(word1.set_bits(0, 2), static_cast< uint64_t >(0x03));
     ASSERT_EQ(word1.set_bits(62, 2), static_cast< uint64_t >(0xC000000000000003));
@@ -152,7 +157,7 @@ TEST_F(BitwordTest, GetNextSetBit) {
     uint8_t bit_pos;
     const Bitword< unsafe_bits< uint64_t > > word1{0x05};
     ASSERT_TRUE(word1.get_next_set_bit(0, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast<uint8_t>(0));
+    ASSERT_EQ(bit_pos, static_cast< uint8_t >(0));
     ASSERT_TRUE(word1.get_next_set_bit(1, &bit_pos));
     ASSERT_EQ(bit_pos, static_cast< uint8_t >(2));
 
@@ -219,7 +224,6 @@ TEST_F(BitwordTest, GetNextResetBits) {
     ASSERT_EQ(pcount, static_cast< uint8_t >(4));
     ASSERT_EQ(word5.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(62));
     ASSERT_EQ(pcount, static_cast< uint8_t >(2));
-
 }
 
 TEST_F(BitwordTest, SetNextResetBit) {
@@ -249,8 +253,7 @@ TEST_F(BitwordTest, ToString) {
     ASSERT_EQ(word1.to_string(), std::string{"00001111"});
 }
 
-TEST_F(BitwordTest, GetNextResetBitsFiltered)
-{
+TEST_F(BitwordTest, GetNextResetBitsFiltered) {
     ASSERT_TRUE(validate(0xfff0, 0, {5, 5, 1}, 16, bit_match_type::msb_match));
     ASSERT_TRUE(validate(0xfff0, 0, {4, 5, 1}, 0, bit_match_type::lsb_match));
 
@@ -279,7 +282,7 @@ TEST_F(BitwordTest, GetNextResetBitsFiltered)
 TEST_F(BitwordTest, GetMaxContiguousResetBits) {
     uint8_t pmax_count;
     const Bitword< unsafe_bits< uint64_t > > word1{0xFFFFFFFFFFFFFFFF};
-    ASSERT_EQ(word1.get_max_contiguous_reset_bits(0, &pmax_count), std::numeric_limits<uint8_t>::max());
+    ASSERT_EQ(word1.get_max_contiguous_reset_bits(0, &pmax_count), std::numeric_limits< uint8_t >::max());
 
     const Bitword< unsafe_bits< uint64_t > > word2{0xFFFFFFFFFFFFFFF0};
     ASSERT_EQ(word2.get_max_contiguous_reset_bits(0, &pmax_count), static_cast< uint8_t >(0));
