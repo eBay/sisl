@@ -54,20 +54,20 @@ struct EnumSupportBase {
     enum class EnumName : Underlying { __VA_ARGS__, _count };                                                          \
                                                                                                                        \
     struct EnumName##Support : EnumSupportBase {                                                                       \
-        static inline const std::vector< std::string > m_token_names = split(#__VA_ARGS__ /*, ','*/);                  \
+        static inline const std::vector< std::string > s_token_names = split(#__VA_ARGS__ /*, ','*/);                  \
         static inline const std::string& get_name(const EnumName enum_value) {                                         \
             const Underlying index{ static_cast < Underlying >(enum_value) };                                          \
             if constexpr (std::is_signed_v< Underlying >) {                                                                \
                 if ((index >= static_cast< Underlying >(EnumName::_count)) || (index < 0))                             \
                     return EnumSupportBase::UNKNOWN;                                                                   \
                 else                                                                                                   \
-                    return m_token_names[index];                                                                       \
+                    return s_token_names[index];                                                                       \
             }                                                                                                          \
             else {                                                                                                     \
                 if ((index >= static_cast< Underlying >(EnumName::_count)))                                            \
                     return EnumSupportBase::UNKNOWN;                                                                   \
                 else                                                                                                   \
-                    return m_token_names[index];                                                                       \
+                    return s_token_names[index];                                                                       \
             }                                                                                                          \
         }                                                                                                              \
     };                                                                                                                 \

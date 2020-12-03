@@ -258,27 +258,27 @@ public:
     static_assert(std::is_unsigned_v< word_t > && sizeof(word_t) <= sizeof(uint64_t),
                   "Underlying type must be unsigned of 64 bits or less.");
 
-    Bitword() { m_Bits.set(0); }
-    explicit Bitword(const Word& b) { m_Bits.set(b); }
-    explicit Bitword(const word_t& val) { m_Bits.set(val); }
+    Bitword() { m_bits.set(0); }
+    explicit Bitword(const Word& b) { m_bits.set(b); }
+    explicit Bitword(const word_t& val) { m_bits.set(val); }
     Bitword(const Bitword&) = delete;
     Bitword(Bitword&&) noexcept = delete;
     Bitword& operator=(const Bitword&) = delete;
     Bitword& operator=(Bitword&&) noexcept = delete;
 
-    void set(const word_t& value) { m_Bits.set(value); }
+    void set(const word_t& value) { m_bits.set(value); }
 
     ///
     /// @brief:
     /// Total number of bits set in the bitset
     ///
-    uint8_t get_set_count() const { return get_set_bit_count(m_Bits.get()); }
+    uint8_t get_set_count() const { return get_set_bit_count(m_bits.get()); }
 
     ///
     /// @brief:
     /// Total number of bits reset in the bitset
     ///
-    uint8_t get_reset_count() const { return bits() - get_set_bit_count(m_Bits.get()); }
+    uint8_t get_reset_count() const { return bits() - get_set_bit_count(m_bits.get()); }
 
     word_t set_bits(const uint8_t start, const uint8_t nbits) {
         assert(start < bits());
@@ -299,9 +299,9 @@ public:
     word_t set_reset_bit(const uint8_t start, const bool set) {
         assert(start < bits());
         if (set) {
-            return m_Bits.or_with(bit_mask[start]);
+            return m_bits.or_with(bit_mask[start]);
         } else {
-            return m_Bits.and_with(~bit_mask[start]);
+            return m_bits.and_with(~bit_mask[start]);
         }
     }
 
@@ -320,20 +320,20 @@ public:
         const uint8_t wanted_bits{std::min< uint8_t >(bits() - start, nbits)};
         const uint64_t bit_mask{consecutive_bitmask[wanted_bits - 1] << start};
         if (set) {
-            return m_Bits.or_with(bit_mask);
+            return m_bits.or_with(bit_mask);
         } else {
-            return m_Bits.and_with(~bit_mask);
+            return m_bits.and_with(~bit_mask);
         }
     }
 
-    bool get_bitval(const uint8_t bit) const { return (m_Bits.get() & bit_mask[bit]); }
+    bool get_bitval(const uint8_t bit) const { return (m_bits.get() & bit_mask[bit]); }
 
     /// @brief
     /// is_bit_set_reset: Is bits either set or reset from start bit
     ///
     bool is_bit_set_reset(const uint8_t start, const bool check_for_set) const {
         assert(start < bits());
-        const uint64_t v{m_Bits.get() & bit_mask[start]};
+        const uint64_t v{m_bits.get() & bit_mask[start]};
         return check_for_set ? (v != static_cast< uint64_t >(0)) : (v == static_cast< uint64_t >(0));
     }
 
@@ -458,7 +458,7 @@ public:
         return set_next_reset_bit(start, bits(), p_bit);
     }
 
-    word_t right_shift(const uint8_t nbits) { return m_Bits.right_shift(nbits); }
+    word_t right_shift(const uint8_t nbits) { return m_bits.right_shift(nbits); }
 
     uint8_t get_max_contiguous_reset_bits(const uint8_t start, uint8_t* const pmax_count) const {
         assert(start < bits());
@@ -505,11 +505,11 @@ public:
         return start_largest_group;
     }
 
-    word_t to_integer() const { return m_Bits.get(); }
+    word_t to_integer() const { return m_bits.get(); }
 
     std::string to_string() const {
         std::ostringstream oSS{};
-        word_t e{m_Bits.get()};
+        word_t e{m_bits.get()};
         word_t mask{static_cast< word_t >(bit_mask[bits() - 1])};
         for (uint8_t bit{0}; bit < bits(); ++bit, mask >>= 1) {
             oSS << (((e & mask) == mask) ? '1' : '0');
@@ -524,11 +524,11 @@ private:
         const uint8_t wanted_bits{std::min< uint8_t >(bits() - start, nbits)};
         assert(wanted_bits > 0);
         const uint64_t mask{(consecutive_bitmask[wanted_bits - 1] << start)};
-        return ((m_Bits.get() & mask) >> start);
+        return ((m_bits.get() & mask) >> start);
     }
 
 private:
-    Word m_Bits;
+    Word m_bits;
 };
 
 template < typename charT, typename traits, typename Word >

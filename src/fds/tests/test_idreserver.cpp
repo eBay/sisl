@@ -57,12 +57,12 @@ protected:
 }
 
 TEST_F(IDReserverTest, RandomIDSet) {
-run_parallel(g_num_threads, [&](int32_t n_ids_this_thread) {
-    LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);
-    for (auto i = 0; i < n_ids_this_thread; ++i) {
-        if (i % 2 == 0) { reserve(); }
-    }
-});
+    run_parallel(g_num_threads, [&](int32_t n_ids_this_thread) {
+        LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);
+        for (auto i = 0; i < n_ids_this_thread; ++i) {
+            if (i % 2 == 0) { reserve(); }
+        }
+    });
 }
 
 int main(int argc, char* argv[]) {
