@@ -7,7 +7,7 @@
 #include "obj_allocator.hpp"
 
 SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
-THREAD_BUFFER_INIT;
+THREAD_BUFFER_INIT
 
 using namespace sisl;
 using namespace std;

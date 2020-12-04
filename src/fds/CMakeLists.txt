@@ -1,4 +1,6 @@
-add_flags("-Wno-unused-parameter -Wno-cast-function-type")
+if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
+    add_flags("-Wno-unused-parameter -Wno-cast-function-type")
+endif()
 
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
@@ -29,7 +31,9 @@ set(TEST_BITWORD_SOURCES
 add_executable(test_bitword ${TEST_BITWORD_SOURCES})
 target_link_libraries(test_bitword sisl ${CONAN_LIBS})
 
-add_flags("-Wno-attributes") # needed for C++ 20 folly compilation
+if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
+    add_flags("-Wno-attributes") # needed for C++ 20 folly compilation
+endif()
 
 set(OBJ_ALLOCATOR_BENCHMARK_FILES 
     tests/obj_allocator_benchmark.cpp

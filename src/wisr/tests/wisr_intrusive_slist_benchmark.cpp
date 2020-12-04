@@ -6,8 +6,8 @@
 #include <boost/intrusive/slist.hpp>
 #include <cstdio>
 
-THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
+THREAD_BUFFER_INIT
+RCU_REGISTER_INIT
 
 #define ITERATIONS 1000000
 //#define ITERATIONS 1

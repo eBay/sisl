@@ -111,10 +111,19 @@ namespace sisl {
 template < char... chars >
 using tstring = std::integer_sequence< char, chars... >;
 
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 template < typename T, T... chars >
 constexpr tstring< chars... > operator""_tstr() {
     return {};
 }
+
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 template < typename >
 class NamedCounter;

@@ -8,7 +8,7 @@
 #include <fstream>
 #include <condition_variable>
 
-SDS_LOGGING_INIT(httpserver_lmod);
+SDS_LOGGING_INIT(httpserver_lmod)
 
 SDS_OPTIONS_ENABLE(logging)
 

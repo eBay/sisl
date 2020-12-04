@@ -56,7 +56,7 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     add_flags("-fconcepts" Languages "CXX")
     
     # add warning options
-    add_flags("-Wall -Wextra -Werror")
+    add_flags("-Wall -Wextra -Werror -Wpedantic")
     
     # add C++ only warning options
     

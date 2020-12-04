@@ -13,8 +13,8 @@
 
 constexpr size_t ITERATIONS{3};
 
-THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
+THREAD_BUFFER_INIT
+RCU_REGISTER_INIT
 SDS_LOGGING_INIT(vmod_metrics_framework)
 
 using namespace sisl;

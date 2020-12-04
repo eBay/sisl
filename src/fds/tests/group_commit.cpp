@@ -10,7 +10,7 @@
 #include <boost/intrusive/slist.hpp>
 
 using namespace sisl;
-THREAD_BUFFER_INIT;
+THREAD_BUFFER_INIT
 SDS_LOGGING_INIT(group_commit)
 
 struct log_group_header {
@@ -31,12 +31,21 @@ struct log_group_header {
     }
 } __attribute__((packed));
 
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
 struct serialized_log_record {
     int64_t log_idx;
     uint32_t size : 31;
     uint32_t is_inlined : 1;
-    uint8_t data[0];
+    uint8_t data[0];                // zero sized arrays are illegal in C++
 } __attribute__((packed));
+
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 static constexpr uint32_t dma_boundary = 512;
 

@@ -3,13 +3,22 @@
 //
 #pragma once
 
-#include <utility>
-#include <iostream>
 #include <algorithm>
+#include <cstdint>
+#include <iostream>
+#include <utility>
+
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include <folly/ThreadLocal.h>
-#include <metrics/metrics.hpp>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
+#include "metrics/metrics.hpp"
 #include "utils.hpp"
-#include <malloc.h>
 
 namespace sisl {
 
@@ -37,7 +46,10 @@ public:
 
         register_me_to_farm();
     }
-
+    FreeListAllocatorMetrics(const FreeListAllocatorMetrics&) = delete;
+    FreeListAllocatorMetrics(FreeListAllocatorMetrics&&) noexcept = delete;
+    FreeListAllocatorMetrics& operator=(const FreeListAllocatorMetrics&) = delete;
+    FreeListAllocatorMetrics& operator=(FreeListAllocatorMetrics&&) noexcept = delete;
     ~FreeListAllocatorMetrics() { deregister_me_from_farm(); }
     static FreeListAllocatorMetrics& instance() {
         static FreeListAllocatorMetrics inst;

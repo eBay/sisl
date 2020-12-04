@@ -1,20 +1,27 @@
 #pragma once
 
-#include <utility/urcu_helper.hpp>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <sds_logging/logging.h>
-#include <boost/noncopyable.hpp>
 #include <type_traits>
 #include <sstream>
 
-#include <boost/algorithm/string.hpp>
-#include <flatbuffers/idl.h>
-#include <ctime>
-#include <fstream>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <filesystem>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include <folly/Synchronized.h>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/noncopyable.hpp>
+#include <flatbuffers/idl.h>
+
+#include "utility/urcu_helper.hpp"
 
 #define SETTINGS_INIT(schema_type, schema_name, config_dir)                                                            \
     extern const char* schema_name##_fbs;                                                                              \

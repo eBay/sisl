@@ -6,8 +6,8 @@
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <deque>
 
-THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
+THREAD_BUFFER_INIT
+RCU_REGISTER_INIT
 
 //#define ITERATIONS 100000
 #define ITERATIONS 100

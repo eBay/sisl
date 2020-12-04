@@ -1,4 +1,6 @@
-add_flags("-Wno-attributes") # needed for C++ 20 folly compilation
+if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
+    add_flags("-Wno-attributes") # needed for C++ 20 folly compilation
+endif()
 
 include_directories(BEFORE ..)
 include_directories(BEFORE .)

@@ -16,7 +16,15 @@
 #include <optional>
 #include <vector>
 
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 #include <folly/SharedMutex.h>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
 #include <sds_logging/logging.h>
 
 #include "bitword.hpp"

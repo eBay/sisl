@@ -8,8 +8,8 @@
 #include <atomic>
 #include <thread>
 
-THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
+THREAD_BUFFER_INIT
+RCU_REGISTER_INIT
 
 using namespace sisl;
 

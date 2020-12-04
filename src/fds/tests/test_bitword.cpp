@@ -14,7 +14,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_bitword);
+SDS_LOGGING_INIT(test_bitword)
 SDS_OPTIONS_ENABLE(logging)
 
 namespace {

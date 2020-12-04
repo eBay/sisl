@@ -140,13 +140,14 @@ static constexpr uint8_t logBase2(const DataType v) {
 
 #if __cplusplus > 201703L
 template < typename DataType >
-static constexpr uint8_t get_trailing_zeros(const DataType v) {
+static inline constexpr uint8_t get_trailing_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countr_zero(std::make_unsigned_t<DataType>(v)));
 #else
-static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
 #if defined __GNUC__ && defined __x86_64
+static inline uint8_t get_trailing_zeros(const uint64_t v) {
     return static_cast< uint8_t >(__builtin_ctzll(v));
 #else
+static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
     constexpr std::array< uint8_t, 64 > MultiplyDeBruijnBitPosition{
         0,  47, 1,  56, 48, 27, 2,  60, 57, 49, 41, 37, 28, 16, 3,  61, 54, 58, 35, 52, 50, 42,
         21, 44, 38, 32, 29, 23, 17, 11, 4,  62, 46, 55, 26, 59, 40, 36, 15, 53, 34, 51, 20, 43,
@@ -160,13 +161,14 @@ static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
 
 #if __cplusplus > 201703L
 template < typename DataType >
-static constexpr uint8_t get_set_bit_count(const DataType v) {
+static inline constexpr uint8_t get_set_bit_count(const DataType v) {
     return static_cast< uint8_t >(std::popcount(std::make_unsigned_t< DataType >(v)));
 #else
-static constexpr uint8_t get_set_bit_count(const uint64_t v) {
 #if defined __GNUC__ && defined __x86_64
+static inline uint8_t get_set_bit_count(const uint64_t v) {
     return static_cast< uint8_t >(__builtin_popcountll(v));
 #else
+static constexpr uint8_t get_set_bit_count(const uint64_t v) {
     constexpr uint64_t m1{0x5555555555555555}; // binary: 0101...
     constexpr uint64_t m2{0x3333333333333333}; // binary: 00110011..
     constexpr uint64_t m4{0x0f0f0f0f0f0f0f0f}; // binary:  4 zeros,  4 ones ...
@@ -186,13 +188,14 @@ static constexpr uint8_t get_set_bit_count(const uint64_t v) {
 
 #if __cplusplus > 201703L
 template < typename DataType >
-static constexpr uint8_t get_leading_zeros(const DataType v) {
+static inline constexpr uint8_t get_leading_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countl_zero(std::make_unsigned_t< DataType >(v)));
 #else
-static constexpr uint8_t get_leading_zeros(const uint64_t v) {
 #if defined __GNUC__ && defined __x86_64
+static inline uint8_t get_leading_zeros(const uint64_t v) {
     return std::min< uint8_t >(static_cast< unsigned int >(__builtin_clzll(v)), 64);
 #else
+static inline constexpr uint8_t get_leading_zeros(const uint64_t v) {
     if (!v) return 64;
 
     uint64_t x{v};
@@ -207,7 +210,7 @@ static constexpr uint8_t get_leading_zeros(const uint64_t v) {
 #endif
 }
 
-ENUM(bit_match_type, uint8_t, no_match, full_match, lsb_match, mid_match, msb_match);
+ENUM(bit_match_type, uint8_t, no_match, full_match, lsb_match, mid_match, msb_match)
 
 struct bit_filter {
     // All of them are or'd
@@ -520,7 +523,7 @@ public:
     void print() const { std::cout << to_string() << std::endl; }
 
 private:
-    word_t extract(const u_int8_t start, const uint8_t nbits) const {
+    word_t extract(const uint8_t start, const uint8_t nbits) const {
         const uint8_t wanted_bits{std::min< uint8_t >(bits() - start, nbits)};
         assert(wanted_bits > 0);
         const uint64_t mask{(consecutive_bitmask[wanted_bits - 1] << start)};
