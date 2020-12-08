@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <string>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -11,6 +12,7 @@
 
 SDS_OPTION_GROUP(logging, (verbosity, "v", "verbosity", "Verbosity  level (0-5)", ::cxxopts::value<uint32_t>()->default_value("2"), "level"),
                           (synclog, "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""))
+
 
 SDS_OPTIONS_ENABLE(logging)
 

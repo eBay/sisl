@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <iostream>
+#include <memory>
+
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/stringize.hpp>
@@ -15,20 +18,14 @@
 #include <boost/preprocessor/variadic/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
 #include <cxxopts/cxxopts.hpp>
-#include <iostream>
-#include <memory>
+
 
 namespace sds_options {
-template <bool...>
-class bool_pack;
-template <bool... b>
-using all_true = std::is_same<bool_pack<true, b...>, bool_pack<b..., true>>;
+template <typename... Args>
+bool all_true(Args... args) { return (... && args); }
 
-template <typename T>
-using shared = std::shared_ptr<T>;
-
-using shared_opt = shared<cxxopts::Options>;
-using shared_opt_res = shared<cxxopts::ParseResult>;
+typedef std::shared_ptr<cxxopts::Options> shared_opt;
+typedef std::shared_ptr<cxxopts::ParseResult> shared_opt_res;
 
 extern shared_opt GetOptions() __attribute__((weak));
 extern shared_opt_res GetResults() __attribute__((weak));
@@ -51,7 +48,7 @@ struct SdsOption {
   namespace sds_options {                                                \
   struct BOOST_PP_CAT(options_module_, group) {                          \
     BOOST_PP_SEQ_FOR_EACH(SDS_OPTION, (group),                           \
-                          BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__));        \
+                          BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))         \
   };                                                                     \
   extern BOOST_PP_CAT(options_module_, group) *                          \
       BOOST_PP_CAT(load_options_, group)() {                             \
