@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <mutex>
 #include <string>
 
 #include <benchmark/benchmark.h>
@@ -18,6 +19,7 @@ THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
 
 namespace {
+std::mutex s_print_mutex;
 constexpr size_t ITERATIONS{1000000};
 constexpr size_t THREADS{8};
 
@@ -30,8 +32,8 @@ struct my_request {
 
 void setup() {}
 void test_malloc(benchmark::State& state) {
-    uint64_t counter = 0U;
-    for (auto _ : state) { // Loops upto iteration count
+    uint64_t counter{0};
+    for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = new my_request());
         req->m_a = 10;
@@ -40,13 +42,15 @@ void test_malloc(benchmark::State& state) {
         counter += req->m_d;
         delete (req);
     }
-    printf("Counter = %lu\n", counter);
-    // std::cout << "Counter = " << counter << "\n";
+    {
+        std::scoped_lock< std::mutex > lock{s_print_mutex};
+        std::cout << "Counter = " << counter << std::endl;
+    }
 }
 
 void test_obj_alloc(benchmark::State& state) {
-    uint64_t counter = 0U;
-    for (auto _ : state) { // Loops upto iteration count
+    uint64_t counter{0};
+    for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = sisl::ObjectAllocator< my_request >::make_object());
         req->m_a = 10;
@@ -55,8 +59,10 @@ void test_obj_alloc(benchmark::State& state) {
         counter += req->m_d;
         sisl::ObjectAllocator< my_request >::deallocate(req);
     }
-    printf("Counter = %lu\n", counter);
-    // std::cout << "Counter = " << counter << "\n";
+    {
+        std::scoped_lock< std::mutex > lock{s_print_mutex};
+        std::cout << "Counter = " << counter << std::endl;
+    }
 }
 } // namespace
 
