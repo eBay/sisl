@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <iostream>
+#include <memory>
+#include <type_traits>
+
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/stringize.hpp>
@@ -15,8 +19,7 @@
 #include <boost/preprocessor/variadic/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
 #include <cxxopts/cxxopts.hpp>
-#include <iostream>
-#include <memory>
+
 
 namespace sds_options {
 template <bool...>
@@ -51,7 +54,7 @@ struct SdsOption {
   namespace sds_options {                                                \
   struct BOOST_PP_CAT(options_module_, group) {                          \
     BOOST_PP_SEQ_FOR_EACH(SDS_OPTION, (group),                           \
-                          BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__));        \
+                          BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))         \
   };                                                                     \
   extern BOOST_PP_CAT(options_module_, group) *                          \
       BOOST_PP_CAT(load_options_, group)() {                             \
