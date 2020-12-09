@@ -480,12 +480,6 @@ TEST_F(BitsetTest, SerializeDeserialize) {
 
 SDS_OPTIONS_ENABLE(logging, test_bitset)
 
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#endif
-// SDS_OPTION_GROUP has pedantic error
-
 SDS_OPTION_GROUP(test_bitset,
                  (num_threads, "", "num_threads", "number of threads",
                   ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
@@ -495,10 +489,6 @@ SDS_OPTION_GROUP(test_bitset,
                   ::cxxopts::value< uint32_t >()->default_value("25"), "number"),
                  (max_bits_in_grp, "", "max_bits_in_grp", "max bits to be set/reset at a time",
                   ::cxxopts::value< uint32_t >()->default_value("72"), "number"))
-
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging, test_bitset);

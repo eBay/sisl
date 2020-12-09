@@ -10,19 +10,10 @@
 
 SDS_OPTIONS_ENABLE(logging, test_settings)
 
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#endif
-// SDS_OPTION_GROUP has pedantic error
-
 SDS_OPTION_GROUP(test_settings,
                  (num_threads, "", "num_threads", "number of threads",
                   ::cxxopts::value< uint32_t >()->default_value("1"), "number"))
 
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 SDS_LOGGING_INIT(test_settings, settings)
 SETTINGS_INIT(testapp::TestAppSettings, test_app_schema, "/tmp")
