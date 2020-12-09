@@ -6,6 +6,7 @@
 
 #include <iostream>
 #include <memory>
+#include <type_traits>
 
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
@@ -21,11 +22,16 @@
 
 
 namespace sds_options {
-template <typename... Args>
-bool all_true(Args... args) { return (... && args); }
+template <bool...>
+class bool_pack;
+template <bool... b>
+using all_true = std::is_same<bool_pack<true, b...>, bool_pack<b..., true>>;
 
-typedef std::shared_ptr<cxxopts::Options> shared_opt;
-typedef std::shared_ptr<cxxopts::ParseResult> shared_opt_res;
+template <typename T>
+using shared = std::shared_ptr<T>;
+
+using shared_opt = shared<cxxopts::Options>;
+using shared_opt_res = shared<cxxopts::ParseResult>;
 
 extern shared_opt GetOptions() __attribute__((weak));
 extern shared_opt_res GetResults() __attribute__((weak));
