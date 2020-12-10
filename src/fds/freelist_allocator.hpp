@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <utility>
 
@@ -50,7 +52,9 @@ public:
     FreeListAllocatorMetrics(FreeListAllocatorMetrics&&) noexcept = delete;
     FreeListAllocatorMetrics& operator=(const FreeListAllocatorMetrics&) = delete;
     FreeListAllocatorMetrics& operator=(FreeListAllocatorMetrics&&) noexcept = delete;
+
     ~FreeListAllocatorMetrics() { deregister_me_from_farm(); }
+
     static FreeListAllocatorMetrics& instance() {
         static FreeListAllocatorMetrics inst;
         return inst;
@@ -74,25 +78,29 @@ private:
 
 public:
     FreeListAllocatorImpl() : m_head(nullptr), m_list_count(0) {}
+    FreeListAllocatorImpl(const FreeListAllocatorImpl&) = delete;
+    FreeListAllocatorImpl(FreeListAllocatorImpl&&) noexcept = delete;
+    FreeListAllocatorImpl& operator=(const FreeListAllocatorImpl&) = delete;
+    FreeListAllocatorImpl& operator=(FreeListAllocatorImpl&&) noexcept = delete;
 
     ~FreeListAllocatorImpl() {
-        free_list_header* hdr = m_head;
+        free_list_header* hdr{m_head};
         while (hdr) {
-            free_list_header* next = hdr->next;
-            free((uint8_t*)hdr);
+            free_list_header* const next{hdr->next};
+            std::free(static_cast<void*>(hdr));
             hdr = next;
         }
     }
 
-    uint8_t* allocate(uint32_t size_needed) {
+    uint8_t* allocate(const uint32_t size_needed) {
         uint8_t* ptr;
         INIT_METRICS;
 
         if (m_head == nullptr) {
-            ptr = (uint8_t*)malloc(size_needed);
+            ptr = static_cast<uint8_t*>(std::malloc(size_needed));
             COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_miss, 1);
         } else {
-            ptr = (uint8_t*)m_head;
+            ptr = reinterpret_cast<uint8_t*>(m_head);
             COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_hit, 1);
             m_head = m_head->next;
             --m_list_count;
@@ -101,12 +109,12 @@ public:
         return ptr;
     }
 
-    bool deallocate(uint8_t* mem, uint32_t size_alloced) {
+    bool deallocate(uint8_t* const mem, const uint32_t size_alloced) {
         if ((size_alloced != Size) || (m_list_count == MaxListCount)) {
-            free(mem);
+            std::free(static_cast<void*>(mem));
             return true;
         }
-        auto* hdr = (free_list_header*)mem;
+        auto* const hdr{reinterpret_cast< free_list_header* >(mem)};
         hdr->next = m_head;
         m_head = hdr;
         ++m_list_count;
@@ -115,7 +123,7 @@ public:
     }
 };
 
-template < uint16_t MaxListCount, std::size_t Size >
+template < const uint16_t MaxListCount, const size_t Size >
 class FreeListAllocator {
 private:
     folly::ThreadLocalPtr< FreeListAllocatorImpl< MaxListCount, Size > > m_impl;
@@ -124,23 +132,28 @@ public:
     static_assert((Size >= sizeof(uint8_t*)), "Size requested should be atleast a pointer size");
 
     FreeListAllocator() { m_impl.reset(nullptr); }
+    FreeListAllocator(const FreeListAllocator&) = delete;
+    FreeListAllocator(FreeListAllocator&&) noexcept = delete;
+    FreeListAllocator& operator=(const FreeListAllocator&) = delete;
+    FreeListAllocator& operator=(FreeListAllocator&&) noexcept = delete;
+
     ~FreeListAllocator() { m_impl.reset(nullptr); }
 
-    uint8_t* allocate(uint32_t size_needed) {
+    uint8_t* allocate(const uint32_t size_needed) {
         if (sisl_unlikely(m_impl.get() == nullptr)) { m_impl.reset(new FreeListAllocatorImpl< MaxListCount, Size >()); }
         return (m_impl->allocate(size_needed));
     }
 
-    bool deallocate(uint8_t* mem, uint32_t size_alloced) {
+    bool deallocate(uint8_t* const mem, const uint32_t size_alloced) {
         if (sisl_unlikely(m_impl.get() == nullptr)) {
-            free(mem);
+            std::free(static_cast<void*>(mem));
             return true;
         } else {
             return m_impl->deallocate(mem, size_alloced);
         }
     }
 
-    bool owns(uint8_t* mem) const { return true; }
+    bool owns(uint8_t* const mem) const { return true; }
     bool is_thread_safe_allocator() const { return true; }
 };
 } // namespace sisl

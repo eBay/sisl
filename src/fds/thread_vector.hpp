@@ -1,6 +1,10 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "utility/thread_buffer.hpp"
+
 namespace sisl {
 
 /* This data structure inserts elements into per thread buffer and provide apis to access the elements.
@@ -15,6 +19,7 @@ public:
 
     ThreadVector() {}
     ThreadVector(uint64_t size) : m_thread_buffer(size) {}
+
     void push_back(const T& ele) {
         auto thread_vector = m_thread_buffer.get();
         thread_vector->push_back(ele);

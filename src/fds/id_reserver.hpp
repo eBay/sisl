@@ -6,8 +6,15 @@
  */
 #pragma once
 
-#include <fds/bitset.hpp>
+#include <cstdint>
+#include <memory>
 #include <mutex>
+
+#include <fds/bitset.hpp>
+
+#include "bitset.hpp"
+#include "utils.hpp"
+
 
 namespace sisl {
 class IDReserver {

@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <vector>
 #include <cassert>
+#include <cstdlib>
+#include <vector>
 
 namespace sisl {
 /*
@@ -38,7 +39,7 @@ public:
 
 private:
     void fill_void(const size_t index) {
-        for (auto i = std::vector< T >::size(); i <= index; i++) {
+        for (auto i = std::vector< T >::size(); i <= index; ++i) {
             std::vector< T >::emplace_back();
         }
     }
