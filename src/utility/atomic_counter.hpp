@@ -5,37 +5,46 @@
 #ifndef LIBUTILS_ATOMIC_COUNTER_HPP
 #define LIBUTILS_ATOMIC_COUNTER_HPP
 
-#include <cassert>
 #include <atomic>
+#include <cassert>
+#include <cstdint>
+#include <type_traits>
 
 namespace sisl {
 
 template < typename T >
 class atomic_counter {
+    // NOTE:  As written T should really be a signed integral type
     static_assert(std::is_integral< T >::value, "atomic_counter needs integer");
 
 public:
     atomic_counter() = default;
     atomic_counter(T count) : m_count(count) {}
     atomic_counter(const atomic_counter& other) : m_count(other.m_count.load(std::memory_order_acquire)) {}
-    atomic_counter& operator=(const atomic_counter& other) {
-        m_count.store(other.m_count.load(std::memory_order_acquire), std::memory_order_release);
+    atomic_counter(atomic_counter&& other) noexcept : m_count{std::move(other.m_count)} {}
+    atomic_counter& operator=(const atomic_counter& rhs) {
+        if (this != &rhs) { m_count.store(rhs.load(std::memory_order_acquire), std::memory_order_release); }
+        return *this;
+    }
+    atomic_counter& operator=(atomic_counter&& rhs) noexcept
+    {
+        if (this != &rhs) { m_count = std::move(rhs.m_count); }
         return *this;
     }
 
-    T increment(int32_t n = 1) {
-        T count = m_count.fetch_add(n, std::memory_order_relaxed);
+    T increment(const int32_t n = 1) {
+        const T count = m_count.fetch_add(n, std::memory_order_relaxed);
         return count + n;
     }
 
-    T decrement(int32_t n = 1) {
-        T count = m_count.fetch_sub(n, std::memory_order_release);
+    T decrement(const int32_t n = 1) {
+        const T count = m_count.fetch_sub(n, std::memory_order_release);
         assert(count > 0);
         return count - n;
     }
 
-    bool decrement_testz(int32_t n = 1) {
-        T count = m_count.fetch_sub(n, std::memory_order_release);
+    bool decrement_testz(const int32_t n = 1) {
+        const T count = m_count.fetch_sub(n, std::memory_order_release);
         if (count == 1) {
             // Fence the memory to prevent from any release (decrement) getting reordered before returning
             std::atomic_thread_fence(std::memory_order_acquire);
@@ -46,8 +55,8 @@ public:
         return false;
     }
 
-    bool decrement_test_eq(T check, int32_t n = 1) {
-        T count = m_count.fetch_sub(n, std::memory_order_release);
+    bool decrement_test_eq(const T& check, const int32_t n = 1) {
+        const T count = m_count.fetch_sub(n, std::memory_order_release);
         if (count == (check + 1)) {
             // Fence the memory to prevent from any release (decrement) getting reordered before returning
             std::atomic_thread_fence(std::memory_order_acquire);
@@ -56,8 +65,8 @@ public:
         return false;
     }
 
-    bool decrement_test_le(T check, int32_t n = 1) {
-        T count = m_count.fetch_sub(n, std::memory_order_release);
+    bool decrement_test_le(const T& check, const int32_t n = 1) {
+        const T count = m_count.fetch_sub(n, std::memory_order_release);
         if (count <= (check + 1)) {
             // Fence the memory to prevent from any release (decrement) getting reordered before returning
             std::atomic_thread_fence(std::memory_order_acquire);
@@ -68,7 +77,7 @@ public:
         return false;
     }
 
-    bool test_le(T check) {
+    bool test_le(const T& check) {
         if (m_count.load(std::memory_order_relaxed) > check) { return false; }
         return true;
     }
@@ -86,9 +95,9 @@ public:
     // and check or testz for just checking for 0
     T get() const { return m_count.load(std::memory_order_relaxed); }
 
-    void set(int32_t n) { m_count.store(n, std::memory_order_release); }
+    void set(const int32_t n) { m_count.store(n, std::memory_order_release); }
 
-    bool test_le(uint32_t check) const {
+    bool test_le(const uint32_t check) const {
         if (get() > check) { return false; }
 
         std::atomic_thread_fence(std::memory_order_acquire);

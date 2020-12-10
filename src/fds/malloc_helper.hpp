@@ -7,20 +7,23 @@
 
 #pragma once
 
-#include <sds_logging/logging.h>
-#include <nlohmann/json.hpp>
-#include <malloc.h>
-#include <stdlib.h>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <regex>
 #include <string>
 #include <fstream>
-#include <metrics/metrics.hpp>
 
-#ifdef linux
-#include <sys/time.h>
-#include <sys/resource.h>
+#ifdef __linux__
+    #include <sys/time.h>
+    #include <sys/resource.h>
 #endif
+
+#include <sds_logging/logging.h>
+#include <nlohmann/json.hpp>
+
+#include "metrics/histogram_buckets.hpp"
+#include "metrics/metrics.hpp"
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 #include <jemalloc/jemalloc.h>
@@ -62,6 +65,10 @@ public:
         register_me_to_farm();
         attach_gather_cb(std::bind(&MallocMetrics::on_gather, this));
     }
+    MallocMetrics(const MallocMetrics&) = delete;
+    MallocMetrics(MallocMetrics&&) noexcept = delete;
+    MallocMetrics& operator=(const MallocMetrics&) = delete;
+    MallocMetrics& operator=(MallocMetrics&&) noexcept = delete;
 
     ~MallocMetrics() { deregister_me_from_farm(); }
 

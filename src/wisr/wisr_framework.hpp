@@ -4,9 +4,13 @@
 #ifndef SISL_FDS_WAITFREE_WRITE_DS_HPP
 #define SISL_FDS_WAITFREE_WRITE_DS_HPP
 
+#include <memory>
+#include <mutex>
+#include <tuple>
+#include <vector>
+
 #include "utility/thread_buffer.hpp"
 #include "utility/urcu_helper.hpp"
-#include <tuple>
 
 namespace sisl {
 
@@ -22,6 +26,11 @@ public:
     wisr_framework(Args1&&... args) : m_buffer(std::forward< Args1 >(args)...), m_args(std::forward< Args1 >(args)...) {
         m_base_obj = std::make_unique< DS >(std::forward< Args1 >(args)...);
     }
+    wisr_framework(const wisr_framework&) = delete;
+    wisr_framework(wisr_framework&&) noexcept = delete;
+    wisr_framework& operator=(const wisr_framework&) = delete;
+    wisr_framework& operator=(wisr_framework&&) noexcept = delete;
+    ~wisr_framework() = default;
 
     DS* insertable_ptr() { return m_buffer->access().get(); }
 
@@ -57,9 +66,9 @@ private:
         std::vector< DS* > old_ptrs;
         old_ptrs.reserve(128);
 
-        m_buffer.access_all_threads([base_raw, &old_ptrs](sisl::urcu_scoped_ptr< DS, Args... >* ptr,
-                                                          [[maybe_unused]] bool is_thread_running,
-                                                          [[maybe_unused]] bool is_last_thread) {
+        m_buffer.access_all_threads([base_raw, &old_ptrs](sisl::urcu_scoped_ptr< DS, Args... >* const ptr,
+                                                          [[maybe_unused]] const bool is_thread_running,
+                                                          [[maybe_unused]] const bool is_last_thread) {
             auto old_ptr = ptr->make_and_exchange(false /* sync_rcu_now */);
             old_ptrs.push_back(old_ptr);
             return true;
@@ -67,7 +76,7 @@ private:
 
         synchronize_rcu();
 
-        for (auto old_ptr : old_ptrs) {
+        for (auto& old_ptr : old_ptrs) {
             DS::merge(base_raw, old_ptr);
             delete old_ptr;
         }

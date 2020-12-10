@@ -1,17 +1,16 @@
-#include <benchmark/benchmark.h>
-#include <mutex>
-//#include "fds/wisr_deque.hpp"
-#include "wisr/wisr_ds.hpp"
-#include <string>
-#include <boost/preprocessor/repetition/repeat.hpp>
+#include <cstdint>
 #include <deque>
+#include <memory>
+#include <mutex>
+
+#include <benchmark/benchmark.h>
+
+#include "utility/thread_buffer.hpp"
+#include "wisr/wisr_ds.hpp"
+
 
 THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
-
-//#define ITERATIONS 100000
-#define ITERATIONS 100
-#define THREADS    8
 
 using namespace sisl;
 
@@ -20,7 +19,10 @@ std::mutex glob_deque_mutex;
 
 std::unique_ptr< sisl::wisr_deque< uint64_t > > glob_wisr_deque;
 
-#define NENTRIES_PER_THREAD 20000
+//#define ITERATIONS 100000
+static constexpr size_t ITERATIONS{100};
+static constexpr size_t THREADS{8};
+static constexpr size_t NENTRIES_PER_THREAD{20000};
 
 void setup() {
     glob_lock_deque = std::make_unique< std::deque< uint64_t > >();
@@ -28,12 +30,12 @@ void setup() {
 }
 
 void test_locked_deque_insert(benchmark::State& state) {
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         //state.PauseTiming();
         //glob_lock_deque.reserve(NENTRIES_PER_THREAD * THREADS);
         //state.ResumeTiming();
 
-        for (auto i = 0U; i < NENTRIES_PER_THREAD; i++) {
+        for (size_t i{0}; i < NENTRIES_PER_THREAD; ++i) {
             std::lock_guard<std::mutex> lg(glob_deque_mutex);
             glob_lock_deque->emplace_back(i);
         }
@@ -45,8 +47,8 @@ void test_locked_deque_insert(benchmark::State& state) {
 }
 
 void test_wisr_deque_insert(benchmark::State &state) {
-    for (auto _ : state) {
-        for (auto i = 0U; i < NENTRIES_PER_THREAD; i++) {
+    for (auto s : state) {
+        for (size_t i{0}; i < NENTRIES_PER_THREAD; ++i) {
             glob_wisr_deque->emplace_back(i);
         }
     }
@@ -54,9 +56,9 @@ void test_wisr_deque_insert(benchmark::State &state) {
 
 void test_locked_deque_read(benchmark::State& state) {
     uint64_t ret;
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         std::lock_guard<std::mutex> lg(glob_deque_mutex);
-        for (auto v : *glob_lock_deque) {
+        for (const auto& v : *glob_lock_deque) {
             benchmark::DoNotOptimize(ret = v * 2);
         }
     }
@@ -64,9 +66,9 @@ void test_locked_deque_read(benchmark::State& state) {
 
 void test_wisr_deque_read(benchmark::State &state) {
     uint64_t ret;
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         auto vec = glob_wisr_deque->get_copy_and_reset();
-        for (auto v : *vec) {
+        for (const auto& v : *vec) {
             benchmark::DoNotOptimize(ret = v * 2);
         }
     }

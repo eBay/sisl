@@ -1,22 +1,26 @@
-#include <benchmark/benchmark.h>
+#include <array>
+#include <cstdint>
+#include <memory>
 #include <mutex>
-#include "wisr/wisr_ds.hpp"
-#include <string>
-#include <boost/preprocessor/repetition/repeat.hpp>
+#include <vector>
+
 #include <boost/intrusive/slist.hpp>
-#include <cstdio>
+
+#include <benchmark/benchmark.h>
+
+#include "utility/thread_buffer.hpp"
+#include "wisr/wisr_ds.hpp"
 
 THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
 
-#define ITERATIONS 1000000
-//#define ITERATIONS 1
-#define THREADS    8
+static constexpr size_t ITERATIONS{1000000};
+static constexpr size_t THREADS{8};
 
 using namespace sisl;
 
 struct Entry : public boost::intrusive::slist_base_hook<> {
-    explicit Entry(uint64_t n) : m_n(n) {}
+    explicit Entry(const uint64_t n) : m_n(n) {}
     uint64_t m_n;
 };
 
@@ -30,9 +34,9 @@ void setup() {
     glob_wisr_list = std::make_unique< sisl::wisr_intrusive_slist< Entry > >();
     glob_lock_list = std::make_unique< boost::intrusive::slist< Entry > >();
 
-    for (auto i = 0U; i < THREADS; i++) {
+    for (size_t i{0}; i < THREADS; ++i) {
         auto v = &glob_entries[i];
-        for (auto j = 0UL; j < ITERATIONS; j++) {
+        for (size_t j{0}; j < ITERATIONS; ++j) {
             v->emplace_back(Entry((i * ITERATIONS) + j));
         }
     }
@@ -40,7 +44,7 @@ void setup() {
 
 void test_locked_list_insert(benchmark::State& state) {
     auto it = glob_entries[state.thread_index].begin();
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         std::lock_guard<std::mutex> lg(glob_list_mutex);
         glob_lock_list->push_front(*it);
         ++it;
@@ -53,7 +57,7 @@ void test_locked_list_insert(benchmark::State& state) {
 
 void test_wisr_list_insert(benchmark::State &state) {
     auto it = glob_entries[state.thread_index].begin();
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         glob_wisr_list->push_front(*it);
         ++it;
     }

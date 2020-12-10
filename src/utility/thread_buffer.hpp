@@ -4,42 +4,38 @@
 
 #pragma once
 
+#include <array>
+#include <condition_variable>
+#include <cstdint>
+#include <functional>
+#include <iterator>
+#include <limits>
+#include <map>
 #include <memory>
 #include <mutex>
-#include <condition_variable>
+#include <shared_mutex>
+#include <thread>
+
+#if defined __linux__
+    #include <pthread.h>
+#endif
+
 #include <boost/dynamic_bitset.hpp>
-#include <functional>
+
 #include "fds/flexarray.hpp"
 #include "fds/sparse_vector.hpp"
-#include "urcu_helper.hpp"
-#include <cxxabi.h>
-#include <cstdio>
-#include <shared_mutex>
 #include "utility/atomic_counter.hpp"
+
+#include "urcu_helper.hpp"
 
 namespace sisl {
 
-enum thread_life_cycle { THREAD_ATTACHED, THREAD_DETACHED };
+enum class thread_life_cycle : uint8_t { THREAD_ATTACHED, THREAD_DETACHED };
 
 typedef std::function< void(uint32_t, thread_life_cycle) > thread_state_cb_t;
 
-#if 0
-template <typename T>
-struct atomic_wrapper {
-    std::atomic<T> m_av;
-
-    atomic_wrapper() : m_av() {}
-    atomic_wrapper(const T& v) : m_av(v) {}
-    atomic_wrapper(const std::atomic<T> &a) :m_av(m_av.load(std::memory_order_acquire)) {}
-    atomic_wrapper(const atomic_wrapper &other) :m_av(other.m_av.load()) {}
-    atomic_wrapper& operator=(const atomic_wrapper &other) {
-        m_av.store(other.m_av.load(std::memory_order_acquire), std::memory_order_release);
-    }
-};
-#endif
-
 class ThreadRegistry {
-#define INVALID_CURSOR boost::dynamic_bitset<>::npos
+    static constexpr size_t INVALID_CURSOR{boost::dynamic_bitset<>::npos};
 
     typedef std::map< uint64_t, thread_state_cb_t > notifiers_list_t;
 
@@ -50,11 +46,15 @@ public:
             m_free_thread_slots(max_tracked_threads()),
             // m_refed_slots(MAX_TRACKED_THREADS),
             m_ref_count(max_tracked_threads(), 0),
-            m_pthread_ids(max_tracked_threads(), 0) {
+            m_thread_ids(max_tracked_threads(), 0) {
         // Mark all slots as free
         m_free_thread_slots.set();
         m_slot_cursor = INVALID_CURSOR;
     }
+    ThreadRegistry(const ThreadRegistry&) = delete;
+    ThreadRegistry(ThreadRegistry&&) noexcept = delete;
+    ThreadRegistry& operator=(const ThreadRegistry&) = delete;
+    ThreadRegistry& operator=(ThreadRegistry&&) noexcept = delete;
 
     uint32_t attach() {
         uint32_t thread_num;
@@ -69,12 +69,12 @@ public:
             // Mark the slot as not free
             m_free_thread_slots.reset(thread_num);
 
-            char thread_name[256] = {0};
-            size_t len = sizeof(thread_name);
-
 #ifdef _POSIX_THREADS
-            m_pthread_ids[thread_num] = pthread_self();
-            pthread_getname_np(pthread_self(), thread_name, len);
+            m_thread_ids[thread_num] = pthread_self();
+            std::array< char, 256 > thread_name;
+            pthread_getname_np(pthread_self(), thread_name.data(), thread_name.size());
+#else
+            m_thread_ids[thread_num] = std::this_thread::get_id();
 #endif /* _POSIX_THREADS */
 
             sisl::urcu_ctl::register_rcu();
@@ -92,7 +92,7 @@ public:
         return thread_num;
     }
 
-    void detach(uint32_t thread_num) {
+    void detach(const uint32_t thread_num) {
         notifiers_list_t notifiers;
         {
             std::unique_lock lock(m_init_mutex);
@@ -109,9 +109,9 @@ public:
         sisl::urcu_ctl::unregister_rcu();
     }
 
-    void slot_inc_ref(uint32_t thread_num) { m_ref_count[thread_num].increment(); }
+    void slot_inc_ref(const uint32_t thread_num) { m_ref_count[thread_num].increment(); }
 
-    void slot_release(uint32_t thread_num) { m_ref_count[thread_num].decrement_testz(); }
+    void slot_release(const uint32_t thread_num) { m_ref_count[thread_num].decrement_testz(); }
 
     uint64_t register_for_sc_notification(const thread_state_cb_t& cb) {
         std::vector< uint32_t > tnums;
@@ -134,14 +134,14 @@ public:
             ++m_ongoing_notifications;
         }
 
-        for (auto tnum : tnums) {
+        for (const auto& tnum : tnums) {
             cb(tnum, thread_life_cycle::THREAD_ATTACHED);
         }
         finish_notification();
         return notify_idx;
     }
 
-    void deregister_sc_notification(uint64_t notify_idx) {
+    void deregister_sc_notification(const uint64_t notify_idx) {
         std::unique_lock lock(m_init_mutex);
         m_registered_notifiers.erase(notify_idx);
         if (m_ongoing_notifications != 0) {
@@ -149,7 +149,7 @@ public:
         }
     }
 
-    bool is_thread_running(uint32_t thread_num) {
+    bool is_thread_running(const uint32_t thread_num) {
         std::shared_lock lock(m_init_mutex);
         return !m_free_thread_slots[thread_num];
     }
@@ -160,15 +160,15 @@ public:
         auto running_thread_slots = ~m_free_thread_slots;
         auto tnum = running_thread_slots.find_first();
         while (tnum != INVALID_CURSOR) {
-            cb(tnum, m_pthread_ids[tnum]);
+            cb(tnum, m_thread_ids[tnum]);
             tnum = running_thread_slots.find_next(tnum);
         }
     }
 
-    pthread_t get_pthread(uint32_t thread_num) const {
+    pthread_t get_pthread(const uint32_t thread_num) const {
         std::shared_lock lock(m_init_mutex);
         assert(!m_free_thread_slots[thread_num]);
-        return m_pthread_ids[thread_num];
+        return m_thread_ids[thread_num];
     }
 #endif
 
@@ -188,7 +188,7 @@ private:
             }
         } while ((m_slot_cursor == INVALID_CURSOR) || (!m_ref_count[m_slot_cursor].testz()));
 
-        return (uint32_t)m_slot_cursor;
+        return static_cast<uint32_t>(m_slot_cursor);
     }
 
     void finish_notification() {
@@ -215,7 +215,9 @@ private:
     std::vector< sisl::atomic_counter< int > > m_ref_count;
 
 #ifdef _POSIX_THREADS
-    std::vector< pthread_t > m_pthread_ids;
+    std::vector< pthread_t > m_thread_ids;
+#else
+    std::vector< std::thread::id > m_thread_ids;
 #endif
 
     uint32_t m_next_notify_idx = 0;
@@ -234,17 +236,21 @@ public:
         // LOGINFO("Created new ThreadLocalContext with thread_num = {}, my_thread_num = {}", this_thread_num,
         //        my_thread_num());
     }
+    ThreadLocalContext(const ThreadLocalContext&) = delete;
+    ThreadLocalContext(ThreadLocalContext&&) noexcept = delete;
+    ThreadLocalContext& operator=(const ThreadLocalContext&) = delete;
+    ThreadLocalContext& operator=(ThreadLocalContext&&) noexcept = delete;
 
     ~ThreadLocalContext() {
         thread_registry->detach(this_thread_num);
-        this_thread_num = (uint32_t)-1;
+        this_thread_num = std::numeric_limits<uint32_t>::max();
     }
 
     static ThreadLocalContext* instance() { return &inst; }
 
     static uint32_t my_thread_num() { return instance()->this_thread_num; }
-    static void set_context(uint32_t context_id, uint64_t context) { instance()->user_contexts[context_id] = context; }
-    static uint64_t get_context(uint32_t context_id) { return instance()->user_contexts[context_id]; }
+    static void set_context(const uint32_t context_id, const uint64_t context) { instance()->user_contexts[context_id] = context; }
+    static uint64_t get_context(const uint32_t context_id) { return instance()->user_contexts[context_id]; }
 
     static thread_local ThreadLocalContext inst;
 
@@ -258,10 +264,10 @@ public:
 
 template < bool IsActiveThreadsOnly, typename T, typename... Args >
 class ThreadBuffer {
+    static constexpr size_t INVALID_CURSOR{boost::dynamic_bitset<>::npos};
+
 public:
     template < class... Args1 >
-    // ThreadBuffer(Args1&&... args) : m_args(std::make_tuple(std::forward<Args1>(args)...) {
-    // ThreadBuffer(Args1&&... args) : m_args(std::forward_as_tuple((args)...)) {
     ThreadBuffer(Args1&&... args) :
             m_args(std::forward< Args1 >(args)...),
             m_thread_slots(ThreadRegistry::max_tracked_threads()) {
@@ -269,6 +275,10 @@ public:
         m_notify_idx = thread_registry->register_for_sc_notification(
             std::bind(&ThreadBuffer::on_thread_state_change, this, std::placeholders::_1, std::placeholders::_2));
     }
+    ThreadBuffer(const ThreadBuffer&) = delete;
+    ThreadBuffer(ThreadBuffer&&) noexcept = delete;
+    ThreadBuffer& operator=(const ThreadBuffer&) = delete;
+    ThreadBuffer& operator=(ThreadBuffer&&) noexcept = delete;
 
     ~ThreadBuffer() {
         thread_registry->deregister_sc_notification(m_notify_idx);
@@ -299,16 +309,16 @@ public:
     T* operator->() { return get(); }
     const T* operator->() const { return get(); }
 
-    T* operator[](uint32_t n) {
+    T* operator[](const uint32_t n) {
         assert(n < get_count());
         return m_buffers[n];
     }
-    const T* operator[](uint32_t n) const {
+    const T* operator[](const uint32_t n) const {
         assert(n < get_count());
         return m_buffers[n];
     }
 
-    void on_thread_state_change(uint32_t thread_num, thread_life_cycle change) {
+    void on_thread_state_change(const uint32_t thread_num, const thread_life_cycle change) {
         switch (change) {
         case thread_life_cycle::THREAD_ATTACHED: {
             std::lock_guard< std::shared_mutex > l(m_expand_mutex);
@@ -321,14 +331,17 @@ public:
             thread_registry->slot_release(thread_num);
 
             // For ExitSafeBuffers move the buffer to a separate list.
-            if (!IsActiveThreadsOnly) { m_exited_buffers.push_back(std::move(m_buffers.at(thread_num))); }
-            m_buffers.at(thread_num).reset();
+            if (!IsActiveThreadsOnly) {
+                m_exited_buffers.push_back(std::move(m_buffers.at(thread_num)));
+            } else {
+                m_buffers.at(thread_num).reset();
+            }
             break;
         }
     }
 
     uint32_t get_count() const { return m_buffers.size(); }
-    using thread_buffer_iterator = std::pair< uint32_t, T* >;
+    typedef std::pair< uint32_t, T* > thread_buffer_iterator;
 
     thread_buffer_iterator begin_iterator() {
         std::shared_lock l(m_expand_mutex);
@@ -350,7 +363,7 @@ public:
         }
     }
 
-    bool is_valid(thread_buffer_iterator& it) { return (it.second != nullptr ? true : false); }
+    bool is_valid(const thread_buffer_iterator& it) { return (it.second != nullptr ? true : false); }
     T* get(thread_buffer_iterator& it) { return it.second; }
 
     void access_all_threads(const auto& cb) {
@@ -369,16 +382,19 @@ public:
         // gives permission to remove the buffer, do so from exited buffers list
         if (!IsActiveThreadsOnly) {
             std::unique_lock l(m_expand_mutex);
-            auto it = m_exited_buffers.end();
-            while (it > m_exited_buffers.begin()) {
-                --it;
-                auto can_free = cb(it->get(), false /* is_running */, (it == m_exited_buffers.begin()));
-                if (can_free) { it = m_exited_buffers.erase(it); }
+            auto it{std::rbegin(m_exited_buffers)};
+            while (it != std::rend(m_exited_buffers)) {
+                const auto next_itr{std::next(it)};
+                const bool can_free{cb(it->get(), false /* is_running */,
+                                       (next_itr == std::rend(m_exited_buffers)))};
+                if (can_free) { m_exited_buffers.erase(next_itr.base()); }
+                // iterators remain valid for elements previous to item erased for vectors
+                it = next_itr;
             }
         }
     }
 
-    bool access_specific_thread(uint32_t thread_num, const auto& cb) {
+    bool access_specific_thread(const uint32_t thread_num, const auto& cb) {
         std::shared_lock l(m_expand_mutex);
         // If thread is not running or its context is already expired, then no callback.
         if (!m_thread_slots[thread_num]) { return false; }
@@ -419,19 +435,25 @@ template < typename T, typename... Args >
 class ActiveOnlyThreadBuffer : public ThreadBuffer< true, T, Args... > {
 public:
     ActiveOnlyThreadBuffer(Args&&... args) : ThreadBuffer< true, T, Args... >(std::forward< Args >(args)...) {}
+    ActiveOnlyThreadBuffer(const ActiveOnlyThreadBuffer&) = delete;
+    ActiveOnlyThreadBuffer(ActiveOnlyThreadBuffer&&) noexcept = delete;
+    ActiveOnlyThreadBuffer& operator=(const ActiveOnlyThreadBuffer&) = delete;
+    ActiveOnlyThreadBuffer& operator=(ActiveOnlyThreadBuffer&&) noexcept = delete;
+
+    ~ActiveOnlyThreadBuffer() = default;
 
     void access_all_threads(const auto& cb) {
         ThreadBuffer< true, T, Args... >::access_all_threads(
-            [&](T* t, [[maybe_unused]] bool is_thread_running, bool is_last_thread) {
+            [&](T* t, [[maybe_unused]] const bool is_thread_running, const bool is_last_thread) {
                 assert(is_thread_running);
                 cb(t, is_last_thread);
                 return false;
             });
     }
 
-    bool access_specific_thread(uint32_t thread_num, const auto& cb) {
+    bool access_specific_thread(const uint32_t thread_num, const auto& cb) {
         return ThreadBuffer< true, T, Args... >::access_specific_thread(
-            thread_num, [&](T* t, [[maybe_unused]] bool is_thread_running) {
+            thread_num, [&](T* const t, [[maybe_unused]] const bool is_thread_running) {
                 assert(is_thread_running);
                 cb(t);
                 return false;

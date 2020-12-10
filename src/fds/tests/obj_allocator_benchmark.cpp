@@ -3,8 +3,10 @@
 //
 
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
+#include <random>
 #include <string>
 
 #include <benchmark/benchmark.h>
@@ -33,12 +35,16 @@ struct my_request {
 void setup() {}
 void test_malloc(benchmark::State& state) {
     uint64_t counter{0};
+    static thread_local std::random_device rd{};
+    static thread_local std::default_random_engine engine{rd()};
+
     for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = new my_request());
         req->m_a = 10;
         req->m_b[0] = 100;
-        req->m_d = req->m_a * rand();
+        std::uniform_int_distribution< uint64_t > dist{0, RAND_MAX};
+        req->m_d = req->m_a * dist(engine);
         counter += req->m_d;
         delete (req);
     }
@@ -50,12 +56,15 @@ void test_malloc(benchmark::State& state) {
 
 void test_obj_alloc(benchmark::State& state) {
     uint64_t counter{0};
+    static thread_local std::random_device rd{};
+    static thread_local std::default_random_engine engine{rd()};
     for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = sisl::ObjectAllocator< my_request >::make_object());
         req->m_a = 10;
         req->m_b[0] = 100;
-        req->m_d = req->m_a * rand();
+        std::uniform_int_distribution< uint64_t > dist{0, RAND_MAX};
+        req->m_d = req->m_a * dist(engine);
         counter += req->m_d;
         sisl::ObjectAllocator< my_request >::deallocate(req);
     }
