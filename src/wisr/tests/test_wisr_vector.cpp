@@ -113,7 +113,7 @@ protected:
         for (size_t i{0}; i < test->m_threads.size(); ++i) {
             const uint64_t lhs_mask{static_cast< uint64_t >(i) << 32};
             for (size_t i2{0}; i2 < ENTRIES_PER_THREAD; ++i2) {
-                uint64_t expected = lhs_mask | i;
+                const uint64_t expected{lhs_mask | i2};
                 if (expected != *it) {
                     EXPECT_EQ(*it, expected);
                     {
