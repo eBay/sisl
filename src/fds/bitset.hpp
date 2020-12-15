@@ -17,12 +17,12 @@
 #include <vector>
 
 #if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-#include <folly/SharedMutex.h>
+    #include <folly/SharedMutex.h>
 #if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
+    #pragma GCC diagnostic pop
 #endif
 
 #include <sds_logging/logging.h>
@@ -180,15 +180,15 @@ public:
                  others.m_buf->size);
     }
 
-    ///
-    /// @brief Serialize the bitset and return the underlying serialized buffer that can be written as is (which can be
-    /// used to load later)
-    ///
-    /// NOTE: The returned buffer is a const byte array and thus it is expected not to be modified. If modified then it
-    /// can result in corruption to the bitset.
-    ///
-    /// @return sisl::byte_array
-    ///
+    /**
+     * @brief Serialize the bitset and return the underlying serialized buffer that can be written as is (which can be
+     * used to load later)
+     *
+     * NOTE: The returned buffer is a const byte array and thus it is expected not to be modified. If modified then it
+     * can result in corruption to the bitset.
+     *
+     * @return sisl::byte_array
+     */
     const sisl::byte_array serialize() const {
         if (ThreadSafeResizing) { m_lock.lock(); }
         const auto ret{m_buf};
@@ -196,11 +196,11 @@ public:
         return ret;
     }
 
-    ///
-    /// @brief Return the bytes it will have upon serializing
-    ///
-    /// @return uint64_t
-    ///
+    /**
+     * @brief Return the bytes it will have upon serializing
+     *
+     * @return uint64_t
+     */
     uint64_t serialized_size() const {
         if (ThreadSafeResizing) { m_lock.lock(); }
         const auto sz{bitset_serialized::nbytes(m_s->m_nbits)};
@@ -208,11 +208,11 @@ public:
         return sz;
     }
 
-    ///
-    /// @brief Get total bits available in this bitset
-    ///
-    /// @return uint64_t
-    ///
+    /**
+     * @brief Get total bits available in this bitset
+     *
+     * @return uint64_t
+     */
     uint64_t size() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
         const auto ret{total_bits()};
@@ -248,54 +248,54 @@ public:
         return set_cnt;
     }
 
-    ///
-    /// @brief Set the bit. If the bit is outside the available range throws std::out_of_range exception
-    ///
-    /// @param b Bit to set
-    ///
+    /**
+     * @brief Set the bit. If the bit is outside the available range throws std::out_of_range exception
+     *
+     * @param b Bit to set
+     */
     void set_bit(const uint64_t start) { set_reset_bit(start, true); }
 
-    ///
-    /// @brief Set multiple bits. If the bit is outside the available range throws std::out_of_range exception
-    ///
-    /// @param start Starting bit of the sequence to set
-    /// @param nbits Total number of bits from starting bit
-    ///
+    /**
+     * @brief Set multiple bits. If the bit is outside the available range throws std::out_of_range exception
+     *
+     * @param start Starting bit of the sequence to set
+     * @param nbits Total number of bits from starting bit
+     */
     void set_bits(const uint64_t start, const uint64_t nbits) { set_reset_bits(start, nbits, true); }
 
-    ///
-    /// @brief Reset the bit. If the bit is outside the available range throws std::out_of_range exception
-    ///
-    /// @param start Bit to reset
-    ///
+    /**
+     * @brief Reset the bit. If the bit is outside the available range throws std::out_of_range exception
+     *
+     * @param start Bit to reset
+     */
     void reset_bit(const uint64_t start) { set_reset_bit(start, false); }
 
-    ///
-    /// @brief Reset multiple bits. If the bit is outside the available range throws std::out_of_range exception
-    ///
-    /// @param start Starting bit of the sequence to reset
-    /// @param nbits Total number of bits from starting bit
-    ///
+    /**
+     * @brief Reset multiple bits. If the bit is outside the available range throws std::out_of_range exception
+     *
+     * @param start Starting bit of the sequence to reset
+     * @param nbits Total number of bits from starting bit
+     */
     void reset_bits(const uint64_t start, const uint64_t nbits) { set_reset_bits(start, nbits, false); }
 
-    ///
-    /// @brief Is a particular bit is set/reset. If the bit is outside the available range throws std::out_of_range
-    /// exception
-    ///
-    /// @param start Starting bit of the sequence to check
-    /// @param nbits Total number of bits from starting bit
-    ///
+    /**
+     * @brief Is a particular bit is set/reset. If the bit is outside the available range throws std::out_of_range
+     * exception
+     *
+     * @param start Starting bit of the sequence to check
+     * @param nbits Total number of bits from starting bit
+     */
     bool is_bits_set(const uint64_t start, const uint64_t nbits) const { return is_bits_set_reset(start, nbits, true); }
     bool is_bits_reset(const uint64_t start, const uint64_t nbits) const {
         return is_bits_set_reset(start, nbits, false);
     }
 
-    ///
-    /// @brief Get the value of the bit
-    ///
-    /// @param b Bit to get the value of
-    /// @return true or false based on if bit is set or reset respectively
-    ///
+    /**
+     * @brief Get the value of the bit
+     *
+     * @param b Bit to get the value of
+     * @return true or false based on if bit is set or reset respectively
+     */
     bool get_bitval(const uint64_t bit) const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
         assert(m_s->valid_bit(bit));
@@ -308,12 +308,12 @@ public:
         return ret;
     }
 
-    ///
-    /// @brief Get the next set bit from given bit
-    ///
-    /// @param start_bit Start bit after which (inclusive) search for next bit is on
-    /// @return uint64_t Returns the next set bit, if one available, else Bitset::npos is returned
-    ///
+    /**
+     * @brief Get the next set bit from given bit
+     *
+     * @param start_bit Start bit after which (inclusive) search for next bit is on
+     * @return uint64_t Returns the next set bit, if one available, else Bitset::npos is returned
+     */
     uint64_t get_next_set_bit(const uint64_t start_bit) {
         uint64_t ret{npos};
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
@@ -347,14 +347,14 @@ public:
         return ret;
     }
 
-    ///
-    /// @brief Right shift the bitset with number of bits provided.
-    /// NOTE: To be efficient, This method does not immediately right shifts the entire set, rather set the marker and
-    /// once critical mass (typically 8K right shifts), it actually performs the move of data to right shift.
-    ///
-    /// @param nbits Total number of bits to right shift. If it is beyond total number of bits in the bitset, it throws
-    /// std::out_or_range exception.
-    ///
+    /**
+     * @brief Right shift the bitset with number of bits provided.
+     * NOTE: To be efficient, This method does not immediately right shifts the entire set, rather set the marker and
+     * once critical mass (typically 8K right shifts), it actually performs the move of data to right shift.
+     *
+     * @param nbits Total number of bits to right shift. If it is beyond total number of bits in the bitset, it throws
+     * std::out_or_range exception.
+     */
     void shrink_head(const uint64_t nbits) {
         if (ThreadSafeResizing) { m_lock.lock(); }
 
@@ -368,28 +368,28 @@ public:
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
-    ///
-    /// @brief resize the bitset to number of bits. If nbits is more than existing bits, it will expand the bits and set
-    /// the new bits with value specified in the second parameter. If nbits is less than existing bits, it discards
-    /// remaining bits.
-    ///
-    /// @param nbits: New count of bits the bitset to be reset to
-    /// @param value: Value to set if bitset is resized up.
-    ///
+    /**
+     * @brief resize the bitset to number of bits. If nbits is more than existing bits, it will expand the bits and set
+     * the new bits with value specified in the second parameter. If nbits is less than existing bits, it discards
+     * remaining bits.
+     *
+     * @param nbits: New count of bits the bitset to be reset to
+     * @param value: Value to set if bitset is resized up.
+     */
     void resize(const uint64_t nbits, const bool value = false) {
         if (ThreadSafeResizing) { m_lock.lock(); }
         _resize(nbits, value);
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
-    ///
-    /// @brief Get the next contiguous n reset bits from the start bit
-    ///
-    /// @param start_bit Start bit to search from
-    /// @param n Count of required continuous reset bits
-    /// @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
-    /// check if returned count satisfies what is asked for.
-    ///
+    /**
+     * @brief Get the next contiguous n reset bits from the start bit
+     *
+     * @param start_bit Start bit to search from
+     * @param n Count of required continuous reset bits
+     * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+     * check if returned count satisfies what is asked for.
+     */
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
         return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
     }
@@ -450,7 +450,6 @@ public:
 
         if (retb.nbits > 0) {
             // Do alignment adjustments if need be
-            if (retb.nbits > max_needed) retb.nbits = max_needed;
             if ((retb.start_bit + retb.nbits) > final_bit) {
                 // It is an unlikely path - only when total bits are not 64 bit aligned and retb happens to be at the
                 // end
@@ -460,6 +459,9 @@ public:
                     retb.nbits = static_cast< uint32_t >(final_bit - retb.start_bit);
                 }
             }
+            // Note: these belong here since must be done after above since nbits may be reduced
+            if (retb.nbits > max_needed) { retb.nbits = max_needed; }
+            if (retb.nbits < min_needed) { retb = {npos, 0}; }
         } else {
             retb.start_bit = npos;
         }
@@ -506,7 +508,8 @@ public:
     std::string to_string() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
-        std::ostringstream oSS{};
+        std::string output{};
+        output.reserve(total_bits());
 
         // print first possibly partial word
         const Word* word_ptr{get_word_const(0)};
@@ -516,7 +519,7 @@ public:
         typename Word::word_t val{word_ptr->to_integer() >> offset};
         typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[valid_bits - 1])};
         for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
-            oSS << (((val & mask) == mask) ? '1' : '0');
+            output.push_back((((val & mask) == mask) ? '1' : '0'));
         }
 
         // print whole words
@@ -525,7 +528,7 @@ public:
             typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[Word::bits() - 1])};
             val = (++word_ptr)->to_integer();
             for (uint8_t bit{0}; bit < Word::bits(); ++bit, mask >>= 1) {
-                oSS << (((val & mask) == mask) ? '1' : '0');
+                output.push_back((((val & mask) == mask) ? '1' : '0'));
             }
             bits_remaining -= Word::bits();
         }
@@ -535,12 +538,12 @@ public:
             typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[bits_remaining - 1])};
             val = (++word_ptr)->to_integer();
             for (uint8_t bit{0}; bit < bits_remaining; ++bit, mask >>= 1) {
-                oSS << (((val & mask) == mask) ? '1' : '0');
+                output.push_back((((val & mask) == mask) ? '1' : '0'));
             }
         }
 
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-        return oSS.str();
+        return output;
     }
 
 private:
@@ -675,43 +678,43 @@ private:
 };
 
 template < typename charT, typename traits, typename Word, bool ThreadSafeResizing = false >
-std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& outStream,
+std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& out_stream,
                                                 const BitsetImpl< Word, ThreadSafeResizing >& bitset) {
     // copy the stream formatting
-    std::basic_ostringstream< charT, traits > outStringStream;
-    outStringStream.copyfmt(outStream);
+    std::basic_ostringstream< charT, traits > out_stream_working;
+    out_stream_working.copyfmt(out_stream);
 
     // output the date time
-    outStringStream << bitset.to_string();
+    out_stream_working << bitset.to_string();
 
     // print the stream
-    outStream << outStringStream.str();
+    out_stream << out_stream_working.str();
 
-    return outStream;
+    return out_stream;
 }
 
-///
-/// @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is
-/// expected the user to handle that. This is equivalent to boost::dynamic_bitset
-///
+/**
+ * @brief Bitset: Plain bitset with no safety. Concurrent updates and access are not thread safe and it is
+ * expected the user to handle that. This is equivalent to boost::dynamic_bitset
+ */
 typedef BitsetImpl< Bitword< unsafe_bits< uint64_t > >, false > Bitset;
 
-///
-/// @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be
-/// set/unset. However, set/unset concurrently along with increasing the size, setting a bit beyond original
-/// size, concurrent test of bits can produce inconsistent values
-///
-/// NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used
-/// where resize and test set bits are all controlled externally.
-///
+/**
+ * @brief AtomicBitset: The only thread safety this version provides is concurrently 2 different bits can be
+ * set/unset. However, set/unset concurrently along with increasing the size, setting a bit beyond original
+ * size, concurrent test of bits can produce inconsistent values
+ *
+ * NOTE: It is a very specific, somewhat uncommon use case and hence use it with care. It is typically used
+ * where resize and test set bits are all controlled externally.
+ */
 typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, false > AtomicBitset;
 
-///
-/// @brief ThreadSafeBitset: This provides thread safe concurrent set/unset bits and also resize. However, it
-/// still can produce inconsistent result if bits are tested concurrently with set/unset bits. Hence one thread
-/// doing a set bit and other thread doing a is_bit set for same bit could return inconsistent results. If such
-/// requirement exists, use Bitset and take a lock outside the bitset container.
-///
+/**
+ * @brief ThreadSafeBitset: This provides thread safe concurrent set/unset bits and also resize. However, it
+ * still can produce inconsistent result if bits are tested concurrently with set/unset bits. Hence one thread
+ * doing a set bit and other thread doing a is_bit set for same bit could return inconsistent results. If such
+ * requirement exists, use Bitset and take a lock outside the bitset container.
+ */
 typedef BitsetImpl< Bitword< safe_bits< uint64_t > >, true > ThreadSafeBitset;
 
 } // namespace sisl

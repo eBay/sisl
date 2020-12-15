@@ -86,11 +86,19 @@ struct EnumSupportBase {
 struct VEnumSupportBase {
     static const inline std::string UNKNOWN{"???"};
 
-    static std::map< uint64_t, std::string >
+    template< typename UnderlyingType >
+    static std::map< UnderlyingType, std::string >
     split(std::string s, const std::regex& delim = std::regex("([^,\\s]+)\\s*=\\s*([\\d]+)")) {
-        std::map< uint64_t, std::string > tokens;
+        std::map< UnderlyingType, std::string > tokens;
         std::for_each(std::sregex_iterator(std::cbegin(s), std::cend(s), delim), std::sregex_iterator(),
-                      [&](std::smatch const& match) { tokens[std::stoull(match[2])] = match[1]; });
+                      [&](std::smatch const& match)
+                      {
+                          if constexpr (std::is_unsigned_v< UnderlyingType >) {
+                              tokens[static_cast< UnderlyingType >(std::stoull(match[2]))] = match[1];
+                          } else {
+                              tokens[static_cast< UnderlyingType >(std::stoll(match[2]))] = match[1];
+                          }
+                      });
         return tokens;
     }
 };
@@ -99,7 +107,7 @@ struct VEnumSupportBase {
     enum class EnumName : Underlying { __VA_ARGS__ };                                                                  \
                                                                                                                        \
     struct EnumName##Support : VEnumSupportBase {                                                                      \
-        static inline const std::map< Underlying, std::string > m_token_names = split(#__VA_ARGS__);                   \
+        static inline const std::map< Underlying, std::string > m_token_names = split<Underlying>(#__VA_ARGS__);       \
         static inline const std::string& get_name(const EnumName enum_value) {                                         \
             const auto n{ m_token_names.find(static_cast < Underlying >(enum_value)) };                                \
             if (n == std::cend(m_token_names))                                                                         \

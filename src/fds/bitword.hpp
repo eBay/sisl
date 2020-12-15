@@ -271,16 +271,16 @@ public:
 
     void set(const word_t& value) { m_bits.set(value); }
 
-    ///
-    /// @brief:
-    /// Total number of bits set in the bitset
-    ///
+    /**
+     * @brief:
+     * Total number of bits set in the bitset
+     */
     uint8_t get_set_count() const { return get_set_bit_count(m_bits.get()); }
 
-    ///
-    /// @brief:
-    /// Total number of bits reset in the bitset
-    ///
+    /**
+     * @brief:
+     * Total number of bits reset in the bitset
+     */
     uint8_t get_reset_count() const { return bits() - get_set_bit_count(m_bits.get()); }
 
     word_t set_bits(const uint8_t start, const uint8_t nbits) {
@@ -292,13 +292,14 @@ public:
         return set_reset_bits(start, nbits, false /* set */);
     }
 
-    /// @brief: Set or Reset one single bit specified at the start.
-    /// Params:
-    /// Start - A bit number which is expected to be less than sizeof(entry_type) * 8
-    /// set - True if it is to be set or False if reset
-    ///
-    /// Returns the final bitmap set of entry_type
-    ///
+    /**
+     * @brief: Set or Reset one single bit specified at the start.
+     * Params:
+     * Start - A bit number which is expected to be less than sizeof(entry_type) * 8
+     * set - True if it is to be set or False if reset
+     *
+     * Returns the final bitmap set of entry_type
+     */
     word_t set_reset_bit(const uint8_t start, const bool set) {
         assert(start < bits());
         if (set) {
@@ -308,14 +309,15 @@ public:
         }
     }
 
-    /// @brief: Set or Reset multiple bit specified at the start.
-    /// Params:
-    /// Start - A bit number which is expected to be less than sizeof(entry_type) * 8
-    /// nBits - Total number of bits to set from start bit num.
-    /// set - True if it is to be set or False if reset
-    ///
-    /// Returns the final bitmap set of entry_type
-    ///
+    /**
+     * @brief: Set or Reset multiple bit specified at the start.
+     * Params:
+     * Start - A bit number which is expected to be less than sizeof(entry_type) * 8
+     * nBits - Total number of bits to set from start bit num.
+     * set - True if it is to be set or False if reset
+     *
+     * Returns the final bitmap set of entry_type
+     */
     word_t set_reset_bits(const uint8_t start, const uint8_t nbits, const bool set) {
         assert(start < bits());
         if (nbits == 1) { return set_reset_bit(start, set); }
@@ -331,9 +333,10 @@ public:
 
     bool get_bitval(const uint8_t bit) const { return (m_bits.get() & bit_mask[bit]); }
 
-    /// @brief
-    /// is_bit_set_reset: Is bits either set or reset from start bit
-    ///
+    /**
+     * @brief
+     * is_bit_set_reset: Is bits either set or reset from start bit
+     */
     bool is_bit_set_reset(const uint8_t start, const bool check_for_set) const {
         assert(start < bits());
         const uint64_t v{m_bits.get() & bit_mask[start]};

@@ -11,12 +11,12 @@
 #include <utility>
 
 #if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-#include <folly/ThreadLocal.h>
+    #include <folly/ThreadLocal.h>
 #if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
+    #pragma GCC diagnostic pop
 #endif
 
 #include "metrics/metrics.hpp"

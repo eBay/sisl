@@ -26,11 +26,12 @@
 #include "fds/sparse_vector.hpp"
 #include "utility/atomic_counter.hpp"
 
+#include "enum.hpp"
 #include "urcu_helper.hpp"
 
 namespace sisl {
 
-enum class thread_life_cycle : uint8_t { THREAD_ATTACHED, THREAD_DETACHED };
+VENUM(thread_life_cycle, uint8_t, THREAD_ATTACHED=1u, THREAD_DETACHED=2u)
 
 typedef std::function< void(uint32_t, thread_life_cycle) > thread_state_cb_t;
 
