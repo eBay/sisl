@@ -354,9 +354,10 @@ public:
 
         // Do alignment adjustments if need be
         if (retb.nbits > max_needed) retb.nbits = max_needed;
+        if (retb.nbits < min_needed) { retb = {npos, 0}; }
         if ((retb.start_bit + retb.nbits) > final_bit) {
             // It is an unlikely path - only when total bits are not 64 bit aligned and retb happens to be at the end
-            if (retb.start_bit >= final_bit) {
+            if ((retb.start_bit >= final_bit) || ((final_bit - retb.start_bit) < min_needed)) {
                 retb = {npos, 0};
             } else {
                 retb.nbits = static_cast< uint32_t >(final_bit - retb.start_bit);
