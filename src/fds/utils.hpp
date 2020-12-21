@@ -33,13 +33,13 @@ inline uint64_t get_elapsed_time_ns(const Clock::time_point& t) {
 }
 
 inline uint64_t get_elapsed_time_us(const Clock::time_point& t) {
-    return get_elapsed_time_ns(t) / static_cast<uint64_t>(1000);
+    return get_elapsed_time_ns(t) / static_cast< uint64_t >(1000);
 }
 inline uint64_t get_elapsed_time_ms(const Clock::time_point& t) {
-    return get_elapsed_time_ns(t) / static_cast<uint64_t>(1000000);
+    return get_elapsed_time_ns(t) / static_cast< uint64_t >(1000000);
 }
 inline uint64_t get_elapsed_time_sec(const Clock::time_point& t) {
-    return get_elapsed_time_ns(t) / static_cast<uint64_t>(1000000000);
+    return get_elapsed_time_ns(t) / static_cast< uint64_t >(1000000000);
 }
 
 inline uint64_t get_elapsed_time_ns(const Clock::time_point& t1, const Clock::time_point& t2) {
@@ -48,7 +48,7 @@ inline uint64_t get_elapsed_time_ns(const Clock::time_point& t1, const Clock::ti
 }
 
 inline uint64_t get_elapsed_time_us(const Clock::time_point& t1, const Clock::time_point& t2) {
-    return get_elapsed_time_ns(t1, t2) / static_cast<uint64_t>(1000);
+    return get_elapsed_time_ns(t1, t2) / static_cast< uint64_t >(1000);
 }
 
 inline uint64_t get_time_since_epoch_ms() {
@@ -63,14 +63,14 @@ template < typename T >
 void atomic_update_max(std::atomic< T >& max_value, T const& value,
                        const std::memory_order order = std::memory_order_acq_rel) noexcept {
     T prev_value{max_value.load(order)};
-    while (prev_value < value && !max_value.compare_exchange_weak(prev_value, value, order));
+    while (prev_value < value && !max_value.compare_exchange_weak(prev_value, value, order)) {}
 }
 
 template < typename T >
 void atomic_update_min(std::atomic< T >& min_value, T const& value,
                        const std::memory_order order = std::memory_order_acq_rel) noexcept {
     T prev_value{min_value.load(order)};
-    while (prev_value > value && !min_value.compare_exchange_weak(prev_value, value, order));
+    while (prev_value > value && !min_value.compare_exchange_weak(prev_value, value, order)) {}
 }
 
 /*************** Memory/Array Related Methods/Definitions **************/
@@ -96,26 +96,28 @@ constexpr std::array< char const, N1 + N2 - 1 > const_concat(char const (&a1)[N1
 
 template < class P, class M >
 inline size_t offset_of(const M P::*member) {
-    return reinterpret_cast<size_t>(&(reinterpret_cast<const volatile P* >(NULL)->*member));
+    return reinterpret_cast< size_t >(&(reinterpret_cast< const volatile P* >(NULL)->*member));
 }
 
 template < class P, class M >
 inline P* container_of(const M* ptr, const M P::*member) {
-    return reinterpret_cast<P*>(reinterpret_cast<uint8_t*>(const_cast<M*>(ptr)) - offset_of(member));
+    return reinterpret_cast< P* >(reinterpret_cast< uint8_t* >(const_cast< M* >(ptr)) - offset_of(member));
 }
 
 template < const uint32_t bits, const uint32_t lshifts = 0 >
 static uint64_t constexpr get_mask() {
-    return ~((~static_cast<uint64_t>(0) << bits) << lshifts);
+    return ~((~static_cast< uint64_t >(0) << bits) << lshifts);
 }
 
 namespace sisl {
-        // NOTE: This round_up version only works for multiples a power of 2
+// NOTE: This round_up version only works for multiples a power of 2
 inline uint64_t round_up(const uint64_t num_to_round, const uint64_t multiple) {
-    assert((multiple > static_cast<uint64_t>(0)) && !(multiple & (multiple - 1)));
+    assert((multiple > static_cast< uint64_t >(0)) && !(multiple & (multiple - 1)));
     return (num_to_round + multiple - 1) & (~(multiple - 1));
 }
-inline uint64_t round_down(const uint64_t num_to_round, const uint64_t multiple) { return (num_to_round / multiple) * multiple; }
+inline uint64_t round_down(const uint64_t num_to_round, const uint64_t multiple) {
+    return (num_to_round / multiple) * multiple;
+}
 
 struct blob {
     uint8_t* bytes;
@@ -123,20 +125,20 @@ struct blob {
 
     blob() : blob(nullptr, 0) {}
     blob(uint8_t* const _bytes, const uint32_t _size) : bytes{_bytes}, size{_size} {}
-    };
+};
 
-    // NOTE:  Might consider writing this as a true allocator
+// NOTE:  Might consider writing this as a true allocator
 class AlignedAllocatorImpl {
 public:
     AlignedAllocatorImpl() = default;
     AlignedAllocatorImpl(const AlignedAllocatorImpl&) = delete;
     AlignedAllocatorImpl(AlignedAllocatorImpl&&) noexcept = delete;
-    AlignedAllocatorImpl& operator=(const AlignedAllocatorImpl&) noexcept= delete;
-    AlignedAllocatorImpl& operator=(AlignedAllocatorImpl&&) noexcept= delete;
+    AlignedAllocatorImpl& operator=(const AlignedAllocatorImpl&) noexcept = delete;
+    AlignedAllocatorImpl& operator=(AlignedAllocatorImpl&&) noexcept = delete;
 
     virtual ~AlignedAllocatorImpl() = default;
     virtual uint8_t* aligned_alloc(const size_t align, const size_t sz) {
-        return static_cast<uint8_t*>(std::aligned_alloc(align, sisl::round_up(sz, align)));
+        return static_cast< uint8_t* >(std::aligned_alloc(align, sisl::round_up(sz, align)));
     }
 
     virtual void aligned_free(uint8_t* const b) { return std::free(b); }
@@ -144,11 +146,11 @@ public:
     virtual uint8_t* aligned_realloc(uint8_t* const old_buf, const size_t align, const size_t new_sz,
                                      const size_t old_sz = 0) {
         // Glibc does not have an implementation of efficient realloc and hence we are using alloc/copy method here
-        const size_t old_real_size{ (old_sz == 0) ? ::malloc_usable_size(static_cast<void*>(old_buf)) : old_sz };
+        const size_t old_real_size{(old_sz == 0) ? ::malloc_usable_size(static_cast< void* >(old_buf)) : old_sz};
         if (old_real_size >= new_sz) return old_buf;
 
         uint8_t* const new_buf{this->aligned_alloc(align, sisl::round_up(new_sz, align))};
-        ::memcpy(static_cast<void*>(new_buf), static_cast<const void*>(old_buf), old_real_size);
+        ::memcpy(static_cast< void* >(new_buf), static_cast< const void* >(old_buf), old_real_size);
 
         aligned_free(old_buf);
         return new_buf;
@@ -167,23 +169,19 @@ public:
         static AlignedAllocator _inst;
         return _inst;
     }
-    static AlignedAllocatorImpl& allocator() {
-        return *(instance().m_impl);
-    }
+    static AlignedAllocatorImpl& allocator() { return *(instance().m_impl); }
 
     ~AlignedAllocator() = default;
     AlignedAllocator(const AlignedAllocator&) = delete;
     AlignedAllocator(AlignedAllocator&&) noexcept = delete;
-    AlignedAllocator& operator=(const AlignedAllocator&) noexcept= delete;
-    AlignedAllocator& operator=(AlignedAllocator&&) noexcept= delete;
+    AlignedAllocator& operator=(const AlignedAllocator&) noexcept = delete;
+    AlignedAllocator& operator=(AlignedAllocator&&) noexcept = delete;
 
-    void set_allocator(AlignedAllocatorImpl* impl) {
-        m_impl.reset(impl);
-    }
+    void set_allocator(AlignedAllocatorImpl* impl) { m_impl.reset(impl); }
 
 private:
-    AlignedAllocator() { m_impl = std::make_unique<AlignedAllocatorImpl>(); }
-    std::unique_ptr<AlignedAllocatorImpl> m_impl;
+    AlignedAllocator() { m_impl = std::make_unique< AlignedAllocatorImpl >(); }
+    std::unique_ptr< AlignedAllocatorImpl > m_impl;
 };
 
 #define sisl_aligned_alloc sisl::AlignedAllocator::allocator().aligned_alloc
@@ -234,8 +232,9 @@ struct io_blob : public blob {
 
     io_blob() = default;
     io_blob(const size_t sz, const uint32_t align_size = 512) { buf_alloc(sz, align_size); }
-    io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) : blob(bytes, size),
-        aligned{is_aligned} {}
+    io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
+            blob(bytes, size),
+            aligned{is_aligned} {}
     ~io_blob() = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512) {
@@ -254,8 +253,8 @@ struct io_blob : public blob {
         } else if (align_size != 0) {
             // Not aligned before, but need aligned now
             uint8_t* const new_buf{sisl_aligned_alloc(align_size, new_size)};
-            ::memcpy(static_cast<void*>(new_buf), static_cast<const void*>(blob::bytes),
-                     std::min(new_size, static_cast<size_t>(blob::size)));
+            ::memcpy(static_cast< void* >(new_buf), static_cast< const void* >(blob::bytes),
+                     std::min(new_size, static_cast< size_t >(blob::size)));
             std::free(blob::bytes);
         } else {
             // don't bother about alignment, just do standard realloc
@@ -273,7 +272,7 @@ struct io_blob : public blob {
 struct _io_byte_array : public io_blob {
     _io_byte_array(const uint32_t sz, const uint32_t alignment = 0) : io_blob(sz, alignment) {}
     _io_byte_array(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-        io_blob(bytes, size, is_aligned) {}
+            io_blob(bytes, size, is_aligned) {}
     ~_io_byte_array() { io_blob::buf_free(); }
 };
 
@@ -332,17 +331,54 @@ private:
     blob m_view;
 };
 
+// A simple wrapper to atomic to allow them to put it in vector or other STL containers
+template < typename T >
+struct atomwrapper {
+    std::atomic< T > m_a;
+
+    atomwrapper(const T& val) : m_a{val} {}
+    atomwrapper(const std::atomic< T >& a) : m_a{a.load()} {}
+    atomwrapper(const atomwrapper& other) : m_a{other.m_a.load()} {}
+    atomwrapper& operator=(const atomwrapper& other) noexcept {
+        m_a.store(other.m_a.load());
+        return *this;
+    }
+    atomwrapper& operator=(atomwrapper&&) noexcept = delete;
+
+    template < typename... Args >
+    T fetch_add(Args&&... args) {
+        return m_a.fetch_add(std::forward< Args >(args)...);
+    }
+
+    template < typename... Args >
+    T fetch_sub(Args&&... args) {
+        return m_a.fetch_add(std::forward< Args >(args)...);
+    }
+
+    template < typename... Args >
+    T load(Args&&... args) const {
+        return m_a.load(std::forward< Args >(args)...);
+    }
+
+    template < typename... Args >
+    void store(Args&&... args) {
+        m_a.store(std::forward< Args >(args)...);
+    }
+
+    std::atomic< T >& get() { return m_a; }
+};
+
 /********* Bitwise and math related manipulation ********/
 template < int S >
 struct LeftShifts {
     constexpr LeftShifts() : values() {
         int i{0};
-        for(auto& value : values){
+        for (auto& value : values) {
             value = (i++) << S;
         }
     }
 
-    std::array<int, 256> values;
+    std::array< int, 256 > values;
 };
 
 static constexpr int64_t pow(const int64_t base, const uint32_t exp) {

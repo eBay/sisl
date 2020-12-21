@@ -1,16 +1,16 @@
-#include <benchmark/benchmark.h>
+#include <cstdint>
+#include <memory>
 #include <mutex>
-#include "wisr/wisr_ds.hpp"
-#include <string>
-#include <boost/preprocessor/repetition/repeat.hpp>
 #include <vector>
 
-THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
+#include <benchmark/benchmark.h>
 
-//#define ITERATIONS 100000
-#define ITERATIONS 100
-#define THREADS    8
+#include "utility/thread_buffer.hpp"
+#include "wisr/wisr_ds.hpp"
+
+
+THREAD_BUFFER_INIT
+RCU_REGISTER_INIT
 
 using namespace sisl;
 
@@ -19,7 +19,10 @@ std::mutex glob_vector_mutex;
 
 std::unique_ptr< sisl::wisr_vector< uint64_t > > glob_wisr_vector;
 
-#define NENTRIES_PER_THREAD 200
+//#define ITERATIONS 100000
+static constexpr size_t ITERATIONS{100};
+static constexpr size_t THREADS{8};
+static constexpr size_t NENTRIES_PER_THREAD{200};
 
 void setup() {
     glob_lock_vector = std::make_unique< std::vector< uint64_t > >();
@@ -28,12 +31,12 @@ void setup() {
 }
 
 void test_locked_vector_insert(benchmark::State& state) {
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         //state.PauseTiming();
         //glob_lock_vector.reserve(NENTRIES_PER_THREAD * THREADS);
         //state.ResumeTiming();
 
-        for (auto i = 0U; i < NENTRIES_PER_THREAD; i++) {
+        for (size_t i{0}; i < NENTRIES_PER_THREAD; ++i) {
             std::lock_guard<std::mutex> lg(glob_vector_mutex);
             glob_lock_vector->emplace_back(i);
         }
@@ -45,8 +48,8 @@ void test_locked_vector_insert(benchmark::State& state) {
 }
 
 void test_wisr_vector_insert(benchmark::State &state) {
-    for (auto _ : state) {
-        for (auto i = 0U; i < NENTRIES_PER_THREAD; i++) {
+    for (auto s : state) {
+        for (size_t i{0}; i < NENTRIES_PER_THREAD; ++i) {
             glob_wisr_vector->emplace_back(i);
         }
     }
@@ -54,9 +57,9 @@ void test_wisr_vector_insert(benchmark::State &state) {
 
 void test_locked_vector_read(benchmark::State& state) {
     uint64_t ret;
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         std::lock_guard<std::mutex> lg(glob_vector_mutex);
-        for (auto v : *glob_lock_vector) {
+        for (auto& v : *glob_lock_vector) {
             benchmark::DoNotOptimize(ret = v * 2);
         }
     }
@@ -64,9 +67,9 @@ void test_locked_vector_read(benchmark::State& state) {
 
 void test_wisr_vector_read(benchmark::State &state) {
     uint64_t ret;
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         auto vec = glob_wisr_vector->get_copy_and_reset();
-        for (auto v : *vec) {
+        for (auto& v : *vec) {
             benchmark::DoNotOptimize(ret = v * 2);
         }
     }

@@ -1,9 +1,8 @@
-/*
+﻿/*
  * Created by Hari Kadayam, Sounak Gupta on Dec-12 2018
  *
  */
 #pragma once
-
 
 #include <atomic>
 #include <cstdint>
@@ -57,11 +56,14 @@ public:
 
     void register_me_to_farm();
     void deregister_me_from_farm();
+    void register_me_to_parent(MetricsGroup* parent);
 
     nlohmann::json get_result_in_json(bool need_latest);
     void gather();
     void attach_gather_cb(const on_gather_cb_t& cb);
     void detach_gather_cb();
+
+    [[nodiscard]] std::string instance_name() const { return m_impl_ptr->instance_name(); }
 };
 
 class MetricsFarm {
@@ -87,7 +89,7 @@ public:
     static Reporter& get_reporter();
     static bool is_initialized();
 
-    void register_metrics_group(MetricsGroupImplPtr mgroup);
+    void register_metrics_group(MetricsGroupImplPtr mgroup, const bool add_to_farm_list = true);
     void deregister_metrics_group(MetricsGroupImplPtr mgroup);
 
     nlohmann::json get_result_in_json(bool need_latest = true);
@@ -109,11 +111,19 @@ namespace sisl {
 template < char... chars >
 using tstring = std::integer_sequence< char, chars... >;
 
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#endif
 
 template < typename T, T... chars >
 constexpr tstring< chars... > operator""_tstr() {
     return {};
 }
+
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 template < typename >
 class NamedCounter;
@@ -196,22 +206,25 @@ private:
     size_t m_Index;
 };
 
-//decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)
+// decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)
 
 #define REGISTER_COUNTER(name, ...)                                                                                    \
     {                                                                                                                  \
+        using namespace sisl;                                                                                          \
         auto& nc{sisl::NamedCounter< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance()};        \
         nc.set_index(this->m_impl_ptr->register_counter(nc.get_name(), __VA_ARGS__));                                  \
     }
 
 #define REGISTER_GAUGE(name, ...)                                                                                      \
     {                                                                                                                  \
+        using namespace sisl;                                                                                          \
         auto& ng{sisl::NamedGauge< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance()};          \
         ng.set_index(this->m_impl_ptr->register_gauge(ng.get_name(), __VA_ARGS__));                                    \
     }
 
 #define REGISTER_HISTOGRAM(name, ...)                                                                                  \
     {                                                                                                                  \
+        using namespace sisl;                                                                                          \
         auto& nh{sisl::NamedHistogram< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance()};      \
         nh.set_index(this->m_impl_ptr->register_histogram(nh.get_name(), __VA_ARGS__));                                \
     }
@@ -221,15 +234,16 @@ private:
 #define HISTOGRAM_INDEX(name) METRIC_NAME_TO_INDEX(NamedHistogram, name)
 
 #define METRIC_NAME_TO_INDEX(type, name)                                                                               \
-    (sisl::type < decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().get_index())
+    (sisl::type< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().get_index())
 
 // TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SDS_LOGGING and SDS_OPTIONS are resolved
 
 #ifndef NDEBUG
 #define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \
     {                                                                                                                  \
-        const auto index{ METRIC_NAME_TO_INDEX(type, name) };                                                          \
-        if (index == std::numeric_limits<decltype(index)>::max()) {                                                    \
+        using namespace sisl;                                                                                          \
+        const auto index{METRIC_NAME_TO_INDEX(type, name)};                                                            \
+        if (index == std::numeric_limits< decltype(index) >::max()) {                                                  \
             fprintf(stderr, "Metric name '%s' not registered yet but used\n", BOOST_PP_STRINGIZE(name));               \
             fflush(stderr);                                                                                            \
             assert(0);                                                                                                 \
@@ -239,6 +253,7 @@ private:
 #else
 #define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \
     {                                                                                                                  \
+        using namespace sisl;                                                                                          \
         const auto index{METRIC_NAME_TO_INDEX(type, name)};                                                            \
         ((group).m_impl_ptr->method(index, __VA_ARGS__));                                                              \
     }
@@ -272,10 +287,10 @@ private:
 #if 0
 #define COUNTER_INCREMENT(group, name, ...)                                                                            \
     {                                                                                                                  \
-        const auto& nc{NamedCounter::getInstance(BOOST_PP_STRINGIZE(name))};                                                 \
+        const auto& nc{NamedCounter::getInstance(BOOST_PP_STRINGIZE(name))};                                           \
         std::cout << "Counter accessed for name = " << nc.get_name() << " ptr = " << (void*)&nc                        \
                   << " index = " << nc.get_index() << "\n";                                                            \
-        group->counterIncrement(nc.get_index(), __VA_ARGS__);                                                              \
+        group->counterIncrement(nc.get_index(), __VA_ARGS__);                                                          \
     }
 #endif
 

@@ -4,8 +4,16 @@
 
 #include <algorithm>
 
+#if defined __clang__ or defined __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+    #include <folly/Synchronized.h>
+#if defined __clang__ or defined __GNUC__
+    #pragma GCC diagnostic pop
+#endif
+
 #include <fmt/format.h>
-#include <folly/Synchronized.h>
 #include <sds_logging/logging.h>
 
 #include "metrics_group_impl.hpp"
@@ -42,6 +50,13 @@ void MetricsGroup::deregister_me_from_farm() {
         MetricsFarm::getInstance().deregister_metrics_group(m_impl_ptr);
         m_is_registered.store(false);
     }
+}
+
+void MetricsGroup::register_me_to_parent(MetricsGroup* parent) {
+    parent->m_impl_ptr->add_child_group(m_impl_ptr);
+
+    // We don't need to add to farm list, we are added to the parent.
+    MetricsFarm::getInstance().register_metrics_group(m_impl_ptr, false /* add_to_farm_list */);
 }
 
 nlohmann::json MetricsGroup::get_result_in_json(bool need_latest) {
@@ -200,6 +215,10 @@ nlohmann::json MetricsGroupImpl::get_result_in_json(bool need_latest) {
     json["Counters"] = counter_entries;
     json["Gauges"] = gauge_entries;
     json["Histograms percentiles (usecs) avg/50/95/99"] = hist_entries;
+
+    for (auto& cg : m_child_groups) {
+        json[cg->m_inst_name] = cg->get_result_in_json(need_latest);
+    }
     return json;
 }
 
@@ -211,6 +230,11 @@ void MetricsGroupImpl::publish_result() {
         [this](uint64_t idx, const CounterValue& result) { counter_dynamic_info(idx).publish(result); }, // Counter
         [this](uint64_t idx, const GaugeValue& result) { gauge_dynamic_info(idx).publish(result); },     // Gauge
         [this](uint64_t idx, const HistogramValue& result) { hist_dynamic_info(idx).publish(result); }); // Histogram
+
+    // Call child group publish result
+    for (auto& cg : m_child_groups) {
+        cg->publish_result();
+    }
 }
 
 void MetricsGroupImpl::gather() {
@@ -221,6 +245,10 @@ void MetricsGroupImpl::gather() {
         []([[maybe_unused]] uint64_t idx, [[maybe_unused]] const CounterValue& result) {},
         []([[maybe_unused]] uint64_t idx, [[maybe_unused]] const GaugeValue& result) {},
         []([[maybe_unused]] uint64_t idx, [[maybe_unused]] const HistogramValue& result) {});
+
+    for (auto& cg : m_child_groups) {
+        cg->gather();
+    }
 }
 
 const std::string& MetricsGroupImpl::get_group_name() const { return m_static_info->m_grp_name; }
@@ -317,7 +345,7 @@ double HistogramDynamicInfo::percentile(const HistogramValue& hvalue, const hist
     if (freqs[index] == 0) return 0.0;
     const auto Yl{(index == 0) ? 0.0 : bkt_boundaries[index - 1]};
     const auto ith_cum_freq{(index == 0) ? static_cast< int64_t >(0) : cum_freq[index - 1]};
-    const double Yp{Yl + static_cast<double>((pnum - ith_cum_freq) * index) / static_cast<double>(freqs[index])};
+    const double Yp{Yl + static_cast< double >((pnum - ith_cum_freq) * index) / static_cast< double >(freqs[index])};
     return Yp;
 
     /* Formula:
@@ -335,6 +363,6 @@ int64_t HistogramDynamicInfo::count(const HistogramValue& hvalue) const {
 
 double HistogramDynamicInfo::average(const HistogramValue& hvalue) const {
     const auto cnt = count(hvalue);
-    return (cnt ? static_cast<double>(hvalue.get_sum()) / static_cast<double>(cnt) : 0.0);
+    return (cnt ? static_cast< double >(hvalue.get_sum()) / static_cast< double >(cnt) : 0.0);
 }
 } // namespace sisl

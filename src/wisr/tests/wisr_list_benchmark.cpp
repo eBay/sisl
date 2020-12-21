@@ -1,16 +1,18 @@
-#include <benchmark/benchmark.h>
+#include <cstdlib>
+#include <memory>
 #include <mutex>
-#include "wisr/wisr_ds.hpp"
-#include <string>
-#include <boost/preprocessor/repetition/repeat.hpp>
-#include <list>
 
-THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
+#include <benchmark/benchmark.h>
+
+#include "utility/thread_buffer.hpp"
+#include "wisr/wisr_ds.hpp"
+
+THREAD_BUFFER_INIT
+RCU_REGISTER_INIT
 
 //#define ITERATIONS 100000
-#define ITERATIONS 100
-#define THREADS    8
+static constexpr size_t ITERATIONS{100};
+static constexpr size_t THREADS{8};
 
 using namespace sisl;
 
@@ -27,12 +29,12 @@ void setup() {
 }
 
 void test_locked_list_insert(benchmark::State& state) {
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         //state.PauseTiming();
         //glob_lock_list.reserve(NENTRIES_PER_THREAD * THREADS);
         //state.ResumeTiming();
 
-        for (auto i = 0U; i < NENTRIES_PER_THREAD; i++) {
+        for (size_t i{0}; i < NENTRIES_PER_THREAD; ++i) {
             std::lock_guard<std::mutex> lg(glob_list_mutex);
             glob_lock_list->emplace_back(i);
         }
@@ -44,8 +46,8 @@ void test_locked_list_insert(benchmark::State& state) {
 }
 
 void test_wisr_list_insert(benchmark::State &state) {
-    for (auto _ : state) {
-        for (auto i = 0U; i < NENTRIES_PER_THREAD; i++) {
+    for (auto s : state) {
+        for (size_t i{0}; i < NENTRIES_PER_THREAD; ++i) {
             glob_wisr_list->emplace_back(i);
         }
     }
@@ -53,9 +55,9 @@ void test_wisr_list_insert(benchmark::State &state) {
 
 void test_locked_list_read(benchmark::State& state) {
     uint64_t ret;
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         std::lock_guard<std::mutex> lg(glob_list_mutex);
-        for (auto v : *glob_lock_list) {
+        for (auto& v : *glob_lock_list) {
             benchmark::DoNotOptimize(ret = v * 2);
         }
     }
@@ -63,9 +65,9 @@ void test_locked_list_read(benchmark::State& state) {
 
 void test_wisr_list_read(benchmark::State &state) {
     uint64_t ret;
-    for (auto _ : state) { // Loops upto iteration count
+    for (auto s : state) { // Loops upto iteration count
         auto vec = glob_wisr_list->get_copy_and_reset();
-        for (auto v : *vec) {
+        for (auto& v : *vec) {
             benchmark::DoNotOptimize(ret = v * 2);
         }
     }

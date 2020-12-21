@@ -119,10 +119,8 @@ private:
 /****************************** Gauge ************************************/
 class GaugeValue {
 public:
-    GaugeValue() :
-            m_value{0} {}
-    GaugeValue(const std::atomic< int64_t >& oval) :
-            m_value{oval.load(std::memory_order_relaxed)} {}
+    GaugeValue() : m_value{0} {}
+    GaugeValue(const std::atomic< int64_t >& oval) : m_value{oval.load(std::memory_order_relaxed)} {}
     GaugeValue(const GaugeValue& other) : m_value{other.get()} {}
     GaugeValue& operator=(const GaugeValue& rhsOther) {
         m_value.store(rhsOther.get(), std::memory_order_relaxed);
@@ -423,6 +421,12 @@ public:
         m_on_gather_cb = nullptr;
     }
 
+    void add_child_group(const MetricsGroupImplPtr& child_grp) {
+        auto locked{lock()};
+        m_child_groups.push_back(child_grp);
+    }
+
+    [[nodiscard]] std::string instance_name() const { return m_inst_name; }
     [[nodiscard]] virtual group_impl_type_t impl_type() const = 0;
 
     virtual void on_register() = 0;
@@ -442,6 +446,7 @@ protected:
     std::vector< HistogramDynamicInfo > m_histograms_dinfo;
 
     std::vector< GaugeValue > m_gauge_values;
+    std::vector< MetricsGroupImplPtr > m_child_groups;
 };
 
 } // namespace sisl

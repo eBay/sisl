@@ -1,20 +1,27 @@
 #pragma once
 
-#include <utility/urcu_helper.hpp>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <sds_logging/logging.h>
-#include <boost/noncopyable.hpp>
 #include <type_traits>
 #include <sstream>
 
+#if defined __clang__ or defined __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+    #include <folly/Synchronized.h>
+#if defined __clang__ or defined __GNUC__
+    #pragma GCC diagnostic pop
+#endif
+
 #include <boost/algorithm/string.hpp>
-#include <flatbuffers/idl.h>
-#include <ctime>
-#include <fstream>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <filesystem>
-#include <folly/Synchronized.h>
+#include <boost/noncopyable.hpp>
+#include <flatbuffers/idl.h>
+
+#include "utility/urcu_helper.hpp"
 
 #define SETTINGS_INIT(schema_type, schema_name, config_dir)                                                            \
     extern const char* schema_name##_fbs;                                                                              \
@@ -239,6 +246,12 @@ public:
         // } else {
         //     decltype(cb(s))::you_are_returning_object_of_type = 1;
         // }
+    }
+
+    void modifiable_settings(const auto& cb) {
+        assert(m_rcu_data.get_node() != nullptr);
+        auto settings = m_rcu_data.get(); // RAII
+        return cb(*settings.get());
     }
 
     void load() override {
@@ -486,16 +499,18 @@ private:
  * naming it with var
  */
 #define SETTINGS(sname, var, ...) SETTINGS_FACTORY(sname).WITH_SETTINGS(var, __VA_ARGS__)
-#define SETTINGS_CAP1(var, cap1, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_CAP1(var, cap1, __VA_ARGS__)
-#define SETTINGS_CAP2(var, cap1, cap2, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_CAP2(var, cap1, cap2, __VA_ARGS__)
+#define SETTINGS_CAP1(sname, var, cap1, ...) SETTINGS_FACTORY(sname).WITH_SETTINGS_CAP1(var, cap1, __VA_ARGS__)
+#define SETTINGS_CAP2(sname, var, cap1, cap2, ...)                                                                     \
+    SETTINGS_FACTORY(sname).WITH_SETTINGS_CAP2(var, cap1, cap2, __VA_ARGS__)
 
 /*
  * same as above but for lambdas that capture this
  */
-#define SETTINGS_THIS(var, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_THIS(var, __VA_ARGS__)
-#define SETTINGS_THIS_CAP1(var, cap1, ...) MY_SETTINGS_FACTORY.WITH_SETTINGS_THIS_CAP1(var, cap1, __VA_ARGS__)
-#define SETTINGS_THIS_CAP2(var, cap1, cap2, ...)                                                                       \
-    MY_SETTINGS_FACTORY.WITH_SETTINGS_THIS_CAP2(var, cap1, cap2, __VA_ARGS__)
+#define SETTINGS_THIS(sname, var, ...) SETTINGS_FACTORY(sname).WITH_SETTINGS_THIS(var, __VA_ARGS__)
+#define SETTINGS_THIS_CAP1(sname, var, cap1, ...)                                                                      \
+    SETTINGS_FACTORY(sname).WITH_SETTINGS_THIS_CAP1(var, cap1, __VA_ARGS__)
+#define SETTINGS_THIS_CAP2(sname, var, cap1, cap2, ...)                                                                \
+    SETTINGS_FACTORY(sname).WITH_SETTINGS_THIS_CAP2(var, cap1, cap2, __VA_ARGS__)
 
 //#define SETTINGS_VALUE(SType, path_expr) SETTINGS_FACTORY(SType).WITH_SETTINGS_VALUE(path_expr)
 #define SETTINGS_VALUE(sname, path_expr) SETTINGS_FACTORY(sname).WITH_SETTINGS_VALUE(path_expr)

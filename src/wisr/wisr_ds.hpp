@@ -3,31 +3,50 @@
 //
 #pragma once
 
-#include "wisr_framework.hpp"
+#include <deque>
+#include <iterator>
 #include <list>
 #include <vector>
-#include <deque>
+
 #include <boost/intrusive/slist.hpp>
+
+#include "wisr_framework.hpp"
 
 namespace sisl {
 
 template < typename DS >
 class wisr_ds_wrapper : public DS {
 public:
-    static void merge(wisr_ds_wrapper* one, wisr_ds_wrapper* two) {
-        DS* a = (DS*)one;
-        DS* b = (DS*)two;
-        a->insert(a->end(), b->begin(), b->end());
+    wisr_ds_wrapper() = default;
+    wisr_ds_wrapper(const wisr_ds_wrapper&) = delete;
+    wisr_ds_wrapper(wisr_ds_wrapper&&) noexcept = delete;
+    wisr_ds_wrapper& operator=(const wisr_ds_wrapper&) = delete;
+    wisr_ds_wrapper& operator=(wisr_ds_wrapper&&) noexcept = delete;
+
+    ~wisr_ds_wrapper() = default;
+
+    static void merge(wisr_ds_wrapper* const one, wisr_ds_wrapper* const two) {
+        DS* const a{static_cast< DS* >(one)};
+        DS* const b{static_cast< DS* >(two)};
+        a->insert(std::end(*a), std::cbegin(*b), std::cend(*b));
     }
 };
 
 template < typename T >
 class intrusive_slist_wrapper : public boost::intrusive::slist< T > {
 public:
-    static void merge(intrusive_slist_wrapper< T >* one, intrusive_slist_wrapper< T >* two) {
-        auto* a = (boost::intrusive::slist< T >*)one;
-        auto* b = (boost::intrusive::slist< T >*)two;
-        a->splice_after(a->cend(), *b);
+    intrusive_slist_wrapper() = default;
+    intrusive_slist_wrapper(const intrusive_slist_wrapper&) = delete;
+    intrusive_slist_wrapper(intrusive_slist_wrapper&&) noexcept = delete;
+    intrusive_slist_wrapper& operator=(const intrusive_slist_wrapper&) = delete;
+    intrusive_slist_wrapper& operator=(intrusive_slist_wrapper&&) noexcept = delete;
+
+    ~intrusive_slist_wrapper() = default;
+
+    static void merge(intrusive_slist_wrapper< T >* const one, intrusive_slist_wrapper< T >* const two) {
+        auto* const a{static_cast< boost::intrusive::slist< T >* >(one)};
+        auto* const b{static_cast< boost::intrusive::slist< T >* >(two)};
+        a->splice_after(std::end(*a), *b);
     }
 };
 
@@ -35,12 +54,18 @@ template < typename T >
 class vector_wrapper : public std::vector< T > {
 public:
     vector_wrapper() = default;
-    explicit vector_wrapper(size_t initial) : std::vector< T >() { std::vector< T >::reserve(initial); }
+    explicit vector_wrapper(const size_t initial) : std::vector< T >() { std::vector< T >::reserve(initial); }
+    vector_wrapper(const vector_wrapper&) = delete;
+    vector_wrapper(vector_wrapper&&) noexcept = delete;
+    vector_wrapper& operator=(const vector_wrapper&) = delete;
+    vector_wrapper& operator=(vector_wrapper&&) noexcept = delete;
 
-    static void merge(vector_wrapper* one, vector_wrapper* two) {
-        std::vector< T >* a = (std::vector< T >*)one;
-        std::vector< T >* b = (std::vector< T >*)two;
-        a->insert(a->end(), b->begin(), b->end());
+    ~vector_wrapper() = default;
+
+    static void merge(vector_wrapper* const one, const vector_wrapper* const two){
+        std::vector< T >* const a{static_cast< std::vector< T >* >(one)};
+        const std::vector< T >* const b{static_cast< const std::vector< T >* >(two)};
+        a->insert(std::end(*a), std::cbegin(*b), std::cend(*b));
     }
 };
 
@@ -55,26 +80,33 @@ class wisr_ds {
 public:
     template < class... Args1 >
     explicit wisr_ds(Args1&&... args) : m_wfw(std::forward< Args1 >(args)...) {}
+    wisr_ds(const wisr_ds&) = delete;
+    wisr_ds(wisr_ds&&) noexcept = delete;
+    wisr_ds& operator=(const wisr_ds&) = delete;
+    wisr_ds& operator=(wisr_ds&&) noexcept = delete;
 
-    explicit wisr_ds(const wisr_ds& other) = default;
+    ~wisr_ds() = default;
 
-    void push_back(T& value) {
-        m_wfw.insertable([&value](DS* ptr) { ptr->push_back(value); });
+    template < typename InputType,
+               typename = typename std::enable_if<
+                   std::is_convertible< typename std::decay< InputType >::type, T >::value >::type >
+    void push_back(InputType&& value) {
+        m_wfw.insertable([&](DS* const ptr) { ptr->push_back(std::forward<InputType>(value)); });
     }
 
     template < class... Args >
     void emplace_back(Args&&... args) {
-        m_wfw.insertable([&](DS* ptr) { ptr->emplace_back(std::forward< Args >(args)...); });
+        m_wfw.insertable([&](DS* const ptr) { ptr->emplace_back(std::forward< Args >(args)...); });
     }
 
     template < class... Args >
     void push_front(Args&&... args) {
-        m_wfw.insertable([&](DS* ptr) { ptr->push_front(std::forward< Args >(args)...); });
+        m_wfw.insertable([&](DS* const ptr) { ptr->push_front(std::forward< Args >(args)...); });
     }
 
     template < class... Args >
     void emplace_front(Args&&... args) {
-        m_wfw.insertable([&](DS* ptr) { ptr->emplace_front(std::forward< Args >(args)...); });
+        m_wfw.insertable([&](DS* const ptr) { ptr->emplace_front(std::forward< Args >(args)...); });
     }
 
     DS* now() { return m_wfw.now(); }
@@ -93,7 +125,7 @@ class wisr_deque : public wisr_ds< wisr_ds_wrapper< std::deque< T > >, T > {};
 template < typename T >
 class wisr_vector : public wisr_ds< vector_wrapper< T >, T, size_t > {
 public:
-    explicit wisr_vector(size_t sz) : wisr_ds< vector_wrapper< T >, T, size_t >(sz) {}
+    explicit wisr_vector(const size_t sz) : wisr_ds< vector_wrapper< T >, T, size_t >(sz) {}
 };
 
 template < typename T >

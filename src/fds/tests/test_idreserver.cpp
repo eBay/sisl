@@ -1,15 +1,17 @@
-#include <gtest/gtest.h>
+#include <cstdint>
 #include <thread>
-#include "id_reserver.hpp"
+#include <vector>
+
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
+
+#include "id_reserver.hpp"
+
+#include <gtest/gtest.h>
 
 using namespace sisl;
 
 SDS_LOGGING_INIT(test_bitset);
-
-static uint32_t g_max_ids;
-static uint32_t g_num_threads;
 
 SDS_OPTIONS_ENABLE(logging, test_id_reserver)
 
@@ -19,24 +21,39 @@ SDS_OPTION_GROUP(test_id_reserver,
                  (max_ids, "", "max_ids", "maximum number of ids",
                   ::cxxopts::value< uint32_t >()->default_value("1000"), "number"),
 
+namespace {
+uint32_t g_max_ids;
+uint32_t g_num_threads;
+
 void run_parallel(uint32_t nthreads, const std::function< void(uint32_t) >& thr_fn) {
-    std::vector< std::thread* > threads;
+    std::vector< std::thread> threads;
     auto n_per_thread = std::ceil((double)g_max_ids / nthreads);
     int32_t remain_ids = (int32_t)g_max_ids;
 
     while (remain_ids > 0) {
-        threads.push_back(new std::thread(thr_fn), std::min(remain_ids, (int32_t)n_per_thread));
+        threads.emplace_back(thr_fn, std::min(remain_ids, (int32_t)n_per_thread));
         remain_ids -= n_per_thread;
     }
     for (auto t : threads) {
-        t->join();
-        delete (t);
+        if (t.joinable()) t.join();
+
     }
 }
 
 struct IDReserverTest : public testing::Test {
+public:
+    IDReserverTest(const IDReserverTest&) = delete;
+    IDReserverTest(IDReserverTest&&) noexcept = delete;
+    IDReserverTest& operator=(const IDReserverTest&) = delete;
+    IDReserverTest& operator=(IDReserverTest&&) noexcept = delete;
+    virtual ~IDReserverTest() override = default;
+
 protected:
     IDReserver m_reserver;
+
+    void SetUp() override {}
+    void TearDown() override {}
+};
 }
 
 TEST_F(IDReserverTest, RandomIDSet) {

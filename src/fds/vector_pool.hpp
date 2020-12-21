@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <array>
+#include <vector>
 
 namespace sisl {
 

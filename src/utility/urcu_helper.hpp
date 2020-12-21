@@ -243,5 +243,5 @@ private:
     std::mutex m_updater_mutex;
 };
 
-#define RCU_REGISTER_INIT thread_local bool sisl::urcu_ctl::_rcu_registered_already = false
+#define RCU_REGISTER_INIT thread_local bool sisl::urcu_ctl::_rcu_registered_already = false;
 } // namespace sisl

@@ -9,12 +9,14 @@
 #define MY_SETTINGS_FACTORY SETTINGS_FACTORY(test_app_schema)
 
 SDS_OPTIONS_ENABLE(logging, test_settings)
+
 SDS_OPTION_GROUP(test_settings,
                  (num_threads, "", "num_threads", "number of threads",
                   ::cxxopts::value< uint32_t >()->default_value("1"), "number"))
 
+
 SDS_LOGGING_INIT(test_settings, settings)
-SETTINGS_INIT(testapp::TestAppSettings, test_app_schema, "/tmp");
+SETTINGS_INIT(testapp::TestAppSettings, test_app_schema, "/tmp")
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging, test_settings);

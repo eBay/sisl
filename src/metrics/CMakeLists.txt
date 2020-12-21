@@ -1,13 +1,17 @@
-set(CMAKE_CXX_STANDARD 17)
-set(CPP_WARNINGS "-Wall -Wextra -Werror")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_FLAGS} ${CPP_WARNINGS} -DPACKAGE_NAME=${CONAN_PACKAGE_NAME} -DPACKAGE_VERSION=${CONAN_PACKAGE_VERSION}")
+if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
+    add_flags("-Wno-attributes") # needed for C++ 20 folly compilation
+endif()
 
-find_package (Threads REQUIRED)
-
-include_directories(BEFORE .)
 include_directories(BEFORE ..)
+include_directories(BEFORE .)
 
-set(METRICS_SOURCE_FILES metrics.cpp metrics_tlocal.cpp metrics_rcu.cpp metrics_atomic.cpp metrics_group_impl.cpp)
+set(METRICS_SOURCE_FILES 
+    metrics.cpp
+    metrics_atomic.cpp
+    metrics_group_impl.cpp
+    metrics_rcu.cpp 
+    metrics_tlocal.cpp 
+   )
 add_library(sisl_metrics OBJECT ${METRICS_SOURCE_FILES})
 
 set(FARM_TEST_SOURCES tests/farm_test.cpp)

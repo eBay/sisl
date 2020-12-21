@@ -32,13 +32,6 @@ build*
 *.out
 *.app
 
-# CMake generated files
-CMakeFiles
-CMakeCache.txt
-Makefile
-cmake-build-*
-*.cmake
-
 ### Vi Swap Files
 *.swp
 
@@ -98,6 +91,14 @@ tags*
 .tags*
 src/tags*
 src/.tags*
+
+# build generated products
+debug/**
+release/**
+cmake-*/**
+
+# vscode
+.vscode/**
 
 # Visual Studio
 CMakeSettings.json
