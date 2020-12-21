@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cassert>
+#include <cstdint>
 #include <atomic>
 
 namespace sisl {

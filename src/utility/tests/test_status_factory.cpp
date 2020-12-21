@@ -5,7 +5,7 @@
 #include <atomic>
 #include <thread>
 
-RCU_REGISTER_INIT;
+RCU_REGISTER_INIT
 
 #define ITERATIONS 10000
 #define THREADS 8

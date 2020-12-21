@@ -1,20 +1,29 @@
 //
 // Created by Kadayam, Hari on 2/1/19.
 //
+
+#include <cstdint>
+#include <cstdlib>
+#include <iostream>
+#include <mutex>
+#include <random>
+#include <string>
+
 #include <benchmark/benchmark.h>
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
-#include <metrics/metrics.hpp>
-#include <obj_allocator.hpp>
-#include <string>
-#include <iostream>
+
+#include "metrics/metrics.hpp"
+#include "obj_allocator.hpp"
 
 SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
-THREAD_BUFFER_INIT;
-RCU_REGISTER_INIT;
+THREAD_BUFFER_INIT
+RCU_REGISTER_INIT
 
-#define ITERATIONS 1000000
-#define THREADS 8
+namespace {
+std::mutex s_print_mutex;
+constexpr size_t ITERATIONS{1000000};
+constexpr size_t THREADS{8};
 
 struct my_request {
     int m_a;
@@ -25,34 +34,46 @@ struct my_request {
 
 void setup() {}
 void test_malloc(benchmark::State& state) {
-    uint64_t counter = 0U;
-    for (auto _ : state) { // Loops upto iteration count
+    uint64_t counter{0};
+    static thread_local std::random_device rd{};
+    static thread_local std::default_random_engine engine{rd()};
+
+    for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = new my_request());
         req->m_a = 10;
         req->m_b[0] = 100;
-        req->m_d = req->m_a * rand();
+        std::uniform_int_distribution< uint64_t > dist{0, RAND_MAX};
+        req->m_d = req->m_a * dist(engine);
         counter += req->m_d;
         delete (req);
     }
-    printf("Counter = %lu\n", counter);
-    // std::cout << "Counter = " << counter << "\n";
+    {
+        std::scoped_lock< std::mutex > lock{s_print_mutex};
+        std::cout << "Counter = " << counter << std::endl;
+    }
 }
 
 void test_obj_alloc(benchmark::State& state) {
-    uint64_t counter = 0U;
-    for (auto _ : state) { // Loops upto iteration count
+    uint64_t counter{0};
+    static thread_local std::random_device rd{};
+    static thread_local std::default_random_engine engine{rd()};
+    for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = sisl::ObjectAllocator< my_request >::make_object());
         req->m_a = 10;
         req->m_b[0] = 100;
-        req->m_d = req->m_a * rand();
+        std::uniform_int_distribution< uint64_t > dist{0, RAND_MAX};
+        req->m_d = req->m_a * dist(engine);
         counter += req->m_d;
         sisl::ObjectAllocator< my_request >::deallocate(req);
     }
-    printf("Counter = %lu\n", counter);
-    // std::cout << "Counter = " << counter << "\n";
+    {
+        std::scoped_lock< std::mutex > lock{s_print_mutex};
+        std::cout << "Counter = " << counter << std::endl;
+    }
 }
+} // namespace
 
 BENCHMARK(test_malloc)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_obj_alloc)->Iterations(ITERATIONS)->Threads(THREADS);

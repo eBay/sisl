@@ -1,6 +1,10 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 #include "utility/thread_buffer.hpp"
+
 namespace sisl {
 
 /* This data structure inserts elements into per thread buffer and provide apis to access the elements.
@@ -10,14 +14,22 @@ template < typename T >
 class ThreadVector {
 
 public:
-    using thread_buffer_iterator = std::pair< uint32_t, std::vector< T >* >;
-    using thread_vector_iterator = std::pair< thread_buffer_iterator, int >;
+    typedef std::pair< uint32_t, std::vector< T >* > thread_buffer_iterator;
+    typedef std::pair< thread_buffer_iterator, int > thread_vector_iterator;
 
     ThreadVector() {}
-    ThreadVector(uint64_t size) : m_thread_buffer(size) {}
-    void push_back(const T& ele) {
+    ThreadVector(const uint64_t size) : m_thread_buffer{size} {}
+    ThreadVector(const ThreadVector&) = delete;
+    ThreadVector(ThreadVector&&) noexcept = delete;
+    ThreadVector& operator=(const ThreadVector&) = delete;
+    ThreadVector& operator=(ThreadVector&&) noexcept = delete;
+
+    template <typename InputType,
+               typename = typename std::enable_if<
+                   std::is_convertible< typename std::decay< InputType >::type, T >::value >::type >
+    void push_back(InputType&& ele) {
         auto thread_vector = m_thread_buffer.get();
-        thread_vector->push_back(ele);
+        thread_vector->push_back(std::forward<InputType>(ele));
     }
 
     T* begin(thread_vector_iterator& v_it) {

@@ -4,8 +4,16 @@
 
 #include <algorithm>
 
+#if defined __clang__ or defined __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+    #include <folly/Synchronized.h>
+#if defined __clang__ or defined __GNUC__
+    #pragma GCC diagnostic pop
+#endif
+
 #include <fmt/format.h>
-#include <folly/Synchronized.h>
 #include <sds_logging/logging.h>
 
 #include "metrics_group_impl.hpp"

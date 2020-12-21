@@ -569,4 +569,4 @@ private:
     std::condition_variable m_ready_cv;
 };
 
-}; // namespace sisl
+} // namespace sisl

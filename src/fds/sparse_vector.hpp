@@ -4,8 +4,9 @@
 
 #pragma once
 
-#include <vector>
 #include <cassert>
+#include <cstdlib>
+#include <vector>
 
 namespace sisl {
 /*
@@ -17,6 +18,15 @@ namespace sisl {
 template < typename T >
 class sparse_vector : public std::vector< T > {
 public:
+    template<typename... Args>
+    sparse_vector(Args&&... args) : std::vector< T >(std::forward<Args>(args)...) {}
+    sparse_vector(const sparse_vector&) = delete;
+    sparse_vector(sparse_vector&&) noexcept = delete;
+    sparse_vector& operator=(const sparse_vector&) = delete;
+    sparse_vector& operator=(sparse_vector&&) noexcept = delete;
+
+    ~sparse_vector() = default;
+
     T& operator[](const size_t index) {
         fill_void(index);
         return std::vector< T >::operator[](index);
@@ -38,7 +48,7 @@ public:
 
 private:
     void fill_void(const size_t index) {
-        for (auto i = std::vector< T >::size(); i <= index; i++) {
+        for (size_t i{std::vector< T >::size()}; i <= index; ++i) {
             std::vector< T >::emplace_back();
         }
     }
