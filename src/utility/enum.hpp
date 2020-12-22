@@ -14,8 +14,6 @@
 #include <type_traits>
 
 struct EnumSupportBase {
-    static const std::string s_unknown;
-
     template < typename EnumName >
     static std::map< std::underlying_type_t< EnumName >, std::string >
     split(std::string s, const std::regex& delim = std::regex("([^,\\s]+)\\s*=\\s*([\\d]+)")) {
@@ -43,7 +41,6 @@ struct EnumSupportBase {
         return tokens;
     }
 };
-const std::string EnumSupportBase::s_unknown{"???"};
 
 #define ENUM(EnumName, Underlying, ...)                                                                                \
     enum class EnumName : Underlying { __VA_ARGS__ };                                                                  \
@@ -51,9 +48,10 @@ const std::string EnumSupportBase::s_unknown{"???"};
     struct EnumName##Support : EnumSupportBase {                                                                       \
         const std::map< Underlying, std::string > m_token_names{split< EnumName >(#__VA_ARGS__)};                      \
         const std::string& get_name(const EnumName enum_value) {                                                       \
+            static const std::string unknown { "???" };                                                                \
             const auto n{m_token_names.find(static_cast< Underlying >(enum_value))};                                   \
             if (n == std::cend(m_token_names))                                                                         \
-                return EnumSupportBase::s_unknown;                                                                     \
+                return unknown;                                                                                        \
             else                                                                                                       \
                 return n->second;                                                                                      \
         }                                                                                                              \
