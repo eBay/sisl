@@ -230,8 +230,8 @@ public:
         set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
 
         // count rest of words
-        const uint64_t skip_bits{static_cast< uint64_t >(Word::bits() - offset)};
-        uint64_t bits_remaining{skip_bits > total_bits() ? 0 : total_bits() - skip_bits};
+        const uint64_t word_skip_bits{static_cast<uint64_t>(Word::bits() - offset)};
+        uint64_t bits_remaining{word_skip_bits > total_bits() ? 0 : total_bits() - word_skip_bits};
         while (bits_remaining >= Word::bits()) {
             set_cnt += (++word_ptr)->get_set_count();
             bits_remaining -= Word::bits();

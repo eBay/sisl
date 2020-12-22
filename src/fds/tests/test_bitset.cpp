@@ -246,6 +246,21 @@ TEST_F(BitsetTest, TestSetCount)
 {
     m_bset.set_bits(0, g_total_bits);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits);
+
+    // offset right a partial word
+    const uint64_t offset1{4};
+    m_bset.shrink_head(offset1);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - offset1);
+
+    // offset right more than a word
+    const uint64_t offset2{128};
+    m_bset.shrink_head(offset2);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2));
+
+    // offset right an exact multiple of a word
+    const uint64_t offset3{60};
+    m_bset.shrink_head(offset3);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2 + offset3));
 }
 
 TEST_F(BitsetTest, TestPrint) {
