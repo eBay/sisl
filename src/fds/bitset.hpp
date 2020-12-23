@@ -165,6 +165,8 @@ public:
         return *this;
     }
 
+    constexpr uint8_t word_size() { return Word::bits(); }
+
     uint64_t get_id() const { return m_s->m_id; }
 
     void set_id(uint64_t id) { m_s->m_id = id; }
@@ -613,7 +615,7 @@ private:
         const Word* const end_words_ptr{m_s->end_words()};
         while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
             count = static_cast< uint8_t >((bits_remaining > Word::bits()) ? Word::bits() : bits_remaining);
-            if (!word_ptr->is_bits_set_reset(offset, count, expected)) {
+            if (!word_ptr->is_bits_set_reset(0, count, expected)) {
                 if (ThreadSafeResizing) { m_lock.unlock_shared(); }
                 return false;
             }
