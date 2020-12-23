@@ -85,7 +85,7 @@ TEST_F(EnumTest, enum_signed_value_test) {
     ASSERT_EQ(enum_name(signed_enum_value::val2), "val2");
 }
 
-ENUM(unsigned_enum_value, uint16_t, val1=10, val2=20)
+ENUM(unsigned_enum_value, uint16_t, val1=10, val2=20, val3=1<<4, val4 = +30, val5 = 40u)
 TEST_F(EnumTest, enum_unsigned_value_test) {
     auto enum_lambda{[](const unsigned_enum_value& val) {
         switch (val) {
@@ -93,6 +93,12 @@ TEST_F(EnumTest, enum_unsigned_value_test) {
             return static_cast< std::underlying_type_t< unsigned_enum_value > >(unsigned_enum_value::val1);
         case unsigned_enum_value::val2:
             return static_cast< std::underlying_type_t< unsigned_enum_value > >(unsigned_enum_value::val2);
+        case unsigned_enum_value::val3:
+            return static_cast< std::underlying_type_t< unsigned_enum_value > >(unsigned_enum_value::val3);
+        case unsigned_enum_value::val4:
+            return static_cast< std::underlying_type_t< unsigned_enum_value > >(unsigned_enum_value::val4);
+        case unsigned_enum_value::val5:
+            return static_cast< std::underlying_type_t< unsigned_enum_value > >(unsigned_enum_value::val5);
         default:
             return std::underlying_type_t< unsigned_enum_value >{};
         };
@@ -100,6 +106,9 @@ TEST_F(EnumTest, enum_unsigned_value_test) {
 
     ASSERT_EQ(enum_lambda(unsigned_enum_value::val1), 10);
     ASSERT_EQ(enum_lambda(unsigned_enum_value::val2), 20);
+    ASSERT_EQ(enum_lambda(unsigned_enum_value::val3), 16);
+    ASSERT_EQ(enum_lambda(unsigned_enum_value::val4), 30);
+    ASSERT_EQ(enum_lambda(unsigned_enum_value::val5), 40);
     ASSERT_EQ(enum_name(unsigned_enum_value::val1), "val1");
     ASSERT_EQ(enum_name(unsigned_enum_value::val2), "val2");
 }
@@ -123,7 +132,7 @@ TEST_F(EnumTest, enum_signed_mixed_test) {
     ASSERT_EQ(enum_name(signed_enum_mixed::val2), "val2");
 }
 
-ENUM(unsigned_enum_mixed, uint16_t, val1 = 10, val2)
+ENUM(unsigned_enum_mixed, uint16_t, val1 = 10, val2, val3 = 1<<2)
 TEST_F(EnumTest, enum_unsigned_mixed_test) {
     auto enum_lambda{[](const unsigned_enum_mixed& val) {
         switch (val) {
@@ -131,6 +140,8 @@ TEST_F(EnumTest, enum_unsigned_mixed_test) {
             return static_cast< std::underlying_type_t< unsigned_enum_mixed > >(unsigned_enum_mixed::val1);
         case unsigned_enum_mixed::val2:
             return static_cast< std::underlying_type_t< unsigned_enum_mixed > >(unsigned_enum_mixed::val2);
+        case unsigned_enum_mixed::val3:
+            return static_cast< std::underlying_type_t< unsigned_enum_mixed > >(unsigned_enum_mixed::val3);
         default:
             return std::underlying_type_t< unsigned_enum_mixed >{};
         };
@@ -138,6 +149,7 @@ TEST_F(EnumTest, enum_unsigned_mixed_test) {
 
     ASSERT_EQ(enum_lambda(unsigned_enum_mixed::val1), 10);
     ASSERT_EQ(enum_lambda(unsigned_enum_mixed::val2), 11);
+    ASSERT_EQ(enum_lambda(unsigned_enum_mixed::val3), 4);
     ASSERT_EQ(enum_name(unsigned_enum_mixed::val1), "val1");
     ASSERT_EQ(enum_name(unsigned_enum_mixed::val2), "val2");
 }
