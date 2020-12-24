@@ -9,7 +9,6 @@
 
 #include <gtest/gtest.h>
 
-
 #include "thread_buffer.hpp"
 #include "utility/enum.hpp"
 
@@ -111,6 +110,14 @@ TEST_F(EnumTest, enum_unsigned_value_test) {
     ASSERT_EQ(enum_lambda(unsigned_enum_value::val5), 40);
     ASSERT_EQ(enum_name(unsigned_enum_value::val1), "val1");
     ASSERT_EQ(enum_name(unsigned_enum_value::val2), "val2");
+    ASSERT_EQ(enum_name(unsigned_enum_value::val3), "val3");
+    ASSERT_EQ(enum_name(unsigned_enum_value::val4), "val4");
+    ASSERT_EQ(enum_name(unsigned_enum_value::val5), "val5");
+    //ASSERT_EQ(enum_value("val1"), unsigned_enum_value::val1);
+    //ASSERT_EQ(enum_value("val2"), unsigned_enum_value::val2);
+    //ASSERT_EQ(enum_value("val3"), unsigned_enum_value::val3);
+    //ASSERT_EQ(enum_value("val4"), unsigned_enum_value::val4);
+    //ASSERT_EQ(enum_value("val5"), unsigned_enum_value::val5);
 }
 
 ENUM(signed_enum_mixed, int16_t, val1 = -10, val2)
@@ -130,6 +137,8 @@ TEST_F(EnumTest, enum_signed_mixed_test) {
     ASSERT_EQ(enum_lambda(signed_enum_mixed::val2), -9);
     ASSERT_EQ(enum_name(signed_enum_mixed::val1), "val1");
     ASSERT_EQ(enum_name(signed_enum_mixed::val2), "val2");
+    //ASSERT_EQ(enum_value("val1"), signed_enum_mixed::val1);
+    //ASSERT_EQ(enum_value("val2") ,signed_enum_mixed::val2);
 }
 
 ENUM(unsigned_enum_mixed, uint16_t, val1 = 10, val2, val3 = 1<<2)
@@ -152,6 +161,45 @@ TEST_F(EnumTest, enum_unsigned_mixed_test) {
     ASSERT_EQ(enum_lambda(unsigned_enum_mixed::val3), 4);
     ASSERT_EQ(enum_name(unsigned_enum_mixed::val1), "val1");
     ASSERT_EQ(enum_name(unsigned_enum_mixed::val2), "val2");
+    ASSERT_EQ(enum_name(unsigned_enum_mixed::val3), "val3");
+    //ASSERT_EQ(enum_value("val1"), unsigned_enum_value::val1);
+    //ASSERT_EQ(enum_value("val2"), unsigned_enum_value::val2);
+    //ASSERT_EQ(enum_value("val3"), unsigned_enum_value::val3);
+}
+
+ENUM(unsigned_enum2, uint16_t, val1=0x1, val2=0x2, val3=0x3)
+TEST_F(EnumTest, enum_unsigned_test_bit_ops) {
+    auto enum_lambda{[](const unsigned_enum2& val) {
+        switch (val) {
+        case unsigned_enum2::val1:
+            return static_cast< std::underlying_type_t< unsigned_enum2 > >(unsigned_enum2::val1);
+        case unsigned_enum2::val2:
+            return static_cast< std::underlying_type_t< unsigned_enum2 > >(unsigned_enum2::val2);
+        case unsigned_enum2::val3:
+            return static_cast< std::underlying_type_t< unsigned_enum2 > >(unsigned_enum2::val3);
+        default:
+            return std::underlying_type_t< unsigned_enum2 >{};
+        };
+    }};
+
+    ASSERT_EQ(enum_lambda(unsigned_enum2::val1), 0x1);
+    ASSERT_EQ(enum_lambda(unsigned_enum2::val2), 0x2);
+    ASSERT_EQ(enum_lambda(unsigned_enum2::val3), 0x3);
+    ASSERT_EQ(enum_name(unsigned_enum2::val1), "val1");
+    ASSERT_EQ(enum_name(unsigned_enum2::val2), "val2");
+    ASSERT_EQ(enum_name(unsigned_enum2::val3), "val3");
+    //ASSERT_EQ(enum_value("val1"), unsigned_enum2::val1);
+    //ASSERT_EQ(enum_value("val2"), unsigned_enum2::val2);
+    //ASSERT_EQ(enum_value("val3"), unsigned_enum2::val3);
+
+    ASSERT_EQ(unsigned_enum2::val1 | unsigned_enum2::val2, unsigned_enum2::val3);
+    ASSERT_EQ(unsigned_enum2::val1 & unsigned_enum2::val3, unsigned_enum2::val1);
+    unsigned_enum2 val1{unsigned_enum2::val1};
+    ASSERT_EQ(val1 |= unsigned_enum2::val2, unsigned_enum2::val3);
+    ASSERT_EQ(val1, unsigned_enum2::val3);
+    unsigned_enum2 val2{unsigned_enum2::val2};
+    ASSERT_EQ(val2 &= unsigned_enum2::val3, unsigned_enum2::val2);
+    ASSERT_EQ(val2, unsigned_enum2::val2);
 }
 
 int main(int argc, char* argv[]) {

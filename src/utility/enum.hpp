@@ -5,16 +5,19 @@
 #ifndef SISL_ENUM_HPP
 #define SISL_ENUM_HPP
 
+#include <cstdlib>
+#include <iostream>
 #include <iterator>
-#include <map>
 #include <ostream>
 #include <regex>
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 
 template < typename EnumType >
-struct EnumSupportBase {
+class EnumSupportBase {
+public:
     typedef EnumType enum_type;
     typedef std::underlying_type_t< enum_type > underlying_type;
     static_assert(std::is_enum_v< enum_type >, "Type must be an enum type.");
@@ -28,25 +31,41 @@ struct EnumSupportBase {
             const size_t str_end{str.find_last_not_of(whitespace)};
             return str.substr(str_begin, str_end - str_begin + 1);
         }};
+        auto evaluate{[&trim](const std::string& str) {
+            const size_t lshift_pos{str.find("<<", 0)};
+            if (lshift_pos != std::string::npos)
+            {
+                // evaluate left shift
+                size_t idx1{}, idx2{};
+                const auto lhs{std::stoull(trim(str.substr(0, lshift_pos)), &idx1, 0)};
+                const auto rhs{std::stoull(trim(str.substr(lshift_pos + 2)), &idx2, 0)};
+                const auto val{lhs << rhs};
+                return std::to_string(val);
+            }
+            // maybe in future provide evaluator for simple expressions
+            return str;
+        }};
         while (current_pos < tokens_string.size()) {
             const size_t delim{tokens_string.find_first_of(",=", current_pos)};
             const std::string token{trim(tokens_string.substr(current_pos, delim - current_pos))};
             if ((delim != std::string::npos) && (tokens_string[delim] == '=')) {
                 const size_t comma_pos{tokens_string.find(',', delim + 1)};
                 const size_t length{comma_pos != std::string::npos ? comma_pos - delim : comma_pos};
+                const std::string val_string{evaluate(trim(tokens_string.substr(delim + 1, length)))};
+                size_t idx{0};
                 if constexpr (std::is_unsigned_v< underlying_type >) {
-                    last_value =
-                        static_cast< underlying_type >(std::stoull(trim(tokens_string.substr(delim + 1, length))));
+                    last_value = static_cast< underlying_type >(std::stoull(val_string, &idx, 0));
                 } else {
-                    last_value =
-                        static_cast< underlying_type >(std::stoll(trim(tokens_string.substr(delim + 1, length))));
+                    last_value = static_cast< underlying_type >(std::stoll(val_string, &idx, 0));
                 }
                 current_pos = ((comma_pos != std::string::npos) ? comma_pos + 1 : comma_pos);
             } else {
-                if (!m_tokens.empty()) ++last_value;
+                if (m_value_to_tokens.size() != 0) ++last_value;
                 current_pos = ((delim != std::string::npos) ? delim + 1 : delim);
             }
-            m_tokens[last_value] = token;
+            //std::cout << token << ' ' << last_value << std::endl;
+            m_value_to_tokens[last_value] = token;
+            m_token_to_value[token] = last_value;
         }
     }
     EnumSupportBase(const EnumSupportBase&) = delete;
@@ -55,18 +74,30 @@ struct EnumSupportBase {
     EnumSupportBase& operator=(EnumSupportBase&&) noexcept = delete;
     ~EnumSupportBase() = default;
 
-    const std::string& get_name(const enum_type enum_value) const {
+    [[nodiscard]] const std::string& get_name(const enum_type enum_value) const {
         static const std::string unknown{"???"};
         const underlying_type val{static_cast< underlying_type >(enum_value)};
-        const auto itr{m_tokens.find(val)};
-        if (itr == std::cend(m_tokens))
+        const auto itr{m_value_to_tokens.find(val)};
+        if (itr == std::cend(m_value_to_tokens))
             return unknown;
         else
             return itr->second;
     }
 
-    std::map< underlying_type, std::string > m_tokens;
+    [[nodiscard]] enum_type get_enum(const std::string& name) const {
+        const auto itr{m_token_to_value.find(name)};
+        if (itr == std::cend(m_token_to_value))
+            return static_cast<enum_type>(0);
+        else
+            return static_cast<enum_type>(itr->second);
+    }
+
+private:
+    std::unordered_map< underlying_type, std::string > m_value_to_tokens;
+    std::unordered_map< std::string, underlying_type > m_token_to_value;
 };
+
+#define VENUM(EnumName, Underlying, ...) ENUM(EnumName, Underlying, __VA_ARGS__) 
 
 #define ENUM(EnumName, Underlying, ...)                                                                                \
     enum class EnumName : Underlying { __VA_ARGS__ };                                                                  \
@@ -80,28 +111,29 @@ struct EnumSupportBase {
         EnumName##Support(EnumName##Support&&) noexcept = delete;                                                      \
         EnumName##Support& operator=(const EnumName##Support&) = delete;                                               \
         EnumName##Support& operator=(EnumName##Support&&) noexcept = delete;                                           \
+       ~EnumName##Support() = default;                                                                                 \
         static EnumName##Support& instance() {                                                                         \
             static EnumName##Support s_instance{#__VA_ARGS__};                                                         \
             return s_instance;                                                                                         \
         };                                                                                                             \
     };                                                                                                                 \
-    inline EnumName##Support::enum_type operator|(const EnumName##Support::enum_type a,                                \
-                                                  const EnumName##Support::enum_type b) {                              \
+    [[nodiscard]] inline EnumName##Support::enum_type operator|(const EnumName##Support::enum_type a,                  \
+                                                                const EnumName##Support::enum_type b) {                \
         return static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) |      \
                                                            static_cast< EnumName##Support::underlying_type >(b));      \
     }                                                                                                                  \
-    inline EnumName##Support::enum_type operator&(const EnumName##Support::enum_type a,                                \
-                                                  const EnumName##Support::enum_type b) {                              \
+    [[nodiscard]] inline EnumName##Support::enum_type operator&(const EnumName##Support::enum_type a,                  \
+                                                            const EnumName##Support::enum_type b) {                    \
         return static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &      \
                                                            static_cast< EnumName##Support::underlying_type >(b));      \
     }                                                                                                                  \
-    inline EnumName##Support::enum_type operator|=(EnumName##Support::enum_type& a,                                    \
-                                                   const EnumName##Support::enum_type b) {                             \
+    [[maybe_unused]] inline EnumName##Support::enum_type operator|=(EnumName##Support::enum_type& a,                   \
+                                                             const EnumName##Support::enum_type b) {                   \
         return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) |  \
                                                                static_cast< EnumName##Support::underlying_type >(b));  \
     }                                                                                                                  \
-    inline EnumName##Support::enum_type operator&=(EnumName##Support::enum_type& a,                                    \
-                                                   const EnumName##Support::enum_type b) {                             \
+    [[maybe_unused]] inline EnumName##Support::enum_type operator&=(EnumName##Support::enum_type& a,                   \
+                                                             const EnumName##Support::enum_type b) {                   \
         return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &  \
                                                                static_cast< EnumName##Support::underlying_type >(b));  \
     }                                                                                                                  \
@@ -114,11 +146,8 @@ struct EnumSupportBase {
         out_stream << out_stream_copy.str();                                                                           \
         return out_stream;                                                                                             \
     }                                                                                                                  \
-    static inline const std::string& enum_name(const EnumName##Support::enum_type es) {                                                   \
+    [[nodiscard]] inline const std::string& enum_name(const EnumName##Support::enum_type es) {                         \
         return EnumName##Support::instance().get_name(es);                                                             \
     }
-
-//////////////////// VENUM - Value assigned for enum ///////////
-#define VENUM ENUM
 
 #endif // SISL_ENUM_HPP
