@@ -246,6 +246,21 @@ TEST_F(BitsetTest, TestSetCount)
 {
     m_bset.set_bits(0, g_total_bits);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits);
+
+    // offset right a partial word
+    const uint64_t offset1{4};
+    m_bset.shrink_head(offset1);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - offset1);
+
+    // offset right more than a word
+    const uint64_t offset2{static_cast<uint64_t>(2 * m_bset.word_size())};
+    m_bset.shrink_head(offset2);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2));
+
+    // offset right an exact multiple of a word
+    const uint64_t offset3{static_cast< uint64_t > (m_bset.word_size() - ((offset1 + offset2) % m_bset.word_size()))};
+    m_bset.shrink_head(offset3);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2 + offset3));
 }
 
 TEST_F(BitsetTest, TestPrint) {
@@ -259,6 +274,23 @@ TEST_F(BitsetTest, TestPrint) {
     for (const char x : str2) {
         ASSERT_EQ(x, '1');
     }
+}
+
+TEST_F(BitsetTest, TestIsSetReset) {
+    // test partial word lower half
+    const uint8_t word_size{m_bset.word_size()};
+    m_bset.set_bits(0, word_size/2);
+    ASSERT_TRUE(m_bset.is_bits_set(0, word_size / 2));
+
+    // test partial word upper half
+    m_bset.reset_bits(0, g_total_bits);
+    const uint64_t start_bit1{static_cast<uint64_t>(word_size - (word_size / 2))};
+    m_bset.set_bits(start_bit1, word_size / 2);
+    ASSERT_TRUE(m_bset.is_bits_set(start_bit1, word_size / 2));
+
+    // test half upper/lower next word
+    m_bset.set_bits(word_size, word_size / 2);
+    ASSERT_TRUE(m_bset.is_bits_set(start_bit1, word_size));
 }
 
 TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
