@@ -36,12 +36,12 @@ namespace sisl {
 
 ////////////////////// Config Definitions //////////////////////
 struct HttpServerConfig {
-    bool            is_tls_enabled;
-    std::string     tls_cert_path;
-    std::string     tls_key_path;
-    std::string     bind_address;
-    uint32_t        server_port;
-    uint32_t        read_write_timeout_secs;
+    bool is_tls_enabled;
+    std::string tls_cert_path;
+    std::string tls_key_path;
+    std::string bind_address;
+    uint32_t server_port;
+    uint32_t read_write_timeout_secs;
 };
 
 ////////////////////// Internal Event Definitions //////////////////////
@@ -49,10 +49,10 @@ enum event_type_t {
     CALLBACK,
 };
 struct HttpEvent : public boost::intrusive::slist_base_hook<> {
-    event_type_t          m_event_type;
-    std::function<void()> m_closure;
+    event_type_t m_event_type;
+    std::function< void() > m_closure;
 };
-typedef boost::intrusive::slist< HttpEvent, boost::intrusive::cache_last<true> > EventList;
+typedef boost::intrusive::slist< HttpEvent, boost::intrusive::cache_last< true > > EventList;
 
 ////////////////////// API CallData Definitions //////////////////////
 struct _http_calldata : public boost::intrusive_ref_counter< _http_calldata >, sisl::ObjLifeCounter< _http_calldata > {
@@ -60,12 +60,8 @@ public:
     friend class HttpServer;
 
     _http_calldata(evhtp_request_t* req, void* arg = nullptr) :
-            m_req(req),
-            m_completed(false),
-            m_arg(arg),
-            m_http_code(EVHTP_RES_OK),
-            m_content_type("application/json") {
-        m_req->cbarg = (void *)this;
+            m_req(req), m_completed(false), m_arg(arg), m_http_code(EVHTP_RES_OK), m_content_type("application/json") {
+        m_req->cbarg = (void*)this;
     }
 
     void set_response(evhtp_res code, const std::string& msg) {
@@ -75,36 +71,34 @@ public:
 
     void complete() { m_completed = true; }
     bool is_completed() const { return m_completed; }
-    evhtp_request_t *request() { return m_req; }
+    evhtp_request_t* request() { return m_req; }
     void* cookie() { return m_arg; }
 
 private:
-    evhtp_request_t *m_req;
+    evhtp_request_t* m_req;
     bool m_completed;
-    void *m_arg;
+    void* m_arg;
     std::string m_response_msg;
     evhtp_res m_http_code;
-    const char *m_content_type;
+    const char* m_content_type;
 };
 
 typedef boost::intrusive_ptr< _http_calldata > HttpCallData;
 
 ////////////////////// Handler Definitions //////////////////////
-typedef std::function<void(HttpCallData)> HttpRequestHandler;
+typedef std::function< void(HttpCallData) > HttpRequestHandler;
 struct _handler_info {
-    std::string        m_uri;
-    evhtp_callback_cb  m_callback;
-    void*              m_arg;
+    std::string m_uri;
+    evhtp_callback_cb m_callback;
+    void* m_arg;
 
-    _handler_info(const std::string& uri, evhtp_callback_cb cb, void *arg = nullptr) :
+    _handler_info(const std::string& uri, evhtp_callback_cb cb, void* arg = nullptr) :
             m_uri(uri), m_callback(cb), m_arg(arg) {}
 
-    bool operator<(const _handler_info& other) const {
-        return m_uri < other.m_uri;
-    }
+    bool operator<(const _handler_info& other) const { return m_uri < other.m_uri; }
 };
 
-template <void (*Handler)(HttpCallData)>
+template < void (*Handler)(HttpCallData) >
 static void _request_handler(evhtp_request_t* req, void* arg) {
     HttpCallData cd(new _http_calldata(req, arg));
     Handler(cd);
@@ -115,28 +109,22 @@ static void _request_handler(evhtp_request_t* req, void* arg) {
 ////////////////////// Server Implementation //////////////////////
 class HttpServer {
 public:
-    HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info > &handlers) :
-            m_cfg(cfg),
-            m_handlers(handlers),
-            m_ev_base(nullptr),
-            m_htp(nullptr),
-            m_internal_event(nullptr) {}
+    HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers) :
+            m_cfg(cfg), m_handlers(handlers), m_ev_base(nullptr), m_htp(nullptr), m_internal_event(nullptr) {}
 
     HttpServer(const HttpServerConfig& cfg) : HttpServer(cfg, {}) {}
 
     virtual ~HttpServer() {
         while (!m_event_list.empty()) {
-            auto &c = m_event_list.front();
+            auto& c = m_event_list.front();
             m_event_list.pop_front();
-            delete(&c);
+            delete (&c);
         }
     }
 
     int start() {
         try {
-            if (evthread_use_pthreads() != 0) {
-                throw std::runtime_error("evthread_use_pthreads error!");
-            }
+            if (evthread_use_pthreads() != 0) { throw std::runtime_error("evthread_use_pthreads error!"); }
             m_http_thread = sisl::make_unique_thread("httpserver", &HttpServer::_run, this);
         } catch (std::system_error& e) {
             LOGERROR("Thread creation failed: {} ", e.what());
@@ -144,7 +132,7 @@ public:
         }
 
         {
-            std::unique_lock <std::mutex> lk(m_mutex);
+            std::unique_lock< std::mutex > lk(m_mutex);
             m_ready_cv.wait(lk, [this] { return (m_is_running); });
         }
         return 0;
@@ -153,18 +141,14 @@ public:
     int stop() {
         run_in_http_thread([this]() {
             LOGINFO("Stopping http server event loop.");
-            if (event_base_loopbreak(m_ev_base) != 0) {
-                LOGERROR("Error breaking out of admin server loop: ");
-            }
+            if (event_base_loopbreak(m_ev_base) != 0) { LOGERROR("Error breaking out of admin server loop: "); }
         });
 
         LOGINFO("Waiting for http server thread to join..");
         if (m_http_thread != nullptr && m_http_thread->joinable()) {
             try {
                 m_http_thread->join();
-            } catch (std::exception& e) {
-                LOGERROR("Http thread join error: {}", e.what());
-            }
+            } catch (std::exception& e) { LOGERROR("Http thread join error: {}", e.what()); }
         }
         return 0;
     }
@@ -177,21 +161,21 @@ public:
     // Holding handles to these commands here
     evbase_t* get_base() const { return m_ev_base; }
 
-    void run_in_http_thread(std::function<void()> closure) {
-        HttpEvent *event = new HttpEvent();
+    void run_in_http_thread(std::function< void() > closure) {
+        HttpEvent* event = new HttpEvent();
         event->m_event_type = event_type_t::CALLBACK;
         event->m_closure = closure;
 
         {
-            std::lock_guard <std::mutex> lock(m_mutex);
+            std::lock_guard< std::mutex > lock(m_mutex);
             m_event_list.push_back(*event);
         }
 
-        event_active(m_internal_event, EV_READ|EV_WRITE, 1);
+        event_active(m_internal_event, EV_READ | EV_WRITE, 1);
     }
 
     void respond_OK(HttpCallData cd, evhtp_res http_code, const std::string& msg,
-            const char* content_type = "application/json") {
+                    const char* content_type = "application/json") {
         cd->m_http_code = http_code;
         cd->m_response_msg = msg;
         cd->m_content_type = content_type;
@@ -208,9 +192,7 @@ public:
         if (std::this_thread::get_id() == m_http_thread->get_id()) {
             http_OK(cd);
         } else {
-            run_in_http_thread([this, cd]() {
-                http_OK(cd);
-            });
+            run_in_http_thread([this, cd]() { http_OK(cd); });
         }
     }
 
@@ -218,27 +200,28 @@ public:
         if (std::this_thread::get_id() == m_http_thread->get_id()) {
             http_NOTOK(cd);
         } else {
-            run_in_http_thread([this, cd]() {
-                http_NOTOK(cd);
-            });
+            run_in_http_thread([this, cd]() { http_NOTOK(cd); });
         }
     }
 
-#define request_callback(cb) (evhtp_callback_cb)std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)
-#define error_callback(cb) (evhtp_hook)std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
+#define request_callback(cb)                                                                                           \
+    (evhtp_callback_cb) std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)
+#define error_callback(cb)                                                                                             \
+    (evhtp_hook) std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3)
 
 protected:
     /* ****************** All default connection handlers ****************** */
     static evhtp_res register_connection_handlers(evhtp_connection_t* conn, void* arg) {
         evhtp_connection_set_hook(conn, evhtp_hook_on_path, (evhtp_hook)HttpServer::request_on_path_handler, arg);
         evhtp_connection_set_hook(conn, evhtp_hook_on_request_fini, (evhtp_hook)HttpServer::request_fini_handler, arg);
-        evhtp_connection_set_hook(conn, evhtp_hook_on_conn_error, (evhtp_hook)HttpServer::connection_error_callback, arg);
+        evhtp_connection_set_hook(conn, evhtp_hook_on_conn_error, (evhtp_hook)HttpServer::connection_error_callback,
+                                  arg);
         evhtp_connection_set_hook(conn, evhtp_hook_on_error, (evhtp_hook)HttpServer::request_error_handler, arg);
         return EVHTP_RES_OK;
     }
 
     static void default_request_handler(evhtp_request_t* req, void* arg) {
-        HttpServer *server = (HttpServer *)arg;
+        HttpServer* server = (HttpServer*)arg;
         HttpCallData cd = new _http_calldata(req, arg);
         server->respond_NOTOK(cd, EVHTP_RES_BADREQ, "Request can't be matched with any handlers\n");
     }
@@ -315,41 +298,39 @@ protected:
 #endif
 
     static evhtp_res request_on_path_handler(evhtp_request_t* req, void* arg) {
-        __attribute__((unused)) HttpServer *server = (HttpServer *)arg;
+        __attribute__((unused)) HttpServer* server = (HttpServer*)arg;
 
         const char* path = "";
-        if (req->uri && req->uri->path && req->uri->path->full) {
-            path = req->uri->path->full;
-        }
+        if (req->uri && req->uri->path && req->uri->path->full) { path = req->uri->path->full; }
 
-        LOGINFOMOD(httpserver_lmod, "Processing req={} path={}", (void *)req, path);
+        LOGINFOMOD(httpserver_lmod, "Processing req={} path={}", (void*)req, path);
         return EVHTP_RES_OK;
     }
 
     static evhtp_res request_fini_handler(evhtp_request_t* req, void* arg) {
-        __attribute__((unused)) HttpServer *server = (HttpServer *)arg;
+        __attribute__((unused)) HttpServer* server = (HttpServer*)arg;
 
         const char* path = "";
-        if (req->uri && req->uri->path && req->uri->path->full) {
-            path = req->uri->path->full;
-        }
-        LOGINFOMOD(httpserver_lmod, "Finishing req={}, path={}", (void *)req, path);
+        if (req->uri && req->uri->path && req->uri->path->full) { path = req->uri->path->full; }
+        LOGINFOMOD(httpserver_lmod, "Finishing req={}, path={}", (void*)req, path);
 
         if (req->cbarg != nullptr) {
-            _http_calldata *cd = (_http_calldata *)req->cbarg;
+            _http_calldata* cd = (_http_calldata*)req->cbarg;
             cd->complete();
             intrusive_ptr_release(cd);
         }
         return EVHTP_RES_OK;
     }
 
-    static void connection_error_callback(__attribute__((unused)) evhtp_connection_t* conn, evhtp_error_flags type, void* arg) {
-        __attribute__((unused)) HttpServer *server = (HttpServer *)arg;
+    static void connection_error_callback(__attribute__((unused)) evhtp_connection_t* conn, evhtp_error_flags type,
+                                          void* arg) {
+        __attribute__((unused)) HttpServer* server = (HttpServer*)arg;
         LOGERROR("unhandled connection error of type: {}", type);
     }
 
-    static void request_error_handler(__attribute__((unused)) evhtp_request_t* req, evhtp_error_flags errtype, void* arg) {
-        __attribute__((unused)) HttpServer *server = (HttpServer *)arg;
+    static void request_error_handler(__attribute__((unused)) evhtp_request_t* req, evhtp_error_flags errtype,
+                                      void* arg) {
+        __attribute__((unused)) HttpServer* server = (HttpServer*)arg;
         LOGERROR("Unhandled request error of type: {}", errtype);
     }
 
@@ -387,10 +368,12 @@ private:
             }
         }
 
-        struct timeval timeout { m_cfg.read_write_timeout_secs, 0 };
+        struct timeval timeout {
+            m_cfg.read_write_timeout_secs, 0
+        };
 
         // For internal events
-        m_internal_event = event_new(m_ev_base, -1, EV_TIMEOUT|EV_READ, &HttpServer::internal_event_handler, this);
+        m_internal_event = event_new(m_ev_base, -1, EV_TIMEOUT | EV_READ, &HttpServer::internal_event_handler, this);
         if (m_internal_event == nullptr) {
             LOGERROR("Adding internal event failed!");
             evhtp_free(m_htp);
@@ -400,7 +383,7 @@ private:
         event_add(m_internal_event, &timeout);
 
         /* set a callback to set per-connection hooks (via a post_accept cb) */
-        evhtp_set_post_accept_cb(m_htp, &HttpServer::register_connection_handlers, (void *)this);
+        evhtp_set_post_accept_cb(m_htp, &HttpServer::register_connection_handlers, (void*)this);
 
         // set read and write timeouts
         evhtp_set_timeouts(m_htp, &timeout, &timeout);
@@ -409,7 +392,7 @@ private:
         for (auto& handler : m_handlers) {
             evhtp_set_cb(m_htp, handler.m_uri.c_str(), handler.m_callback, handler.m_arg);
         }
-        evhtp_set_gencb(m_htp, (evhtp_callback_cb)default_request_handler, (void *)this);
+        evhtp_set_gencb(m_htp, (evhtp_callback_cb)default_request_handler, (void*)this);
 
         // bind a socket
         error = evhtp_bind_socket(m_htp, m_cfg.bind_address.c_str(), uint16_t(m_cfg.server_port), 128);
@@ -426,16 +409,14 @@ private:
 
         // Notify the caller that we are ready.
         {
-            std::lock_guard <std::mutex> lk(m_mutex);
+            std::lock_guard< std::mutex > lk(m_mutex);
             m_is_running = true;
         }
         m_ready_cv.notify_one();
 
         // start event loop, this will block the thread.
         error = event_base_loop(m_ev_base, 0);
-        if (error != 0) {
-            LOGERROR("Error starting Http listener loop");
-        }
+        if (error != 0) { LOGERROR("Error starting Http listener loop"); }
 
         m_is_running = false;
 
@@ -451,13 +432,14 @@ private:
         // finally free event base
         event_base_free(m_ev_base);
 
+        LOGINFO("Exiting http server event loop.");
         return error;
     }
 
     void _internal_event_handler(evutil_socket_t, short events) {
         m_mutex.lock();
         while (!m_event_list.empty()) {
-            auto &c = m_event_list.front();
+            auto& c = m_event_list.front();
             m_event_list.pop_front();
             m_mutex.unlock();
 
@@ -470,21 +452,18 @@ private:
                 LOGERROR("Unknown internal event type {} ", c.m_event_type);
                 break;
             }
-            delete(&c);
+            delete (&c);
 
             m_mutex.lock();
         }
         m_mutex.unlock();
-
     }
 
     void http_OK(HttpCallData cd) {
         evhtp_request_t* req = cd->request();
 
         auto conn = evhtp_request_get_connection(req);
-        if (m_cfg.is_tls_enabled) {
-            htp_sslutil_add_xheaders(req->headers_out, conn->ssl, HTP_SSLUTILS_XHDR_ALL);
-        }
+        if (m_cfg.is_tls_enabled) { htp_sslutil_add_xheaders(req->headers_out, conn->ssl, HTP_SSLUTILS_XHDR_ALL); }
         if (cd->m_content_type) {
             evhtp_headers_add_header(req->headers_out, evhtp_header_new("Content-Type", cd->m_content_type, 0, 0));
         }
@@ -521,14 +500,14 @@ private:
         evhtp_send_reply(req, cd->m_http_code);
     }
 
-    static void internal_event_handler(evutil_socket_t socket, short events, void *user_data) {
-        HttpServer *server = (HttpServer *)user_data;
+    static void internal_event_handler(evutil_socket_t socket, short events, void* user_data) {
+        HttpServer* server = (HttpServer*)user_data;
         server->_internal_event_handler(socket, events);
     }
 
-    std::unique_ptr<evhtp_ssl_cfg_t> get_ssl_opts_() {
+    std::unique_ptr< evhtp_ssl_cfg_t > get_ssl_opts_() {
         struct stat f_stat;
-        auto ssl_config = std::make_unique<evhtp_ssl_cfg_t>();
+        auto ssl_config = std::make_unique< evhtp_ssl_cfg_t >();
 
         ssl_config->ssl_opts = 0; // SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1;
         ssl_config->pemfile = (char*)m_cfg.tls_cert_path.c_str();
@@ -553,7 +532,7 @@ private:
 
 private:
     HttpServerConfig m_cfg;
-    std::unique_ptr<std::thread> m_http_thread;
+    std::unique_ptr< std::thread > m_http_thread;
     std::vector< _handler_info > m_handlers;
 
     // Maintaining a list of pipe events because multiple threads could add events at the same time.
@@ -563,7 +542,7 @@ private:
 
     mutable evbase_t* m_ev_base;
     evhtp_t* m_htp;
-    struct event *m_internal_event;
+    struct event* m_internal_event;
 
     bool m_is_running = false;
     std::condition_variable m_ready_cv;
