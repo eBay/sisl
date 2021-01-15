@@ -405,7 +405,7 @@ private:
             return error;
         }
 
-        LOGINFO("HTTP Server started at port: {}", m_cfg.server_port);
+        LOGINFO("HTTP Server started at port: {}, version: {}", m_cfg.server_port, PACKAGE_VERSION);
 
         // Notify the caller that we are ready.
         {
