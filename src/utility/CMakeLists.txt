@@ -16,3 +16,10 @@ set(TEST_STATUS_FACTORY
 add_executable(test_status_factory ${TEST_STATUS_FACTORY})
 target_link_libraries(test_status_factory ${CONAN_LIBS})
 add_test(NAME StatusFactoryTest COMMAND test_status_factory)
+
+set(TEST_ENUM
+    tests/test_enum.cpp
+   )
+add_executable(test_enum  ${TEST_ENUM})
+target_link_libraries(test_enum  ${CONAN_LIBS})
+add_test(NAME EnumTest COMMAND test_enum)

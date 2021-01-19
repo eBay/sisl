@@ -5,139 +5,149 @@
 #ifndef SISL_ENUM_HPP
 #define SISL_ENUM_HPP
 
+#include <cstdlib>
+#include <iostream>
 #include <iterator>
-#include <map>
 #include <ostream>
 #include <regex>
 #include <sstream>
 #include <string>
 #include <type_traits>
-#include <vector>
+#include <unordered_map>
 
-// #define DECL_ENUM_NAMES(enum_type, enum_values)
-//     template <typename T> const char* get_##enum_type##_name(T enum_value) {
-//         static char const* const enum_##enum_type##_str[] = {enum_values 0};
-//         if (enum_value >= enum_type##_count || enum_value < 0)
-//             return "???";
-//         else
-//             return enum_##enum_type##_str[enum_value];
-//     }
-//     std::ostream& operator<<(std::ostream& os, enum enum_type rs);
+template < typename EnumType >
+class EnumSupportBase {
+public:
+    typedef EnumType enum_type;
+    typedef std::underlying_type_t< enum_type > underlying_type;
+    static_assert(std::is_enum_v< enum_type >, "Type must be an enum type.");
+    EnumSupportBase(const std::string& tokens_string) {
+        underlying_type last_value{};
+        size_t current_pos{0};
+        auto trim{[](const std::string& str, const std::string& whitespace = " \t") -> std::string {
+            const size_t str_begin{str.find_first_not_of(whitespace)};
+            if (str_begin == std::string::npos) return ""; // no content
 
-struct EnumSupportBase {
-    static const inline std::string UNKNOWN = "???";
+            const size_t str_end{str.find_last_not_of(whitespace)};
+            return str.substr(str_begin, str_end - str_begin + 1);
+        }};
+        auto evaluate{[&trim](const std::string& str) {
+            const size_t lshift_pos{str.find("<<", 0)};
+            if (lshift_pos != std::string::npos)
+            {
+                // evaluate left shift
+                size_t idx1{}, idx2{};
+                const auto lhs{std::stoull(trim(str.substr(0, lshift_pos)), &idx1, 0)};
+                const auto rhs{std::stoull(trim(str.substr(lshift_pos + 2)), &idx2, 0)};
+                const auto val{lhs << rhs};
+                return std::to_string(val);
+            }
+            // maybe in future provide evaluator for simple expressions
+            return str;
+        }};
+        while (current_pos < tokens_string.size()) {
+            const size_t delim{tokens_string.find_first_of(",=", current_pos)};
+            const std::string token{trim(tokens_string.substr(current_pos, delim - current_pos))};
+            if ((delim != std::string::npos) && (tokens_string[delim] == '=')) {
+                const size_t comma_pos{tokens_string.find(',', delim + 1)};
+                const size_t length{comma_pos != std::string::npos ? comma_pos - delim : comma_pos};
+                const std::string val_string{evaluate(trim(tokens_string.substr(delim + 1, length)))};
+                size_t idx{0};
+                if constexpr (std::is_unsigned_v< underlying_type >) {
+                    last_value = static_cast< underlying_type >(std::stoull(val_string, &idx, 0));
+                } else {
+                    last_value = static_cast< underlying_type >(std::stoll(val_string, &idx, 0));
+                }
+                current_pos = ((comma_pos != std::string::npos) ? comma_pos + 1 : comma_pos);
+            } else {
+                if (m_value_to_tokens.size() != 0) ++last_value;
+                current_pos = ((delim != std::string::npos) ? delim + 1 : delim);
+            }
+            //std::cout << token << ' ' << last_value << std::endl;
+            m_value_to_tokens[last_value] = token;
+            m_token_to_value[token] = last_value;
+        }
+    }
+    EnumSupportBase(const EnumSupportBase&) = delete;
+    EnumSupportBase(EnumSupportBase&&) noexcept = delete;
+    EnumSupportBase& operator=(const EnumSupportBase&) = delete;
+    EnumSupportBase& operator=(EnumSupportBase&&) noexcept = delete;
+    ~EnumSupportBase() = default;
 
-    static std::vector< std::string > split(const std::string& s,
-                                            const std::regex& delim = std::regex("\\s*(=[^\\s+]\\s*)?,\\s*")) {
-        std::vector< std::string > tokens{};
-        std::copy(std::regex_token_iterator< std::string::const_iterator >(std::cbegin(s), std::cend(s), delim, -1),
-             std::regex_token_iterator< std::string::const_iterator >(), back_inserter(tokens));
-        return tokens;
+    [[nodiscard]] const std::string& get_name(const enum_type enum_value) const {
+        static const std::string unknown{"???"};
+        const underlying_type val{static_cast< underlying_type >(enum_value)};
+        const auto itr{m_value_to_tokens.find(val)};
+        if (itr == std::cend(m_value_to_tokens))
+            return unknown;
+        else
+            return itr->second;
     }
 
-    //    static std::vector<std::string> split(const std::string s, char delim) {
-    //        std::stringstream ss(s);
-    //        std::string item;
-    //        std::vector<std::string> tokens;
-    //        while (std::getline(ss, item, delim)) {
-    //            auto pos = item.find_first_of ('=');
-    //            if (pos != std::string::npos)
-    //                item.erase (pos);
-    //            boost::trim (item);
-    //            tokens.push_back(item);
-    //        }
-    //        return tokens;
-    //    }
+    [[nodiscard]] enum_type get_enum(const std::string& name) const {
+        const auto itr{m_token_to_value.find(name)};
+        if (itr == std::cend(m_token_to_value))
+            return static_cast<enum_type>(0);
+        else
+            return static_cast<enum_type>(itr->second);
+    }
+
+private:
+    std::unordered_map< underlying_type, std::string > m_value_to_tokens;
+    std::unordered_map< std::string, underlying_type > m_token_to_value;
 };
+
+#define VENUM(EnumName, Underlying, ...) ENUM(EnumName, Underlying, __VA_ARGS__) 
 
 #define ENUM(EnumName, Underlying, ...)                                                                                \
-    enum class EnumName : Underlying { __VA_ARGS__, _count };                                                          \
-                                                                                                                       \
-    struct EnumName##Support : EnumSupportBase {                                                                       \
-        static inline const std::vector< std::string > s_token_names = split(#__VA_ARGS__ /*, ','*/);                  \
-        static inline const std::string& get_name(const EnumName enum_value) {                                         \
-            const Underlying index{ static_cast < Underlying >(enum_value) };                                          \
-            if constexpr (std::is_signed_v< Underlying >) {                                                                \
-                if ((index >= static_cast< Underlying >(EnumName::_count)) || (index < 0))                             \
-                    return EnumSupportBase::UNKNOWN;                                                                   \
-                else                                                                                                   \
-                    return s_token_names[index];                                                                       \
-            }                                                                                                          \
-            else {                                                                                                     \
-                if ((index >= static_cast< Underlying >(EnumName::_count)))                                            \
-                    return EnumSupportBase::UNKNOWN;                                                                   \
-                else                                                                                                   \
-                    return s_token_names[index];                                                                       \
-            }                                                                                                          \
-        }                                                                                                              \
-    };                                                                                                                 \
-    template < typename charT, typename traits >                                                                       \
-    std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& outStream,                    \
-                                                    const EnumName& es) {                                              \
-        std::basic_ostringstream< charT, traits > outStringStream;                                                     \
-        outStringStream.copyfmt(outStream);                                                                            \
-        outStringStream << EnumName##Support::get_name(es);                                                            \
-        outStream << outStringStream.str();                                                                            \
-        return outStream;                                                                                              \
-    }                                                                                                                  \
-    static inline const std::string& enum_name(const EnumName& es) { return EnumName##Support::get_name(es); }
-
-//////////////////// VENUM - Value assigned for enum ///////////
-struct VEnumSupportBase {
-    static const inline std::string UNKNOWN{"???"};
-
-    template< typename UnderlyingType >
-    static std::map< UnderlyingType, std::string >
-    split(std::string s, const std::regex& delim = std::regex("([^,\\s]+)\\s*=\\s*([\\d]+)")) {
-        std::map< UnderlyingType, std::string > tokens;
-        std::for_each(std::sregex_iterator(std::cbegin(s), std::cend(s), delim), std::sregex_iterator(),
-                      [&](std::smatch const& match)
-                      {
-                          if constexpr (std::is_unsigned_v< UnderlyingType >) {
-                              tokens[static_cast< UnderlyingType >(std::stoull(match[2]))] = match[1];
-                          } else {
-                              tokens[static_cast< UnderlyingType >(std::stoll(match[2]))] = match[1];
-                          }
-                      });
-        return tokens;
-    }
-};
-
-#define VENUM(EnumName, Underlying, ...)                                                                               \
     enum class EnumName : Underlying { __VA_ARGS__ };                                                                  \
                                                                                                                        \
-    struct EnumName##Support : VEnumSupportBase {                                                                      \
-        static inline const std::map< Underlying, std::string > m_token_names = split<Underlying>(#__VA_ARGS__);       \
-        static inline const std::string& get_name(const EnumName enum_value) {                                         \
-            const auto n{ m_token_names.find(static_cast < Underlying >(enum_value)) };                                \
-            if (n == std::cend(m_token_names))                                                                         \
-                return VEnumSupportBase::UNKNOWN;                                                                      \
-            else                                                                                                       \
-                return n->second;                                                                                      \
-        }                                                                                                              \
+    struct EnumName##Support : EnumSupportBase<EnumName> {                                                             \
+        typedef EnumName enum_type;                                                                                    \
+        typedef std::underlying_type_t< enum_type > underlying_type;                                                   \
+        EnumName##Support(const std::string tokens) :                                                                  \
+            EnumSupportBase< enum_type >{tokens} {};                                                                   \
+        EnumName##Support(const EnumName##Support&) = delete;                                                          \
+        EnumName##Support(EnumName##Support&&) noexcept = delete;                                                      \
+        EnumName##Support& operator=(const EnumName##Support&) = delete;                                               \
+        EnumName##Support& operator=(EnumName##Support&&) noexcept = delete;                                           \
+       ~EnumName##Support() = default;                                                                                 \
+        static EnumName##Support& instance() {                                                                         \
+            static EnumName##Support s_instance{#__VA_ARGS__};                                                         \
+            return s_instance;                                                                                         \
+        };                                                                                                             \
     };                                                                                                                 \
-                                                                                                                       \
-    inline EnumName operator|(EnumName a, EnumName b) {                                                                \
-        return static_cast< EnumName >(static_cast< std::underlying_type_t< EnumName > >(a) |                          \
-                                       static_cast< std::underlying_type_t< EnumName > >(b));                          \
+    [[nodiscard]] inline EnumName##Support::enum_type operator|(const EnumName##Support::enum_type a,                  \
+                                                                const EnumName##Support::enum_type b) {                \
+        return static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) |      \
+                                                           static_cast< EnumName##Support::underlying_type >(b));      \
     }                                                                                                                  \
-    inline EnumName operator&(EnumName a, EnumName b) {                                                                \
-        return static_cast< EnumName >(static_cast< std::underlying_type_t< EnumName > >(a) &                          \
-                                       static_cast< std::underlying_type_t< EnumName > >(b));                          \
+    [[nodiscard]] inline EnumName##Support::enum_type operator&(const EnumName##Support::enum_type a,                  \
+                                                            const EnumName##Support::enum_type b) {                    \
+        return static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &      \
+                                                           static_cast< EnumName##Support::underlying_type >(b));      \
     }                                                                                                                  \
-    inline EnumName& operator|=(EnumName& a, EnumName b) {                                                             \
-        return a = static_cast< EnumName >(static_cast< std::underlying_type_t< EnumName > >(a) |                      \
-                                           static_cast< std::underlying_type_t< EnumName > >(b));                      \
+    [[maybe_unused]] inline EnumName##Support::enum_type operator|=(EnumName##Support::enum_type& a,                   \
+                                                             const EnumName##Support::enum_type b) {                   \
+        return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) |  \
+                                                               static_cast< EnumName##Support::underlying_type >(b));  \
+    }                                                                                                                  \
+    [[maybe_unused]] inline EnumName##Support::enum_type operator&=(EnumName##Support::enum_type& a,                   \
+                                                             const EnumName##Support::enum_type b) {                   \
+        return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &  \
+                                                               static_cast< EnumName##Support::underlying_type >(b));  \
     }                                                                                                                  \
     template < typename charT, typename traits >                                                                       \
-    std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& outStream,                    \
-                                                    const EnumName& es) {                                              \
-        std::basic_ostringstream< charT, traits > outStringStream;                                                     \
-        outStringStream.copyfmt(outStream);                                                                            \
-        outStringStream << EnumName##Support::get_name(es);                                                            \
-        outStream << outStringStream.str();                                                                            \
-        return outStream;                                                                                              \
+    std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& out_stream,                   \
+                                                    const EnumName##Support::enum_type es) {                           \
+        std::basic_ostringstream< charT, traits > out_stream_copy{};                                                   \
+        out_stream_copy.copyfmt(out_stream);                                                                           \
+        out_stream_copy << EnumName##Support::instance().get_name(es);                                                 \
+        out_stream << out_stream_copy.str();                                                                           \
+        return out_stream;                                                                                             \
     }                                                                                                                  \
-    static inline const std::string& enum_name(const EnumName& es) { return EnumName##Support::get_name(es); }
+    [[nodiscard]] inline const std::string& enum_name(const EnumName##Support::enum_type es) {                         \
+        return EnumName##Support::instance().get_name(es);                                                             \
+    }
 
 #endif // SISL_ENUM_HPP
