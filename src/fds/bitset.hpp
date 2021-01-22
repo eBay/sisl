@@ -222,30 +222,44 @@ public:
         return ret;
     }
 
-    uint64_t get_set_count() const {
+    uint64_t get_set_count(const uint64_t start_bit = 0, const uint64_t end_bit = std::numeric_limits<uint64_t>::max()) const {
+        assert(end_bit >= start_bit);
+        const uint64_t last_bit{std::min(total_bits() - 1, end_bit)};
+        const uint64_t num_bits{last_bit - start_bit + 1};
+
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
         // get first word count which may be partial and we assume that at least 1 word worth of bits
         uint64_t set_cnt{0};
-        const Word* word_ptr{get_word_const(0)};
-        const uint8_t offset{get_word_offset(0)};
-        set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
-
-        // count rest of words
-        const uint64_t word_skip_bits{static_cast<uint64_t>(Word::bits() - offset)};
-        uint64_t bits_remaining{word_skip_bits > total_bits() ? 0 : total_bits() - word_skip_bits};
-        while (bits_remaining >= Word::bits()) {
-            set_cnt += (++word_ptr)->get_set_count();
-            bits_remaining -= Word::bits();
+        const Word* word_ptr{get_word_const(start_bit)};
+        if (word_ptr == nullptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return set_cnt;
         }
+        const uint8_t offset{get_word_offset(start_bit)};
+        if ((offset + num_bits) <= Word::bits()) {
+            // all bits in first word
+            const uint8_t shift{static_cast< uint8_t >(Word::bits() - num_bits)};
+            const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> (shift - start_bit)};
+            set_cnt += get_set_bit_count(word_ptr->to_integer() & mask);
+        } else {
+            set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
 
-        // count last possibly partial word
-        if (bits_remaining) {
-            const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
-            const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
-            set_cnt += get_set_bit_count((++word_ptr)->to_integer() & mask);
+            // count rest of words
+            const uint64_t word_skip_bits{static_cast< uint64_t >(Word::bits() - offset)};
+            uint64_t bits_remaining{word_skip_bits >= num_bits ? 0 : num_bits - word_skip_bits};
+            while (bits_remaining >= Word::bits()) {
+                set_cnt += (++word_ptr)->get_set_count();
+                bits_remaining -= Word::bits();
+            }
+
+            // count last possibly partial word
+            if (bits_remaining) {
+                const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
+                const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
+                set_cnt += get_set_bit_count((++word_ptr)->to_integer() & mask);
+            }
         }
-
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return set_cnt;
     }
@@ -409,7 +423,7 @@ public:
         BitBlock retb{start_bit, 0};
         uint8_t offset{get_word_offset(start_bit)};
         uint64_t current_bit{start_bit};
-        const uint64_t final_bit{end_bit ? std::min(*end_bit, total_bits()) : total_bits()};
+        const uint64_t final_bit{end_bit ? std::min(*end_bit + 1, total_bits()) : total_bits()};
         const Word* word_ptr{get_word_const(current_bit)};
         if (word_ptr == nullptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }

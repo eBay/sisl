@@ -242,10 +242,25 @@ void run_parallel(const uint64_t total_bits, const uint32_t nthreads,
 }
 } // namespace
 
-TEST_F(BitsetTest, TestSetCount)
+TEST_F(BitsetTest, TestSetCountWithShift)
 {
     m_bset.set_bits(0, g_total_bits);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits);
+
+    // test same first word 
+    ASSERT_EQ(m_bset.get_set_count(m_bset.word_size() - 4, m_bset.word_size() - 1), static_cast<uint64_t>(4));
+    ASSERT_EQ(m_bset.get_set_count(0, m_bset.word_size() - 1), m_bset.word_size());
+
+    const uint64_t start1{static_cast<uint64_t>(m_bset.word_size() / 2)};
+    ASSERT_EQ(m_bset.get_set_count(start1), g_total_bits - start1);
+    const uint64_t start2{m_bset.word_size()};
+    ASSERT_EQ(m_bset.get_set_count(start2), g_total_bits - start2);
+    ASSERT_EQ(m_bset.get_set_count(0, g_total_bits - 1 - start1), g_total_bits - start1);
+    ASSERT_EQ(m_bset.get_set_count(0, g_total_bits - 1 - start2), g_total_bits - start2);
+    ASSERT_EQ(m_bset.get_set_count(start1, g_total_bits - 1 - start1), g_total_bits - 2 * start1);
+    ASSERT_EQ(m_bset.get_set_count(start1, g_total_bits - 1 - start2), g_total_bits - start1 - start2);
+    ASSERT_EQ(m_bset.get_set_count(0, g_total_bits - 1 - start2), g_total_bits - start2);
+    ASSERT_EQ(m_bset.get_set_count(start2, g_total_bits - 1- start1), g_total_bits - start1 - start2);
 
     // offset right a partial word
     const uint64_t offset1{4};
@@ -261,6 +276,30 @@ TEST_F(BitsetTest, TestSetCount)
     const uint64_t offset3{static_cast< uint64_t > (m_bset.word_size() - ((offset1 + offset2) % m_bset.word_size()))};
     m_bset.shrink_head(offset3);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2 + offset3));
+}
+
+TEST_F(BitsetTest, TestSetCount) {
+    m_bset.set_bits(0, g_total_bits);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits);
+
+    // reset word bits aligned to word size
+    const auto word_size{m_bset.word_size()};
+    m_bset.reset_bits(0, word_size);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - word_size);
+
+    // reset word bits beginning and end of word and middle of word
+    m_bset.reset_bits(2 * word_size, word_size/2);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - word_size - word_size/2);
+    m_bset.reset_bits(3 * word_size + word_size / 2, word_size / 2);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 2* word_size);
+    m_bset.reset_bits(4 * word_size + word_size / 4, word_size / 2);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 2 * word_size - word_size / 2);
+
+    // reset multiple words
+    m_bset.reset_bits(10 * word_size, 2 * word_size);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 4 * word_size - word_size / 2);
+    m_bset.reset_bits(13 * word_size + word_size / 2, 2 * word_size);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 6 * word_size - word_size / 2);
 }
 
 TEST_F(BitsetTest, TestPrint) {
@@ -295,9 +334,14 @@ TEST_F(BitsetTest, TestIsSetReset) {
 
 TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
     m_bset.set_bits(0, g_total_bits);
+
     m_bset.reset_bits(1, 2);
     m_bset.reset_bits(64, 4);
     m_bset.reset_bits(127, 8);
+
+    const auto result0{m_bset.get_next_contiguous_n_reset_bits(1, 1)};
+    ASSERT_EQ(result0.start_bit, static_cast< uint64_t >(1));
+    ASSERT_EQ(result0.nbits, static_cast< uint32_t >(1));
 
     const auto result1{m_bset.get_next_contiguous_n_reset_bits(0, 2)};
     ASSERT_EQ(result1.start_bit, static_cast< uint64_t >(1));
@@ -341,6 +385,18 @@ TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
     const auto result10{m_bset.get_next_contiguous_n_reset_bits(0, std::optional< uint64_t >{}, 16, 16)};
     ASSERT_EQ(result10.start_bit, decltype(m_bset)::npos);
     ASSERT_EQ(result10.nbits, static_cast< uint32_t >(0));
+
+    // test range of bits
+    m_bset.reset_bits(256, 64);
+    const auto result11{m_bset.get_next_contiguous_n_reset_bits(256, std::optional< uint64_t >{256 + 63}, 64, 64)};
+    ASSERT_EQ(result11.start_bit, static_cast< uint64_t >(256));
+    ASSERT_EQ(result11.nbits, static_cast< uint32_t >(64));
+    const auto result12{m_bset.get_next_contiguous_n_reset_bits(256 + 32, std::optional< uint64_t >{256 + 63}, 32, 32)};
+    ASSERT_EQ(result12.start_bit, static_cast< uint64_t >(256 + 32));
+    ASSERT_EQ(result12.nbits, static_cast< uint32_t >(32));
+    const auto result13{m_bset.get_next_contiguous_n_reset_bits(256, std::optional< uint64_t >{256 + 31}, 32, 32)};
+    ASSERT_EQ(result13.start_bit, static_cast< uint64_t >(256));
+    ASSERT_EQ(result13.nbits, static_cast< uint32_t >(32));
 }
 
 TEST_F(BitsetTest, AlternateSetAndShrink) {

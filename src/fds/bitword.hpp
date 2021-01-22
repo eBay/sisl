@@ -556,16 +556,17 @@ std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, trait
 template < typename WType >
 class unsafe_bits {
 public:
-    typedef WType word_t;
+    typedef std::decay_t<WType> word_t;
+    static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
 
-    unsafe_bits(const WType& t = static_cast< WType >(0)) : m_Value(t) {}
+    unsafe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value(t) {}
     unsafe_bits(const unsafe_bits&) = delete;
     unsafe_bits(unsafe_bits&&) noexcept = delete;
     unsafe_bits& operator=(const unsafe_bits&) = delete;
     unsafe_bits& operator=(unsafe_bits&&) noexcept = delete;
 
-    void set(const WType& value) { m_Value = value; }
-    bool set_if(const WType& old_value, const WType& new_value) {
+    void set(const word_t& value) { m_Value = value; }
+    bool set_if(const word_t& old_value, const word_t& new_value) {
         if (m_Value == old_value) {
             m_Value = new_value;
             return true;
@@ -573,56 +574,57 @@ public:
         return false;
     }
 
-    WType or_with(const uint64_t value) {
+    word_t or_with(const word_t value) {
         m_Value |= value;
         return m_Value;
     }
 
-    WType and_with(const uint64_t value) {
+    word_t and_with(const word_t value) {
         m_Value &= value;
         return m_Value;
     }
 
-    WType right_shift(const uint8_t nbits) {
+    word_t right_shift(const uint8_t nbits) {
         m_Value >>= nbits;
         return m_Value;
     }
 
-    WType get() const { return m_Value; }
+    word_t get() const { return m_Value; }
 
 private:
-    WType m_Value;
+    word_t m_Value;
 };
 
 template < typename WType >
 class safe_bits {
 public:
-    typedef WType word_t;
+    typedef std::decay_t<WType> word_t;
+    static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
 
-    safe_bits(const WType& t = static_cast< WType >(0)) : m_Value{t} {}
+    safe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     safe_bits(const safe_bits&) = delete;
     safe_bits(safe_bits&&) noexcept = delete;
     safe_bits& operator=(const safe_bits&) = delete;
     safe_bits& operator=(safe_bits&&) noexcept = delete;
 
-    void set(const WType& bits) { m_Value.store(bits, std::memory_order_relaxed); }
-    void set_if(const WType& old_value, const WType& new_value) {
+    void set(const word_t& bits) { m_Value.store(bits, std::memory_order_relaxed); }
+    void set_if(const word_t& old_value, const word_t& new_value) {
         return m_Value.compare_exchange_strong(old_value, new_value, std::memory_order_relaxed);
     }
 
-    WType or_with(const uint64_t value) {
-        const auto old_value{m_Value.fetch_or(value, std::memory_order_relaxed)};
+    word_t or_with(const word_t value) {
+        const word_t old_value{m_Value.fetch_or(value, std::memory_order_relaxed)};
         return (old_value | value);
     }
 
-    WType and_with(const uint64_t value) {
-        const auto old_value{m_Value.fetch_and(value, std::memory_order_relaxed)};
+    word_t and_with(const word_t value) {
+        const word_t old_value{m_Value.fetch_and(value, std::memory_order_relaxed)};
         return (old_value & value);
     }
 
-    WType right_shift(const uint8_t nbits) {
-        WType old_value{m_Value.get(std::memory_order_acquire)};
-        WType new_value{old_value >> nbits};
+    word_t right_shift(const uint8_t nbits) {
+        word_t old_value{m_Value.get(std::memory_order_acquire)};
+        word_t new_value{old_value >> nbits};
         while (!m_Value.compare_exchange_weak(old_value, new_value, std::memory_order_acq_rel)) {
             old_value = m_Value.get(std::memory_order_acquire);
             new_value = old_value >> nbits;
@@ -630,9 +632,9 @@ public:
 
         return new_value;
     }
-    WType get() const { return m_Value.load(std::memory_order_relaxed); }
+    word_t get() const { return m_Value.load(std::memory_order_relaxed); }
 
 private:
-    std::atomic< WType > m_Value;
+    std::atomic< word_t > m_Value;
 };
 } // namespace sisl
