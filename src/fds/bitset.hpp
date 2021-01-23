@@ -17,12 +17,12 @@
 #include <vector>
 
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-    #include <folly/SharedMutex.h>
+#include <folly/SharedMutex.h>
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif
 
 #include <sds_logging/logging.h>
@@ -222,7 +222,16 @@ public:
         return ret;
     }
 
-    uint64_t get_set_count(const uint64_t start_bit = 0, const uint64_t end_bit = std::numeric_limits<uint64_t>::max()) const {
+    /**
+     * @brief Get the number of bits set in the range [start_bit, end_bit] inclusive
+     *
+     * @param start_bit Start bit to search from
+     * @param end_bit End bit to search to inclusive; if larger than total bits to end
+     *
+     * @return returns the number of bits set
+     */
+    uint64_t get_set_count(const uint64_t start_bit = 0,
+                           const uint64_t end_bit = std::numeric_limits< uint64_t >::max()) const {
         assert(end_bit >= start_bit);
         const uint64_t last_bit{std::min(total_bits() - 1, end_bit)};
         const uint64_t num_bits{last_bit - start_bit + 1};
@@ -403,7 +412,7 @@ public:
      *
      * @param start_bit Start bit to search from
      * @param n Count of required continuous reset bits
-     * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+     * @return BitBlock Returns a BitBlock which provides the start bit and total number of bits found. Caller need to
      * check if returned count satisfies what is asked for.
      */
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
@@ -415,7 +424,18 @@ public:
         return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
     }
 
-
+    /**
+     * @brief Get the next contiguous [min_needed, max_needed] inclusive reset bits in the range
+     * [start_bit, end_bit] inclusive
+     *
+     * @param start_bit Start bit to search from
+     * @param end_bit Optional End bit to search to inclusive; otherwise to end of set
+     * @param min_needed Minimum number of reset bits needed
+     * @param max_needed Maximum number of reset bits needed
+     *
+     * @return BitBlock Returns a BitBlock which provides the start bit and total number of bits found. Caller need to
+     * check if returned count satisfies what is asked for.
+     */
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const std::optional< uint64_t > end_bit,
                                               const uint32_t min_needed, const uint32_t max_needed) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
@@ -481,7 +501,7 @@ public:
         } else {
             retb.start_bit = npos;
         }
-   
+
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return retb;
     }
