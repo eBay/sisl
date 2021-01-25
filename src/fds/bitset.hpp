@@ -554,7 +554,7 @@ public:
         const uint8_t offset{get_word_offset(0)};
         const uint8_t valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
 
-        word_t val{word_ptr->to_integer() >> offset};
+        word_t val{static_cast< word_t >(word_ptr->to_integer() >> offset)};
         word_t mask{static_cast< word_t >(bit_mask[valid_bits - 1])};
         for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
             output.push_back((((val & mask) == mask) ? '1' : '0'));
