@@ -59,8 +59,10 @@ struct BitBlock {
 
 template < typename Word, bool ThreadSafeResizing = false >
 class BitsetImpl {
+public:
     static_assert(Word::bits() == 8 || Word::bits() == 16 || Word::bits() == 32 || Word::bits() == 64,
                   "Word::bits() must be power of two in size");
+    typedef typename Word::word_t word_t;
 
 private:
 #pragma pack(1)
@@ -249,7 +251,7 @@ public:
         if ((offset + num_bits) <= Word::bits()) {
             // all bits in first word
             const uint8_t shift{static_cast< uint8_t >(Word::bits() - num_bits)};
-            const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> (shift - start_bit)};
+            const word_t mask{static_cast< word_t >(((~static_cast< word_t >(0)) << shift) >> (shift - start_bit))};
             set_cnt += get_set_bit_count(word_ptr->to_integer() & mask);
         } else {
             set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
@@ -265,8 +267,8 @@ public:
             // count last possibly partial word
             if (bits_remaining) {
                 const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
-                const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
-                set_cnt += get_set_bit_count((++word_ptr)->to_integer() & mask);
+                const word_t mask{static_cast< word_t >(((~static_cast< word_t >(0)) << shift) >> shift)};
+                set_cnt += get_set_bit_count(((++word_ptr)->to_integer()) & mask);
             }
         }
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
@@ -388,7 +390,7 @@ public:
             throw std::out_of_range("Right shift to out of range");
         } else {
             m_s->m_skip_bits += nbits;
-            if (m_s->m_skip_bits >= compaction_threshold()) { _resize(total_bits(), false); }
+            if (m_s->m_skip_bits >= compaction_threshold()) { resizeImpl(total_bits(), false); }
         }
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
@@ -403,7 +405,7 @@ public:
      */
     void resize(const uint64_t nbits, const bool value = false) {
         if (ThreadSafeResizing) { m_lock.lock(); }
-        _resize(nbits, value);
+        resizeImpl(nbits, value);
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
@@ -552,8 +554,8 @@ public:
         const uint8_t offset{get_word_offset(0)};
         const uint8_t valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
 
-        typename Word::word_t val{word_ptr->to_integer() >> offset};
-        typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[valid_bits - 1])};
+        word_t val{word_ptr->to_integer() >> offset};
+        word_t mask{static_cast< word_t >(bit_mask[valid_bits - 1])};
         for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
             output.push_back((((val & mask) == mask) ? '1' : '0'));
         }
@@ -561,7 +563,7 @@ public:
         // print whole words
         uint64_t bits_remaining{valid_bits > total_bits() ? 0 : total_bits() - valid_bits};
         while (bits_remaining >= Word::bits()) {
-            typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[Word::bits() - 1])};
+            word_t mask{static_cast< word_t >(bit_mask[Word::bits() - 1])};
             val = (++word_ptr)->to_integer();
             for (uint8_t bit{0}; bit < Word::bits(); ++bit, mask >>= 1) {
                 output.push_back((((val & mask) == mask) ? '1' : '0'));
@@ -571,7 +573,7 @@ public:
 
         // print last possibly partial word
         if (bits_remaining > 0) {
-            typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[bits_remaining - 1])};
+            word_t mask{static_cast< word_t >(bit_mask[bits_remaining - 1])};
             val = (++word_ptr)->to_integer();
             for (uint8_t bit{0}; bit < bits_remaining; ++bit, mask >>= 1) {
                 output.push_back((((val & mask) == mask) ? '1' : '0'));
@@ -662,7 +664,7 @@ private:
         return (bits_remaining == 0);
     }
 
-    void _resize(const uint64_t nbits, const bool value) {
+    void resizeImpl(const uint64_t nbits, const bool value) {
         // We use the resize opportunity to compact bits. So we only to need to allocate nbits + first word skip
         // list size. Rest of them will be compacted.
         const uint64_t shrink_words{m_s->m_skip_bits / Word::bits()};

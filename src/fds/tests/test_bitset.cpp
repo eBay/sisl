@@ -8,7 +8,6 @@
 #include <thread>
 #include <vector>
 
-
 #include <boost/dynamic_bitset.hpp>
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
@@ -62,7 +61,7 @@ public:
         std::unique_lock l(m_mutex);
         // LOGINFO("ShadowBitset next reset request bit={}", start_bit);
         const uint64_t offset_bit{(start_bit == 0) ? (~m_bitset).find_first() : (~m_bitset).find_next(start_bit - 1)};
-        for (auto b = offset_bit; b < m_bitset.size(); ++b) {
+        for (auto b{offset_bit}; b < m_bitset.size(); ++b) {
             // LOGINFO("ShadowBitset next reset bit = {}, m_bitset[b]={}", offset_bit, m_bitset[offset_bit]);
             if (!m_bitset[b]) {
                 if (ret.nbits == 0) {
@@ -81,24 +80,24 @@ public:
     }
 
     void shrink_head(const uint64_t nbits) {
-        std::unique_lock l(m_mutex);
+        std::unique_lock l{m_mutex};
         m_bitset >>= nbits;
         m_bitset.resize(m_bitset.size() - nbits);
     }
 
     void resize(const uint64_t new_size) {
-        std::unique_lock l(m_mutex);
+        std::unique_lock l{m_mutex};
         m_bitset.resize(new_size);
     }
 
     bool is_set(const uint64_t bit) {
-        std::unique_lock l(m_mutex);
+        std::unique_lock l{m_mutex};
         return m_bitset[bit];
     }
 
 private:
     void set_or_reset(const uint64_t bit, const bool value) {
-        std::unique_lock l(m_mutex);
+        std::unique_lock l{m_mutex};
         m_bitset[bit] = value;
     }
 
@@ -108,7 +107,7 @@ private:
 
 struct BitsetTest : public testing::Test {
 public:
-    BitsetTest() : testing::Test(), m_total_bits(g_total_bits), m_bset(m_total_bits) {
+    BitsetTest() : testing::Test(), m_total_bits{g_total_bits}, m_bset{m_total_bits} {
         LOGINFO("Initializing new BitsetTest class");
     }
     BitsetTest(const BitsetTest&) = delete;
@@ -174,10 +173,10 @@ protected:
         uint64_t next_bset_bit{0};
 
         do {
-            auto expected_bit = by_set ? m_shadow_bm.get_next_set_bit(next_shadow_bit)
-                                       : m_shadow_bm.get_next_reset_bit(next_shadow_bit);
-            auto actual_bit =
-                by_set ? m_bset.get_next_set_bit(next_bset_bit) : m_bset.get_next_reset_bit(next_bset_bit);
+            const auto expected_bit{by_set ? m_shadow_bm.get_next_set_bit(next_shadow_bit)
+                                           : m_shadow_bm.get_next_reset_bit(next_shadow_bit)};
+            const auto actual_bit{by_set ? m_bset.get_next_set_bit(next_bset_bit)
+                                         : m_bset.get_next_reset_bit(next_bset_bit)};
 
             if (expected_bit == boost::dynamic_bitset<>::npos) {
                 ASSERT_EQ(actual_bit, Bitset::npos) << "Next " << (by_set ? "set" : "reset") << " bit after "
@@ -242,16 +241,17 @@ void run_parallel(const uint64_t total_bits, const uint32_t nthreads,
 }
 } // namespace
 
-TEST_F(BitsetTest, TestSetCountWithShift)
-{
+TEST_F(BitsetTest, TestSetCountWithShift) {
     m_bset.set_bits(0, g_total_bits);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits);
 
-    // test same first word 
-    ASSERT_EQ(m_bset.get_set_count(m_bset.word_size() - 4, m_bset.word_size() - 1), static_cast<uint64_t>(4));
+    // test same first word
+    ASSERT_EQ(m_bset.get_set_count(0, 0), static_cast< uint64_t >(1));
+    ASSERT_EQ(m_bset.get_set_count(m_bset.word_size() - 1, m_bset.word_size() - 1), static_cast< uint64_t >(1));
+    ASSERT_EQ(m_bset.get_set_count(m_bset.word_size() - 4, m_bset.word_size() - 1), static_cast< uint64_t >(4));
     ASSERT_EQ(m_bset.get_set_count(0, m_bset.word_size() - 1), m_bset.word_size());
 
-    const uint64_t start1{static_cast<uint64_t>(m_bset.word_size() / 2)};
+    const uint64_t start1{static_cast< uint64_t >(m_bset.word_size() / 2)};
     ASSERT_EQ(m_bset.get_set_count(start1), g_total_bits - start1);
     const uint64_t start2{m_bset.word_size()};
     ASSERT_EQ(m_bset.get_set_count(start2), g_total_bits - start2);
@@ -260,7 +260,7 @@ TEST_F(BitsetTest, TestSetCountWithShift)
     ASSERT_EQ(m_bset.get_set_count(start1, g_total_bits - 1 - start1), g_total_bits - 2 * start1);
     ASSERT_EQ(m_bset.get_set_count(start1, g_total_bits - 1 - start2), g_total_bits - start1 - start2);
     ASSERT_EQ(m_bset.get_set_count(0, g_total_bits - 1 - start2), g_total_bits - start2);
-    ASSERT_EQ(m_bset.get_set_count(start2, g_total_bits - 1- start1), g_total_bits - start1 - start2);
+    ASSERT_EQ(m_bset.get_set_count(start2, g_total_bits - 1 - start1), g_total_bits - start1 - start2);
 
     // offset right a partial word
     const uint64_t offset1{4};
@@ -268,12 +268,12 @@ TEST_F(BitsetTest, TestSetCountWithShift)
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - offset1);
 
     // offset right more than a word
-    const uint64_t offset2{static_cast<uint64_t>(2 * m_bset.word_size())};
+    const uint64_t offset2{static_cast< uint64_t >(2 * m_bset.word_size())};
     m_bset.shrink_head(offset2);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2));
 
     // offset right an exact multiple of a word
-    const uint64_t offset3{static_cast< uint64_t > (m_bset.word_size() - ((offset1 + offset2) % m_bset.word_size()))};
+    const uint64_t offset3{static_cast< uint64_t >(m_bset.word_size() - ((offset1 + offset2) % m_bset.word_size()))};
     m_bset.shrink_head(offset3);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2 + offset3));
 }
@@ -288,10 +288,10 @@ TEST_F(BitsetTest, TestSetCount) {
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - word_size);
 
     // reset word bits beginning and end of word and middle of word
-    m_bset.reset_bits(2 * word_size, word_size/2);
-    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - word_size - word_size/2);
+    m_bset.reset_bits(2 * word_size, word_size / 2);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - word_size - word_size / 2);
     m_bset.reset_bits(3 * word_size + word_size / 2, word_size / 2);
-    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 2* word_size);
+    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 2 * word_size);
     m_bset.reset_bits(4 * word_size + word_size / 4, word_size / 2);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 2 * word_size - word_size / 2);
 
@@ -318,12 +318,12 @@ TEST_F(BitsetTest, TestPrint) {
 TEST_F(BitsetTest, TestIsSetReset) {
     // test partial word lower half
     const uint8_t word_size{m_bset.word_size()};
-    m_bset.set_bits(0, word_size/2);
+    m_bset.set_bits(0, word_size / 2);
     ASSERT_TRUE(m_bset.is_bits_set(0, word_size / 2));
 
     // test partial word upper half
     m_bset.reset_bits(0, g_total_bits);
-    const uint64_t start_bit1{static_cast<uint64_t>(word_size - (word_size / 2))};
+    const uint64_t start_bit1{static_cast< uint64_t >(word_size - (word_size / 2))};
     m_bset.set_bits(start_bit1, word_size / 2);
     ASSERT_TRUE(m_bset.is_bits_set(start_bit1, word_size / 2));
 
@@ -372,7 +372,7 @@ TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
     ASSERT_EQ(result7.nbits, static_cast< uint32_t >(8));
 
     // test end bit out of range
-    const auto result8{m_bset.get_next_contiguous_n_reset_bits(0, std::optional< uint64_t >{ 2 * g_total_bits}, 16, 16)};
+    const auto result8{m_bset.get_next_contiguous_n_reset_bits(0, std::optional< uint64_t >{2 * g_total_bits}, 16, 16)};
     ASSERT_EQ(result8.start_bit, decltype(m_bset)::npos);
     ASSERT_EQ(result8.nbits, static_cast< uint32_t >(0));
 
@@ -468,7 +468,7 @@ TEST_F(BitsetTest, RandomSetAndShrink) {
 
         LOGINFO("INFO: Setting/Resetting all bits in range[{} - {}] set_pct={}", start, start + count - 1, g_set_pct);
         for (auto i{start}; i < start + count; ++i) {
-            (pct_gen(s_engine) < g_set_pct)  ? set(i, 1) : reset(i, 1);
+            (pct_gen(s_engine) < g_set_pct) ? set(i, 1) : reset(i, 1);
         }
     });
     validate_all(3);
@@ -486,7 +486,7 @@ TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
         LOGINFO("INFO: Setting/Resetting random bits (upto {} max) in range[{} - {}] with set_pct={} for {} iterations",
                 g_max_bits_in_group, start, start + count - 1, g_set_pct, iterations);
 
-        for(uint32_t iter{0}; iter < iterations; ++iter) {
+        for (uint32_t iter{0}; iter < iterations; ++iter) {
             const uint64_t op_bit{bit_gen(s_engine) + start};
             const auto op_count{std::min< uint32_t >(bits_gen(s_engine) + 1, start + count - op_bit)};
             (pct_gen(s_engine) < g_set_pct) ? set(op_bit, op_count) : reset(op_bit, op_count);
@@ -519,7 +519,7 @@ TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
         LOGINFO("INFO: Setting/Resetting random bits (upto {} max) in range[{} - {}] with set_pct={} for {} iterations",
                 g_max_bits_in_group, start, start + count - 1, g_set_pct, iterations);
 
-        for(uint32_t iter{0}; iter < iterations; ++iter) {
+        for (uint32_t iter{0}; iter < iterations; ++iter) {
             const uint64_t op_bit{bit_gen(s_engine) + start};
             const auto op_count{std::min< uint32_t >(bits_gen(s_engine) + 1, start + count - op_bit)};
             (pct_gen(s_engine) < g_set_pct) ? set(op_bit, op_count) : reset(op_bit, op_count);
