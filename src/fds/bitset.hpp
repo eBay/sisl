@@ -390,7 +390,7 @@ public:
             throw std::out_of_range("Right shift to out of range");
         } else {
             m_s->m_skip_bits += nbits;
-            if (m_s->m_skip_bits >= compaction_threshold()) { resizeImpl(total_bits(), false); }
+            if (m_s->m_skip_bits >= compaction_threshold()) { resize_impl(total_bits(), false); }
         }
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
@@ -405,7 +405,7 @@ public:
      */
     void resize(const uint64_t nbits, const bool value = false) {
         if (ThreadSafeResizing) { m_lock.lock(); }
-        resizeImpl(nbits, value);
+        resize_impl(nbits, value);
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
@@ -664,7 +664,7 @@ private:
         return (bits_remaining == 0);
     }
 
-    void resizeImpl(const uint64_t nbits, const bool value) {
+    void resize_impl(const uint64_t nbits, const bool value) {
         // We use the resize opportunity to compact bits. So we only to need to allocate nbits + first word skip
         // list size. Rest of them will be compacted.
         const uint64_t shrink_words{m_s->m_skip_bits / Word::bits()};
