@@ -142,7 +142,7 @@ static inline constexpr uint8_t get_trailing_zeros(const DataType v) {
 #else
 #if defined __GNUC__ && defined __x86_64
 static inline uint8_t get_trailing_zeros(const uint64_t v) {
-    return static_cast< uint8_t >(__builtin_ctzll(v));
+    return static_cast< uint8_t >((v == 0) ? 64 : __builtin_ctzll(v));
 #else
 static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
     constexpr std::array< uint8_t, 64 > MultiplyDeBruijnBitPosition{
@@ -190,7 +190,7 @@ static inline constexpr uint8_t get_leading_zeros(const DataType v) {
 #else
 #if defined __GNUC__ && defined __x86_64
 static inline uint8_t get_leading_zeros(const uint64_t v) {
-    return std::min< uint8_t >(static_cast< unsigned int >(__builtin_clzll(v)), 64);
+    return static_cast< uint8_t >((v == 0) ? 64 : __builtin_clzll(v));
 #else
 static inline constexpr uint8_t get_leading_zeros(const uint64_t v) {
     if (!v) return 64;
