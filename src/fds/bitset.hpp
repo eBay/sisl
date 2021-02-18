@@ -17,12 +17,12 @@
 #include <vector>
 
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-    #include <folly/SharedMutex.h>
+#include <folly/SharedMutex.h>
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif
 
 #include <sds_logging/logging.h>
@@ -59,8 +59,10 @@ struct BitBlock {
 
 template < typename Word, bool ThreadSafeResizing = false >
 class BitsetImpl {
+public:
     static_assert(Word::bits() == 8 || Word::bits() == 16 || Word::bits() == 32 || Word::bits() == 64,
                   "Word::bits() must be power of two in size");
+    typedef typename Word::word_t word_t;
 
 private:
 #pragma pack(1)
@@ -222,30 +224,53 @@ public:
         return ret;
     }
 
-    uint64_t get_set_count() const {
+    /**
+     * @brief Get the number of bits set in the range [start_bit, end_bit] inclusive
+     *
+     * @param start_bit Start bit to search from
+     * @param end_bit End bit to search to inclusive; if larger than total bits to end
+     *
+     * @return returns the number of bits set
+     */
+    uint64_t get_set_count(const uint64_t start_bit = 0,
+                           const uint64_t end_bit = std::numeric_limits< uint64_t >::max()) const {
+        assert(end_bit >= start_bit);
+        const uint64_t last_bit{std::min(total_bits() - 1, end_bit)};
+        const uint64_t num_bits{last_bit - start_bit + 1};
+
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
         // get first word count which may be partial and we assume that at least 1 word worth of bits
         uint64_t set_cnt{0};
-        const Word* word_ptr{get_word_const(0)};
-        const uint8_t offset{get_word_offset(0)};
-        set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
-
-        // count rest of words
-        const uint64_t word_skip_bits{static_cast<uint64_t>(Word::bits() - offset)};
-        uint64_t bits_remaining{word_skip_bits > total_bits() ? 0 : total_bits() - word_skip_bits};
-        while (bits_remaining >= Word::bits()) {
-            set_cnt += (++word_ptr)->get_set_count();
-            bits_remaining -= Word::bits();
+        const Word* word_ptr{get_word_const(start_bit)};
+        if (word_ptr == nullptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return set_cnt;
         }
+        const uint8_t offset{get_word_offset(start_bit)};
+        if ((offset + num_bits) <= Word::bits()) {
+            // all bits in first word
+            const uint8_t shift{static_cast< uint8_t >(Word::bits() - num_bits)};
+            const word_t mask{static_cast< word_t >(((~static_cast< word_t >(0)) << shift) >> (shift - start_bit))};
+            set_cnt += get_set_bit_count(word_ptr->to_integer() & mask);
+        } else {
+            set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
 
-        // count last possibly partial word
-        if (bits_remaining) {
-            const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
-            const uint64_t mask{(~static_cast< uint64_t >(0) << shift) >> shift};
-            set_cnt += get_set_bit_count((++word_ptr)->to_integer() & mask);
+            // count rest of words
+            const uint64_t word_skip_bits{static_cast< uint64_t >(Word::bits() - offset)};
+            uint64_t bits_remaining{word_skip_bits >= num_bits ? 0 : num_bits - word_skip_bits};
+            while (bits_remaining >= Word::bits()) {
+                set_cnt += (++word_ptr)->get_set_count();
+                bits_remaining -= Word::bits();
+            }
+
+            // count last possibly partial word
+            if (bits_remaining) {
+                const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
+                const word_t mask{static_cast< word_t >(((~static_cast< word_t >(0)) << shift) >> shift)};
+                set_cnt += get_set_bit_count(((++word_ptr)->to_integer()) & mask);
+            }
         }
-
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return set_cnt;
     }
@@ -365,7 +390,7 @@ public:
             throw std::out_of_range("Right shift to out of range");
         } else {
             m_s->m_skip_bits += nbits;
-            if (m_s->m_skip_bits >= compaction_threshold()) { _resize(total_bits(), false); }
+            if (m_s->m_skip_bits >= compaction_threshold()) { resize_impl(total_bits(), false); }
         }
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
@@ -380,7 +405,7 @@ public:
      */
     void resize(const uint64_t nbits, const bool value = false) {
         if (ThreadSafeResizing) { m_lock.lock(); }
-        _resize(nbits, value);
+        resize_impl(nbits, value);
         if (ThreadSafeResizing) { m_lock.unlock(); }
     }
 
@@ -389,7 +414,7 @@ public:
      *
      * @param start_bit Start bit to search from
      * @param n Count of required continuous reset bits
-     * @return BitBlock Retruns a BitBlock which provides the start bit and total number of bits found. Caller need to
+     * @return BitBlock Returns a BitBlock which provides the start bit and total number of bits found. Caller need to
      * check if returned count satisfies what is asked for.
      */
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
@@ -401,7 +426,18 @@ public:
         return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
     }
 
-
+    /**
+     * @brief Get the next contiguous [min_needed, max_needed] inclusive reset bits in the range
+     * [start_bit, end_bit] inclusive
+     *
+     * @param start_bit Start bit to search from
+     * @param end_bit Optional End bit to search to inclusive; otherwise to end of set
+     * @param min_needed Minimum number of reset bits needed
+     * @param max_needed Maximum number of reset bits needed
+     *
+     * @return BitBlock Returns a BitBlock which provides the start bit and total number of bits found. Caller need to
+     * check if returned count satisfies what is asked for.
+     */
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const std::optional< uint64_t > end_bit,
                                               const uint32_t min_needed, const uint32_t max_needed) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
@@ -409,7 +445,7 @@ public:
         BitBlock retb{start_bit, 0};
         uint8_t offset{get_word_offset(start_bit)};
         uint64_t current_bit{start_bit};
-        const uint64_t final_bit{end_bit ? std::min(*end_bit, total_bits()) : total_bits()};
+        const uint64_t final_bit{end_bit ? std::min(*end_bit + 1, total_bits()) : total_bits()};
         const Word* word_ptr{get_word_const(current_bit)};
         if (word_ptr == nullptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
@@ -467,7 +503,7 @@ public:
         } else {
             retb.start_bit = npos;
         }
-   
+
         if (ThreadSafeResizing) { m_lock.unlock_shared(); }
         return retb;
     }
@@ -518,8 +554,8 @@ public:
         const uint8_t offset{get_word_offset(0)};
         const uint8_t valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
 
-        typename Word::word_t val{word_ptr->to_integer() >> offset};
-        typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[valid_bits - 1])};
+        word_t val{static_cast< word_t >(word_ptr->to_integer() >> offset)};
+        word_t mask{static_cast< word_t >(bit_mask[valid_bits - 1])};
         for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
             output.push_back((((val & mask) == mask) ? '1' : '0'));
         }
@@ -527,7 +563,7 @@ public:
         // print whole words
         uint64_t bits_remaining{valid_bits > total_bits() ? 0 : total_bits() - valid_bits};
         while (bits_remaining >= Word::bits()) {
-            typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[Word::bits() - 1])};
+            word_t mask{static_cast< word_t >(bit_mask[Word::bits() - 1])};
             val = (++word_ptr)->to_integer();
             for (uint8_t bit{0}; bit < Word::bits(); ++bit, mask >>= 1) {
                 output.push_back((((val & mask) == mask) ? '1' : '0'));
@@ -537,7 +573,7 @@ public:
 
         // print last possibly partial word
         if (bits_remaining > 0) {
-            typename Word::word_t mask{static_cast< typename Word::word_t >(bit_mask[bits_remaining - 1])};
+            word_t mask{static_cast< word_t >(bit_mask[bits_remaining - 1])};
             val = (++word_ptr)->to_integer();
             for (uint8_t bit{0}; bit < bits_remaining; ++bit, mask >>= 1) {
                 output.push_back((((val & mask) == mask) ? '1' : '0'));
@@ -628,7 +664,7 @@ private:
         return (bits_remaining == 0);
     }
 
-    void _resize(const uint64_t nbits, const bool value) {
+    void resize_impl(const uint64_t nbits, const bool value) {
         // We use the resize opportunity to compact bits. So we only to need to allocate nbits + first word skip
         // list size. Rest of them will be compacted.
         const uint64_t shrink_words{m_s->m_skip_bits / Word::bits()};

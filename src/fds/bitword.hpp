@@ -11,7 +11,7 @@
 #include <algorithm>
 #include <atomic>
 #if __cplusplus > 201703L
-    #include <bit>
+#include <bit>
 #endif
 #include <cassert>
 #include <cstdint>
@@ -21,7 +21,6 @@
 #include <fmt/format.h>
 
 #include "utility/enum.hpp"
-
 
 namespace sisl {
 
@@ -83,56 +82,54 @@ static constexpr uint8_t logBase2(const DataType v) {
         if (const uint64_t t1{v >> 32}) {
             if (const uint64_t t2{t1 >> 16}) {
                 if (const uint64_t t3{t2 >> 8}) {
-                    r = 56 + LogTable256[static_cast<uint8_t>(t3)];
+                    r = 56 + LogTable256[static_cast< uint8_t >(t3)];
                 } else {
-                    r = 48 + LogTable256[static_cast<uint8_t>(t2)];
+                    r = 48 + LogTable256[static_cast< uint8_t >(t2)];
                 }
             } else {
                 if (const uint64_t t2{t1 >> 8}) {
-                    r = 40 + LogTable256[static_cast<uint8_t>(t2)];
+                    r = 40 + LogTable256[static_cast< uint8_t >(t2)];
                 } else {
-                    r = 32 + LogTable256[static_cast<uint8_t>(t1)];
+                    r = 32 + LogTable256[static_cast< uint8_t >(t1)];
                 }
             }
         } else {
             if (const uint64_t t1{v >> 16}) {
                 if (const uint64_t t2{t1 >> 8}) {
-                    r = 24 + LogTable256[static_cast<uint8_t>(t2)];
+                    r = 24 + LogTable256[static_cast< uint8_t >(t2)];
                 } else {
-                    r = 16 + LogTable256[static_cast<uint8_t>(t1)];
+                    r = 16 + LogTable256[static_cast< uint8_t >(t1)];
                 }
             } else {
                 if (const uint64_t t1{v >> 8}) {
-                    r = 8 + LogTable256[static_cast<uint8_t>(t1)];
+                    r = 8 + LogTable256[static_cast< uint8_t >(t1)];
                 } else {
-                    r = LogTable256[static_cast<uint8_t>(v)];
+                    r = LogTable256[static_cast< uint8_t >(v)];
                 }
             }
         }
     } else if constexpr (sizeof(DataType) == 4) {
         if (const uint32_t t1{v >> 16}) {
             if (const uint32_t t2{t1 >> 8}) {
-                r = 24 + LogTable256[static_cast<uint8_t>(t2)];
-            }
-            else {
-                r = 16 + LogTable256[static_cast<uint8_t>(t1)];
+                r = 24 + LogTable256[static_cast< uint8_t >(t2)];
+            } else {
+                r = 16 + LogTable256[static_cast< uint8_t >(t1)];
             }
         } else {
             if (const uint32_t t1{v >> 8}) {
-                r = 8 + LogTable256[static_cast<uint8_t>(t1)];
+                r = 8 + LogTable256[static_cast< uint8_t >(t1)];
             } else {
-                r = LogTable256[static_cast<uint8_t>(v)];
+                r = LogTable256[static_cast< uint8_t >(v)];
             }
         }
     } else if constexpr (sizeof(DataType) == 2) {
-        if (const uint16_t t1{static_cast<uint16_t>(v >> 8)}) {
-            r = 8 + LogTable256[static_cast<uint8_t>(t1)];
+        if (const uint16_t t1{static_cast< uint16_t >(v >> 8)}) {
+            r = 8 + LogTable256[static_cast< uint8_t >(t1)];
         } else {
-            r = LogTable256[static_cast<uint8_t>(v)];
+            r = LogTable256[static_cast< uint8_t >(v)];
         }
-    }
-    else {
-        r = LogTable256[static_cast<uint8_t>(v)];
+    } else {
+        r = LogTable256[static_cast< uint8_t >(v)];
     }
 
     return r;
@@ -141,11 +138,11 @@ static constexpr uint8_t logBase2(const DataType v) {
 #if __cplusplus > 201703L
 template < typename DataType >
 static inline constexpr uint8_t get_trailing_zeros(const DataType v) {
-    return static_cast< uint8_t >(std::countr_zero(std::make_unsigned_t<DataType>(v)));
+    return static_cast< uint8_t >(std::countr_zero(std::make_unsigned_t< DataType >(v)));
 #else
 #if defined __GNUC__ && defined __x86_64
 static inline uint8_t get_trailing_zeros(const uint64_t v) {
-    return static_cast< uint8_t >(__builtin_ctzll(v));
+    return static_cast< uint8_t >((v == 0) ? 64 : __builtin_ctzll(v));
 #else
 static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
     constexpr std::array< uint8_t, 64 > MultiplyDeBruijnBitPosition{
@@ -193,7 +190,7 @@ static inline constexpr uint8_t get_leading_zeros(const DataType v) {
 #else
 #if defined __GNUC__ && defined __x86_64
 static inline uint8_t get_leading_zeros(const uint64_t v) {
-    return std::min< uint8_t >(static_cast< unsigned int >(__builtin_clzll(v)), 64);
+    return static_cast< uint8_t >((v == 0) ? 64 : __builtin_clzll(v));
 #else
 static inline constexpr uint8_t get_leading_zeros(const uint64_t v) {
     if (!v) return 64;
@@ -258,7 +255,7 @@ class Bitword {
 public:
     static constexpr uint8_t bits() { return (sizeof(Word) * 8); }
     typedef typename Word::word_t word_t;
-    static_assert(std::is_unsigned_v< word_t > && sizeof(word_t) <= sizeof(uint64_t),
+    static_assert(std::is_unsigned_v< word_t > && (sizeof(word_t) <= sizeof(uint64_t)),
                   "Underlying type must be unsigned of 64 bits or less.");
 
     Bitword() { m_bits.set(0); }
@@ -323,7 +320,8 @@ public:
         if (nbits == 1) { return set_reset_bit(start, set); }
 
         const uint8_t wanted_bits{std::min< uint8_t >(bits() - start, nbits)};
-        const uint64_t bit_mask{consecutive_bitmask[wanted_bits - 1] << start};
+        const word_t bit_mask{
+            static_cast< word_t >(static_cast< word_t >(consecutive_bitmask[wanted_bits - 1]) << start)};
         if (set) {
             return m_bits.or_with(bit_mask);
         } else {
@@ -339,8 +337,8 @@ public:
      */
     bool is_bit_set_reset(const uint8_t start, const bool check_for_set) const {
         assert(start < bits());
-        const uint64_t v{m_bits.get() & bit_mask[start]};
-        return check_for_set ? (v != static_cast< uint64_t >(0)) : (v == static_cast< uint64_t >(0));
+        const word_t v{m_bits.get() & static_cast< word_t >(bit_mask[start])};
+        return check_for_set ? (v != static_cast< word_t >(0)) : (v == static_cast< word_t >(0));
     }
 
     bool is_bits_set_reset(const uint8_t start, const uint8_t nbits, const bool check_for_set) const {
@@ -348,8 +346,8 @@ public:
         if (nbits == 1) { return (is_bit_set_reset(start, check_for_set)); }
 
         const word_t actual{extract(start, nbits)};
-        const uint64_t expected{check_for_set ? consecutive_bitmask[nbits - 1] : 0};
-        return (static_cast< uint64_t >(actual) == expected);
+        const word_t expected{static_cast< word_t >(check_for_set ? consecutive_bitmask[nbits - 1] : 0)};
+        return (actual == expected);
     }
 
     bool get_next_set_bit(const uint8_t start, uint8_t* const p_set_bit) const {
@@ -362,7 +360,6 @@ public:
         } else {
             return false;
         }
-        // if (e) { *p_set_bit = ffsll(e) - 1 + start; }
     }
 
     bool get_next_reset_bit(const uint8_t start, uint8_t* const p_reset_bit) const {
@@ -515,7 +512,7 @@ public:
 
     std::string to_string() const {
         std::ostringstream oSS{};
-        word_t e{m_bits.get()};
+        const word_t e{m_bits.get()};
         word_t mask{static_cast< word_t >(bit_mask[bits() - 1])};
         for (uint8_t bit{0}; bit < bits(); ++bit, mask >>= 1) {
             oSS << (((e & mask) == mask) ? '1' : '0');
@@ -529,7 +526,7 @@ private:
     word_t extract(const uint8_t start, const uint8_t nbits) const {
         const uint8_t wanted_bits{std::min< uint8_t >(bits() - start, nbits)};
         assert(wanted_bits > 0);
-        const uint64_t mask{(consecutive_bitmask[wanted_bits - 1] << start)};
+        const word_t mask{static_cast< word_t >(static_cast< word_t >(consecutive_bitmask[wanted_bits - 1]) << start)};
         return ((m_bits.get() & mask) >> start);
     }
 
@@ -556,16 +553,17 @@ std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, trait
 template < typename WType >
 class unsafe_bits {
 public:
-    typedef WType word_t;
+    typedef std::decay_t< WType > word_t;
+    static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
 
-    unsafe_bits(const WType& t = static_cast< WType >(0)) : m_Value(t) {}
+    unsafe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value(t) {}
     unsafe_bits(const unsafe_bits&) = delete;
     unsafe_bits(unsafe_bits&&) noexcept = delete;
     unsafe_bits& operator=(const unsafe_bits&) = delete;
     unsafe_bits& operator=(unsafe_bits&&) noexcept = delete;
 
-    void set(const WType& value) { m_Value = value; }
-    bool set_if(const WType& old_value, const WType& new_value) {
+    void set(const word_t& value) { m_Value = value; }
+    bool set_if(const word_t& old_value, const word_t& new_value) {
         if (m_Value == old_value) {
             m_Value = new_value;
             return true;
@@ -573,56 +571,58 @@ public:
         return false;
     }
 
-    WType or_with(const uint64_t value) {
+    word_t or_with(const word_t value) {
         m_Value |= value;
         return m_Value;
     }
 
-    WType and_with(const uint64_t value) {
+    word_t and_with(const word_t value) {
         m_Value &= value;
         return m_Value;
     }
 
-    WType right_shift(const uint8_t nbits) {
+    word_t right_shift(const uint8_t nbits) {
         m_Value >>= nbits;
         return m_Value;
     }
 
-    WType get() const { return m_Value; }
+    word_t get() const { return m_Value; }
 
 private:
-    WType m_Value;
+    word_t m_Value;
 };
 
 template < typename WType >
 class safe_bits {
 public:
-    typedef WType word_t;
+    typedef std::decay_t< WType > word_t;
+    static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
 
-    safe_bits(const WType& t = static_cast< WType >(0)) : m_Value{t} {}
+    safe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     safe_bits(const safe_bits&) = delete;
     safe_bits(safe_bits&&) noexcept = delete;
     safe_bits& operator=(const safe_bits&) = delete;
     safe_bits& operator=(safe_bits&&) noexcept = delete;
 
-    void set(const WType& bits) { m_Value.store(bits, std::memory_order_relaxed); }
-    void set_if(const WType& old_value, const WType& new_value) {
-        return m_Value.compare_exchange_strong(old_value, new_value, std::memory_order_relaxed);
+    void set(const word_t& bits) { m_Value.store(bits, std::memory_order_relaxed); }
+    void set_if(const word_t& old_value, const word_t& new_value) {
+        word_t expected_value{old_value};
+        return m_Value.compare_exchange_strong(expected_value, new_value, std::memory_order_relaxed);
     }
 
-    WType or_with(const uint64_t value) {
-        const auto old_value{m_Value.fetch_or(value, std::memory_order_relaxed)};
+    word_t or_with(const word_t value) {
+        const word_t old_value{m_Value.fetch_or(value, std::memory_order_relaxed)};
         return (old_value | value);
     }
 
-    WType and_with(const uint64_t value) {
-        const auto old_value{m_Value.fetch_and(value, std::memory_order_relaxed)};
+    word_t and_with(const word_t value) {
+        const word_t old_value{m_Value.fetch_and(value, std::memory_order_relaxed)};
         return (old_value & value);
     }
 
-    WType right_shift(const uint8_t nbits) {
-        WType old_value{m_Value.get(std::memory_order_acquire)};
-        WType new_value{old_value >> nbits};
+    word_t right_shift(const uint8_t nbits) {
+        word_t old_value{m_Value.get(std::memory_order_acquire)};
+        word_t new_value{static_cast< word_t >(old_value >> nbits)};
         while (!m_Value.compare_exchange_weak(old_value, new_value, std::memory_order_acq_rel)) {
             old_value = m_Value.get(std::memory_order_acquire);
             new_value = old_value >> nbits;
@@ -630,9 +630,9 @@ public:
 
         return new_value;
     }
-    WType get() const { return m_Value.load(std::memory_order_relaxed); }
+    word_t get() const { return m_Value.load(std::memory_order_relaxed); }
 
 private:
-    std::atomic< WType > m_Value;
+    std::atomic< word_t > m_Value;
 };
 } // namespace sisl
