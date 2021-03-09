@@ -48,3 +48,10 @@ set(TEST_OBJALLOCATOR_SOURCE_FILES
 add_executable(test_obj_allocator ${TEST_OBJALLOCATOR_SOURCE_FILES})
 target_link_libraries(test_obj_allocator sisl ${CONAN_LIBS})
 add_test(NAME ObjAlloc COMMAND test_obj_allocator)
+
+set(TEST_CBMUTEX_SOURCE_FILES
+    tests/test_cb_mutex.cpp
+   )
+add_executable(test_cb_mutex ${TEST_CBMUTEX_SOURCE_FILES})
+target_link_libraries(test_cb_mutex sisl ${CONAN_LIBS})
+add_test(NAME TestCBMutex COMMAND test_cb_mutex)
