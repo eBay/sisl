@@ -35,6 +35,7 @@ class MetricsConan(ConanFile):
 
                     "boost/1.73.0",
                     "evhtp/1.2.18.2",
+                    "snappy/1.1.8",
                     "flatbuffers/1.11.0",
                     ("fmt/7.0.3", "override"),
                     "folly/2020.05.04.00",
