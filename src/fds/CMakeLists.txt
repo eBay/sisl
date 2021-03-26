@@ -55,3 +55,10 @@ set(TEST_CBMUTEX_SOURCE_FILES
 add_executable(test_cb_mutex ${TEST_CBMUTEX_SOURCE_FILES})
 target_link_libraries(test_cb_mutex sisl ${CONAN_LIBS})
 add_test(NAME TestCBMutex COMMAND test_cb_mutex)
+
+set(TEST_HASHNODE_FILES
+    tests/test_hashnode.cpp
+   )
+add_executable(test_hashnode ${TEST_HASHNODE_FILES})
+target_link_libraries(test_hashnode sisl ${CONAN_LIBS})
+add_test(NAME TestHashNode COMMAND test_hashnode)

@@ -233,8 +233,7 @@ struct io_blob : public blob {
     io_blob() = default;
     io_blob(const size_t sz, const uint32_t align_size = 512) { buf_alloc(sz, align_size); }
     io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size),
-            aligned{is_aligned} {}
+            blob(bytes, size), aligned{is_aligned} {}
     ~io_blob() = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512) {
@@ -326,6 +325,12 @@ public:
     void set_size(const uint32_t sz) { m_view.size = sz; }
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
 
+    byte_array base_buffer() const { return m_base_buf; }
+    uint32_t offset_from_base() const {
+        return static_cast< uint32_t >(reinterpret_cast< uintptr_t >(m_view.bytes) -
+                                       reinterpret_cast< uintptr_t >(m_base_buf.get()));
+    }
+
 private:
     byte_array m_base_buf;
     blob m_view;
@@ -403,5 +408,8 @@ static int spaceship_oper(const T& left, const T& right) {
 #define _PLACEHOLDER_PARAM(z, n, text) , text##n
 #define bind_this(method, nparams)                                                                                     \
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
+
+#define r_cast reinterpret_cast
+#define s_cast static_cast
 
 } // namespace sisl
