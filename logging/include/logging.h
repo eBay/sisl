@@ -230,7 +230,7 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
     assert(0);                                                                                                         \
     if (is_log_assert) {                                                                                               \
         if (sds_logging::is_crash_handler_installed()) {                                                               \
-            sds_logging::log_stack_trace(false);                                                                       \
+            sds_logging::log_stack_trace(false);                                                                            \
         }                                                                                                              \
     } else {                                                                                                           \
         abort();                                                                                                       \
@@ -429,9 +429,9 @@ nlohmann::json GetAllModuleLogLevel();
 void SetAllModuleLogLevel(spdlog::level::level_enum level);
 
 void log_stack_trace(bool all_threads = false);
-void install_signal_handler();
+void install_signal_handler(bool all_threads);
 void add_signal_handler(int sig_num, std::string_view sig_name, sig_handler_t hdlr);
-void install_crash_handler();
+void install_crash_handler(bool all_threads = true);
 bool is_crash_handler_installed();
 void override_setup_signals(const std::map< int, std::string > override_signals);
 void restore_signal_handler_to_default();

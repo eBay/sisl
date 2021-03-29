@@ -36,6 +36,7 @@ extern "C" {
 
 namespace sds_logging {
 static bool g_custom_signal_handler_installed = false;
+static bool g_crash_handle_all_threads = true;
 static std::atomic< int > g_stack_dump_outstanding = 0;
 static std::condition_variable g_stack_dump_cv;
 
@@ -119,7 +120,7 @@ static void crash_handler(int signal_number, [[maybe_unused]] siginfo_t* info, [
     fatal_stream << "(" << signal_number << ")\tPID: " << getpid();
 
     GetLogger()->set_pattern("%v");
-    log_stack_trace(true);
+    log_stack_trace(g_crash_handle_all_threads);
     LOGCRITICAL("{}", fatal_stream.str());
 
     spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) { l->flush(); });
@@ -182,7 +183,7 @@ static std::map< SignalType, signame_handler_pair_t > g_sighandler_map = {
 };
 static std::mutex install_hdlr_mutex;
 
-void install_signal_handler() {
+void install_signal_handler(bool all_threads) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     // sigaction to use sa_sigaction file. ref: http://www.linuxprogrammingblog.com/code-examples/sigaction
 
@@ -199,6 +200,7 @@ void install_signal_handler() {
             perror(error.c_str());
         }
     }
+    g_crash_handle_all_threads = all_threads;
     g_custom_signal_handler_installed = true;
 #endif
 }
@@ -251,7 +253,7 @@ void log_stack_trace(bool all_threads) {
 
 void send_thread_signal(pthread_t thr, int sig_num) { pthread_kill(thr, sig_num); }
 
-void install_crash_handler() { install_signal_handler(); }
+void install_crash_handler(bool all_threads) { install_signal_handler(all_threads); }
 
 bool is_crash_handler_installed() { return g_custom_signal_handler_installed; }
 
