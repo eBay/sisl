@@ -125,10 +125,10 @@ public:
         uint8_t* buf{new uint8_t[new_alloc_size]};
         memcpy(buf, r_cast< uint8_t* >(cur_node), cur_size);
 
-        LOGINFO("Realloc node={} with cur_entries={} cur_size={} cur_alloc_entries={} to new_node={} new_size={} "
-                "new_alloc_entries={}",
-                r_cast< void* >(cur_node), cur_node->num_entries(), cur_size, cur_node->alloced_entries(),
-                r_cast< void* >(buf), new_alloc_size, new_nentries);
+        LOGDEBUG("Realloc node={} with cur_entries={} cur_size={} cur_alloc_entries={} to new_node={} new_size={} "
+                 "new_alloc_entries={}",
+                 r_cast< void* >(cur_node), cur_node->num_entries(), cur_size, cur_node->alloced_entries(),
+                 r_cast< void* >(buf), new_alloc_size, new_nentries);
         delete cur_node;
 
         auto n = r_cast< MultiEntryHashNode< K, V >* >(buf);
@@ -153,6 +153,50 @@ public:
         return count;
     }
 
+    template < class... Args >
+    std::pair< V*, bool > try_emplace(const koffset_range_t range, Args&&... args) {
+        int shift_count{0};
+
+        auto [start_idx, found] = binary_search(-1, s_cast< int >(num_entries()), range.first);
+        int end_idx{start_idx};
+
+        if (start_idx > m_max_entry_idx) {
+            ++m_max_entry_idx;
+            goto insert; // Entry out of the existing bound, directly insert at idx.
+        } else if (!found && (range.second < get_nth_const(start_idx)->range.first)) {
+            shift_count = 1; // New entry in the middle, need to shift right to make room.
+        } else {
+            if (get_nth(start_idx)->is_valid) { return std::make_pair<>(get_nth(start_idx)->get_value(), false); }
+            while (++end_idx <= m_max_entry_idx) {
+                auto m = get_match_type(get_nth_const(end_idx)->range, range);
+                if (m == match_type_t::no_match) {
+                    break;
+                } else {
+                    assert((m == match_type_t::exact) || (m != match_type_t::superset) ||
+                           (m != match_type_t::pre_partial));
+                    if (get_nth(end_idx)->is_valid) { return std::make_pair<>(get_nth(end_idx)->get_value(), false); }
+                    --shift_count;
+                }
+            }
+        }
+
+        if (shift_count < 0) {
+            shift_left(end_idx, -shift_count);
+        } else if (shift_count > 0) {
+            assert(shift_count == 1);
+            shift_right(start_idx, shift_count);
+        }
+
+    insert:
+        auto vinfo = get_nth(start_idx);
+        LOGTRACE("Inserting in idx={} addr={}", start_idx, r_cast< void* >(vinfo->get_raw_value()));
+        V* val = new (vinfo->get_raw_value()) V(std::forward< Args >(args)...);
+        vinfo->is_valid = true;
+        vinfo->range = range;
+        return std::make_pair<>(val, true);
+    }
+
+#if 0
     template < class... Args >
     std::pair< V*, bool > try_emplace(const koffset_range_t range, Args&&... args) {
         // Ensure that start and end of range is found with valid values
@@ -194,15 +238,20 @@ public:
         vinfo->range = range;
         return std::make_pair<>(val, true);
     }
-
+#endif
     koffset_t erase(const koffset_range_t input_range, const auto& extract_subrange_cb) {
         koffset_t erased_count{0};
         auto [idx, found] = binary_search(-1, s_cast< int >(num_entries()), input_range.first);
-        while (found) {
+        if (idx > m_max_entry_idx) { goto done; }
+
+        while (true) {
             val_entry_info* vinfo{get_nth(idx)};
             val_entry_info* new_vinfo{nullptr};
             if (vinfo->is_valid) {
                 auto m = get_match_type(vinfo->range, input_range);
+                LOGTRACE("input_range=[{}-{}] is {} of vinfo=[{}-{}]", input_range.first, input_range.second, m,
+                         vinfo->range.first, vinfo->range.second);
+
                 switch (m) {
                 case match_type_t::exact:
                 case match_type_t::superset:
@@ -243,15 +292,20 @@ public:
                     break;
 
                 case match_type_t::no_match:
+                    goto done;
+                    break;
+
                 default:
                     assert(0);
                     break;
                 }
             }
+
             // Check if upper bound of the input_range is within bounds of next entry.
             if (idx == m_max_entry_idx) break;
             found = (get_nth_const(++idx)->compare_range(input_range.second) >= 0);
         }
+    done:
         return erased_count;
     }
 
@@ -264,6 +318,24 @@ public:
             ++idx;
         }
         return str;
+    }
+
+    void validate_keys() const {
+        auto prev_entry{get_nth_const(0)->range};
+        koffset_t idx{1};
+
+        RELEASE_ASSERT_LE(prev_entry.first, prev_entry.second, "Incorrect from>to: idx=0");
+
+        while (s_cast< uint32_t >(idx) < m_max_entry_idx) {
+            auto vinfo = get_nth_const(idx);
+            RELEASE_ASSERT_LE(vinfo->range.first, vinfo->range.second, "Incorrect from>to: idx={}", idx);
+
+            if ((vinfo->compare_range(prev_entry.first) != -1) || (vinfo->compare_range(prev_entry.second) != -1)) {
+                LOGFATAL("Incorrect - idx={} prev_entry=[{}-{}] cur_entry=[{}-{}]", idx, prev_entry.first,
+                         prev_entry.second, vinfo->range.first, vinfo->range.second);
+            }
+            ++idx;
+        }
     }
 
 private:
@@ -283,49 +355,51 @@ private:
         return std::make_pair<>(end, false);
     }
 
-    match_type_t get_match_type(const koffset_range_t left, const koffset_range_t right) {
-        if (left.first == right.first) {
-            if (left.second == right.second) {
+    match_type_t get_match_type(const koffset_range_t base, const koffset_range_t cmp) {
+        if (cmp.first == base.first) {
+            if (cmp.second == base.second) {
                 return match_type_t::exact;
-            } else if (left.second < right.second) {
+            } else if (cmp.second > base.second) {
                 return match_type_t::superset;
             } else {
-                return match_type_t::subset;
+                return match_type_t::pre_partial;
             }
         }
 
-        if (left.first < right.first) {
-            if (left.second >= right.second) {
-                return match_type_t::subset;
-            } else if (left.second >= right.first) {
-                return match_type_t::post_partial;
-            } else {
+        if (cmp.first > base.first) {
+            if (cmp.first > base.second) {
                 return match_type_t::no_match;
+            } else if (cmp.second < base.second) {
+                return match_type_t::subset;
+            } else {
+                return match_type_t::post_partial;
             }
         }
 
-        // left.first > right.first
-        if (left.second < right.second) {
-            return match_type_t::superset;
-        } else if (left.first <= right.second) {
-            return match_type_t::pre_partial;
-        } else {
+        // cmp.first < base.first
+        if (cmp.second < base.first) {
             return match_type_t::no_match;
+        } else if (cmp.second >= base.second) {
+            return match_type_t::superset;
+        } else {
+            return match_type_t::pre_partial;
         }
     }
 
-    void shift_left(const koffset_t to, const koffset_t count) {
-        assert(to + count <= m_max_entry_idx);
-        memmove(r_cast< uint8_t* >(get_nth(to)), r_cast< uint8_t* >(get_nth(to + count)),
-                ((num_entries() - to - count) * val_entry_info::size()));
+    void shift_left(const koffset_t from, const koffset_t count) {
+        assert(from >= count);
+        LOGDEBUG("Shifting left to compact for count={} from={} to={} move_count={} total_entries_now={}", count, from,
+                 from - count, num_entries() - from, num_entries() - count);
+        memmove(r_cast< uint8_t* >(get_nth(from - count)), r_cast< const uint8_t* >(get_nth_const(from)),
+                ((num_entries() - from) * val_entry_info::size()));
         m_max_entry_idx -= count;
     }
 
     void shift_right(const koffset_t from, const koffset_t count) {
         assert(num_entries() + count <= alloced_entries());
-        LOGINFO("Shifting right to give room for addln={} from={} to={} count={} total_entries_now={}", count, from,
-                from + count, num_entries() - from, num_entries() + count);
-        memmove(r_cast< uint8_t* >(get_nth(from + count)), r_cast< uint8_t* >(get_nth(from)),
+        LOGDEBUG("Shifting right to give room for addln={} from={} to={} count={} total_entries_now={}", count, from,
+                 from + count, num_entries() - from, num_entries() + count);
+        memmove(r_cast< uint8_t* >(get_nth(from + count)), r_cast< const uint8_t* >(get_nth_const(from)),
                 ((num_entries() - from) * val_entry_info::size()));
         m_max_entry_idx += count;
     }
@@ -354,6 +428,6 @@ private:
     koffset_t m_max_entry_idx{0}; // Total number of entries, max 256
     koffset_t m_max_alloc_idx{0};
     val_entry_info m_vinfo[1];
-};
+}; // namespace sisl
 
 } // namespace sisl
