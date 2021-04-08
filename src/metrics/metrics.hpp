@@ -276,13 +276,13 @@ private:
     __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedCounter, counter_decrement, cond, namea, nameb, __VA_ARGS__)
 
 #define GAUGE_UPDATE(group, name, ...) __VALIDATE_AND_EXECUTE(group, NamedGauge, gauge_update, name, __VA_ARGS__)
-#define GAUGE_UPDATE_IF_ELSE(group, name, ...)                                                                         \
-    __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedGauge, gauge_update, name, __VA_ARGS__)
+#define GAUGE_UPDATE_IF_ELSE(group, cond, namea, nameb, ...)                                                           \
+    __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedGauge, gauge_update, cond, namea, nameb, __VA_ARGS__)
 
 #define HISTOGRAM_OBSERVE(group, name, ...)                                                                            \
     __VALIDATE_AND_EXECUTE(group, NamedHistogram, histogram_observe, name, __VA_ARGS__)
-#define HISTOGRAM_OBSERVE_IF_ELSE(group, name, ...)                                                                    \
-    __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedHistogram, histogram_observe, name, __VA_ARGS__)
+#define HISTOGRAM_OBSERVE_IF_ELSE(group, cond, namea, nameb, ...)                                                      \
+    __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedHistogram, histogram_observe, cond, namea, nameb, __VA_ARGS__)
 
 #if 0
 #define COUNTER_INCREMENT(group, name, ...)                                                                            \

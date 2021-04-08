@@ -196,6 +196,7 @@ public:
     _urcu_access_ptr(_urcu_access_ptr&& other) noexcept { std::swap(m_p, other.m_p); }
 
     const T* operator->() const { return rcu_dereference(m_p); }
+    T* operator->() { return rcu_dereference(m_p); }
     T* get() const { return rcu_dereference(m_p); }
 };
 
