@@ -41,7 +41,7 @@ public:
 
     DS* now() {
         std::lock_guard< std::mutex > lg(m_rotate_mutex);
-        _rotate_all_thread_bufs();
+        _rotate_all_thread_bufs(true /* do_merge */);
         return m_base_obj.get();
     }
 
@@ -52,23 +52,53 @@ public:
 
     std::unique_ptr< DS > get_copy_and_reset() {
         std::lock_guard< std::mutex > lg(m_rotate_mutex);
-        _rotate_all_thread_bufs();
+        _rotate_all_thread_bufs(true /* do_merge */);
 
         auto ret = std::move(m_base_obj);
         m_base_obj = _create_buf(m_args, std::index_sequence_for< Args... >());
         return ret;
     }
 
+    /*
+     * This method gets the unmerged copy of all per thread data structure.
+     * NOTE: The pointer of DS inside vector needs to be freed by the caller, otherwise there will be memory leak.
+     */
+    std::vector< DS* > get_unmerged_and_reset() {
+        std::lock_guard< std::mutex > lg(m_rotate_mutex);
+        return _rotate_all_thread_bufs(false /* do_merge */);
+    }
+
+    void reset() {
+        std::lock_guard< std::mutex > lg(m_rotate_mutex);
+        m_buffer.access_all_threads([](sisl::urcu_scoped_ptr< DS, Args... >* const ptr,
+                                       [[maybe_unused]] const bool is_thread_running,
+                                       [[maybe_unused]] const bool is_last_thread) {
+            auto old_ptr = ptr->make_and_exchange(false /* sync_rcu_now */);
+            delete old_ptr;
+            return true;
+        });
+    }
+
+    void foreach_thread_member(const auto& cb) {
+        std::lock_guard< std::mutex > lg(m_rotate_mutex);
+        m_buffer.access_all_threads([&cb](sisl::urcu_scoped_ptr< DS, Args... >* const ptr,
+                                          [[maybe_unused]] const bool is_thread_running,
+                                          [[maybe_unused]] const bool is_last_thread) {
+            ptr->read(cb);
+            return false;
+        });
+    }
+
 private:
     // This method assumes that rotate mutex is already held
-    void _rotate_all_thread_bufs() {
+    std::vector< DS* > _rotate_all_thread_bufs(bool do_merge) {
         auto base_raw = m_base_obj.get();
         std::vector< DS* > old_ptrs;
         old_ptrs.reserve(128);
 
-        m_buffer.access_all_threads([base_raw, &old_ptrs](sisl::urcu_scoped_ptr< DS, Args... >* const ptr,
-                                                          [[maybe_unused]] const bool is_thread_running,
-                                                          [[maybe_unused]] const bool is_last_thread) {
+        m_buffer.access_all_threads([&old_ptrs](sisl::urcu_scoped_ptr< DS, Args... >* const ptr,
+                                                [[maybe_unused]] const bool is_thread_running,
+                                                [[maybe_unused]] const bool is_last_thread) {
             auto old_ptr = ptr->make_and_exchange(false /* sync_rcu_now */);
             old_ptrs.push_back(old_ptr);
             return true;
@@ -76,10 +106,14 @@ private:
 
         synchronize_rcu();
 
-        for (auto& old_ptr : old_ptrs) {
-            DS::merge(base_raw, old_ptr);
-            delete old_ptr;
+        if (do_merge) {
+            for (auto& old_ptr : old_ptrs) {
+                DS::merge(base_raw, old_ptr);
+                delete old_ptr;
+            }
+            old_ptrs.clear();
         }
+        return old_ptrs;
     }
 
     template < std::size_t... Is >

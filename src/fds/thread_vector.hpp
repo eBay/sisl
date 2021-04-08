@@ -2,91 +2,90 @@
 
 #include <cstdint>
 #include <vector>
+#include <optional>
 
-#include "utility/thread_buffer.hpp"
+#include "wisr/wisr_framework.hpp"
+#include "wisr/wisr_ds.hpp"
 
 namespace sisl {
 
-/* This data structure inserts elements into per thread buffer and provide apis to access the elements.
- * Note :- It assumes that insert and access won't go in parallel.
+struct thread_vector_iterator {
+    size_t next_thread{0};
+    size_t next_idx_in_thread{0};
+};
+
+/*
+ * This data structure inserts elements into per thread buffer and provide apis to access the elements.
  */
 template < typename T >
 class ThreadVector {
-
 public:
-    typedef std::pair< uint32_t, std::vector< T >* > thread_buffer_iterator;
-    typedef std::pair< thread_buffer_iterator, int > thread_vector_iterator;
-
     ThreadVector() {}
-    ThreadVector(const uint64_t size) : m_thread_buffer{size} {}
+    ThreadVector(const uint64_t size) : m_wvec{size} {}
     ThreadVector(const ThreadVector&) = delete;
     ThreadVector(ThreadVector&&) noexcept = delete;
     ThreadVector& operator=(const ThreadVector&) = delete;
     ThreadVector& operator=(ThreadVector&&) noexcept = delete;
+    ~ThreadVector() { clear_old_version(); }
 
-    template <typename InputType,
+    template < typename InputType,
                typename = typename std::enable_if<
                    std::is_convertible< typename std::decay< InputType >::type, T >::value >::type >
     void push_back(InputType&& ele) {
-        auto thread_vector = m_thread_buffer.get();
-        thread_vector->push_back(std::forward<InputType>(ele));
+        m_wvec.insertable([&ele](std::vector< T >* const tvec) { tvec->push_back(std::forward< InputType >(ele)); });
     }
 
-    T* begin(thread_vector_iterator& v_it) {
-        auto b_it = m_thread_buffer.begin_iterator();
-        if (!m_thread_buffer.is_valid(b_it)) { return nullptr; }
-        v_it = thread_vector_iterator(b_it, -1);
-        return (next(v_it));
-    }
-
-    T* next(thread_vector_iterator& v_it) {
-        auto b_it = v_it.first;
-        int ele_indx = v_it.second;
-        auto buf = m_thread_buffer.get(b_it);
-        assert(buf != nullptr);
-
-        while (++ele_indx == (int)buf->size()) {
-            b_it = m_thread_buffer.next(b_it);
-            if (!(m_thread_buffer.is_valid(b_it))) { return nullptr; }
-            buf = b_it.second;
-            ele_indx = -1;
+    thread_vector_iterator begin(bool latest) {
+        if (latest) {
+            const auto new_vec{m_wvec.get_unmerged_and_reset()};
+            m_per_thread_vec_ptrs.insert(std::end(m_per_thread_vec_ptrs), std::cbegin(new_vec), std::cend(new_vec));
         }
-        v_it = thread_vector_iterator(b_it, ele_indx);
-        return (&((*buf)[ele_indx]));
+        return thread_vector_iterator{};
     }
 
-    /* it reset the size of vector. It doesn't change the capacity */
+    T* next(thread_vector_iterator& it) {
+        while (it.next_thread < m_per_thread_vec_ptrs.size()) {
+            const auto& tvec = m_per_thread_vec_ptrs[it.next_thread];
+            if (it.next_idx_in_thread < tvec->size()) {
+                return &tvec->at(it.next_idx_in_thread++);
+            } else {
+                ++it.next_thread;
+                it.next_idx_in_thread = 0;
+            }
+        }
+        return nullptr;
+    }
+
     void clear() {
-        auto b_it = m_thread_buffer.begin_iterator();
-        while (m_thread_buffer.is_valid(b_it)) {
-            auto buf = m_thread_buffer.get(b_it);
-            buf->clear();
-            b_it = m_thread_buffer.next(b_it);
-        }
+        m_wvec.reset();      // Erase all newer version ptrs
+        clear_old_version(); // Erase all older version ptrs
     }
 
-    /* It changes the capacity to zero */
-    void erase() {
-        auto b_it = m_thread_buffer.begin_iterator();
-        while (m_thread_buffer.is_valid(b_it)) {
-            auto buf = m_thread_buffer.get(b_it);
-            buf->erase(buf->begin(), buf->end());
-            b_it = m_thread_buffer.next(b_it);
+    size_t size() {
+        size_t sz{0};
+        // Get the size from older version
+        for (const auto& tvec : m_per_thread_vec_ptrs) {
+            sz += tvec->size();
         }
-    }
 
-    uint64_t size() {
-        uint64_t size = 0;
-        auto b_it = m_thread_buffer.begin_iterator();
-        while (m_thread_buffer.is_valid(b_it)) {
-            auto buf = m_thread_buffer.get(b_it);
-            size += buf->size();
-            b_it = m_thread_buffer.next(b_it);
-        }
-        return size;
+        // Get the size from current running version
+        m_wvec.foreach_thread_member([&sz](const sisl::vector_wrapper< T >* tvec) {
+            if (tvec) { sz += tvec->size(); }
+        });
+        return sz;
     }
 
 private:
-    ExitSafeThreadBuffer< std::vector< T > > m_thread_buffer;
+    void clear_old_version() {
+        for (auto& tvec : m_per_thread_vec_ptrs) {
+            delete tvec;
+        }
+        m_per_thread_vec_ptrs.clear();
+    }
+
+private:
+    sisl::wisr_framework< sisl::vector_wrapper< T >, size_t > m_wvec;
+    std::vector< sisl::vector_wrapper< T >* > m_per_thread_vec_ptrs;
 };
+
 } // namespace sisl

@@ -303,7 +303,7 @@ protected:
         const char* path = "";
         if (req->uri && req->uri->path && req->uri->path->full) { path = req->uri->path->full; }
 
-        LOGINFOMOD(httpserver_lmod, "Processing req={} path={}", (void*)req, path);
+        LOGDEBUGMOD(httpserver_lmod, "Processing req={} path={}", (void*)req, path);
         return EVHTP_RES_OK;
     }
 
@@ -312,7 +312,7 @@ protected:
 
         const char* path = "";
         if (req->uri && req->uri->path && req->uri->path->full) { path = req->uri->path->full; }
-        LOGINFOMOD(httpserver_lmod, "Finishing req={}, path={}", (void*)req, path);
+        LOGDEBUGMOD(httpserver_lmod, "Finishing req={}, path={}", (void*)req, path);
 
         if (req->cbarg != nullptr) {
             _http_calldata* cd = (_http_calldata*)req->cbarg;
@@ -405,7 +405,7 @@ private:
             return error;
         }
 
-        LOGINFO("HTTP Server started at port: {}, version: {}", m_cfg.server_port, PACKAGE_VERSION);
+        LOGINFO("HTTP Server started at port: {}", m_cfg.server_port);
 
         // Notify the caller that we are ready.
         {

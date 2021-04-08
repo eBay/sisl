@@ -35,6 +35,13 @@ public:
         return nbit;
     }
 
+    void reserve(uint32_t id) {
+        std::unique_lock lg(m_mutex);
+        assert(!(m_reserved_bits.get_bitval(id)));
+        assert(id < m_reserved_bits.size());
+        m_reserved_bits.set_bit(id);
+    }
+
     void unreserve(uint32_t id) {
         std::unique_lock lg(m_mutex);
         assert(id < m_reserved_bits.size());
