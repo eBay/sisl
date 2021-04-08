@@ -12,15 +12,62 @@ using namespace sisl;
 SDS_LOGGING_INIT(test_hashnode)
 
 struct TestRangeKey {
-    uint64_t num{0};
-    uint16_t count{0};
+    uint64_t m_num{0};
+    uint32_t m_count{0};
 
-    std::string to_string() const { return fmt::format("[{}-{}]", num, num + count); }
+    TestRangeKey() = default;
+    TestRangeKey(const uint64_t n, const uint32_t c) : m_num{n}, m_count{c} {}
+
+    std::pair< koffset_t, uint32_t > get_subset_from(const TestRangeKey& base) {
+        return std::make_pair<>(m_num - base.m_num, base.m_num + base.m_count - m_num);
+    }
+
+    TestRangeKey get_base_key(const uint32_t split_boundary) {
+        return TestRangeKey{sisl::round_down(key.m_num, split_boundary), split_boundary};
+    }
+
+    // Take the range key and split them by modulo and then returning n different keyviews of it
+    static void split(const TestRangeKey& key, const uint32_t split_boundary, std::vector< KeyView >& out_views) {
+        auto base_num = sisl::round_down(key.m_num, split_boundary);
+
+        auto base_key = key.get_base_key(split_boundary);
+        auto [offset, sub_size] = key.get_subset_from(base_key);
+        if (sub_size > key.m_count) { sub_size = key.m_count; }
+        out_views.emplace_back(base_key, offset, sub_size);
+
+        auto remain_count = key.m_count - sub_size;
+        while (remain_count > 0) {
+            base_key.m_num += split_boundary;
+            size = std::min(split_boundary, remain_count);
+            out_views.emplace_back(base_key, 0, size);
+            remain_count -= size;
+        }
+    }
+
+    static sisl::blob get_blob(const TestRangeKey& k) {
+        return sisl::blob{r_cast< uint8_t* >(&k), sizeof(TestRangeKey)};
+    }
+
+    static int compare(const TestRangeKey& k1, const TestRangeKey& k2) {
+        if (k2.m_num < k1.m_num) {
+            return -1;
+        } else if (k2.m_num > k1.m_num) {
+            return 1;
+        } else if (k2.m_count < k1.m_count) {
+            return -1;
+        } else if (k2.m_count > k1.m_count) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    std::string to_string() const { return fmt::format("[{}-{}]", m_num, m_num + m_count - 1); }
 };
 
 struct TestRangeValue {
 public:
-    TestRangeValue(const uint64_t& d1, const uint64_t& offset = 0) : m_base{d1}, m_offset{offset} {}
+    TestRangeValue(const uint64_t& d1, const uint64_t& offset = 0) : m_base{d1}, m_offset{offset}, m_refcount{1} {}
     TestRangeValue(const TestRangeValue& v) = default;
 
     bool operator==(const TestRangeValue& v) const { return (m_base == v.m_base); }
@@ -34,9 +81,16 @@ public:
         }
     }
 
+    static bool can_erase(const TestRangeKey& k, const TestRangeValue& v) { return (--v.m_refcount == 0); }
+
+    static void update(const TestRangeKey& base_key, const koffset_range_t range, TestRangeValue* value) {
+        ++value->m_refcount;
+    }
+
 private:
     uint64_t m_base;
     uint64_t m_offset;
+    int m_refcount;
 };
 
 DECLARE_RELOCATABLE(TestRangeValue)
