@@ -144,27 +144,107 @@ public:
     }
 
     BitsetImpl& operator=(const BitsetImpl& rhs) {
-        if (this != &rhs) {
-            m_alignment_size = rhs.m_alignment_size;
-            m_buf = rhs.m_buf;
-            m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
-            m_words_cap = rhs.m_words_cap;
+        if (this == &rhs) { return *this; }
+        if (ThreadSafeResizing) {
+            this->m_lock.lock_shared();
+            rhs.m_lock.lock_shared();
+        }
+        m_alignment_size = rhs.m_alignment_size;
+        m_buf = rhs.m_buf;
+        m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
+        m_words_cap = rhs.m_words_cap;
+
+        if (ThreadSafeResizing) {
+            rhs.m_lock.unlock_shared();
+            this->m_lock.unlock_shared();
         }
         return *this;
     }
 
     BitsetImpl& operator=(BitsetImpl&& rhs) noexcept {
-        if (this != &rhs) {
-            m_alignment_size = std::move(rhs.m_alignment_size);
-            m_buf = std::move(rhs.m_buf);
-            m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
-            m_words_cap = std::move(rhs.m_words_cap);
+        if (this == &rhs) { return *this; }
+        if (ThreadSafeResizing) {
+            this->m_lock.lock_shared();
+            rhs.m_lock.lock_shared();
+        }
+        m_alignment_size = std::move(rhs.m_alignment_size);
+        m_buf = std::move(rhs.m_buf);
+        m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
+        m_words_cap = std::move(rhs.m_words_cap);
 
-            rhs.m_alignment_size = 0;
-            rhs.m_s = nullptr;
-            rhs.m_words_cap = 0;
+        rhs.m_alignment_size = 0;
+        rhs.m_s = nullptr;
+        rhs.m_words_cap = 0;
+
+        if (ThreadSafeResizing) {
+            rhs.m_lock.unlock_shared();
+            this->m_lock.unlock_shared();
         }
         return *this;
+    }
+
+private:
+    // get word size value
+    word_t get_word(uint64_t* cursor) const {
+        if (!cursor) { return word_t{}; }
+        const Word* word_ptr{get_word_const(*cursor)};
+        if (!word_ptr) { return word_t{}; }
+
+        const uint8_t offset{get_word_offset(*cursor)};
+        const uint64_t bits_remaining{total_bits() - *cursor};
+        auto valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
+        if (bits_remaining < valid_bits) {
+            valid_bits = static_cast< uint8_t >(bits_remaining);
+        }
+        const word_t low_mask{static_cast< word_t >(consecutive_bitmask[valid_bits - 1])};
+        word_t val{static_cast< word_t >(word_ptr->to_integer() >> offset) & low_mask};
+        *cursor += valid_bits;
+        if (offset && bits_remaining > valid_bits) {
+            auto size{offset};
+            if (bits_remaining - valid_bits <= size) {
+                size = static_cast< uint8_t >(bits_remaining - valid_bits);
+            }
+            const word_t high_mask{static_cast< word_t >(consecutive_bitmask[size - 1])};
+            val |= ((++word_ptr)->to_integer() & high_mask) << valid_bits;
+            *cursor += size;
+        }
+        return val;
+    }
+
+public:
+    bool operator==(const BitsetImpl& rhs) {
+        if (ThreadSafeResizing) {
+            this->m_lock.lock_shared();
+            rhs.m_lock.lock_shared();
+        }
+        if (total_bits() != rhs.total_bits()) {
+            if (ThreadSafeResizing) {
+                rhs.m_lock.unlock_shared();
+                this->m_lock.unlock_shared();
+            }
+            return false;
+        }
+        uint64_t lhs_cursor{0}, rhs_cursor{0};
+        while (lhs_cursor < total_bits()) {
+            const word_t lhs_word{this->get_word(&lhs_cursor)};
+            const word_t rhs_word{rhs.get_word(&rhs_cursor)};
+            if (lhs_word != rhs_word) {
+                if (ThreadSafeResizing) {
+                    rhs.m_lock.unlock_shared();
+                    this->m_lock.unlock_shared();
+                }
+                return false;
+            }
+        }
+        if (ThreadSafeResizing) {
+            rhs.m_lock.unlock_shared();
+            this->m_lock.unlock_shared();
+        }
+        return true;
+    }
+
+    bool operator!=(const BitsetImpl& rhs) {
+        return !(operator==(rhs));
     }
 
     constexpr uint8_t word_size() { return Word::bits(); }
@@ -174,6 +254,10 @@ public:
     void set_id(uint64_t id) { m_s->m_id = id; }
 
     void copy(const BitsetImpl& others) {
+        if (ThreadSafeResizing) {
+            this->m_lock.lock_shared();
+            others.m_lock.lock_shared();
+        }
         if (!m_buf || m_buf->size != others.m_buf->size) {
             m_buf = make_byte_array(others.m_buf->size, others.m_alignment_size);
             m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
@@ -182,6 +266,10 @@ public:
         m_words_cap = others.m_words_cap;
         ::memcpy(static_cast< void* >(m_buf->bytes), static_cast< const void* >(others.m_buf->bytes),
                  others.m_buf->size);
+        if (ThreadSafeResizing) {
+            others.m_lock.unlock_shared();
+            this->m_lock.unlock_shared();
+        }
     }
 
     /**
@@ -552,8 +640,8 @@ public:
         // print first possibly partial word
         const Word* word_ptr{get_word_const(0)};
         const uint8_t offset{get_word_offset(0)};
-        const uint8_t valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
-
+        uint8_t valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
+        if (valid_bits > total_bits()) { valid_bits = total_bits(); }
         word_t val{static_cast< word_t >(word_ptr->to_integer() >> offset)};
         word_t mask{static_cast< word_t >(bit_mask[valid_bits - 1])};
         for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
