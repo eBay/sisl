@@ -7,14 +7,19 @@
 
 #pragma once
 
+#include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
-#include <regex>
-#include <string>
 #include <fstream>
+#include <regex>
+#include <sstream>
+#include <string>
 
 #ifdef __linux__
+    #include <malloc.h>
     #include <sys/time.h>
     #include <sys/resource.h>
 #endif
@@ -26,21 +31,21 @@
 #include "metrics/metrics.hpp"
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-#include <jemalloc/jemalloc.h>
+    #include <jemalloc/jemalloc.h>
 #elif defined(USING_TCMALLOC)
-#include <gperftools/malloc_extension.h>
+    #include <gperftools/malloc_extension.h>
 #endif
 
 namespace sisl {
 #ifdef USING_TCMALLOC
 class MallocMetrics;
-static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics);
-static uint64_t tcmalloc_page_size = 8192;
+static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics);
+static uint64_t tcmalloc_page_size{8192};
 #endif
 
 class MallocMetrics : public MetricsGroupWrapper {
 public:
-    explicit MallocMetrics() : sisl::MetricsGroupWrapper("MallocMetrics", "Singelton") {
+    explicit MallocMetrics() : sisl::MetricsGroupWrapper{"MallocMetrics", "Singelton"} {
         REGISTER_COUNTER(num_times_exceed_soft_threshold, "Number of times mem usage exceeded soft threshold");
         REGISTER_COUNTER(num_times_exceed_aggressive_threshold,
                          "Number of times mem usage exceeded aggressive threshold");
@@ -80,12 +85,12 @@ public:
 
     static void enable() { get(); }
     static MallocMetrics& get() {
-        static MallocMetrics _m;
-        return _m;
+        static MallocMetrics malloc_metrics;
+        return malloc_metrics;
     }
 };
 
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 static size_t get_jemalloc_dirty_page_count() {
     const char* arena_dirty_prefix = "stats.arenas.";
     const char* arena_dirty_sufix = ".pdirty";
@@ -114,10 +119,10 @@ static size_t get_jemalloc_dirty_page_count() {
 #endif
 
 /* Get the application total allocated memory. Relies on jemalloc. Returns 0 for other allocator. */
-[[maybe_unused]] static size_t get_total_memory(bool refresh) {
-    size_t allocated = 0;
+[[maybe_unused]] static size_t get_total_memory(const bool refresh) {
+    size_t allocated{0};
 
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     size_t sz_allocated = sizeof(allocated);
     if (refresh) {
         uint64_t epoch = 1;
@@ -147,7 +152,7 @@ static size_t get_jemalloc_dirty_page_count() {
     return allocated;
 }
 
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 static void print_my_jemalloc_data(void* opaque, const char* buf) {
     std::string* json_buf = (std::string*)opaque;
     *json_buf += buf;
@@ -155,11 +160,11 @@ static void print_my_jemalloc_data(void* opaque, const char* buf) {
 #endif
 
 #if defined(USING_TCMALLOC)
-static void update_tcmalloc_range_stats(void* arg, const base::MallocRange* range) {
+static void update_tcmalloc_range_stats(void* const arg, const base::MallocRange* const range) {
     // LOGINFO("Range: address={}, length={}, Type={}, fraction={}", range->address, range->length, range->type,
     //        range->fraction);
 
-    auto& m = MallocMetrics::get();
+    auto& m{MallocMetrics::get()};
     if (range->type == base::MallocRange::Type::FREE) {
         HISTOGRAM_OBSERVE(m, free_page_span_distribution, (range->length / tcmalloc_page_size));
     } else if (range->type == base::MallocRange::Type::UNMAPPED) {
@@ -169,22 +174,22 @@ static void update_tcmalloc_range_stats(void* arg, const base::MallocRange* rang
     }
 }
 
-static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics) {
-    size_t buf_len = j ? 1024 * 20 : 9999;
-    char* stats_buf = new char[buf_len];
+static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics) {
+    const size_t buf_len{static_cast<size_t>(j ? 1024 * 20 : 9999)};
+    char* stats_buf{new char[buf_len]};
 
     MallocExtension::instance()->GetStats(stats_buf, buf_len);
     LOGDEBUG("TCMalloc Detailed stats: {}", stats_buf);
 
-    std::stringstream ss(stats_buf);
+    std::istringstream ss(stats_buf);
     std::string line;
 
-    std::regex re1("MALLOC:[\\s=\\+]+(\\d+) (\\(.* MiB\\)) (.*)");
-    std::regex re2("MALLOC:[\\s=\\+]+(\\d+)\\s+(.*)");
-    std::regex re3("class\\s+\\d+\\s+\\[\\s*(\\d+) bytes \\] :\\s+(\\d+) objs;\\s+(.*) MiB;\\s+(.*) cum MiB");
-    std::regex re4("PageHeap:\\s+(\\d+) sizes;\\s+(.*) MiB free;\\s+(.*) MiB unmapped");
-    std::regex re5("\\s+(\\d+) pages \\*\\s+(\\d+) spans ~\\s+(.*) MiB;\\s+.* MiB cum; unmapped:\\s+(.*) MiB;");
-    std::regex re6("(>\\d+)\\s+large \\*\\s+(\\d+) spans ~\\s+(.*) MiB;\\s+.* MiB cum; unmapped:\\s+(.*) MiB;");
+    const std::regex re1{"MALLOC:[\\s=\\+]+(\\d+) (\\(.* MiB\\)) (.*)"};
+    const std::regex re2{"MALLOC:[\\s=\\+]+(\\d+)\\s+(.*)"};
+    const std::regex re3{"class\\s+\\d+\\s+\\[\\s*(\\d+) bytes \\] :\\s+(\\d+) objs;\\s+(.*) MiB;\\s+(.*) cum MiB"};
+    const std::regex re4{"PageHeap:\\s+(\\d+) sizes;\\s+(.*) MiB free;\\s+(.*) MiB unmapped"};
+    const std::regex re5{"\\s+(\\d+) pages \\*\\s+(\\d+) spans ~\\s+(.*) MiB;\\s+.* MiB cum; unmapped:\\s+(.*) MiB;"};
+    const std::regex re6{"(>\\d+)\\s+large \\*\\s+(\\d+) spans ~\\s+(.*) MiB;\\s+.* MiB cum; unmapped:\\s+(.*) MiB;"};
 
     while (std::getline(ss, line, '\n')) {
         std::smatch match;
@@ -207,7 +212,7 @@ static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics) 
         } else if (std::regex_search(line, match, re2) && match.size() > 1) {
             if (j) (*j)["Stats"]["Malloc"][match.str(2)] = match.str(1);
             if (match.str(2) == "Tcmalloc page size") {
-                auto sz = std::stol(match.str(1));
+                const auto sz{std::stol(match.str(1))};
                 if (sz != 0) { tcmalloc_page_size = sz; }
             }
         } else if (j) {
@@ -231,14 +236,14 @@ static void get_parse_tcmalloc_stats(nlohmann::json* j, MallocMetrics* metrics) 
     }
 
     if (metrics) { MallocExtension::instance()->Ranges(nullptr, update_tcmalloc_range_stats); }
-    delete (stats_buf);
+    delete [] stats_buf;
 }
 #endif
 
-static nlohmann::json get_malloc_stats_detailed() {
+[[maybe_unused]] static nlohmann::json get_malloc_stats_detailed() {
     nlohmann::json j;
 
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC)
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     std::string detailed;
     malloc_stats_print(print_my_jemalloc_data, (void*)&detailed, "J");
 
@@ -252,19 +257,19 @@ static nlohmann::json get_malloc_stats_detailed() {
 
     char* common_stats;
     size_t common_stats_len;
-    FILE* stream = open_memstream(&common_stats, &common_stats_len);
-    if (stream != NULL) {
-        malloc_info(0, stream);
-        fclose(stream);
+    FILE* const stream{::open_memstream(&common_stats, &common_stats_len)};
+    if (stream != nullptr) {
+        ::malloc_info(0, stream);
+        std::fclose(stream);
 
-        j["StatsMallocInfo"] = std::string(common_stats, common_stats_len);
-        free(common_stats);
+        j["StatsMallocInfo"] = std::string{common_stats, common_stats_len};
+        std::free(common_stats);
     }
 
     return j;
 }
 
-static bool set_memory_release_rate(double level) {
+[[maybe_unused]] static bool set_memory_release_rate(const double level) {
 #if defined(USING_TCMALLOC)
     MallocExtension::instance()->SetMemoryReleaseRate(level);
     return true;
@@ -272,37 +277,38 @@ static bool set_memory_release_rate(double level) {
     return false;
 }
 
-static bool release_mem_if_needed(size_t soft_threshold, size_t aggressive_threshold) {
-    bool ret = false;
+[[maybe_unused]] static bool release_mem_if_needed(const size_t soft_threshold, const size_t aggressive_threshold_in) {
+    bool ret{false};
 #if defined(USING_TCMALLOC)
-    int64_t mem_usage = 0l;
-    static std::atomic< bool > _is_aggressive_decommit = false;
-    aggressive_threshold = std::max(aggressive_threshold, soft_threshold);
+    size_t mem_usage{0};
+    static std::atomic< bool > is_aggressive_decommit{false};
+    const size_t aggressive_threshold{std::max(aggressive_threshold_in, soft_threshold)};
 
     struct rusage usage;
-    if ((getrusage(RUSAGE_SELF, &usage) == 0) && ((usage.ru_maxrss * 1024) <= (long)soft_threshold)) {
-        mem_usage = usage.ru_maxrss * 1024;
+    if ((::getrusage(RUSAGE_SELF, &usage) == 0) && ((static_cast<size_t>(usage.ru_maxrss) * 1024) <= soft_threshold)) {
+        mem_usage = static_cast<size_t>(usage.ru_maxrss) * 1024;
     } else {
         // On occassions get_rusage reports elevated value (including vmem). So cross verify with actual usage.
         // The getrusage serves as initial filter to avoid doing ifstream always and also provide a way to run
         // on docker development systems.
-        if (auto usage_file = std::ifstream("/sys/fs/cgroup/memory/memory.usage_in_bytes"); usage_file.is_open()) {
+        if (auto usage_file{std::ifstream{"/sys/fs/cgroup/memory/memory.usage_in_bytes"}};
+            usage_file.is_open()) {
             usage_file >> mem_usage;
         }
     }
 
-    if (mem_usage > (long)aggressive_threshold) {
+    if (mem_usage > aggressive_threshold) {
         LOGINFO("Total memory alloced {} exceed aggressive threshold limit {}, ask tcmalloc to aggressively decommit ",
                 mem_usage, aggressive_threshold);
         COUNTER_INCREMENT(MallocMetrics::get(), num_times_exceed_aggressive_threshold, 1);
         MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 1);
         MallocExtension::instance()->ReleaseFreeMemory();
-        _is_aggressive_decommit.store(true);
+        is_aggressive_decommit.store(true);
         ret = true;
         goto done;
     }
 
-    if (mem_usage > (long)soft_threshold) {
+    if (mem_usage > soft_threshold) {
         LOGINFO("Total memory alloced {} exceed threshold limit {}, ask tcmalloc to release memory", mem_usage,
                 soft_threshold);
         COUNTER_INCREMENT(MallocMetrics::get(), num_times_exceed_soft_threshold, 1);
@@ -311,12 +317,12 @@ static bool release_mem_if_needed(size_t soft_threshold, size_t aggressive_thres
     }
 
     // We recovered from aggressive threshold, set the property back
-    if (_is_aggressive_decommit.load()) {
+    if (is_aggressive_decommit.load()) {
         LOGINFO("Total memory alloced {} is restored back to less than aggressive threshold limit {}, ask tcmalloc to "
                 "relax aggressively decommit ",
                 mem_usage, aggressive_threshold);
         MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 0);
-        _is_aggressive_decommit.store(false);
+        is_aggressive_decommit.store(false);
     }
 done:
 #endif

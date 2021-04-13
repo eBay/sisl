@@ -26,6 +26,18 @@ if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     endif ()
 endif()
 
+if (DEFINED MALLOC_IMPL)
+    if (${MALLOC_IMPL} STREQUAL "jemalloc")
+        add_flags("-DUSE_JEMALLOC=1")
+        # turn off memory sanitizer if using jemalloc otherwise folly will cause double definition errors
+        if (DEFINED MEMORY_SANITIZER_ON) 
+            unset(MEMORY_SANITIZER_ON CACHE)
+        endif()
+    elseif (${MALLOC_IMPL} STREQUAL "tcmalloc")
+        add_flags("-DUSING_TCMALLOC=1")
+    endif()
+endif()
+
 if  (${MEMORY_SANITIZER_ON})
     include (cmake/mem_sanitizer.cmake)
 endif()
