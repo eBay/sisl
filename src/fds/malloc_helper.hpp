@@ -93,24 +93,17 @@ public:
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 static size_t get_jemalloc_dirty_page_count() {
-    const char* arena_dirty_prefix = "stats.arenas.";
-    const char* arena_dirty_sufix = ".pdirty";
-    size_t npages = 0;
-    size_t szu = sizeof(unsigned int);
+    const std::string arena_dirty_prefix{"stats.arenas."};
+    const std::string arena_dirty_sufix{".pdirty"};
+    size_t npages{0};
     unsigned int ua;
-    if (mallctl("arenas.narenas", &ua, &szu, NULL, 0) == 0) {
-        for (unsigned int i = 0; i < ua; i++) {
-            char arena_index[11];
-            sprintf(arena_index, "%d", i);
-            size_t index_length = strlen(arena_index);
-            char arena_dirty_page_name[21 + index_length];
-            memcpy(arena_dirty_page_name, arena_dirty_prefix, 13);
-            memcpy(arena_dirty_page_name + 13, arena_index, index_length);
-            memcpy(arena_dirty_page_name + 13 + index_length, arena_dirty_sufix, 8);
-
-            size_t sz = sizeof(size_t);
-            size_t arena_dirty_page = 0;
-            if (mallctl(arena_dirty_page_name, &arena_dirty_page, &sz, NULL, 0) == 0) { npages += arena_dirty_page; }
+    size_t szu{sizeof(ua)};
+    if (::mallctl("arenas.narenas", &ua, &szu, nullptr, 0) == 0) {
+        for (unsigned int i{0}; i < ua; ++i) {
+            const std::string arena_dirty_page_name{arena_dirty_prefix + std::to_string(i) + arena_dirty_sufix};
+            size_t arena_dirty_page{0};
+            size_t sz{sizeof(arena_dirty_page)};
+            if (::mallctl(arena_dirty_page_name.c_str(), &arena_dirty_page, &sz, nullptr, 0) == 0) { npages += arena_dirty_page; }
         }
     } else {
         LOGWARN("fail to get the number of arenas from jemalloc");
@@ -124,18 +117,19 @@ static size_t get_jemalloc_dirty_page_count() {
     size_t allocated{0};
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-    size_t sz_allocated = sizeof(allocated);
+    size_t sz_allocated{sizeof(allocated)};
     if (refresh) {
-        uint64_t epoch = 1;
-        size_t sz_epoch = sizeof(epoch);
-        if (mallctl("epoch", &epoch, &sz_epoch, &epoch, sz_epoch) != 0) {
+        uint64_t out_epoch{0}, in_epoch{1};
+        size_t sz_epoch{sizeof(out_epoch)};
+        if (::mallctl("epoch", &out_epoch, &sz_epoch, &in_epoch, sz_epoch) != 0) {
             LOGWARN("fail to refresh jemalloc memory usage stats");
         }
 
-        if (mallctl("stats.allocated", &allocated, &sz_allocated, NULL, 0) != 0) { allocated = 0; }
+        if (::mallctl("stats.allocated", &allocated, &sz_allocated, nullptr, 0) != 0) { allocated = 0; }
 
-        size_t mapped = 0;
-        if (mallctl("stats.mapped", &mapped, &sz_allocated, NULL, 0) != 0) { mapped = 0; }
+        size_t mapped{0};
+        size_t sz_mapped{sizeof(mapped)};
+        if (::mallctl("stats.mapped", &mapped, &sz_mapped, nullptr, 0) != 0) { mapped = 0; }
         LOGINFO("Allocated memory: {} mapped: {} Dirty page count: {}", allocated, mapped,
                 get_jemalloc_dirty_page_count());
 
@@ -147,16 +141,20 @@ static size_t get_jemalloc_dirty_page_count() {
         if (mallctl("background_thread", NULL, NULL, &set_background_thread, sz_background_thread) != 0) {
             LOGWARN("fail to enable back ground thread for jemalloc";
         } */
+    } 
+    else {
+        if (::mallctl("stats.allocated", &allocated, &sz_allocated, nullptr, 0) != 0) { allocated = 0; }
     }
-    if (mallctl("stats.allocated", &allocated, &sz_allocated, NULL, 0) != 0) { allocated = 0; }
 #endif
     return allocated;
 }
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-static void print_my_jemalloc_data(void* opaque, const char* buf) {
-    std::string* json_buf = (std::string*)opaque;
-    *json_buf += buf;
+static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
+    if (opaque && buf) {
+        std::string* const json_buf{static_cast< std::string* >(opaque)};
+        json_buf->append(buf);
+    }
 }
 #endif
 
@@ -246,7 +244,7 @@ static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* con
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     std::string detailed;
-    malloc_stats_print(print_my_jemalloc_data, (void*)&detailed, "J");
+    ::malloc_stats_print(print_my_jemalloc_data, static_cast<void*>(&detailed), "J");
 
     j["Implementation"] = "JEMalloc";
     j["Stats"] = nlohmann::json::parse(detailed);
