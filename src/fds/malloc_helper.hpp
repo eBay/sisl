@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <regex>
 #include <sstream>
 #include <string>
