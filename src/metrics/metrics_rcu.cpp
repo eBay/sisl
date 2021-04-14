@@ -12,11 +12,13 @@ void WisrBufferMetricsGroup::on_register() {
 }
 
 void WisrBufferMetricsGroup::counter_increment(uint64_t index, int64_t val) {
-    m_metrics->insertable_ptr()->get_counter(index).increment(val);
+    auto m{m_metrics->insert_access()};
+    m->get_counter(index).increment(val);
 }
 
 void WisrBufferMetricsGroup::counter_decrement(uint64_t index, int64_t val) {
-    m_metrics->insertable_ptr()->get_counter(index).decrement(val);
+    auto m{m_metrics->insert_access()};
+    m->get_counter(index).decrement(val);
 }
 
 // If we were to call the method with count parameter and compiler inlines them, binaries linked with libsisl gets
@@ -24,11 +26,13 @@ void WisrBufferMetricsGroup::counter_decrement(uint64_t index, int64_t val) {
 // everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
 // one with count and one without count. In any case this is a single line method.
 void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val) {
-    m_metrics->insertable_ptr()->get_histogram(index).observe(val, hist_static_info(index).get_boundaries(), 1);
+    auto m{m_metrics->insert_access()};
+    m->get_histogram(index).observe(val, hist_static_info(index).get_boundaries(), 1);
 }
 
 void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
-    m_metrics->insertable_ptr()->get_histogram(index).observe(val, hist_static_info(index).get_boundaries(), count);
+    auto m{m_metrics->insert_access()};
+    m->get_histogram(index).observe(val, hist_static_info(index).get_boundaries(), count);
 }
 
 void WisrBufferMetricsGroup::gather_result(bool need_latest, const counter_gather_cb_t& counter_cb,

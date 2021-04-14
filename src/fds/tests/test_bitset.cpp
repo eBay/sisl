@@ -399,26 +399,60 @@ TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
     ASSERT_EQ(result13.nbits, static_cast< uint32_t >(32));
 }
 
-TEST_F(BitsetTest, AlternateSetAndShrink) {
+TEST_F(BitsetTest, EqualityLogicCheck) {
+    m_bset.set_bits(0, g_total_bits);
+    sisl::ThreadSafeBitset tmp_bset(g_total_bits);
+    tmp_bset.set_bits(0, g_total_bits);
+
+    m_bset.reset_bits(1, 2);
+    ASSERT_FALSE(m_bset == tmp_bset);
+
+    tmp_bset.reset_bits(1, 2);
+    ASSERT_TRUE(m_bset == tmp_bset);
+
+    tmp_bset.reset_bits(127, 8);
+    ASSERT_FALSE(m_bset == tmp_bset);
+
+    m_bset.reset_bits(127, 8);
+    ASSERT_TRUE(m_bset == tmp_bset);
+
+    shrink_head(128);
+    ASSERT_TRUE(m_bset != tmp_bset);
+
+    tmp_bset.shrink_head(128);
+    ASSERT_TRUE(m_bset == tmp_bset);
+
+    tmp_bset.resize(500);
+    ASSERT_TRUE(m_bset != tmp_bset);
+}
+
+TEST_F(BitsetTest, QuartetSetAndShrink) {
     run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
         LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);
         for (auto i{start}; i < start + count; ++i) {
-            (i % 2 == 0) ? set(i, 1) : reset(i, 1);
+            (i % 4 == 0) ? set(i, 1) : reset(i, 1);
         }
     });
-    validate_all(1);
 
-    LOGINFO("INFO: Shrink and right shift by 15 bits");
-    shrink_head(15);
+    LOGINFO("INFO: Shrink and right shift by 13 bits");
+    shrink_head(13);
+
+    sisl::ThreadSafeBitset tmp_bset(total_bits());
+    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
+        LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);
+        for (auto i{start}; i < start + count; ++i) {
+            (i % 4 == 0) ? tmp_bset.set_bits(i, 1) : tmp_bset.reset_bits(i, 1);
+        }
+    });
+    ASSERT_TRUE(m_bset != tmp_bset);
 
     run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
-        LOGINFO("INFO: Now toggle set/reset (reset even and set odd) in range[{} - {}]", start, start + count - 1);
+        LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);
         for (auto i{start}; i < start + count; ++i) {
-            (i % 2 == 1) ? set(i, 1) : reset(i, 1);
+            (i % 4 == 0) ? set(i, 1) : reset(i, 1);
         }
     });
-
-    validate_all(1);
+    ASSERT_TRUE(m_bset == tmp_bset);
 }
 
 TEST_F(BitsetTest, SequentialSetAndExpand) {
@@ -433,15 +467,31 @@ TEST_F(BitsetTest, SequentialSetAndExpand) {
     LOGINFO("INFO: Increase the size by 1000 bits");
     expand_tail(1000);
 
+    sisl::ThreadSafeBitset tmp_bset(total_bits());
+    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
+        LOGINFO("INFO: Setting all bits from {} to end {}", total_bits() / 2, total_bits());
+        for (auto i{start}; i < start + count; ++i) {
+            (i > total_bits() / 2) ? tmp_bset.set_bits(i, 1) : tmp_bset.reset_bits(i, 1);
+        }
+    });
+
     LOGINFO("INFO: Setting all bits from 0 to 200");
     run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
         for (auto i{start}; i < start + count; ++i) {
-            if (i <= 200) { set(i, 1); }
+            if (i <= 200) {
+                set(i, 1);
+                tmp_bset.set_bits(i,1);
+            } else {
+                reset(i, 1);
+                tmp_bset.reset_bits(i,1);
+            }
         }
     });
 
     validate_all(6);
     validate_by_next_continous_bits(161);
+
+    ASSERT_TRUE(m_bset == tmp_bset);
 }
 
 TEST_F(BitsetTest, RandomSetAndShrink) {

@@ -32,12 +32,12 @@ public:
     wisr_framework& operator=(wisr_framework&&) noexcept = delete;
     ~wisr_framework() = default;
 
-    DS* insertable_ptr() { return m_buffer->access().get(); }
-
     void insertable(const auto& cb) {
         auto _access_ptr = m_buffer->access();
         cb(_access_ptr.get());
     }
+
+    [[nodiscard]] auto insert_access() const { return m_buffer->access(); }
 
     DS* now() {
         std::lock_guard< std::mutex > lg(m_rotate_mutex);
