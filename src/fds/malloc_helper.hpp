@@ -15,6 +15,7 @@
 #include <cstring>
 #include <fstream>
 #include <functional>
+#include <mutex>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -42,6 +43,9 @@ namespace sisl {
 class MallocMetrics;
 static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics);
 static uint64_t tcmalloc_page_size{8192};
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+class MallocMetrics;
+static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics);
 #endif
 
 class MallocMetrics : public MetricsGroupWrapper {
@@ -50,14 +54,12 @@ public:
         REGISTER_COUNTER(num_times_exceed_soft_threshold, "Number of times mem usage exceeded soft threshold");
         REGISTER_COUNTER(num_times_exceed_aggressive_threshold,
                          "Number of times mem usage exceeded aggressive threshold");
-
+#ifdef USING_TCMALLOC
         REGISTER_GAUGE(appln_used_bytes, "Bytes used by the application");
         REGISTER_GAUGE(page_heap_freelist_size, "Bytes in page heap freelist");
 
-#ifdef USING_TCMALLOC
         REGISTER_GAUGE(central_cache_freelist_size, "Bytes in central cache freelist");
         REGISTER_GAUGE(transfer_cache_freelist_size, "Bytes in transfer cache freelist");
-#endif
         REGISTER_GAUGE(thread_cache_freelist_size, "Bytes in thread cache freelist");
         REGISTER_GAUGE(os_released_bytes, "Bytes released to OS");
 
@@ -67,7 +69,15 @@ public:
                            HistogramBucketsType(LinearUpto128Buckets));
         REGISTER_HISTOGRAM(inuse_page_span_distribution, "Continuous pages which are being used by app",
                            HistogramBucketsType(LinearUpto128Buckets));
-
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+        REGISTER_GAUGE(active_memory, "Bytes in active pages allocated by the application");
+        REGISTER_GAUGE(allocated_memory, "Bytes allocated by the application");
+        REGISTER_GAUGE(metadata_memory, "Bytes dedicated to metadata");
+        REGISTER_GAUGE(metadata_thp, "Number of transparent huge pages (THP) used for metadata");
+        REGISTER_GAUGE(mapped_memory, "Bytes in active extents mapped by the allocator");
+        REGISTER_GAUGE(resident_memory, "Maximum number of bytes in physically resident data pages mapped by the allocator");
+        REGISTER_GAUGE(retained_memory, "Bytes in virtual memory mappings that were retained rather than returned to OS");
+#endif
         register_me_to_farm();
         attach_gather_cb(std::bind(&MallocMetrics::on_gather, this));
     }
@@ -81,6 +91,8 @@ public:
     void on_gather() {
 #ifdef USING_TCMALLOC
         get_parse_tcmalloc_stats(nullptr, this);
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+        get_parse_jemalloc_stats(nullptr, this);
 #endif
     }
 
@@ -103,17 +115,19 @@ static size_t get_jemalloc_dirty_page_count() {
             const std::string arena_dirty_page_name{arena_dirty_prefix + std::to_string(i) + arena_dirty_sufix};
             size_t arena_dirty_page{0};
             size_t sz{sizeof(arena_dirty_page)};
-            if (::mallctl(arena_dirty_page_name.c_str(), &arena_dirty_page, &sz, nullptr, 0) == 0) { npages += arena_dirty_page; }
+            if (::mallctl(arena_dirty_page_name.c_str(), &arena_dirty_page, &sz, nullptr, 0) == 0) {
+                npages += arena_dirty_page;
+            }
         }
     } else {
-        LOGWARN("fail to get the number of arenas from jemalloc");
+        LOGWARN("failed to get the number of arenas from jemalloc");
     }
     return npages;
 }
 #endif
 
 /* Get the application total allocated memory. Relies on jemalloc. Returns 0 for other allocator. */
-[[maybe_unused]] static size_t get_total_memory(const bool refresh) {
+[[maybe_unused]] static size_t get_total_memory(const bool refresh = true) {
     size_t allocated{0};
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
@@ -122,7 +136,7 @@ static size_t get_jemalloc_dirty_page_count() {
         uint64_t out_epoch{0}, in_epoch{1};
         size_t sz_epoch{sizeof(out_epoch)};
         if (::mallctl("epoch", &out_epoch, &sz_epoch, &in_epoch, sz_epoch) != 0) {
-            LOGWARN("fail to refresh jemalloc memory usage stats");
+            LOGWARN("failed to refresh jemalloc memory usage stats");
         }
 
         if (::mallctl("stats.allocated", &allocated, &sz_allocated, nullptr, 0) != 0) { allocated = 0; }
@@ -148,15 +162,6 @@ static size_t get_jemalloc_dirty_page_count() {
 #endif
     return allocated;
 }
-
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
-    if (opaque && buf) {
-        std::string* const json_buf{static_cast< std::string* >(opaque)};
-        json_buf->append(buf);
-    }
-}
-#endif
 
 #if defined(USING_TCMALLOC)
 static void update_tcmalloc_range_stats(void* const arg, const base::MallocRange* const range) {
@@ -239,15 +244,80 @@ static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* con
 }
 #endif
 
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics) {
+    size_t allocated{0};
+    size_t sz_allocated{sizeof(allocated)};
+    if (::mallctl("stats.allocated", &allocated, &sz_allocated, nullptr, 0) == 0) {
+        GAUGE_UPDATE(*metrics, allocated_memory, allocated);
+        if (j) { (*j)["Stats"]["Malloc"]["Allocated"] = allocated; }
+    }
+
+    size_t active{0};
+    size_t sz_active{sizeof(active)};
+    if (::mallctl("stats.active", &active, &sz_active, nullptr, 0) == 0) {
+        GAUGE_UPDATE(*metrics, active_memory, active);
+        if (j) { (*j)["Stats"]["Malloc"]["Active"] = active; }
+    }
+
+    size_t mapped{0};
+    size_t sz_mapped{sizeof(mapped)};
+    if (::mallctl("stats.mapped", &mapped, &sz_mapped, nullptr, 0) == 0) {
+        GAUGE_UPDATE(*metrics, mapped_memory, mapped);
+        if (j) { (*j)["Stats"]["Malloc"]["Mapped"] = mapped; }
+    }
+
+    size_t resident{0};
+    size_t sz_resident{sizeof(resident)};
+    if (::mallctl("stats.resident", &resident, &sz_resident, nullptr, 0) == 0) {
+        GAUGE_UPDATE(*metrics, resident_memory, resident);
+        if (j) { (*j)["Stats"]["Malloc"]["Resident"] = resident; }
+    }
+
+    size_t retained{0};
+    size_t sz_retained{sizeof(retained)};
+    if (::mallctl("stats.retained", &retained, &sz_retained, nullptr, 0) == 0) {
+        GAUGE_UPDATE(*metrics, retained_memory, retained);
+        if (j) { (*j)["Stats"]["Malloc"]["Retained"] = retained; }
+    }
+
+    size_t metadata_memory{0};
+    size_t sz_metadata_memory{sizeof(metadata_memory)};
+    if (::mallctl("stats.metadata", &metadata_memory, &sz_metadata_memory, nullptr, 0) == 0) {
+        GAUGE_UPDATE(*metrics, metadata_memory, metadata_memory);
+        if (j) { (*j)["Stats"]["Malloc"]["Metadata"]["Memory"] = metadata_memory; }
+    }
+
+    size_t metadata_thp{0};
+    size_t sz_metadata_thp{sizeof(metadata_thp)};
+    if (::mallctl("stats.metadata_thp", &metadata_thp, &sz_metadata_thp, nullptr, 0) == 0) {
+        GAUGE_UPDATE(*metrics, metadata_thp, metadata_thp);
+        if (j) { (*j)["Stats"]["Malloc"]["Metadata"]["THP"] = metadata_thp; }
+    }
+}
+
+static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
+    if (opaque && buf) {
+        std::string* const json_buf{static_cast< std::string* >(opaque)};
+        json_buf->append(buf);
+    }
+}
+#endif
+
 [[maybe_unused]] static nlohmann::json get_malloc_stats_detailed() {
     nlohmann::json j;
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+    static std::mutex stats_mutex;
+     // get malloc data in JSON format
     std::string detailed;
-    ::malloc_stats_print(print_my_jemalloc_data, static_cast<void*>(&detailed), "J");
+    {
+        std::lock_guard lock{stats_mutex};
+        ::malloc_stats_print(print_my_jemalloc_data, static_cast< void* >(&detailed), "J");
+    }
 
     j["Implementation"] = "JEMalloc";
-    j["Stats"] = nlohmann::json::parse(detailed);
+    if (!detailed.empty()) { j["Stats"] = nlohmann::json::parse(detailed); }
 #elif defined(USING_TCMALLOC)
     j["Implementation"] = "TCMalloc (possibly)";
     get_parse_tcmalloc_stats(&j, nullptr);

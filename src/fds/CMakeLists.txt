@@ -55,3 +55,14 @@ set(TEST_CBMUTEX_SOURCE_FILES
 add_executable(test_cb_mutex ${TEST_CBMUTEX_SOURCE_FILES})
 target_link_libraries(test_cb_mutex sisl ${CONAN_LIBS})
 add_test(NAME TestCBMutex COMMAND test_cb_mutex)
+
+if (DEFINED MALLOC_IMPL)
+    if (${MALLOC_IMPL} STREQUAL "jemalloc")
+        set(TEST_JEMALLOC_SOURCE_FILES
+            tests/test_jemalloc_helper.cpp
+           )
+        add_executable(test_jemalloc ${TEST_JEMALLOC_SOURCE_FILES})
+        target_link_libraries(test_jemalloc sisl jemalloc ${CONAN_LIBS})
+        add_test(NAME TestJemalloc COMMAND test_jemalloc)
+    endif()
+endif()
