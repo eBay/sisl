@@ -93,6 +93,11 @@ add_flags("-DBOOST_ALLOW_DEPRECATED_HEADERS")
 add_flags("-DPACKAGE_NAME=\\\"${CONAN_PACKAGE_NAME}\\\"")
 add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
 
+if(UNIX)
+    # enable proper memstream flags
+    add_flags("-D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
+endif()
+
 add_subdirectory (src/async_http)
 add_subdirectory (src/wisr)
 add_subdirectory (src/metrics)
