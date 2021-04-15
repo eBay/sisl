@@ -22,9 +22,9 @@
 #include <string>
 
 #ifdef __linux__
-    #include <malloc.h>
-    #include <sys/time.h>
-    #include <sys/resource.h>
+#include <malloc.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 #endif
 
 #include <sds_logging/logging.h>
@@ -34,9 +34,9 @@
 #include "metrics/metrics.hpp"
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-    #include <jemalloc/jemalloc.h>
+#include <jemalloc/jemalloc.h>
 #elif defined(USING_TCMALLOC)
-    #include <gperftools/malloc_extension.h>
+#include <gperftools/malloc_extension.h>
 #endif
 
 namespace sisl {
@@ -76,10 +76,11 @@ public:
         REGISTER_GAUGE(metadata_memory, "Bytes dedicated to metadata");
         REGISTER_GAUGE(metadata_thp, "Number of transparent huge pages (THP) used for metadata");
         REGISTER_GAUGE(mapped_memory, "Bytes in active extents mapped by the allocator");
-        REGISTER_GAUGE(resident_memory, "Maximum number of bytes in physically resident data pages mapped by the allocator");
-        REGISTER_GAUGE(retained_memory, "Bytes in virtual memory mappings that were retained rather than returned to OS");
-        REGISTER_GAUGE(dirty_pages,
-                       "The total number of dirty pages in the arenas");
+        REGISTER_GAUGE(resident_memory,
+                       "Maximum number of bytes in physically resident data pages mapped by the allocator");
+        REGISTER_GAUGE(retained_memory,
+                       "Bytes in virtual memory mappings that were retained rather than returned to OS");
+        REGISTER_GAUGE(dirty_pages, "The total number of dirty pages in the arenas");
         REGISTER_GAUGE(muzzy_pages, "The total number of muzzy pages in the arenas");
 #endif
         register_me_to_farm();
@@ -200,18 +201,17 @@ private:
         }
 
         if (::mallctlnametomib("arenas.dirty_decay_ms", m_arenas_dirty_decay.first.data(),
-                               &m_arenas_dirty_decay.second) !=
-            0) {
+                               &m_arenas_dirty_decay.second) != 0) {
             LOGWARN("Failed to resolve jemalloc arenas.dirty_decay_ms mib");
         }
 
         if (::mallctlnametomib("arenas.muzzy_decay_ms", m_arenas_muzzy_decay.first.data(),
-                               &m_arenas_muzzy_decay.second) !=
-            0) {
+                               &m_arenas_muzzy_decay.second) != 0) {
             LOGWARN("Failed to resolve jemalloc arenas.muzzy_decay_ms mib");
         }
 
-        if (::mallctlnametomib("background_thread", m_background_thread.first.data(), &m_background_thread.second) != 0) {
+        if (::mallctlnametomib("background_thread", m_background_thread.first.data(), &m_background_thread.second) !=
+            0) {
             LOGWARN("Failed to resolve jemalloc background_thread mib");
         }
     }
@@ -224,18 +224,18 @@ static size_t get_jemalloc_dirty_page_count() {
     unsigned int num_arenas{0};
     size_t sz_num_arenas{sizeof(num_arenas)};
     static const auto& num_arenas_mib{jemalloc_statics.get_arenas_narenas_mib()};
-    if (::mallctlbymib(num_arenas_mib.first.data(), num_arenas_mib.second, &num_arenas, &sz_num_arenas, nullptr, 0) == 0) {
+    if (::mallctlbymib(num_arenas_mib.first.data(), num_arenas_mib.second, &num_arenas, &sz_num_arenas, nullptr, 0) ==
+        0) {
         for (unsigned int i{0}; i < num_arenas; ++i) {
             static thread_local auto arenas_pdirty_mib{jemalloc_statics.get_arenas_pdirty_mib()};
             arenas_pdirty_mib.first[2] = static_cast< size_t >(i);
             size_t dirty_pages{0};
             size_t sz_dirty_pages{sizeof(dirty_pages)};
             if (::mallctlbymib(arenas_pdirty_mib.first.data(), arenas_pdirty_mib.second, &dirty_pages, &sz_dirty_pages,
-                               nullptr,
-                               0) == 0) {
+                               nullptr, 0) == 0) {
                 npages += dirty_pages;
             }
-        }    
+        }
     }
 
     return npages;
@@ -275,14 +275,12 @@ static size_t get_jemalloc_muzzy_page_count() {
     size_t sz_allocated{sizeof(allocated)};
     static const auto& stats_allocated_mib{jemalloc_statics.get_stats_allocated_mib()};
     if (refresh) {
-        static const auto& epoch_mib{jemalloc_statics.get_epoch_mib()}; 
+        static const auto& epoch_mib{jemalloc_statics.get_epoch_mib()};
         uint64_t out_epoch{0}, in_epoch{1};
         size_t sz_epoch{sizeof(out_epoch)};
-        if (::mallctlbymib(epoch_mib.first.data(), epoch_mib.second, &out_epoch, &sz_epoch, &in_epoch, sz_epoch) !=
-            0) {
+        if (::mallctlbymib(epoch_mib.first.data(), epoch_mib.second, &out_epoch, &sz_epoch, &in_epoch, sz_epoch) != 0) {
             LOGWARN("failed to refresh jemalloc epoch");
         }
-    
     }
     if (::mallctlbymib(stats_allocated_mib.first.data(), stats_allocated_mib.second, &allocated, &sz_allocated, nullptr,
                        0) != 0) {}
@@ -306,7 +304,7 @@ static void update_tcmalloc_range_stats(void* const arg, const base::MallocRange
 }
 
 static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics) {
-    const size_t buf_len{static_cast<size_t>(j ? 1024 * 20 : 9999)};
+    const size_t buf_len{static_cast< size_t >(j ? 1024 * 20 : 9999)};
     char* stats_buf{new char[buf_len]};
 
     MallocExtension::instance()->GetStats(stats_buf, buf_len);
@@ -367,7 +365,7 @@ static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* con
     }
 
     if (metrics) { MallocExtension::instance()->Ranges(nullptr, update_tcmalloc_range_stats); }
-    delete [] stats_buf;
+    delete[] stats_buf;
 }
 #endif
 
@@ -396,8 +394,7 @@ static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* con
     size_t active{0};
     size_t sz_active{sizeof(active)};
     static const auto& stats_active_mib{jemalloc_statics.get_stats_active_mib()};
-    if (::mallctlbymib(stats_active_mib.first.data(), stats_active_mib.second, &active, &sz_active, nullptr,
-                       0) == 0) {
+    if (::mallctlbymib(stats_active_mib.first.data(), stats_active_mib.second, &active, &sz_active, nullptr, 0) == 0) {
         GAUGE_UPDATE(*metrics, active_memory, active);
         if (j) { (*j)["Stats"]["Malloc"]["Active"] = active; }
     }
@@ -414,8 +411,7 @@ static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* con
     size_t sz_resident{sizeof(resident)};
     static const auto& stats_resident_mib{jemalloc_statics.get_stats_resident_mib()};
     if (::mallctlbymib(stats_resident_mib.first.data(), stats_resident_mib.second, &resident, &sz_resident, nullptr,
-                       0) ==
-        0) {
+                       0) == 0) {
         GAUGE_UPDATE(*metrics, resident_memory, resident);
         if (j) { (*j)["Stats"]["Malloc"]["Resident"] = resident; }
     }
@@ -433,9 +429,7 @@ static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* con
     size_t sz_metadata_memory{sizeof(metadata_memory)};
     static const auto& stats_metadata_mib{jemalloc_statics.get_stats_metadata_mib()};
     if (::mallctlbymib(stats_metadata_mib.first.data(), stats_metadata_mib.second, &metadata_memory,
-                       &sz_metadata_memory,
-                       nullptr,
-                       0) == 0) {
+                       &sz_metadata_memory, nullptr, 0) == 0) {
         GAUGE_UPDATE(*metrics, metadata_memory, metadata_memory);
         if (j) { (*j)["Stats"]["Malloc"]["Metadata"]["Memory"] = metadata_memory; }
     }
@@ -471,7 +465,7 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     static std::mutex stats_mutex;
-     // get malloc data in JSON format
+    // get malloc data in JSON format
     std::string detailed;
     {
         std::lock_guard lock{stats_mutex};
@@ -501,7 +495,6 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
     return j;
 }
 
-
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 static bool set_jemalloc_decay_times(const ssize_t dirty_decay_ms_in = 0, const ssize_t muzzy_decay_ms_in = 0) {
     static const auto& jemalloc_statics{JEMallocStatics::get()};
@@ -510,8 +503,7 @@ static bool set_jemalloc_decay_times(const ssize_t dirty_decay_ms_in = 0, const 
     size_t sz_dirty_decay{sizeof(dirty_decay_ms)};
     static const auto& arenas_dirty_decay_mib{jemalloc_statics.get_arenas_dirty_decay_mib()};
     if (::mallctlbymib(arenas_dirty_decay_mib.first.data(), arenas_dirty_decay_mib.second, nullptr, nullptr,
-                       &dirty_decay_ms,
-                       sz_dirty_decay) != 0) {
+                       &dirty_decay_ms, sz_dirty_decay) != 0) {
         LOGWARN("failed to set jemalloc dirty page decay time in ms {}", dirty_decay_ms);
         return false;
     }
@@ -520,8 +512,7 @@ static bool set_jemalloc_decay_times(const ssize_t dirty_decay_ms_in = 0, const 
     size_t sz_muzzy_decay{sizeof(muzzy_decay_ms)};
     static const auto& arenas_muzzy_decay_mib{jemalloc_statics.get_arenas_muzzy_decay_mib()};
     if (::mallctlbymib(arenas_muzzy_decay_mib.first.data(), arenas_muzzy_decay_mib.second, nullptr, nullptr,
-                       &muzzy_decay_ms,
-                       sz_muzzy_decay) != 0) {
+                       &muzzy_decay_ms, sz_muzzy_decay) != 0) {
         LOGWARN("failed to set jemalloc muzzy page decay time in ms {}", muzzy_decay_ms);
         return false;
     }
@@ -561,14 +552,14 @@ static bool set_jemalloc_background_threads(const bool enable_in) {
     const size_t aggressive_threshold{std::max(aggressive_threshold_in, soft_threshold)};
 
     struct rusage usage;
-    if ((::getrusage(RUSAGE_SELF, &usage) == 0) && ((static_cast<size_t>(usage.ru_maxrss) * 1024) <= soft_threshold)) {
-        mem_usage = static_cast<size_t>(usage.ru_maxrss) * 1024;
+    if ((::getrusage(RUSAGE_SELF, &usage) == 0) &&
+        ((static_cast< size_t >(usage.ru_maxrss) * 1024) <= soft_threshold)) {
+        mem_usage = static_cast< size_t >(usage.ru_maxrss) * 1024;
     } else {
         // On occassions get_rusage reports elevated value (including vmem). So cross verify with actual usage.
         // The getrusage serves as initial filter to avoid doing ifstream always and also provide a way to run
         // on docker development systems.
-        if (auto usage_file{std::ifstream{"/sys/fs/cgroup/memory/memory.usage_in_bytes"}};
-            usage_file.is_open()) {
+        if (auto usage_file{std::ifstream{"/sys/fs/cgroup/memory/memory.usage_in_bytes"}}; usage_file.is_open()) {
             usage_file >> mem_usage;
         }
     }
