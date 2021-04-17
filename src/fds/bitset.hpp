@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <vector>
@@ -74,7 +75,7 @@ private:
 
         bitset_serialized(const uint64_t id, const uint64_t nbits, const uint64_t skip_bits = 0) :
                 m_id{id}, m_nbits{nbits}, m_skip_bits{skip_bits} {
-            ::memset(static_cast< void* >(m_words), 0, total_words(nbits) * sizeof(Word));
+            std::memset(static_cast< void* >(m_words), 0, total_words(nbits) * sizeof(Word));
         }
         bitset_serialized(const bitset_serialized&) = delete;
         bitset_serialized(bitset_serialized&&) noexcept = delete;
@@ -119,11 +120,16 @@ public:
         m_words_cap = bitset_serialized::total_words(nbits);
     }
 
-    explicit BitsetImpl(const BitsetImpl& others) :
-            m_alignment_size{others.m_alignment_size},
-            m_buf{others.m_buf},
-            m_s{reinterpret_cast< bitset_serialized* >(m_buf->bytes)},
-            m_words_cap{others.m_words_cap} {}
+    explicit BitsetImpl(const BitsetImpl& other) {
+        if (ThreadSafeResizing) { other.m_lock.lock_shared(); }
+
+        m_alignment_size = other.m_alignment_size;
+        m_buf = other.m_buf;
+        m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
+        m_words_cap = other.m_words_cap;
+
+        if (ThreadSafeResizing) { other.m_lock.unlock_shared(); }
+    }
 
     explicit BitsetImpl(const sisl::byte_array& b) {
         // NOTE: This assumes that the passed byte_array already has an initialized bitset_serialized structure
@@ -133,14 +139,56 @@ public:
         m_words_cap = bitset_serialized::total_words(m_s->m_nbits);
     }
 
-    BitsetImpl(BitsetImpl&& others) noexcept :
-            m_alignment_size{std::move(others.m_alignment_size)},
-            m_buf{std::move(others.m_buf)},
-            m_s{reinterpret_cast< bitset_serialized* >(m_buf->bytes)},
-            m_words_cap{std::move(others.m_words_cap)} {
-        others.m_alignment_size = 0;
-        others.m_s = nullptr;
-        others.m_words_cap = 0;
+    explicit BitsetImpl(const word_t* const start_ptr, const word_t* const end_ptr, const uint64_t id = 0,
+                        const uint32_t alignment_size = 0) :
+            m_alignment_size{alignment_size} {
+        assert(end_ptr > start_ptr);
+        const size_t num_words{static_cast< size_t >(end_ptr - start_ptr)};
+        const uint64_t nbits{static_cast< uint64_t >(num_words) * Word::bits()};
+        const uint64_t size{alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                           : bitset_serialized::nbytes(nbits)};
+        m_buf = make_byte_array(size, m_alignment_size);
+        m_s = new (m_buf->bytes) bitset_serialized{id, nbits};
+        m_words_cap = bitset_serialized::total_words(nbits);
+
+        // copy the data into the bitset
+        Word* word_ptr{get_word(0)};
+        std::memcpy(static_cast< void* >(word_ptr), static_cast< const void* >(start_ptr), num_words * sizeof(word_t));
+    }
+
+    template < typename IteratorType,
+               typename = std::enable_if_t< std::is_same_v<
+                   std::decay_t< typename std::iterator_traits< IteratorType >::value_type >, word_t > > >
+    explicit BitsetImpl(const IteratorType& start_itr, const IteratorType& end_itr, const uint64_t id = 0,
+                        const uint32_t alignment_size = 0) :
+            m_alignment_size{alignment_size} {
+        const size_t num_words{static_cast< size_t >(std::distance(start_itr, end_itr))};
+        const uint64_t nbits{static_cast< uint64_t >(num_words) * Word::bits()};
+        const uint64_t size{alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                           : bitset_serialized::nbytes(nbits)};
+        m_buf = make_byte_array(size, m_alignment_size);
+        m_s = new (m_buf->bytes) bitset_serialized{id, nbits};
+        m_words_cap = bitset_serialized::total_words(nbits);
+
+        // copy the data into the bitset
+        Word* word_ptr{get_word(0)};
+        for (auto itr{start_itr}; itr != end_itr; ++itr, ++word_ptr) {
+            word_ptr->set(*itr);
+        }
+    }
+
+    BitsetImpl(BitsetImpl&& other) noexcept {
+        if (ThreadSafeResizing) { other.m_lock.lock_shared(); }
+
+        m_alignment_size = std::move(other.m_alignment_size);
+        m_buf = std::move(other.m_buf);
+        m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
+        m_words_cap = std::move(other.m_words_cap);
+        other.m_alignment_size = 0;
+        other.m_s = nullptr;
+        other.m_words_cap = 0;
+
+        if (ThreadSafeResizing) { other.m_lock.unlock_shared(); }
     }
 
     BitsetImpl& operator=(const BitsetImpl& rhs) {
@@ -183,69 +231,187 @@ public:
         return *this;
     }
 
-private:
-    // get word size value
-    word_t get_word(uint64_t* cursor) const {
-        if (!cursor) { return word_t{}; }
-        const Word* word_ptr{get_word_const(*cursor)};
-        if (!word_ptr) { return word_t{}; }
+    // get word size value.  data is stored in LSB to MSB order into the bitset
+    word_t get_word_value(const uint64_t start_bit) const {
+        if (ThreadSafeResizing) { this->m_lock.lock_shared(); }
 
-        const uint8_t offset{get_word_offset(*cursor)};
-        const uint64_t bits_remaining{total_bits() - *cursor};
-        auto valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
-        if (bits_remaining < valid_bits) {
-            valid_bits = static_cast< uint8_t >(bits_remaining);
+        const Word* word_ptr{get_word_const(start_bit)};
+        if (!word_ptr) {
+            this->m_lock.unlock_shared();
+            return word_t{};
         }
-        const word_t low_mask{static_cast< word_t >(consecutive_bitmask[valid_bits - 1])};
-        word_t val{static_cast< word_t >(word_ptr->to_integer() >> offset) & low_mask};
-        *cursor += valid_bits;
-        if (offset && bits_remaining > valid_bits) {
-            auto size{offset};
-            if (bits_remaining - valid_bits <= size) {
-                size = static_cast< uint8_t >(bits_remaining - valid_bits);
+
+        word_t val{word_ptr->to_integer()};
+        const uint8_t offset{get_word_offset(start_bit)};
+        uint64_t bits_remaining{total_bits() - start_bit};
+        if (offset > 0) {
+            // compose from multiple words
+            const uint8_t word_bits_remaining{static_cast< uint8_t >(Word::bits() - offset)};
+            const uint8_t valid_low_bits{
+                static_cast< uint8_t >((bits_remaining > word_bits_remaining) ? word_bits_remaining : bits_remaining)};
+            const word_t low_mask{static_cast< word_t >(consecutive_bitmask[valid_low_bits - 1])};
+            val = static_cast< word_t >(val >> offset) & low_mask;
+            bits_remaining -= valid_low_bits;
+
+            // add from next word if word_t size word spans two words
+            if (bits_remaining > 0) {
+                const uint8_t valid_high_bits{
+                    static_cast< uint8_t >((bits_remaining > offset) ? offset : bits_remaining)};
+                const word_t high_mask{static_cast< word_t >(consecutive_bitmask[valid_high_bits - 1])};
+                val |= static_cast< word_t >(((++word_ptr)->to_integer() & high_mask) << valid_low_bits);
             }
-            const word_t high_mask{static_cast< word_t >(consecutive_bitmask[size - 1])};
-            val |= ((++word_ptr)->to_integer() & high_mask) << valid_bits;
-            *cursor += size;
+        } else {
+            // single word optimization
+            if (bits_remaining < Word::bits()) {
+                const word_t mask{static_cast< word_t >(consecutive_bitmask[bits_remaining - 1])};
+                val &= mask;
+            }
         }
+        if (ThreadSafeResizing) { this->m_lock.unlock_shared(); }
+
         return val;
     }
 
-public:
     bool operator==(const BitsetImpl& rhs) {
         if (ThreadSafeResizing) {
             this->m_lock.lock_shared();
             rhs.m_lock.lock_shared();
         }
-        if (total_bits() != rhs.total_bits()) {
+
+        const auto unlock{[&rhs, this]() {
             if (ThreadSafeResizing) {
                 rhs.m_lock.unlock_shared();
                 this->m_lock.unlock_shared();
             }
+        }};
+
+        if (total_bits() != rhs.total_bits()) {
+            unlock();
             return false;
         }
-        uint64_t lhs_cursor{0}, rhs_cursor{0};
-        while (lhs_cursor < total_bits()) {
-            const word_t lhs_word{this->get_word(&lhs_cursor)};
-            const word_t rhs_word{rhs.get_word(&rhs_cursor)};
-            if (lhs_word != rhs_word) {
-                if (ThreadSafeResizing) {
-                    rhs.m_lock.unlock_shared();
-                    this->m_lock.unlock_shared();
+
+        uint64_t bits_remaining{total_bits()};
+        if (bits_remaining == 0) {
+            unlock();
+            return true;
+        }
+
+        const Word* lhs_word_ptr{get_word_const(0)};
+        const Word* rhs_word_ptr{rhs.get_word_const(0)};
+        const uint8_t lhs_offset{get_word_offset(0)};
+        const uint8_t rhs_offset{rhs.get_word_offset(0)};
+        if (lhs_offset == rhs_offset) {
+            // optimized compare from equal offsets
+            if (lhs_offset > 0) {
+                // partial first word
+                const uint8_t word_bits_remaining{static_cast< uint8_t >(Word::bits() - lhs_offset)};
+                const uint8_t valid_bits{static_cast< uint8_t >(
+                    (bits_remaining > word_bits_remaining) ? word_bits_remaining : bits_remaining)};
+                const word_t mask{static_cast< word_t >(consecutive_bitmask[valid_bits - 1])};
+                const word_t lhs_val{static_cast< word_t >(lhs_word_ptr->to_integer() >> lhs_offset) & mask};
+                const word_t rhs_val{static_cast< word_t >(rhs_word_ptr->to_integer() >> rhs_offset) & mask};
+                if (lhs_val != rhs_val) {
+                    unlock();
+                    return false;
                 }
-                return false;
+                ++lhs_word_ptr;
+                ++rhs_word_ptr;
+                bits_remaining -= valid_bits;
+            }
+
+            // compare whole words
+            if (bits_remaining >= Word::bits()) {
+                const size_t num_words{static_cast< size_t >(bits_remaining / Word::bits())};
+                if (std::memcmp(static_cast< const void* >(lhs_word_ptr), static_cast< const void* >(rhs_word_ptr),
+                                num_words * sizeof(word_t)) != 0) {
+                    unlock();
+                    return false;
+                }
+                lhs_word_ptr += num_words;
+                rhs_word_ptr += num_words;
+                bits_remaining -= static_cast< uint64_t >(num_words) * Word::bits();
+            }
+
+            // possible partial last word
+            if (bits_remaining > 0) {
+                const word_t mask{static_cast< word_t >(consecutive_bitmask[bits_remaining - 1])};
+                const word_t lhs_val{lhs_word_ptr->to_integer() & mask};
+                const word_t rhs_val{rhs_word_ptr->to_integer() & mask};
+                if (lhs_val != rhs_val) {
+                    unlock();
+                    return false;
+                }
+            }
+        } else {
+            // differing offsets
+            const uint8_t lhs_valid_low_bits{static_cast< uint8_t >(Word::bits() - lhs_offset)};
+            const word_t lhs_low_mask{static_cast< word_t >(consecutive_bitmask[lhs_valid_low_bits - 1])};
+            const uint8_t rhs_valid_low_bits{static_cast< uint8_t >(Word::bits() - rhs_offset)};
+            const word_t rhs_low_mask{static_cast< word_t >(consecutive_bitmask[rhs_valid_low_bits - 1])};
+            const word_t lhs_high_mask{
+                static_cast< word_t >((lhs_offset == 0) ? 0 : consecutive_bitmask[lhs_offset - 1])};
+            const word_t rhs_high_mask{
+                static_cast< word_t >((rhs_offset == 0) ? 0 : consecutive_bitmask[rhs_offset - 1])};
+
+            // compare whole words
+            while (bits_remaining >= Word::bits()) {
+                word_t lhs_val{(lhs_word_ptr++)->to_integer()}, rhs_val{(rhs_word_ptr++)->to_integer()};
+                if (lhs_offset > 0) {
+                    lhs_val = (static_cast< word_t >(lhs_val >> lhs_offset) & lhs_low_mask) |
+                        static_cast< word_t >((lhs_word_ptr->to_integer() & lhs_high_mask) << lhs_valid_low_bits);
+                } else {
+                    lhs_val = lhs_word_ptr->to_integer();
+                }
+                if (rhs_offset > 0) {
+                    rhs_val = (static_cast< word_t >(rhs_val >> rhs_offset) & rhs_low_mask) |
+                        static_cast< word_t >((rhs_word_ptr->to_integer() & rhs_high_mask) << rhs_valid_low_bits);
+                } else {
+                    rhs_val = rhs_word_ptr->to_integer();
+                }
+
+                if (lhs_val != rhs_val) {
+                    unlock();
+                    return false;
+                }
+                bits_remaining -= Word::bits();
+            }
+
+            if (bits_remaining > 0) {
+                // compare partial last word
+                word_t lhs_val{(lhs_word_ptr++)->to_integer()}, rhs_val{(rhs_word_ptr++)->to_integer()};
+                const word_t mask{static_cast< word_t >(consecutive_bitmask[bits_remaining - 1])};
+                if (lhs_offset > 0) {
+                    if (bits_remaining <= lhs_valid_low_bits) {
+                        lhs_val = static_cast< word_t >(lhs_val >> lhs_offset) & mask;
+                    } else {
+                        const word_t mask{
+                            static_cast< word_t >(consecutive_bitmask[bits_remaining - lhs_valid_low_bits - 1])};
+                        lhs_val = (static_cast< word_t >(lhs_val >> lhs_offset) & lhs_low_mask) |
+                            static_cast< word_t >((lhs_word_ptr->to_integer() & mask) << lhs_valid_low_bits);
+                    }
+                } else {
+                    lhs_val &= mask;
+                }
+                if (rhs_offset > 0) {
+                    if (bits_remaining <= rhs_valid_low_bits) {
+                        rhs_val = static_cast< word_t >(rhs_val >> rhs_offset) & mask;
+                    } else {
+                        const word_t mask{
+                            static_cast< word_t >(consecutive_bitmask[bits_remaining - rhs_valid_low_bits - 1])};
+                        rhs_val = (static_cast< word_t >(rhs_val >> rhs_offset) & rhs_low_mask) |
+                            static_cast< word_t >((rhs_word_ptr->to_integer() & mask) << rhs_valid_low_bits);
+                    }
+                } else {
+                    rhs_val &= mask;
+                }
             }
         }
-        if (ThreadSafeResizing) {
-            rhs.m_lock.unlock_shared();
-            this->m_lock.unlock_shared();
-        }
+
+        unlock();
         return true;
     }
 
-    bool operator!=(const BitsetImpl& rhs) {
-        return !(operator==(rhs));
-    }
+    bool operator!=(const BitsetImpl& rhs) { return !(operator==(rhs)); }
 
     constexpr uint8_t word_size() { return Word::bits(); }
 
@@ -253,21 +419,80 @@ public:
 
     void set_id(uint64_t id) { m_s->m_id = id; }
 
-    void copy(const BitsetImpl& others) {
+    void copy(const BitsetImpl& other) {
         if (ThreadSafeResizing) {
             this->m_lock.lock_shared();
-            others.m_lock.lock_shared();
+            other.m_lock.lock_shared();
         }
-        if (!m_buf || m_buf->size != others.m_buf->size) {
-            m_buf = make_byte_array(others.m_buf->size, others.m_alignment_size);
+        if (!m_buf || m_buf->size != other.m_buf->size) {
+            m_buf = make_byte_array(other.m_buf->size, other.m_alignment_size);
             m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
         }
-        m_alignment_size = others.m_alignment_size;
-        m_words_cap = others.m_words_cap;
-        ::memcpy(static_cast< void* >(m_buf->bytes), static_cast< const void* >(others.m_buf->bytes),
-                 others.m_buf->size);
+        m_alignment_size = other.m_alignment_size;
+        m_words_cap = other.m_words_cap;
+        // copy the buffer which contains the bit_serialized structure
+        std::memcpy(static_cast< void* >(m_buf->bytes), static_cast< const void* >(other.m_buf->bytes),
+                    other.m_buf->size);
         if (ThreadSafeResizing) {
-            others.m_lock.unlock_shared();
+            other.m_lock.unlock_shared();
+            this->m_lock.unlock_shared();
+        }
+    }
+
+    void copy_unshifted(const BitsetImpl& other) {
+        if (ThreadSafeResizing) {
+            this->m_lock.lock_shared();
+            other.m_lock.lock_shared();
+        }
+
+        m_alignment_size = other.m_alignment_size;
+        const uint64_t nbits{other.total_bits()};
+        const uint64_t size{m_alignment_size ? round_up(bitset_serialized::nbytes(nbits), m_alignment_size)
+                                             : bitset_serialized::nbytes(nbits)};
+        if (!m_buf || m_buf->size != size) { m_buf = make_byte_array(size, m_alignment_size); }
+        m_s = new (m_buf->bytes) bitset_serialized{other.get_id(), nbits};
+        m_words_cap = bitset_serialized::total_words(nbits);
+        Word* word_ptr{get_word(0)};
+        const uint8_t rhs_offset{other.get_word_offset(0)};
+        const Word* rhs_word_ptr{other.get_word_const(0)};
+        if (rhs_offset == 0) {
+            // can do straight memcpy to word data not the entire bytes structure
+            const size_t num_bytes{bitset_serialized::total_words(nbits) * sizeof(Word)};
+            std::memcpy(static_cast< void* >(word_ptr), static_cast< const void* >(rhs_word_ptr), num_bytes);
+        } else {
+            // do word by word copy
+            uint64_t bits_remaining{nbits};
+            const uint8_t rhs_low_bits{static_cast< uint8_t >(static_cast< uint8_t >(Word::bits() - rhs_offset))};
+            const word_t rhs_low_mask{static_cast< word_t >(consecutive_bitmask[rhs_low_bits - 1])};
+            const word_t rhs_high_mask{static_cast< word_t >(consecutive_bitmask[rhs_offset - 1])};
+            // copy whole words
+            while (bits_remaining >= Word::bits()) {
+                const word_t val{
+                    (static_cast< word_t >(rhs_word_ptr->to_integer() >> rhs_offset) & rhs_low_mask) |
+                    static_cast< word_t >(((rhs_word_ptr + 1)->to_integer() & rhs_high_mask) << rhs_low_bits)};
+                word_ptr->set(val);
+                ++word_ptr;
+                ++rhs_word_ptr;
+                bits_remaining -= Word::bits();
+            }
+
+            // copy partial last word
+            if (bits_remaining > 0) {
+                word_t val{(rhs_word_ptr++)->to_integer()};
+                const word_t mask{static_cast< word_t >(consecutive_bitmask[bits_remaining - 1])};
+                if (bits_remaining <= rhs_low_bits) {
+                    val = static_cast< word_t >(val >> rhs_offset) & mask;
+                } else {
+                    const word_t mask{static_cast< word_t >(consecutive_bitmask[bits_remaining - rhs_low_bits - 1])};
+                    val = (static_cast< word_t >(val >> rhs_offset) & rhs_low_mask) |
+                        (static_cast< word_t >(rhs_word_ptr->to_integer() & mask) << rhs_low_bits);
+                }
+                word_ptr->set(val);
+            }
+        }
+
+        if (ThreadSafeResizing) {
+            other.m_lock.unlock_shared();
             this->m_lock.unlock_shared();
         }
     }
@@ -764,12 +989,12 @@ private:
         auto new_s{reinterpret_cast< bitset_serialized* >(new_buf->bytes)};
 
         const uint64_t move_nwords{std::min(m_words_cap - shrink_words, new_cap)};
-        ::memmove(static_cast< void* >(new_s->m_words), static_cast< const void* >(&(m_s->m_words[shrink_words])),
-                  sizeof(Word) * move_nwords);
+        std::memmove(static_cast< void* >(new_s->m_words), static_cast< const void* >(&(m_s->m_words[shrink_words])),
+                     sizeof(Word) * move_nwords);
         if (new_cap > move_nwords) {
             // Fill in the remaining space with value passed
-            ::memset(static_cast< void* >(&(new_s->m_words[move_nwords])), value ? 0xff : 0x00,
-                     sizeof(Word) * (new_cap - move_nwords));
+            std::memset(static_cast< void* >(&(new_s->m_words[move_nwords])), value ? 0xff : 0x00,
+                        sizeof(Word) * (new_cap - move_nwords));
         }
 
         m_words_cap = new_cap;
