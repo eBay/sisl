@@ -384,6 +384,25 @@ TEST_F(BitsetTest, TestPrint) {
     for (const char x : str2) {
         ASSERT_EQ(x, '1');
     }
+
+    // test correct bit order of output
+    constexpr std::array< uint64_t, 1 > bits1{0x0123456789ABCDEF};
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint64_t > >, true > bset1{bits1.data(), bits1.data() + bits1.size()};
+    const std::string str3{bset1.to_string()};
+    ASSERT_EQ(str3, std::string{"0000000100100011010001010110011110001001101010111100110111101111"});
+
+    bset1.shrink_head(4);
+    const std::string str4{bset1.to_string()};
+    ASSERT_EQ(str4, std::string{"000000010010001101000101011001111000100110101011110011011110"});
+
+    // test partial last word
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint64_t > >, true > bset2{32};
+    bset2.set_bits(28, 4);
+    bset2.set_bits(20, 4);
+    bset2.set_bits(12, 4);
+    bset2.set_bits(4, 4);
+    const std::string str5{bset2.to_string()};
+    ASSERT_EQ(str5, std::string{"11110000111100001111000011110000"});
 }
 
 TEST_F(BitsetTest, TestIsSetReset) {

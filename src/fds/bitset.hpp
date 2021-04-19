@@ -431,6 +431,7 @@ public:
             this->m_lock.lock_shared();
             other.m_lock.lock_shared();
         }
+        // ensure distinct buffers
         if (!m_buf || (m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
             m_buf = make_byte_array(other.m_buf->size, other.m_alignment_size);
             m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
@@ -456,6 +457,7 @@ public:
         const uint64_t nbits{other.total_bits()};
         const uint64_t size{m_alignment_size ? round_up(bitset_serialized::nbytes(nbits), m_alignment_size)
                                              : bitset_serialized::nbytes(nbits)};
+        // ensure distinct buffers
         if (!m_buf || (m_buf->size != size) || (m_buf == other.m_buf)) {
             m_buf = make_byte_array(size, m_alignment_size);
         }
@@ -565,7 +567,7 @@ public:
         // get first word count which may be partial and we assume that at least 1 word worth of bits
         uint64_t set_cnt{0};
         const Word* word_ptr{get_word_const(start_bit)};
-        if (word_ptr == nullptr) {
+        if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return set_cnt;
         }
@@ -648,6 +650,10 @@ public:
         assert(m_s->valid_bit(bit));
 
         const Word* word_ptr{get_word_const(bit)};
+        if (!word_ptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return false;
+        }
         const uint8_t offset{get_word_offset(bit)};
         const bool ret{word_ptr->get_bitval(offset)};
 
@@ -668,7 +674,7 @@ public:
         // check first word which may be partial
         const uint8_t offset{get_word_offset(start_bit)};
         const Word* word_ptr{get_word_const(start_bit)};
-        if (word_ptr == nullptr) {
+        if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return ret;
         }
@@ -767,7 +773,7 @@ public:
         uint64_t current_bit{start_bit};
         const uint64_t final_bit{end_bit ? std::min(*end_bit + 1, total_bits()) : total_bits()};
         const Word* word_ptr{get_word_const(current_bit)};
-        if (word_ptr == nullptr) {
+        if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return {npos, 0};
         }
@@ -835,7 +841,7 @@ public:
         // check first word which may be partial
         const uint8_t offset{get_word_offset(start_bit)};
         const Word* word_ptr{get_word_const(start_bit)};
-        if (word_ptr == nullptr) {
+        if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return ret;
         }
@@ -863,38 +869,47 @@ public:
 
     void print() const { std::cout << to_string << std::endl; }
 
+    // print out the bitset in the order last bit to first bit
     std::string to_string() const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
         std::string output{};
         output.reserve(total_bits());
 
-        // print first possibly partial word
-        const Word* word_ptr{get_word_const(0)};
-        const uint8_t offset{get_word_offset(0)};
-        uint8_t valid_bits{static_cast< uint8_t >(Word::bits() - offset)};
-        if (valid_bits > total_bits()) { valid_bits = total_bits(); }
-        word_t val{static_cast< word_t >(word_ptr->to_integer() >> offset)};
-        word_t mask{static_cast< word_t >(bit_mask[valid_bits - 1])};
-        for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
-            output.push_back((((val & mask) == mask) ? '1' : '0'));
+        if (total_bits() == 0) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return output;
+        }
+
+        uint64_t bits_remaining{total_bits()};
+        const Word* word_ptr{get_word_const(total_bits() - 1)};
+        const uint8_t offset{get_word_offset(total_bits() - 1)};
+        // get last word if does not end on high bit
+        if ((offset < (Word::bits() - 1))) {
+            const word_t val{(word_ptr--)->to_integer()};
+            const uint8_t valid_bits{static_cast< uint8_t >(
+                (bits_remaining > static_cast< uint64_t >(offset + 1)) ? (offset + 1) : bits_remaining)};
+            word_t mask{static_cast< word_t >(bit_mask[valid_bits - 1])};
+            for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
+                output.push_back((((val & mask) == mask) ? '1' : '0'));
+            }
+            bits_remaining -= valid_bits;
         }
 
         // print whole words
-        uint64_t bits_remaining{valid_bits > total_bits() ? 0 : total_bits() - valid_bits};
         while (bits_remaining >= Word::bits()) {
+            const word_t val{(word_ptr--)->to_integer()};
             word_t mask{static_cast< word_t >(bit_mask[Word::bits() - 1])};
-            val = (++word_ptr)->to_integer();
             for (uint8_t bit{0}; bit < Word::bits(); ++bit, mask >>= 1) {
                 output.push_back((((val & mask) == mask) ? '1' : '0'));
             }
             bits_remaining -= Word::bits();
         }
 
-        // print last possibly partial word
+        // get first word
         if (bits_remaining > 0) {
-            word_t mask{static_cast< word_t >(bit_mask[bits_remaining - 1])};
-            val = (++word_ptr)->to_integer();
+            const word_t val{word_ptr->to_integer()};
+            word_t mask{static_cast< word_t >(bit_mask[Word::bits() - 1])};
             for (uint8_t bit{0}; bit < bits_remaining; ++bit, mask >>= 1) {
                 output.push_back((((val & mask) == mask) ? '1' : '0'));
             }
