@@ -928,7 +928,7 @@ private:
         // last word
         // set first possibly partial word
         Word* word_ptr{get_word(start)};
-        if (word_ptr == nullptr) {
+        if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             throw std::out_of_range("Set/Reset bits not in range");
         }
@@ -958,6 +958,10 @@ private:
         assert(m_s->valid_bit(bit));
 
         Word* word_ptr{get_word(bit)};
+        if (!word_ptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return;
+        }
         const uint8_t offset{get_word_offset(bit)};
         word_ptr->set_reset_bits(offset, 1, value);
 
@@ -971,6 +975,10 @@ private:
         // test first possibly partial word
         uint64_t bits_remaining{nbits > total_bits() - start ? total_bits() - start : nbits};
         const Word* word_ptr{get_word_const(start)};
+        if (!word_ptr) {
+            if (ThreadSafeResizing) { m_lock.unlock_shared(); }
+            return (bits_remaining == 0);
+        }
         const uint8_t offset{get_word_offset(start)};
         uint8_t count{static_cast< uint8_t >((bits_remaining > static_cast< uint8_t >(Word::bits() - offset))
                                                  ? (Word::bits() - offset)
