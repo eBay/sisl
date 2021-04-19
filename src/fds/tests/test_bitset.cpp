@@ -403,6 +403,24 @@ TEST_F(BitsetTest, TestPrint) {
     bset2.set_bits(4, 4);
     const std::string str5{bset2.to_string()};
     ASSERT_EQ(str5, std::string{"11110000111100001111000011110000"});
+
+    bset2.shrink_head(4);
+    const std::string str6{bset2.to_string()};
+    ASSERT_EQ(str6, std::string{"1111000011110000111100001111"});
+
+    // test partial last word
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint32_t > >, true > bset3{36};
+    bset3.set_bits(32, 4);
+    bset3.set_bits(24, 4);
+    bset3.set_bits(16, 4);
+    bset3.set_bits(8, 4);
+    bset3.set_bits(0, 4);
+    const std::string str7{bset3.to_string()};
+    ASSERT_EQ(str7, std::string{"111100001111000011110000111100001111"});
+
+    bset3.shrink_head(4);
+    const std::string str8{bset3.to_string()};
+    ASSERT_EQ(str8, std::string{"11110000111100001111000011110000"});
 }
 
 TEST_F(BitsetTest, TestIsSetReset) {

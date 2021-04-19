@@ -884,12 +884,12 @@ public:
         uint64_t bits_remaining{total_bits()};
         const Word* word_ptr{get_word_const(total_bits() - 1)};
         const uint8_t offset{get_word_offset(total_bits() - 1)};
-        // get last word if does not end on high bit
+        // get last word possibly partial word if does not end on high bit
         if ((offset < (Word::bits() - 1))) {
             const word_t val{(word_ptr--)->to_integer()};
             const uint8_t valid_bits{static_cast< uint8_t >(
                 (bits_remaining > static_cast< uint64_t >(offset + 1)) ? (offset + 1) : bits_remaining)};
-            word_t mask{static_cast< word_t >(bit_mask[valid_bits - 1])};
+            word_t mask{static_cast< word_t >(bit_mask[offset])};
             for (uint8_t bit{0}; bit < valid_bits; ++bit, mask >>= 1) {
                 output.push_back((((val & mask) == mask) ? '1' : '0'));
             }
@@ -906,7 +906,7 @@ public:
             bits_remaining -= Word::bits();
         }
 
-        // get first word
+        // get first word possibly partial word
         if (bits_remaining > 0) {
             const word_t val{word_ptr->to_integer()};
             word_t mask{static_cast< word_t >(bit_mask[Word::bits() - 1])};
