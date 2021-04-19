@@ -111,6 +111,8 @@ public:
     static constexpr uint64_t npos{std::numeric_limits< uint64_t >::max()};
 
 public:
+    explicit BitsetImpl() : m_alignment_size{0}, m_buf{}, m_s{nullptr}, m_words_cap{0} {}
+
     explicit BitsetImpl(const uint64_t nbits, const uint64_t m_id = 0, const uint32_t alignment_size = 0) :
             m_alignment_size{alignment_size} {
         const uint64_t size{alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
@@ -120,6 +122,8 @@ public:
         m_words_cap = bitset_serialized::total_words(nbits);
     }
 
+    // this makes a shared copy of the rhs so that modifications of the shared version
+    // are also made to rhs version.  To make independent copy use copy function
     explicit BitsetImpl(const BitsetImpl& other) {
         if (ThreadSafeResizing) { other.m_lock.lock_shared(); }
 
@@ -191,6 +195,8 @@ public:
         if (ThreadSafeResizing) { other.m_lock.unlock_shared(); }
     }
 
+    // this makes a shared copy of the rhs so that modifications of the shared version
+    // are also made to rhs version.  To make independent copy use copy function
     BitsetImpl& operator=(const BitsetImpl& rhs) {
         if (this == &rhs) { return *this; }
         if (ThreadSafeResizing) {
@@ -359,14 +365,10 @@ public:
                 if (lhs_offset > 0) {
                     lhs_val = (static_cast< word_t >(lhs_val >> lhs_offset) & lhs_low_mask) |
                         static_cast< word_t >((lhs_word_ptr->to_integer() & lhs_high_mask) << lhs_valid_low_bits);
-                } else {
-                    lhs_val = lhs_word_ptr->to_integer();
                 }
                 if (rhs_offset > 0) {
                     rhs_val = (static_cast< word_t >(rhs_val >> rhs_offset) & rhs_low_mask) |
                         static_cast< word_t >((rhs_word_ptr->to_integer() & rhs_high_mask) << rhs_valid_low_bits);
-                } else {
-                    rhs_val = rhs_word_ptr->to_integer();
                 }
 
                 if (lhs_val != rhs_val) {
@@ -404,6 +406,11 @@ public:
                 } else {
                     rhs_val &= mask;
                 }
+
+                if (lhs_val != rhs_val) {
+                    unlock();
+                    return false;
+                }
             }
         }
 
@@ -417,14 +424,14 @@ public:
 
     uint64_t get_id() const { return m_s->m_id; }
 
-    void set_id(uint64_t id) { m_s->m_id = id; }
+    void set_id(const uint64_t id) { m_s->m_id = id; }
 
     void copy(const BitsetImpl& other) {
         if (ThreadSafeResizing) {
             this->m_lock.lock_shared();
             other.m_lock.lock_shared();
         }
-        if (!m_buf || m_buf->size != other.m_buf->size) {
+        if (!m_buf || (m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
             m_buf = make_byte_array(other.m_buf->size, other.m_alignment_size);
             m_s = reinterpret_cast< bitset_serialized* >(m_buf->bytes);
         }
@@ -449,7 +456,9 @@ public:
         const uint64_t nbits{other.total_bits()};
         const uint64_t size{m_alignment_size ? round_up(bitset_serialized::nbytes(nbits), m_alignment_size)
                                              : bitset_serialized::nbytes(nbits)};
-        if (!m_buf || m_buf->size != size) { m_buf = make_byte_array(size, m_alignment_size); }
+        if (!m_buf || (m_buf->size != size) || (m_buf == other.m_buf)) {
+            m_buf = make_byte_array(size, m_alignment_size);
+        }
         m_s = new (m_buf->bytes) bitset_serialized{other.get_id(), nbits};
         m_words_cap = bitset_serialized::total_words(nbits);
         Word* word_ptr{get_word(0)};

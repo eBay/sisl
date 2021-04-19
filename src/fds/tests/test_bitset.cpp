@@ -399,20 +399,16 @@ TEST_F(BitsetTest, TestIsSetReset) {
 
 TEST_F(BitsetTest, TestCopyUnshifted) {
     // fill bitset with random data, shift, and make unshifted copy
-    fill_random(0, g_total_bits);
-    m_bset.shrink_head(4);
-    sisl::ThreadSafeBitset tmp_bset{1};
-    tmp_bset.copy_unshifted(m_bset);
+    for (uint64_t shift{0}; shift <= m_bset.word_size(); ++shift) {
+        const uint64_t total_bits{g_total_bits - shift};
+        if (shift > 0) m_bset.shrink_head(1);
+        fill_random(0, total_bits);
+        sisl::ThreadSafeBitset tmp_bset{};
+        tmp_bset.copy_unshifted(m_bset);
 
-    for (uint64_t bit{0}; bit < g_total_bits - 4; ++bit) {
-        ASSERT_EQ(m_bset.is_bits_set(bit, 1), tmp_bset.is_bits_set(bit, 1));
-    }
-
-    // shift a whole word
-    m_bset.shrink_head(m_bset.word_size() - 4);
-    tmp_bset.copy_unshifted(m_bset);
-    for (uint64_t bit{0}; bit < g_total_bits - m_bset.word_size(); ++bit) {
-        ASSERT_EQ(m_bset.is_bits_set(bit, 1), tmp_bset.is_bits_set(bit, 1));
+        for (uint64_t bit{0}; bit < total_bits; ++bit) {
+            ASSERT_EQ(m_bset.is_bits_set(bit, 1), tmp_bset.is_bits_set(bit, 1));
+        }
     }
 }
 
@@ -484,23 +480,59 @@ TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
 }
 
 TEST_F(BitsetTest, EqualityLogicCheck) {
-    // fill bitset with random data and make copy
+    // flip random bits
+    const auto flip_random_bits{[this](auto& tmp_bitset, const size_t num_bits, const size_t num_flips) {
+        static thread_local std::random_device rd{};
+        static thread_local std::default_random_engine re{rd()};
+        std::uniform_int_distribution< uint64_t > bit_rand{0, num_bits - 1};
+        for (size_t flip{0}; flip < num_flips; ++flip) {
+            const uint64_t bit{bit_rand(re)};
+
+            if (tmp_bitset.is_bits_set(bit, 1)) {
+                tmp_bitset.reset_bit(bit);
+                ASSERT_FALSE(tmp_bitset.is_bits_set(bit, 1));
+                ASSERT_FALSE(m_bset == tmp_bitset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                ASSERT_FALSE(tmp_bitset == m_bset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                tmp_bitset.set_bit(bit);
+                ASSERT_TRUE(tmp_bitset.is_bits_set(bit, 1));
+            } else {
+                tmp_bitset.set_bit(bit);
+                ASSERT_TRUE(tmp_bitset.is_bits_set(bit, 1));
+                ASSERT_FALSE(m_bset == tmp_bitset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                ASSERT_FALSE(tmp_bitset == m_bset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                tmp_bitset.reset_bit(bit);
+                ASSERT_FALSE(tmp_bitset.is_bits_set(bit, 1));
+            }
+        }
+    }};
+
+    // shift both equally through all alignments and test
     fill_random(0, g_total_bits);
-    sisl::ThreadSafeBitset tmp_bset{m_bset};
-    ASSERT_TRUE(m_bset == tmp_bset);
-    ASSERT_TRUE(tmp_bset == m_bset);
-    ASSERT_FALSE(m_bset != tmp_bset);
+    sisl::ThreadSafeBitset tmp_bset1{};
+    tmp_bset1.copy(m_bset);
+    uint64_t total_bits{g_total_bits};
+    for (uint64_t shift{0}; shift <= m_bset.word_size(); ++shift) {
+        if (shift > 0) {
+            shrink_head(1);
+            tmp_bset1.shrink_head(1);
+            --total_bits;
+        }
+        ASSERT_TRUE(m_bset == tmp_bset1);
+        ASSERT_TRUE(tmp_bset1 == m_bset);
+        flip_random_bits(tmp_bset1, total_bits, total_bits / 20);
+    }
 
-    // shift both equally and test
-    shrink_head(4);
-    tmp_bset.shrink_head(4);
-    ASSERT_TRUE(m_bset == tmp_bset);
-    ASSERT_TRUE(tmp_bset == tmp_bset);
+    // test shifted against unshifted through all alignments
+    sisl::ThreadSafeBitset tmp_bset2{};
+    for (uint64_t shift{0}; shift < m_bset.word_size(); ++shift) {
+        shrink_head(1);
+        --total_bits;
+        tmp_bset2.copy_unshifted(m_bset);
 
-    // copy bitset unshifted, test shifted against unshifted
-    tmp_bset.copy_unshifted(m_bset);
-    ASSERT_TRUE(m_bset == tmp_bset);
-    ASSERT_TRUE(tmp_bset == m_bset);
+        ASSERT_TRUE(m_bset == tmp_bset2);
+        ASSERT_TRUE(tmp_bset2 == m_bset);
+        flip_random_bits(tmp_bset2, total_bits, total_bits / 20);
+    }
 }
 
 TEST_F(BitsetTest, RandomSetAndShrink) {
