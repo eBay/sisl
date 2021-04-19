@@ -422,15 +422,24 @@ public:
 
     constexpr uint8_t word_size() { return Word::bits(); }
 
-    uint64_t get_id() const { return m_s->m_id; }
+    uint64_t get_id() const {
+        assert(m_s);
+        if (!m_s) return 0;
+        return m_s->m_id;
+    }
 
-    void set_id(const uint64_t id) { m_s->m_id = id; }
+    void set_id(const uint64_t id) {
+        assert(m_s);
+        if (!m_s) return;
+        m_s->m_id = id;
+    }
 
     void copy(const BitsetImpl& other) {
         if (ThreadSafeResizing) {
             this->m_lock.lock_shared();
             other.m_lock.lock_shared();
         }
+
         // ensure distinct buffers
         if (!m_buf || (m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
             m_buf = make_byte_array(other.m_buf->size, other.m_alignment_size);
@@ -710,6 +719,7 @@ public:
      */
     void shrink_head(const uint64_t nbits) {
         if (ThreadSafeResizing) { m_lock.lock(); }
+        assert(m_s);
 
         if (nbits > total_bits()) {
             if (ThreadSafeResizing) { m_lock.unlock(); }
@@ -769,14 +779,14 @@ public:
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
         BitBlock retb{start_bit, 0};
-        uint8_t offset{get_word_offset(start_bit)};
-        uint64_t current_bit{start_bit};
-        const uint64_t final_bit{end_bit ? std::min(*end_bit + 1, total_bits()) : total_bits()};
-        const Word* word_ptr{get_word_const(current_bit)};
+        const Word* word_ptr{get_word_const(start_bit)};
         if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return {npos, 0};
         }
+        uint8_t offset{get_word_offset(start_bit)};
+        uint64_t current_bit{start_bit};
+        const uint64_t final_bit{end_bit ? std::min(*end_bit + 1, total_bits()) : total_bits()};
 
         while ((retb.nbits < max_needed) && (current_bit < final_bit)) {
             const bit_filter filter{(retb.nbits >= min_needed)
@@ -839,12 +849,12 @@ public:
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
 
         // check first word which may be partial
-        const uint8_t offset{get_word_offset(start_bit)};
         const Word* word_ptr{get_word_const(start_bit)};
         if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
             return ret;
         }
+        const uint8_t offset{get_word_offset(start_bit)};
         uint8_t nbit{};
         if (word_ptr->get_next_reset_bit(offset, &nbit)) { ret = start_bit + nbit - offset; }
 
@@ -922,7 +932,7 @@ public:
 private:
     void set_reset_bits(const uint64_t start, const uint64_t nbits, const bool value) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        assert(m_s->valid_bit(start));
+        assert(m_s && m_s->valid_bit(start));
 
         // NOTE: we ignore the fact here that the total number of bits may not consume the entire
         // last word
@@ -955,7 +965,7 @@ private:
 
     void set_reset_bit(const uint64_t bit, const bool value) {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        assert(m_s->valid_bit(bit));
+        assert(m_s && m_s->valid_bit(bit));
 
         Word* word_ptr{get_word(bit)};
         if (!word_ptr) {
@@ -970,15 +980,15 @@ private:
 
     bool is_bits_set_reset(const uint64_t start, const uint64_t nbits, const bool expected) const {
         if (ThreadSafeResizing) { m_lock.lock_shared(); }
-        assert(m_s->valid_bit(start));
+        assert(m_s && m_s->valid_bit(start));
 
         // test first possibly partial word
-        uint64_t bits_remaining{nbits > total_bits() - start ? total_bits() - start : nbits};
         const Word* word_ptr{get_word_const(start)};
         if (!word_ptr) {
             if (ThreadSafeResizing) { m_lock.unlock_shared(); }
-            return (bits_remaining == 0);
+            return (nbits == 0);
         }
+        uint64_t bits_remaining{(nbits > total_bits() - start) ? total_bits() - start : nbits};
         const uint8_t offset{get_word_offset(start)};
         uint8_t count{static_cast< uint8_t >((bits_remaining > static_cast< uint8_t >(Word::bits() - offset))
                                                  ? (Word::bits() - offset)
@@ -1010,6 +1020,9 @@ private:
     void resize_impl(const uint64_t nbits, const bool value) {
         // We use the resize opportunity to compact bits. So we only to need to allocate nbits + first word skip
         // list size. Rest of them will be compacted.
+        assert(m_s);
+
+        if (!m_s) return;
         const uint64_t shrink_words{m_s->m_skip_bits / Word::bits()};
         const uint64_t new_skip_bits{m_s->m_skip_bits & m_word_mask};
 
@@ -1038,24 +1051,27 @@ private:
     }
 
     Word* get_word(const uint64_t bit) {
+        if (!m_s) return nullptr;
         const uint64_t offset{bit + m_s->m_skip_bits};
         return (sisl_unlikely(offset >= m_s->m_nbits)) ? nullptr : nth_word(offset / Word::bits());
     }
 
     const Word* get_word_const(const uint64_t bit) const {
+        if (!m_s) return nullptr;
         const uint64_t offset{bit + m_s->m_skip_bits};
         return (sisl_unlikely(offset >= m_s->m_nbits)) ? nullptr : nth_word(offset / Word::bits());
     }
 
     uint8_t get_word_offset(const uint64_t bit) const {
+        if (!m_s) return 0;
         const uint64_t offset{bit + m_s->m_skip_bits};
         return static_cast< uint8_t >(offset & m_word_mask);
     }
 
-    uint64_t total_bits() const { return m_s->m_nbits - m_s->m_skip_bits; }
+    uint64_t total_bits() const { return m_s ? (m_s->m_nbits - m_s->m_skip_bits) : 0; }
 
-    Word* nth_word(const uint64_t word_n) { return &(m_s->m_words[word_n]); }
-    const Word* nth_word(const uint64_t word_n) const { return &(m_s->m_words[word_n]); }
+    Word* nth_word(const uint64_t word_n) { return m_s ? &(m_s->m_words[word_n]) : nullptr; }
+    const Word* nth_word(const uint64_t word_n) const { return m_s ? &(m_s->m_words[word_n]) : nullptr; }
 };
 
 template < typename charT, typename traits, typename Word, bool ThreadSafeResizing = false >
