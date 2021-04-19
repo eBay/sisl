@@ -280,8 +280,7 @@ TEST_F(BitsetTest, TestSetCountWithShift) {
 
     // offset right a partial word
     const uint64_t offset1{4};
-    m_bset.shrink_head(offset1);
-    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - offset1);
+    shrink_head(offset1);
 
     // offset right more than a word
     const uint64_t offset2{static_cast< uint64_t >(2 * m_bset.word_size())};
@@ -292,6 +291,13 @@ TEST_F(BitsetTest, TestSetCountWithShift) {
     const uint64_t offset3{static_cast< uint64_t >(m_bset.word_size() - ((offset1 + offset2) % m_bset.word_size()))};
     m_bset.shrink_head(offset3);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2 + offset3));
+
+    // test same first word shifted
+    m_bset.reset_bits(0, 2);
+    ASSERT_EQ(m_bset.get_set_count(0, 1), static_cast< uint64_t >(0));
+    shrink_head(2);
+    ASSERT_EQ(m_bset.get_set_count(0, 0), static_cast< uint64_t >(1));
+    ASSERT_EQ(m_bset.get_set_count(0, 61), static_cast< uint64_t >(62));
 }
 
 TEST_F(BitsetTest, TestSetCount) {

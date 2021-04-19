@@ -572,9 +572,8 @@ public:
         const uint8_t offset{get_word_offset(start_bit)};
         if ((offset + num_bits) <= Word::bits()) {
             // all bits in first word
-            const uint8_t shift{static_cast< uint8_t >(Word::bits() - num_bits)};
-            const word_t mask{static_cast< word_t >(((~static_cast< word_t >(0)) << shift) >> (shift - start_bit))};
-            set_cnt += get_set_bit_count(word_ptr->to_integer() & mask);
+            const word_t mask{consecutive_bitmask[num_bits - 1]};
+            set_cnt += get_set_bit_count((word_ptr->to_integer() >> offset) & mask);
         } else {
             set_cnt += get_set_bit_count(word_ptr->to_integer() >> offset);
 
@@ -587,9 +586,8 @@ public:
             }
 
             // count last possibly partial word
-            if (bits_remaining) {
-                const uint8_t shift{static_cast< uint8_t >(Word::bits() - bits_remaining)};
-                const word_t mask{static_cast< word_t >(((~static_cast< word_t >(0)) << shift) >> shift)};
+            if (bits_remaining > 0) {
+                const word_t mask{consecutive_bitmask[bits_remaining - 1]};
                 set_cnt += get_set_bit_count(((++word_ptr)->to_integer()) & mask);
             }
         }
