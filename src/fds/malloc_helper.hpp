@@ -80,8 +80,8 @@ public:
                        "Maximum number of bytes in physically resident data pages mapped by the allocator");
         REGISTER_GAUGE(retained_memory,
                        "Bytes in virtual memory mappings that were retained rather than returned to OS");
-        REGISTER_GAUGE(dirty_pages, "The total number of dirty pages in the arenas");
-        REGISTER_GAUGE(muzzy_pages, "The total number of muzzy pages in the arenas");
+        REGISTER_GAUGE(dirty_memory, "Total dirty page bytes in the arenas");
+        REGISTER_GAUGE(muzzy_memory, "Total muzzy page bytes in the arenas");
 #endif
         register_me_to_farm();
         attach_gather_cb(std::bind(&MallocMetrics::on_gather, this));
@@ -97,7 +97,7 @@ public:
 #ifdef USING_TCMALLOC
         get_parse_tcmalloc_stats(nullptr, this);
 #elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-        get_parse_jemalloc_stats(nullptr, this, false);
+        get_parse_jemalloc_stats(nullptr, this, true /* refresh */);
 #endif
     }
 
@@ -137,6 +137,7 @@ public:
     const auto& get_arenas_dirty_decay_mib() const { return m_arenas_dirty_decay; }
     const auto& get_arenas_muzzy_decay_mib() const { return m_arenas_muzzy_decay; }
     const auto& get_background_thread_mib() const { return m_background_thread; }
+    size_t page_size() const { return m_page_size; }
 
 private:
     std::pair< std::array< size_t, 2 >, size_t > m_arenas_narenas{{0, 0}, 2};
@@ -153,6 +154,7 @@ private:
     std::pair< std::array< size_t, 2 >, size_t > m_arenas_dirty_decay{{0, 0}, 2};
     std::pair< std::array< size_t, 2 >, size_t > m_arenas_muzzy_decay{{0, 0}, 2};
     std::pair< std::array< size_t, 1 >, size_t > m_background_thread{{0}, 1};
+    size_t m_page_size{4096};
 
     JEMallocStatics() {
         if (::mallctlnametomib("arenas.narenas", m_arenas_narenas.first.data(), &m_arenas_narenas.second) != 0) {
@@ -213,6 +215,11 @@ private:
         if (::mallctlnametomib("background_thread", m_background_thread.first.data(), &m_background_thread.second) !=
             0) {
             LOGWARN("Failed to resolve jemalloc background_thread mib");
+        }
+
+        size_t page_size_len{sizeof(m_page_size)};
+        if (::mallctl("arenas.page", &m_page_size, &page_size_len, nullptr, 0)) {
+            LOGWARN("Failed to obtain jemalloc arenas.page size");
         }
     }
 };
@@ -444,11 +451,11 @@ static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* con
     }
 
     const size_t dirty_pages{get_jemalloc_dirty_page_count()};
-    GAUGE_UPDATE(*metrics, dirty_pages, dirty_pages);
+    GAUGE_UPDATE(*metrics, dirty_memory, dirty_pages * jemalloc_statics.page_size());
     if (j) { (*j)["Stats"]["Malloc"]["Arenas"]["DirtyPages"] = dirty_pages; }
 
     const size_t muzzy_pages{get_jemalloc_muzzy_page_count()};
-    GAUGE_UPDATE(*metrics, muzzy_pages, muzzy_pages);
+    GAUGE_UPDATE(*metrics, muzzy_memory, muzzy_pages * jemalloc_statics.page_size());
     if (j) { (*j)["Stats"]["Malloc"]["Arenas"]["MuzzyPages"] = muzzy_pages; }
 }
 
