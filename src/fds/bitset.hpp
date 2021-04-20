@@ -115,8 +115,8 @@ public:
 
     explicit BitsetImpl(const uint64_t nbits, const uint64_t m_id = 0, const uint32_t alignment_size = 0) :
             m_alignment_size{alignment_size} {
-        const uint64_t size{alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
-                                           : bitset_serialized::nbytes(nbits)};
+        const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                                 : bitset_serialized::nbytes(nbits)};
         m_buf = make_byte_array(size, alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{m_id, nbits};
         m_words_cap = bitset_serialized::total_words(nbits);
@@ -146,11 +146,11 @@ public:
     explicit BitsetImpl(const word_t* const start_ptr, const word_t* const end_ptr, const uint64_t id = 0,
                         const uint32_t alignment_size = 0) :
             m_alignment_size{alignment_size} {
-        assert(end_ptr > start_ptr);
+        assert(end_ptr >= start_ptr);
         const size_t num_words{static_cast< size_t >(end_ptr - start_ptr)};
         const uint64_t nbits{static_cast< uint64_t >(num_words) * Word::bits()};
-        const uint64_t size{alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
-                                           : bitset_serialized::nbytes(nbits)};
+        const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                                 : bitset_serialized::nbytes(nbits)};
         m_buf = make_byte_array(size, m_alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits};
         m_words_cap = bitset_serialized::total_words(nbits);
@@ -168,8 +168,8 @@ public:
             m_alignment_size{alignment_size} {
         const size_t num_words{static_cast< size_t >(std::distance(start_itr, end_itr))};
         const uint64_t nbits{static_cast< uint64_t >(num_words) * Word::bits()};
-        const uint64_t size{alignment_size ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
-                                           : bitset_serialized::nbytes(nbits)};
+        const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
+                                                 : bitset_serialized::nbytes(nbits)};
         m_buf = make_byte_array(size, m_alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits};
         m_words_cap = bitset_serialized::total_words(nbits);
@@ -424,8 +424,7 @@ public:
 
     uint64_t get_id() const {
         assert(m_s);
-        if (!m_s) return 0;
-        return m_s->m_id;
+        return m_s ? m_s->m_id : 0;
     }
 
     void set_id(const uint64_t id) {
@@ -464,8 +463,8 @@ public:
 
         m_alignment_size = other.m_alignment_size;
         const uint64_t nbits{other.total_bits()};
-        const uint64_t size{m_alignment_size ? round_up(bitset_serialized::nbytes(nbits), m_alignment_size)
-                                             : bitset_serialized::nbytes(nbits)};
+        const uint64_t size{(m_alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), m_alignment_size)
+                                                   : bitset_serialized::nbytes(nbits)};
         // ensure distinct buffers
         if (!m_buf || (m_buf->size != size) || (m_buf == other.m_buf)) {
             m_buf = make_byte_array(size, m_alignment_size);
@@ -895,7 +894,7 @@ public:
         const Word* word_ptr{get_word_const(total_bits() - 1)};
         const uint8_t offset{get_word_offset(total_bits() - 1)};
         // get last word possibly partial word if does not end on high bit
-        if ((offset < (Word::bits() - 1))) {
+        if (offset < (Word::bits() - 1)) {
             const word_t val{(word_ptr--)->to_integer()};
             const uint8_t valid_bits{static_cast< uint8_t >(
                 (bits_remaining > static_cast< uint64_t >(offset + 1)) ? (offset + 1) : bits_remaining)};

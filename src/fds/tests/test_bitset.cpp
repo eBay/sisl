@@ -284,12 +284,12 @@ TEST_F(BitsetTest, TestSetCountWithShift) {
 
     // offset right more than a word
     const uint64_t offset2{static_cast< uint64_t >(2 * m_bset.word_size())};
-    m_bset.shrink_head(offset2);
+    shrink_head(offset2);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2));
 
     // offset right an exact multiple of a word
     const uint64_t offset3{static_cast< uint64_t >(m_bset.word_size() - ((offset1 + offset2) % m_bset.word_size()))};
-    m_bset.shrink_head(offset3);
+    shrink_head(offset3);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2 + offset3));
 
     // test same first word shifted
@@ -444,13 +444,13 @@ TEST_F(BitsetTest, TestCopyUnshifted) {
     // fill bitset with random data, shift, and make unshifted copy
     for (uint64_t shift{0}; shift <= m_bset.word_size(); ++shift) {
         const uint64_t total_bits{g_total_bits - shift};
-        if (shift > 0) m_bset.shrink_head(1);
+        if (shift > 0) shrink_head(1);
         fill_random(0, total_bits);
         sisl::ThreadSafeBitset tmp_bset{};
         tmp_bset.copy_unshifted(m_bset);
 
         for (uint64_t bit{0}; bit < total_bits; ++bit) {
-            ASSERT_EQ(m_bset.is_bits_set(bit, 1), tmp_bset.is_bits_set(bit, 1));
+            ASSERT_EQ(m_bset.get_bitval(bit), tmp_bset.get_bitval(bit));
         }
     }
 }
@@ -531,20 +531,20 @@ TEST_F(BitsetTest, EqualityLogicCheck) {
         for (size_t flip{0}; flip < num_flips; ++flip) {
             const uint64_t bit{bit_rand(re)};
 
-            if (tmp_bitset.is_bits_set(bit, 1)) {
+            if (tmp_bitset.get_bitval(bit)) {
                 tmp_bitset.reset_bit(bit);
-                ASSERT_FALSE(tmp_bitset.is_bits_set(bit, 1));
+                ASSERT_FALSE(tmp_bitset.get_bitval(bit));
                 ASSERT_FALSE(m_bset == tmp_bitset) << "Failed flipping bit " << bit << " out of " << num_bits;
                 ASSERT_FALSE(tmp_bitset == m_bset) << "Failed flipping bit " << bit << " out of " << num_bits;
                 tmp_bitset.set_bit(bit);
-                ASSERT_TRUE(tmp_bitset.is_bits_set(bit, 1));
+                ASSERT_TRUE(tmp_bitset.get_bitval(bit));
             } else {
                 tmp_bitset.set_bit(bit);
-                ASSERT_TRUE(tmp_bitset.is_bits_set(bit, 1));
+                ASSERT_TRUE(tmp_bitset.get_bitval(bit));
                 ASSERT_FALSE(m_bset == tmp_bitset) << "Failed flipping bit " << bit << " out of " << num_bits;
                 ASSERT_FALSE(tmp_bitset == m_bset) << "Failed flipping bit " << bit << " out of " << num_bits;
                 tmp_bitset.reset_bit(bit);
-                ASSERT_FALSE(tmp_bitset.is_bits_set(bit, 1));
+                ASSERT_FALSE(tmp_bitset.get_bitval(bit));
             }
         }
     }};
