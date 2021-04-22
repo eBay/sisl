@@ -434,6 +434,8 @@ public:
     }
 
     void copy(const BitsetImpl& other) {
+        if (this == &other) return;
+
         if (ThreadSafeResizing) {
             this->m_lock.lock_shared();
             other.m_lock.lock_shared();
@@ -456,6 +458,8 @@ public:
     }
 
     void copy_unshifted(const BitsetImpl& other) {
+        if (this == &other) return;
+
         if (ThreadSafeResizing) {
             this->m_lock.lock_shared();
             other.m_lock.lock_shared();
