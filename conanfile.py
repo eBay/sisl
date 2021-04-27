@@ -49,8 +49,10 @@ class MetricsConan(ConanFile):
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
     def configure(self):
-        if self.options.sanitize:
+        if not self.settings.build_type == "Debug":
             self.options.coverage = False
+        if not self.options.coverage and self.settings.build_type == "Debug":
+            self.options.sanitize = True
 
     def build(self):
         cmake = CMake(self)
