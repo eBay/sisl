@@ -48,33 +48,39 @@ class MetricsConan(ConanFile):
     generators = "cmake"
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
+    def config_options(self):
+        if self.settings.build_type != "Debug":
+            del self.options.sanitize
+            del self.options.coverage
+
     def configure(self):
-        if not self.settings.build_type == "Debug":
-            self.options.coverage = False
-        if not self.options.coverage and self.settings.build_type == "Debug":
-            self.options.sanitize = True
+        if self.settings.build_type == "Debug":
+            if self.options.coverage and self.options.sanitize:
+                raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
 
     def build(self):
         cmake = CMake(self)
 
         definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
+                       'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
                        'MEMORY_SANITIZER_ON': 'OFF'}
         test_target = None
 
-        if self.options.sanitize:
-            definitions['MEMORY_SANITIZER_ON'] = 'ON'
-
-        if self.settings.compiler == "gcc" and self.options.coverage == 'True':
-            definitions['CONAN_BUILD_COVERAGE'] = 'ON'
-            test_target = 'coverage'
-
-        if self.settings.build_type == 'Debug':
-            definitions['CMAKE_BUILD_TYPE'] = 'Debug'
+        run_tests = True
+        if self.settings.build_type == "Debug":
+            if self.options.sanitize:
+                definitions['MEMORY_SANITIZER_ON'] = 'ON'
+            elif self.options.coverage:
+                definitions['CONAN_BUILD_COVERAGE'] = 'ON'
+                test_target = 'coverage'
+            else:
+                run_tests = False
 
         cmake.configure(defs=definitions)
         cmake.build()
-        #cmake.test(target=test_target, output_on_failure=True)
-        cmake.test(target=test_target)
+        if run_tests:
+            #cmake.test(target=test_target, output_on_failure=True)
+            cmake.test(target=test_target)
 
     def package(self):
         self.copy("*.hpp", src="src/", dst="include/", keep_path=True)
@@ -90,13 +96,14 @@ class MetricsConan(ConanFile):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
         self.cpp_info.cppflags.append("-fconcepts")
-        if self.options.sanitize:
-            self.cpp_info.sharedlinkflags.append("-fsanitize=address")
-            self.cpp_info.exelinkflags.append("-fsanitize=address")
-            self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
-            self.cpp_info.exelinkflags.append("-fsanitize=undefined")
-        elif self.settings.compiler == "gcc" and self.options.coverage == 'True':
-            self.cpp_info.libs.append('gcov')
+        if self.settings.build_type == "Debug":
+            if  self.options.sanitize:
+                self.cpp_info.sharedlinkflags.append("-fsanitize=address")
+                self.cpp_info.exelinkflags.append("-fsanitize=address")
+                self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
+                self.cpp_info.exelinkflags.append("-fsanitize=undefined")
+            elif self.options.coverage == 'True':
+                self.cpp_info.libs.append('gcov')
         if self.settings.os == "Linux":
             self.cpp_info.libs.extend(["dl"])
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
