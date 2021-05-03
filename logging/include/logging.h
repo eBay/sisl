@@ -131,11 +131,12 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
     if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                    \
         fmt::memory_buffer _log_buf;                                                                                   \
         const auto& cb = formatter;                                                                                    \
-        cb(_log_buf, msg, ##__VA_ARGS__);                                                                              \
-        fmt::format_to(_log_buf, "{}", (char)0);                                                                       \
-        _l->method(_log_buf.data());                                                                                   \
-        if (is_flush) {                                                                                                \
-            _l->flush();                                                                                               \
+        [[likely]] if (cb(_log_buf, msg, ##__VA_ARGS__)) {                                                             \
+            fmt::format_to(_log_buf, "{}", (char)0);                                                                   \
+            _l->method(_log_buf.data());                                                                               \
+            if (is_flush) {                                                                                            \
+                _l->flush();                                                                                           \
+            }                                                                                                          \
         }                                                                                                              \
     }
 
@@ -230,7 +231,7 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
     assert(0);                                                                                                         \
     if (is_log_assert) {                                                                                               \
         if (sds_logging::is_crash_handler_installed()) {                                                               \
-            sds_logging::log_stack_trace(false);                                                                            \
+            sds_logging::log_stack_trace(false);                                                                       \
         }                                                                                                              \
     } else {                                                                                                           \
         abort();                                                                                                       \
@@ -261,16 +262,21 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 
 #define RELEASE_ASSERT(cond, m, ...)                                                                                   \
     _GENERIC_ASSERT(                                                                                                   \
-        0, cond, [](fmt::memory_buffer& buf, const char* msg, auto... args) { fmt::format_to(buf, msg, args...); }, m, \
-        ##__VA_ARGS__)
+        0, cond,                                                                                                       \
+        [](fmt::memory_buffer& buf, const char* msg, auto... args) -> bool {                                           \
+            fmt::format_to(buf, msg, args...);                                                                         \
+            return true;                                                                                               \
+        },                                                                                                             \
+        m, ##__VA_ARGS__)
 #define RELEASE_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(0, cond, formatter, msg, ##__VA_ARGS__)
 #define RELEASE_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                            \
     _GENERIC_ASSERT(0, ((val1)cmp(val2)), formatter, _FMT_LOG_MSG(__VA_ARGS__), val1, #cmp, val2)
 #define RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                           \
     RELEASE_ASSERT_CMP(                                                                                                \
         val1, cmp, val2,                                                                                               \
-        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                                 \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
             sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+            return true;                                                                                               \
         },                                                                                                             \
         ##__VA_ARGS__)
 
@@ -284,7 +290,11 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 
 #define LOGMSG_ASSERT(cond, m, ...)                                                                                    \
     _GENERIC_ASSERT(                                                                                                   \
-        1, cond, [](fmt::memory_buffer& buf, const char* msg, auto&&... args) { fmt::format_to(buf, msg, args...); },  \
+        1, cond,                                                                                                       \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
+            fmt::format_to(buf, msg, args...);                                                                         \
+            return true;                                                                                               \
+        },                                                                                                             \
         m, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(1, cond, formatter, msg, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                             \
@@ -293,8 +303,9 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 #define LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                            \
     LOGMSG_ASSERT_CMP(                                                                                                 \
         val1, cmp, val2,                                                                                               \
-        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                                 \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
             sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+            return true;                                                                                               \
         },                                                                                                             \
         ##__VA_ARGS__)
 
@@ -418,8 +429,9 @@ MODLEVELDEC(_, _, base)
 namespace sds_logging {
 typedef void (*sig_handler_t)(int, siginfo_t*, void*);
 
-void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
-               std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+void SetLogger(std::string const& name,
+               std::string const& pkg =
+                   BOOST_PP_STRINGIZE(PACKAGE_NAME), std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn, bool tee_to_stdout);
 void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
 
