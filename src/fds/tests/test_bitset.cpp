@@ -165,7 +165,7 @@ protected:
     sisl::byte_array serialize() { return m_bset.serialize(); }
 
     void deserialize(sisl::byte_array buf) {
-        sisl::ThreadSafeBitset tmp_bset(buf);
+        sisl::ThreadSafeBitset tmp_bset{buf};
         m_bset = std::move(tmp_bset);
     }
 
@@ -563,6 +563,8 @@ TEST_F(BitsetTest, EqualityLogicCheck) {
         ASSERT_TRUE(m_bset == tmp_bset1);
         ASSERT_TRUE(tmp_bset1 == m_bset);
         flip_random_bits(tmp_bset1, total_bits, total_bits / 20);
+        ASSERT_TRUE(m_bset == tmp_bset1);
+        ASSERT_TRUE(tmp_bset1 == m_bset);
     }
 
     // test shifted against unshifted through all alignments
@@ -575,6 +577,8 @@ TEST_F(BitsetTest, EqualityLogicCheck) {
         ASSERT_TRUE(m_bset == tmp_bset2);
         ASSERT_TRUE(tmp_bset2 == m_bset);
         flip_random_bits(tmp_bset2, total_bits, total_bits / 20);
+        ASSERT_TRUE(m_bset == tmp_bset2);
+        ASSERT_TRUE(tmp_bset2 == m_bset);
     }
 }
 
