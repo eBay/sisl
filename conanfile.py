@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from conans import ConanFile, CMake, tools
+import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
@@ -74,7 +75,8 @@ class MetricsConan(ConanFile):
                 definitions['CONAN_BUILD_COVERAGE'] = 'ON'
                 test_target = 'coverage'
             else:
-                run_tests = False
+                if (None == os.getenv("RUN_TESTS")):
+                    run_tests = False
 
         cmake.configure(defs=definitions)
         cmake.build()
