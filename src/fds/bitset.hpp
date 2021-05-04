@@ -103,15 +103,14 @@ private:
     };
 #pragma pack()
 
-    class ReadLock {
+    class ReadLockGuard {
     public:
-        ReadLock(BitsetImpl* const bitset) : m_b{bitset} {}
-        ReadLock(const BitsetImpl* const bitset) : m_b{const_cast< BitsetImpl* >(bitset)} {}
-        ReadLock(const ReadLock&) = delete;
-        ReadLock& operator=(const ReadLock&) = delete;
-        ReadLock(ReadLock&&) noexcept = delete;
-        ReadLock& operator=(ReadLock&&) noexcept = delete;
-        ~ReadLock() = default;
+        ReadLockGuard(const BitsetImpl* const bitset) : m_b{bitset} { lock(); }
+        ReadLockGuard(const ReadLockGuard&) = delete;
+        ReadLockGuard& operator=(const ReadLockGuard&) = delete;
+        ReadLockGuard(ReadLockGuard&&) noexcept = delete;
+        ReadLockGuard& operator=(ReadLockGuard&&) noexcept = delete;
+        ~ReadLockGuard() { unlock(); }
 
         void lock() {
             if (ThreadSafeResizing) m_b->m_lock.lock_shared();
@@ -122,18 +121,17 @@ private:
         bool try_lock() { return (ThreadSafeResizing ? m_b->m_lock.try_lock_shared() : true); }
 
     private:
-        BitsetImpl* const m_b;
+        const BitsetImpl* const m_b;
     };
 
-    class WriteLock {
+    class WriteLockGuard {
     public:
-        WriteLock(BitsetImpl* const bitset) : m_b{bitset} {}
-        WriteLock(const BitsetImpl* const bitset) : m_b{const_cast< BitsetImpl* >(bitset)} {}
-        WriteLock(const WriteLock&) = delete;
-        WriteLock& operator=(const WriteLock&) = delete;
-        WriteLock(WriteLock&&) noexcept = delete;
-        WriteLock& operator=(WriteLock&&) noexcept = delete;
-        ~WriteLock() = default;
+        WriteLockGuard(BitsetImpl* const bitset) : m_b{bitset} { lock(); }
+        WriteLockGuard(const WriteLockGuard&) = delete;
+        WriteLockGuard& operator=(const WriteLockGuard&) = delete;
+        WriteLockGuard(WriteLockGuard&&) noexcept = delete;
+        WriteLockGuard& operator=(WriteLockGuard&&) noexcept = delete;
+        ~WriteLockGuard() { unlock(); }
 
         void lock() {
             if (ThreadSafeResizing) m_b->m_lock.lock();
@@ -168,7 +166,7 @@ public:
 
     ~BitsetImpl() {
         {
-            WriteLock lock{this};
+            WriteLockGuard lock{this};
             if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
             m_buf.reset();
         }
@@ -186,7 +184,7 @@ public:
     // this makes a shared copy of the rhs so that modifications of the shared version
     // are also made to rhs version.  To make independent copy use copy function
     explicit BitsetImpl(const BitsetImpl& other) {
-        ReadLock lock{&other};
+        ReadLockGuard lock{&other};
 
         m_alignment_size = other.m_alignment_size;
         m_buf = other.m_buf;
@@ -247,7 +245,7 @@ public:
     }
 
     BitsetImpl(BitsetImpl&& other) noexcept {
-        WriteLock lock{&other};
+        WriteLockGuard lock{&other};
 
         m_alignment_size = std::move(other.m_alignment_size);
         m_buf = std::move(other.m_buf);
@@ -263,9 +261,9 @@ public:
     BitsetImpl& operator=(const BitsetImpl& rhs) {
         if (this == &rhs) { return *this; }
         {
-            WriteLock lock{this};
+            WriteLockGuard lock{this};
             {
-                ReadLock rhs_lock{&rhs};
+                ReadLockGuard rhs_lock{&rhs};
 
                 // destroy original bitset if last one
                 if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
@@ -282,9 +280,9 @@ public:
     BitsetImpl& operator=(BitsetImpl&& rhs) noexcept {
         if (this == &rhs) { return *this; }
         {
-            WriteLock lock{this};
+            WriteLockGuard lock{this};
             {
-                WriteLock rhs_lock{&rhs};
+                WriteLockGuard rhs_lock{&rhs};
 
                 // destroy original bitset if last one
                 if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
@@ -304,7 +302,7 @@ public:
 
     // get word size value.  data is stored in LSB to MSB order into the bitset
     word_t get_word_value(const uint64_t start_bit) const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
 
         const Word* word_ptr{get_word_const(start_bit)};
         if (!word_ptr) { return word_t{}; }
@@ -343,9 +341,9 @@ public:
         if (this == &rhs) return true;
 
         {
-            ReadLock lock{this};
+            ReadLockGuard lock{this};
             {
-                ReadLock rhs_lock{&rhs};
+                ReadLockGuard rhs_lock{&rhs};
 
                 if (total_bits() != rhs.total_bits()) { return false; }
 
@@ -457,13 +455,13 @@ public:
     bool operator!=(const BitsetImpl& rhs) { return !(operator==(rhs)); }
 
     uint64_t get_id() const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(m_s);
         return m_s->m_id;
     }
 
     void set_id(const uint64_t id) {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(m_s);
         m_s->m_id = id;
     }
@@ -473,9 +471,9 @@ public:
         if (this == &other) return;
 
         {
-            WriteLock lock{this};
+            WriteLockGuard lock{this};
             {
-                ReadLock other_lock{&other};
+                ReadLockGuard other_lock{&other};
 
                 // ensure distinct buffers
                 if (!m_buf || (m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
@@ -503,9 +501,9 @@ public:
     void copy_unshifted(const BitsetImpl& other) {
         if (this == &other) return;
         {
-            WriteLock lock{this};
+            WriteLockGuard lock{this};
             {
-                ReadLock other_lock{&other};
+                ReadLockGuard other_lock{&other};
 
                 m_alignment_size = other.m_alignment_size;
                 const uint64_t nbits{other.total_bits()};
@@ -584,7 +582,7 @@ public:
      * @return sisl::byte_array
      */
     const sisl::byte_array serialize() const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(m_s);
         const uint64_t num_bits{total_bits()};
         const uint64_t total_words{bitset_serialized::total_words(num_bits)};
@@ -608,7 +606,7 @@ public:
      * @return uint64_t
      */
     uint64_t serialized_size() const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         const uint64_t num_bits{total_bits()};
         const uint64_t total_words{bitset_serialized::total_words(num_bits)};
         const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
@@ -621,7 +619,7 @@ public:
      * @return uint64_t
      */
     uint64_t size() const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         const auto ret{total_bits()};
         return ret;
     }
@@ -636,7 +634,7 @@ public:
      */
     uint64_t get_set_count(const uint64_t start_bit = 0,
                            const uint64_t end_bit = std::numeric_limits< uint64_t >::max()) const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(end_bit >= start_bit);
         const uint64_t last_bit{std::min(total_bits() - 1, end_bit)};
         const uint64_t num_bits{last_bit - start_bit + 1};
@@ -719,7 +717,7 @@ public:
      * @return true or false based on if bit is set or reset respectively
      */
     bool get_bitval(const uint64_t bit) const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(m_s->valid_bit(bit));
 
         const Word* word_ptr{get_word_const(bit)};
@@ -737,7 +735,7 @@ public:
      * @return uint64_t Returns the next set bit, if one available, else Bitset::npos is returned
      */
     uint64_t get_next_set_bit(const uint64_t start_bit) {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         uint64_t ret{npos};
 
         // check first word which may be partial
@@ -774,7 +772,7 @@ public:
      * std::out_or_range exception.
      */
     void shrink_head(const uint64_t nbits) {
-        WriteLock lock{this};
+        WriteLockGuard lock{this};
         assert(m_s);
 
         if (nbits > total_bits()) {
@@ -794,7 +792,7 @@ public:
      * @param value: Value to set if bitset is resized up.
      */
     void resize(const uint64_t nbits, const bool value = false) {
-        WriteLock lock{this};
+        WriteLockGuard lock{this};
         resize_impl(nbits, value);
     }
 
@@ -829,7 +827,7 @@ public:
      */
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const std::optional< uint64_t > end_bit,
                                               const uint32_t min_needed, const uint32_t max_needed) {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         BitBlock retb{start_bit, 0};
 
         const Word* word_ptr{get_word_const(start_bit)};
@@ -894,7 +892,7 @@ public:
     }
 
     uint64_t get_next_reset_bit(const uint64_t start_bit) {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         uint64_t ret{npos};
 
         // check first word which may be partial
@@ -926,7 +924,7 @@ public:
 
     // print out the bitset in the order last bit to first bit
     std::string to_string() const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
 
         std::string output{};
         output.reserve(total_bits());
@@ -972,7 +970,7 @@ public:
 
 private:
     void set_reset_bits(const uint64_t start, const uint64_t nbits, const bool value) {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(m_s && m_s->valid_bit(start));
 
         // NOTE: we ignore the fact here that the total number of bits may not consume the entire
@@ -1001,7 +999,7 @@ private:
     }
 
     void set_reset_bit(const uint64_t bit, const bool value) {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(m_s && m_s->valid_bit(bit));
 
         Word* word_ptr{get_word(bit)};
@@ -1011,7 +1009,7 @@ private:
     }
 
     bool is_bits_set_reset(const uint64_t start, const uint64_t nbits, const bool expected) const {
-        ReadLock lock{this};
+        ReadLockGuard lock{this};
         assert(m_s && m_s->valid_bit(start));
 
         // test first possibly partial word
