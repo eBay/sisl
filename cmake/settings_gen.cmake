@@ -49,7 +49,7 @@ macro(settings_gen_cpp flatbuffer_bin_path gen_out_path _target)
         set(_BIN_DUMP_SOURCE
             ${gen_out_path}/${FIL_WE}_bindump.cpp)
         set(_GEN_HEADERS
-            ${gen_out_path}/${FIL_WE}_generated.h
+            ${FIL_WE}_generated.h
         )
         list(APPEND _generated_headers "${_GEN_HEADERS}") 
         target_sources(${_target} PRIVATE ${_BIN_DUMP_SOURCE} ${_GEN_HEADERS})
