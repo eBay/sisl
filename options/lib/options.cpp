@@ -4,4 +4,4 @@
 
 #include "options.h"
 
-SDS_OPTION_GROUP(main, (help, "h", "help", "Help message", ::cxxopts::value<bool>(), ""))
+SDS_OPTION_GROUP(main, (help, "h", "help", "Help message", ::cxxopts::value< bool >(), ""))
