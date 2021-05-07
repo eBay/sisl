@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "4.4.13"
+    version = "4.4.14"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -18,12 +18,14 @@ class MetricsConan(ConanFile):
                 "fPIC": ['True', 'False'],
                 "coverage": ['True', 'False'],
                 "sanitize": ['True', 'False'],
+                'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
               }
     default_options = (
                         'shared=False',
                         'fPIC=True',
                         'coverage=False',
                         'sanitize=False',
+                        'malloc_impl=libc',
                         )
 
     build_requires = (
@@ -53,11 +55,19 @@ class MetricsConan(ConanFile):
         if self.settings.build_type != "Debug":
             del self.options.sanitize
             del self.options.coverage
+        elif os.getenv("OVERRIDE_SANITIZE") != None:
+            self.options.sanitize = True
 
     def configure(self):
         if self.settings.build_type == "Debug":
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
+
+    def requirements(self):
+        if self.options.malloc_impl == "jemalloc":
+            self.requires("jemalloc/5.2.1")
+        elif self.options.malloc_impl == "tcmalloc":
+            self.requires("gperftools/2.7.0")
 
     def build(self):
         cmake = CMake(self)
@@ -77,6 +87,8 @@ class MetricsConan(ConanFile):
             else:
                 if (None == os.getenv("RUN_TESTS")):
                     run_tests = False
+
+        definitions['MALLOC_IMPL'] = self.options.malloc_impl
 
         cmake.configure(defs=definitions)
         cmake.build()
@@ -109,3 +121,8 @@ class MetricsConan(ConanFile):
         if self.settings.os == "Linux":
             self.cpp_info.libs.extend(["dl"])
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
+
+        if self.options.malloc_impl == 'jemalloc':
+            self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
+        elif self.options.malloc_impl == 'tcmalloc':
+            self.cpp_info.cppflags.append("-DUSING_TCMALLOC=1")
