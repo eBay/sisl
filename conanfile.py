@@ -25,7 +25,7 @@ class MetricsConan(ConanFile):
                         'fPIC=True',
                         'coverage=False',
                         'sanitize=False',
-                        'malloc_impl=libc',
+                        'malloc_impl=tcmalloc',
                         )
 
     build_requires = (
@@ -62,6 +62,8 @@ class MetricsConan(ConanFile):
         if self.settings.build_type == "Debug":
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
+            if self.options.coverage or self.options.sanitize:
+                self.options.malloc_impl = 'libc'
 
     def requirements(self):
         if self.options.malloc_impl == "jemalloc":
