@@ -67,6 +67,10 @@ pipeline {
                     axis {
                         name 'COVERAGE'
                         values 'False'
+                    }
+                    axis {
+                        name 'ALLOC_IMPL'
+                        values 'tcmalloc', 'libc'
                 } }
                 excludes { exclude {
                     axis {
@@ -76,6 +80,26 @@ pipeline {
                     axis {
                         name 'COVERAGE'
                         values 'True'
+                    }
+                }
+                    exclude {
+                    axis {
+                        name 'BUILD_TYPE'
+                        values 'test'
+                    }
+                    axis {
+                        name 'ALLOC_IMPL'
+                        values 'libc'
+                    }
+                }
+                    exclude {
+                    axis {
+                        name 'BUILD_TYPE'
+                        values 'sanitize'
+                    }
+                    axis {
+                        name 'ALLOC_IMPL'
+                        values 'tcmalloc'
                     }
                 } }
 
@@ -96,7 +120,7 @@ pipeline {
                             expression { "${BUILD_TYPE}" != 'sanitize' }
                         } }
                         steps {
-                            sh "conan create ${BUILD_MISSING} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
+                            sh "conan create ${BUILD_MISSING} -o ${PROJECT}:malloc_impl=${ALLOC_IMPL} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
 
@@ -105,7 +129,7 @@ pipeline {
                             expression { "${BUILD_TYPE}" == 'sanitize' }
                         } }
                         steps {
-                            sh "conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG}"
+                            sh "conan create ${BUILD_MISSING} -o ${PROJECT}:malloc_impl=${ALLOC_IMPL} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG}"
                         }
                     }
 
