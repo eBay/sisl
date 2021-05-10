@@ -21,6 +21,7 @@
 #if defined __clang__ or defined __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic ignored "-Wattributes"
 #endif
 #include <folly/SharedMutex.h>
 #if defined __clang__ or defined __GNUC__
@@ -68,7 +69,8 @@ private:
         uint64_t m_nbits;
         uint64_t m_skip_bits;
 
-        bitset_serialized(const uint64_t id, const uint64_t nbits, const uint64_t skip_bits = 0, const bool fill = true) :
+        bitset_serialized(const uint64_t id, const uint64_t nbits, const uint64_t skip_bits = 0,
+                          const bool fill = true) :
                 m_id{id}, m_nbits{nbits}, m_skip_bits{skip_bits} {
             // memory is unitialized so use uninitialized fill which does proper construction for non POD types
             if (fill) std::uninitialized_fill(get_words(), end_words(), Word{});
@@ -176,7 +178,7 @@ public:
             m_alignment_size{alignment_size} {
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast<uint32_t>(size), alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(size), alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{m_id, nbits};
         m_words_cap = bitset_serialized::total_words(nbits);
     }
@@ -202,10 +204,10 @@ public:
         const uint64_t total_bytes{bitset_serialized::nbytes(ptr->m_nbits)};
         assert(b->size >= total_bytes);
         m_alignment_size = 0; // Assume no alignment
-        m_buf = make_byte_array(static_cast<uint32_t>(total_bytes), m_alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(total_bytes), m_alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{ptr->m_id, ptr->m_nbits, ptr->m_skip_bits, false};
         m_words_cap = bitset_serialized::total_words(m_s->m_nbits);
-        const word_t* b_words{reinterpret_cast<const word_t* >(b->bytes + sizeof(bitset_serialized))};
+        const word_t* b_words{reinterpret_cast< const word_t* >(b->bytes + sizeof(bitset_serialized))};
         // copy the data
         std::uninitialized_copy(b_words, b_words + m_words_cap, m_s->get_words());
     }
@@ -218,7 +220,7 @@ public:
         const uint64_t nbits{static_cast< uint64_t >(num_words) * word_size()};
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast<uint32_t>(size), m_alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(size), m_alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, false};
         m_words_cap = bitset_serialized::total_words(nbits);
 
@@ -236,7 +238,7 @@ public:
         const uint64_t nbits{static_cast< uint64_t >(num_words) * word_size()};
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast<uint32_t>(size), m_alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(size), m_alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, false};
         m_words_cap = bitset_serialized::total_words(nbits);
 
@@ -526,7 +528,8 @@ public:
                 const Word* rhs_word_ptr{other.get_word_const(0)};
                 if (rhs_offset == 0) {
                     // can do straight copy
-                    if (!uninitialized) std::copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
+                    if (!uninitialized)
+                        std::copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
                     else
                         std::uninitialized_copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
                 } else {
@@ -577,7 +580,7 @@ public:
      * used to load later)
      *
      * NOTE: The returned buffer is a const byte array and thus it is expected not to be modified. If modified then it
-     * can result in corruption to the bitset. 
+     * can result in corruption to the bitset.
      *
      * @return sisl::byte_array
      */
@@ -586,15 +589,14 @@ public:
         assert(m_s);
         const uint64_t num_bits{total_bits()};
         const uint64_t total_words{bitset_serialized::total_words(num_bits)};
-        const uint64_t total_bytes{sizeof(bitset_serialized) +
-                                 sizeof(word_t) * total_words};
+        const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
         auto buf{make_byte_array(total_bytes)};
         new (buf->bytes) bitset_serialized{m_s->m_id, num_bits, 0, false};
-        
+
         // copy the unshifted data words
         word_t* word_ptr{reinterpret_cast< word_t* >(buf->bytes + sizeof(bitset_serialized))};
         uint64_t current_bit{0};
-        for (uint64_t word_num{ 0 }; word_num < total_words; ++word_num, ++word_ptr, current_bit+=word_size()) {
+        for (uint64_t word_num{0}; word_num < total_words; ++word_num, ++word_ptr, current_bit += word_size()) {
             new (word_ptr) word_t{get_word_value(current_bit)};
         }
         return buf;
