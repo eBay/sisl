@@ -10,7 +10,7 @@
 
 namespace sds::grpc {
 
-bool get_file_contents(const std::string & file_name, std::string & contents) {
+bool get_file_contents(const std::string& file_name, std::string& contents) {
     try {
         std::ifstream in(file_name.c_str(), std::ios::in);
         if (in) {
@@ -21,16 +21,9 @@ bool get_file_contents(const std::string & file_name, std::string & contents) {
             contents = t.str();
             return true;
         }
-    } catch (...) {
-
-    }
+    } catch (...) {}
     return false;
 }
 
-
-
-
-
-}
-
+} // namespace sds::grpc
 

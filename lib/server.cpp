@@ -5,8 +5,16 @@
  */
 
 #include <sds_grpc/server.h>
-#include <grpcpp/impl/codegen/service_type.h>
 
+#ifdef _POSIX_THREADS
+#ifndef __APPLE__
+extern "C" {
+#include <pthread.h>
+}
+#endif
+#endif
+
+#include <grpcpp/impl/codegen/service_type.h>
 
 namespace sds::grpc {
 
@@ -40,18 +48,13 @@ void BaseServerCallData::proceed(bool ok) {
     }
 }
 
-
 void BaseServerCallData::do_finish() {
     GPR_ASSERT(status_ == FINISH);
     // Once in the FINISH state, this can be destroyed
     delete this;
 }
 
-
-GrpcServer::GrpcServer() {
-
-}
-
+GrpcServer::GrpcServer() {}
 
 GrpcServer::~GrpcServer() {
     shutdown();
@@ -64,29 +67,23 @@ GrpcServer::~GrpcServer() {
     services_.clear();
 }
 
-
-bool GrpcServer::init(const std::string& listen_addr, uint32_t threads,
-                      const std::string& ssl_key, const std::string& ssl_cert) {
-
+bool GrpcServer::init(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
+                      const std::string& ssl_cert) {
     BOOST_ASSERT(State::VOID == state_);
 
-    if (listen_addr.empty() || threads == 0) {
-        return false;
-    }
+    if (listen_addr.empty() || threads == 0) { return false; }
 
     thread_num_ = threads;
 
     if (!ssl_cert.empty() && !ssl_key.empty()) {
-        std::string     key_contents;
-        std::string     cert_contents;
+        std::string key_contents;
+        std::string cert_contents;
         get_file_contents(ssl_cert, cert_contents);
         get_file_contents(ssl_key, key_contents);
 
-        if (cert_contents.empty() || key_contents.empty()) {
-            return false;
-        }
+        if (cert_contents.empty() || key_contents.empty()) { return false; }
 
-        ::grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = { key_contents, cert_contents };
+        ::grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {key_contents, cert_contents};
         ::grpc::SslServerCredentialsOptions ssl_opts;
         ssl_opts.pem_root_certs = "";
         ssl_opts.pem_key_cert_pairs.push_back(pkcp);
@@ -102,10 +99,7 @@ bool GrpcServer::init(const std::string& listen_addr, uint32_t threads,
     return true;
 }
 
-
-GrpcServer* GrpcServer::make(const std::string& listen_addr,
-                             uint32_t threads,
-                             const std::string& ssl_key,
+GrpcServer* GrpcServer::make(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                              const std::string& ssl_cert) {
     auto ret = new GrpcServer();
     if (!ret->init(listen_addr, threads, ssl_key, ssl_cert)) {
@@ -116,16 +110,19 @@ GrpcServer* GrpcServer::make(const std::string& listen_addr,
     return ret;
 }
 
-
 bool GrpcServer::run() {
-
     BOOST_ASSERT(State::INITED == state_);
 
     server_ = builder_.BuildAndStart();
 
-    for (uint32_t  i = 0; i < thread_num_; ++i) {
-        auto t = std::shared_ptr<std::thread>(
-                     new std::thread(&GrpcServer::handle_rpcs, this));
+    for (uint32_t i = 0; i < thread_num_; ++i) {
+        auto t = std::shared_ptr< std::thread >(new std::thread(&GrpcServer::handle_rpcs, this));
+#ifdef _POSIX_THREADS
+#ifndef __APPLE__
+        auto tname = std::string("grpc_server").substr(0, 15);
+        pthread_setname_np(t->native_handle(), tname.c_str());
+#endif /* __APPLE__ */
+#endif /* _POSIX_THREADS */
         threads_.push_back(t);
     }
 
@@ -133,13 +130,11 @@ bool GrpcServer::run() {
     return true;
 }
 
-
 void GrpcServer::handle_rpcs() {
     void* tag;
     bool ok = false;
 
     while (cq_->Next(&tag, &ok)) {
-
         // `ok` is true if read a successful event, false otherwise.
         // Success here means that this operation completed in the normal
         // valid manner.
@@ -157,8 +152,7 @@ void GrpcServer::handle_rpcs() {
         // is already dead (i.e., canceled, deadline expired, other side
         // dropped the channel, etc).
 
-
-        BaseServerCallData* cm = static_cast<BaseServerCallData *>(tag);
+        BaseServerCallData* cm = static_cast< BaseServerCallData* >(tag);
         cm->proceed(ok);
     }
 }
@@ -180,6 +174,4 @@ void GrpcServer::shutdown() {
     return;
 }
 
-
-
-}
+} // namespace sds::grpc

@@ -20,53 +20,40 @@
 #include "sds_grpc/client.h"
 #include "sds_grpc_test.grpc.pb.h"
 
-
 using namespace ::grpc;
 using namespace ::sds::grpc;
 using namespace ::sds_grpc_test;
 using namespace std::placeholders;
 
-#define WORKER_NAME  "worker-1"
-
+#define WORKER_NAME "worker-1"
 
 class EchoAndPingAsyncClient : GrpcAsyncClient {
 
-  public:
-
+public:
     using GrpcAsyncClient::GrpcAsyncClient;
 
     virtual bool init() {
-        if (!GrpcAsyncClient::init()) {
-            return false;
-        }
+        if (!GrpcAsyncClient::init()) { return false; }
 
-        echo_stub_ = make_stub<EchoService>(WORKER_NAME);
-        ping_stub_ = make_stub<PingService>(WORKER_NAME);
+        echo_stub_ = make_stub< EchoService >(WORKER_NAME);
+        ping_stub_ = make_stub< PingService >(WORKER_NAME);
 
         return true;
     }
 
+    void Echo(const EchoRequest& request, std::function< void(EchoReply&, ::grpc::Status& status) > callback) {
 
-    void Echo(const EchoRequest& request,
-              std::function<void(EchoReply&, ::grpc::Status& status)> callback) {
-
-        echo_stub_->call_unary<EchoRequest, EchoReply>(request,
-                &EchoService::StubInterface::AsyncEcho,
-                callback);
+        echo_stub_->call_unary< EchoRequest, EchoReply >(request, &EchoService::StubInterface::AsyncEcho, callback);
     }
 
-    void Ping(const PingRequest& request,
-              std::function<void(PingReply&, ::grpc::Status& status)> callback) {
+    void Ping(const PingRequest& request, std::function< void(PingReply&, ::grpc::Status& status) > callback) {
 
-        ping_stub_->call_unary<PingRequest, PingReply>(request,
-                &PingService::StubInterface::AsyncPing,
-                callback);
+        ping_stub_->call_unary< PingRequest, PingReply >(request, &PingService::StubInterface::AsyncPing, callback);
     }
 
-    AsyncStub<EchoService>::UPtr echo_stub_;
-    AsyncStub<PingService>::UPtr ping_stub_;
+    AsyncStub< EchoService >::UPtr echo_stub_;
+    AsyncStub< PingService >::UPtr ping_stub_;
 };
-
 
 std::atomic_int g_echo_counter;
 std::atomic_int g_ping_counter;
@@ -75,17 +62,12 @@ std::atomic_int g_ping_counter;
  * Echo implements async response handler.
  */
 class Echo {
-  public:
-
-    Echo(int seqno) {
-        request_.set_message(std::to_string(seqno));
-    }
+public:
+    Echo(int seqno) { request_.set_message(std::to_string(seqno)); }
 
     void handle_echo_reply(EchoReply& reply, ::grpc::Status& status) {
         if (!status.ok()) {
-            LOGERROR("echo request {} failed, status {}: {}",
-                     request_.message(),
-                     status.error_code(),
+            LOGERROR("echo request {} failed, status {}: {}", request_.message(), status.error_code(),
                      status.error_message());
             return;
         }
@@ -99,14 +81,13 @@ class Echo {
     EchoRequest request_;
 };
 
-
 #define GRPC_CALL_COUNT 10
 
 int RunClient(const std::string& server_address) {
 
     GrpcAyncClientWorker::create_worker(WORKER_NAME, 4);
 
-    auto client = GrpcAsyncClient::make<EchoAndPingAsyncClient>(server_address, "", "");
+    auto client = GrpcAsyncClient::make< EchoAndPingAsyncClient >(server_address, "", "");
     if (!client) {
         LOGCRITICAL("Create async client failed.");
         return -1;
@@ -116,9 +97,8 @@ int RunClient(const std::string& server_address) {
         if (i % 2 == 0) {
             // Async response handling logic can be put in a class's member
             // function, then use a lambda to wrap it.
-            Echo * echo = new Echo(i);
-            client->Echo(echo->request_,
-            [echo] (EchoReply& reply, ::grpc::Status& status) {
+            Echo* echo = new Echo(i);
+            client->Echo(echo->request_, [echo](EchoReply& reply, ::grpc::Status& status) {
                 echo->handle_echo_reply(reply, status);
                 delete echo;
             });
@@ -132,13 +112,9 @@ int RunClient(const std::string& server_address) {
             request->set_seqno(i);
 
             // response can be handled with lambda directly
-            client->Ping(*request,
-            [request] (PingReply& reply, ::grpc::Status& status) {
-
+            client->Ping(*request, [request](PingReply& reply, ::grpc::Status& status) {
                 if (!status.ok()) {
-                    LOGERROR("ping request {} failed, status {}: {}",
-                             request->seqno(),
-                             status.error_code(),
+                    LOGERROR("ping request {} failed, status {}: {}", request->seqno(), status.error_code(),
                              status.error_message());
                     return;
                 }
@@ -172,5 +148,4 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
 

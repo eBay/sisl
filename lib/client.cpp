@@ -6,19 +6,21 @@
 
 #include "sds_grpc/client.h"
 
-
+#ifdef _POSIX_THREADS
+#ifndef __APPLE__
+extern "C" {
+#include <pthread.h>
+}
+#endif
+#endif
 
 namespace sds::grpc {
 
-
 bool GrpcBaseClient::init() {
-    if (!init_channel()) {
-        return false;
-    }
+    if (!init_channel()) { return false; }
 
     return true;
 }
-
 
 bool GrpcBaseClient::init_channel() {
 
@@ -29,42 +31,32 @@ bool GrpcBaseClient::init_channel() {
         if (load_ssl_cert(ssl_cert_, ssl_opts.pem_root_certs)) {
             ::grpc::ChannelArguments channel_args;
             channel_args.SetSslTargetNameOverride(target_domain_);
-            channel_ = ::grpc::CreateCustomChannel(server_addr_,
-                                                   ::grpc::SslCredentials(ssl_opts),
-                                                   channel_args);
+            channel_ = ::grpc::CreateCustomChannel(server_addr_, ::grpc::SslCredentials(ssl_opts), channel_args);
         } else {
             return false;
         }
     } else {
-        channel_ = ::grpc::CreateChannel(server_addr_,
-                                         ::grpc::InsecureChannelCredentials());
+        channel_ = ::grpc::CreateChannel(server_addr_, ::grpc::InsecureChannelCredentials());
     }
 
     return true;
 }
 
 bool GrpcBaseClient::load_ssl_cert(const std::string& ssl_cert, std::string& content) {
-    return ::sds::grpc::get_file_contents(ssl_cert, content);;
+    return ::sds::grpc::get_file_contents(ssl_cert, content);
+    ;
 }
-
 
 bool GrpcBaseClient::is_connection_ready() {
-    return (channel_->GetState(true) ==
-            grpc_connectivity_state::GRPC_CHANNEL_READY);
+    return (channel_->GetState(true) == grpc_connectivity_state::GRPC_CHANNEL_READY);
 }
-
 
 std::mutex GrpcAyncClientWorker::mutex_workers;
-std::unordered_map<const char *, GrpcAyncClientWorker::UPtr> GrpcAyncClientWorker::workers;
+std::unordered_map< const char*, GrpcAyncClientWorker::UPtr > GrpcAyncClientWorker::workers;
 
-GrpcAyncClientWorker::GrpcAyncClientWorker() {
-    state_ = State::INIT;
-}
+GrpcAyncClientWorker::GrpcAyncClientWorker() { state_ = State::INIT; }
 
-
-GrpcAyncClientWorker::~GrpcAyncClientWorker() {
-    shutdown();
-}
+GrpcAyncClientWorker::~GrpcAyncClientWorker() { shutdown(); }
 
 void GrpcAyncClientWorker::shutdown() {
     if (state_ == State::RUNNING) {
@@ -81,17 +73,20 @@ void GrpcAyncClientWorker::shutdown() {
     return;
 }
 
-
 bool GrpcAyncClientWorker::run(uint32_t num_threads) {
     BOOST_ASSERT(State::INIT == state_);
 
-    if (num_threads == 0) {
-        return false;
-    }
+    if (num_threads == 0) { return false; }
 
     for (uint32_t i = 0; i < num_threads; ++i) {
-        std::shared_ptr<std::thread> t = std::shared_ptr<std::thread>(
-                                             new std::thread(&GrpcAyncClientWorker::async_complete_rpc, this));
+        std::shared_ptr< std::thread > t =
+            std::shared_ptr< std::thread >(new std::thread(&GrpcAyncClientWorker::async_complete_rpc, this));
+#ifdef _POSIX_THREADS
+#ifndef __APPLE__
+    auto tname = std::string("grpc_client").substr(0, 15);
+    pthread_setname_np(t->native_handle(), tname.c_str());
+#endif /* __APPLE__ */
+#endif /* _POSIX_THREADS */
         threads_.push_back(t);
     }
 
@@ -99,51 +94,41 @@ bool GrpcAyncClientWorker::run(uint32_t num_threads) {
     return true;
 }
 
-
 void GrpcAyncClientWorker::async_complete_rpc() {
     void* tag;
     bool ok = false;
     while (completion_queue_.Next(&tag, &ok)) {
         // For client-side unary call, `ok` is always true,
         // even server is not running
-        ClientCallMethod* cm = static_cast<ClientCallMethod*>(tag);
+        ClientCallMethod* cm = static_cast< ClientCallMethod* >(tag);
         cm->handle_response(ok);
         delete cm;
     }
 }
 
+bool GrpcAyncClientWorker::create_worker(const char* name, int num_thread) {
+    std::lock_guard< std::mutex > lock(mutex_workers);
 
-bool GrpcAyncClientWorker::create_worker(const char * name, int num_thread) {
-    std::lock_guard<std::mutex> lock(mutex_workers);
+    if (auto it = workers.find(name); it != workers.end()) { return true; }
 
-    if (auto it = workers.find(name); it != workers.end()) {
-        return true;
-    }
-
-    auto worker = std::make_unique<GrpcAyncClientWorker>();
-    if (!worker->run(num_thread)) {
-        return false;
-    }
+    auto worker = std::make_unique< GrpcAyncClientWorker >();
+    if (!worker->run(num_thread)) { return false; }
 
     workers.insert(std::make_pair(name, std::move(worker)));
     return true;
 }
 
-
-GrpcAyncClientWorker * GrpcAyncClientWorker::get_worker(const char * name) {
-    std::lock_guard<std::mutex> lock(mutex_workers);
+GrpcAyncClientWorker* GrpcAyncClientWorker::get_worker(const char* name) {
+    std::lock_guard< std::mutex > lock(mutex_workers);
 
     auto it = workers.find(name);
-    if (it == workers.end()) {
-        return nullptr;
-    }
+    if (it == workers.end()) { return nullptr; }
 
     return it->second.get();
 }
 
-
 void GrpcAyncClientWorker::shutdown_all() {
-    std::lock_guard<std::mutex> lock(mutex_workers);
+    std::lock_guard< std::mutex > lock(mutex_workers);
 
     for (auto& it : workers) {
         it.second->shutdown();
@@ -152,13 +137,7 @@ void GrpcAyncClientWorker::shutdown_all() {
         // g_core_codegen_interface
         it.second.reset();
     }
-
-
 }
 
-}
-
-
-
-
+} // namespace sds::grpc
 

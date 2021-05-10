@@ -35,74 +35,59 @@ using namespace ::std::chrono;
  * A interface for handling gRPC async response
  */
 class ClientCallMethod : private boost::noncopyable {
-  public:
+public:
     virtual ~ClientCallMethod() {}
 
-    virtual void handle_response(bool ok=true) = 0;
+    virtual void handle_response(bool ok = true) = 0;
 };
-
 
 /**
  * The specialized 'ClientCallMethod' per gRPC call, it stores
  * the response handler function
  *
  */
-template<typename TREQUEST, typename TREPLY>
+template < typename TREQUEST, typename TREPLY >
 class ClientCallData final : public ClientCallMethod {
 
-    using handle_response_cb_t = std::function<
-                                 void(TREPLY&, ::grpc::Status& status)>;
+    using handle_response_cb_t = std::function< void(TREPLY&, ::grpc::Status& status) >;
 
-    using ResponseReaderType = std::unique_ptr<
-                               ::grpc::ClientAsyncResponseReaderInterface<TREPLY>>;
+    using ResponseReaderType = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< TREPLY > >;
 
-  private:
-
+private:
     /* Allow GrpcAsyncClient and its inner classes to use
      * ClientCallData.
      */
     friend class GrpcAsyncClient;
 
-    ClientCallData(handle_response_cb_t handle_response_cb)
-        : handle_response_cb_(handle_response_cb) { }
+    ClientCallData(handle_response_cb_t handle_response_cb) : handle_response_cb_(handle_response_cb) {}
 
     // TODO: support time in any time unit -- lhuang8
     void set_deadline(uint32_t seconds) {
-        system_clock::time_point deadline = system_clock::now() +
-                                            std::chrono::seconds(seconds);
+        system_clock::time_point deadline = system_clock::now() + std::chrono::seconds(seconds);
         context_.set_deadline(deadline);
     }
 
-    ResponseReaderType& responder_reader() {
-        return response_reader_;
-    }
+    ResponseReaderType& responder_reader() { return response_reader_; }
 
-    Status & status() {
-        return status_;
-    }
+    Status& status() { return status_; }
 
-    TREPLY & reply() {
-        return reply_;
-    }
+    TREPLY& reply() { return reply_; }
 
-    ClientContext & context() {
-        return context_;
-    }
+    ClientContext& context() { return context_; }
 
-    virtual void handle_response([[maybe_unused]] bool ok=true) override {
+    virtual void handle_response([[maybe_unused]] bool ok = true) override {
         // For unary call, ok is always true, `status_` will indicate error
         // if there are any.
         handle_response_cb_(reply_, status_);
     }
 
-  private:
+private:
     handle_response_cb_t handle_response_cb_;
     TREPLY reply_;
     ClientContext context_;
     Status status_;
     ResponseReaderType response_reader_;
 };
-
 
 /**
  * A GrpcBaseClient takes care of establish a channel to grpc
@@ -111,46 +96,38 @@ class ClientCallData final : public ClientCallMethod {
  *
  */
 class GrpcBaseClient {
-  protected:
+protected:
     const std::string server_addr_;
     const std::string target_domain_;
     const std::string ssl_cert_;
 
-    std::shared_ptr<::grpc::ChannelInterface> channel_;
+    std::shared_ptr<::grpc::ChannelInterface > channel_;
 
-  public:
-    GrpcBaseClient(const std::string& server_addr,
-                   const std::string& target_domain = "",
-                   const std::string& ssl_cert = "")
-        : server_addr_(server_addr),
-          target_domain_(target_domain),
-          ssl_cert_(ssl_cert) {
-    }
+public:
+    GrpcBaseClient(const std::string& server_addr, const std::string& target_domain = "",
+                   const std::string& ssl_cert = "") :
+            server_addr_(server_addr), target_domain_(target_domain), ssl_cert_(ssl_cert) {}
 
     virtual ~GrpcBaseClient() = default;
 
     virtual bool init();
     virtual bool is_connection_ready();
 
-  private:
+private:
     virtual bool init_channel();
 
     virtual bool load_ssl_cert(const std::string& ssl_cert, std::string& content);
 };
 
-
 class GrpcSyncClient : public GrpcBaseClient {
-  public:
-
+public:
     using GrpcBaseClient::GrpcBaseClient;
 
-    template<typename TSERVICE>
-    std::unique_ptr<typename TSERVICE::StubInterface> MakeStub() {
+    template < typename TSERVICE >
+    std::unique_ptr< typename TSERVICE::StubInterface > MakeStub() {
         return TSERVICE::NewStub(channel_);
     }
 };
-
-
 
 /**
  *  One GrpcBaseClient can have multiple stub
@@ -164,47 +141,36 @@ class GrpcSyncClient : public GrpcBaseClient {
  */
 class GrpcAyncClientWorker final {
 
-    enum class State {
-        VOID,
-        INIT,
-        RUNNING,
-        SHUTTING_DOWN,
-        TERMINATED
-    };
+    enum class State { VOID, INIT, RUNNING, SHUTTING_DOWN, TERMINATED };
 
-  public:
-
-    using UPtr = std::unique_ptr<GrpcAyncClientWorker>;
+public:
+    using UPtr = std::unique_ptr< GrpcAyncClientWorker >;
 
     GrpcAyncClientWorker();
     ~GrpcAyncClientWorker();
 
-
     bool run(uint32_t num_threads);
 
-    CompletionQueue& cq() {
-        return completion_queue_;
-    }
+    CompletionQueue& cq() { return completion_queue_; }
 
     /**
      * Create a GrpcAyncClientWorker.
      *
      */
-    static bool create_worker(const char * name, int num_thread);
+    static bool create_worker(const char* name, int num_thread);
 
     /**
      *
      * Get a pointer of GrpcAyncClientWorker by name.
      */
-    static GrpcAyncClientWorker * get_worker(const char * name);
+    static GrpcAyncClientWorker* get_worker(const char* name);
 
     /**
      * Must be called explicitly before program exit if any worker created.
      */
     static void shutdown_all();
 
-  private:
-
+private:
     /*
      * Shutdown CompletionQueue and threads.
      *
@@ -216,21 +182,17 @@ class GrpcAyncClientWorker final {
     void async_complete_rpc();
 
     static std::mutex mutex_workers;
-    static std::unordered_map<const char *, GrpcAyncClientWorker::UPtr> workers;
+    static std::unordered_map< const char*, GrpcAyncClientWorker::UPtr > workers;
 
     State state_ = State::VOID;
     CompletionQueue completion_queue_;
-    std::list<std::shared_ptr<std::thread>> threads_;
-
+    std::list< std::shared_ptr< std::thread > > threads_;
 };
 
-
 class GrpcAsyncClient : public GrpcBaseClient {
-  public:
-
-    template<typename TSERVICE>
-    using StubPtr = std::unique_ptr<typename TSERVICE::StubInterface>;
-
+public:
+    template < typename TSERVICE >
+    using StubPtr = std::unique_ptr< typename TSERVICE::StubInterface >;
 
     /**
      * AsyncStub is a wrapper of generated service stub.
@@ -242,32 +204,24 @@ class GrpcAsyncClient : public GrpcBaseClient {
      * Please use GrpcAsyncClient::make_stub() to create AsyncStub.
      *
      */
-    template<typename TSERVICE>
+    template < typename TSERVICE >
     struct AsyncStub {
-        using UPtr = std::unique_ptr<AsyncStub>;
+        using UPtr = std::unique_ptr< AsyncStub >;
 
-        AsyncStub(StubPtr<TSERVICE> stub, GrpcAyncClientWorker * worker) :
-            stub_(std::move(stub)), worker_(worker) {
-        }
+        AsyncStub(StubPtr< TSERVICE > stub, GrpcAyncClientWorker* worker) : stub_(std::move(stub)), worker_(worker) {}
 
         using stub_t = typename TSERVICE::StubInterface;
 
         /* unary call helper */
-        template<typename TRESPONSE>
-        using unary_call_return_t =
-            std::unique_ptr<
-            ::grpc::ClientAsyncResponseReaderInterface<TRESPONSE>>;
+        template < typename TRESPONSE >
+        using unary_call_return_t = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< TRESPONSE > >;
 
-        template<typename TREQUEST, typename TRESPONSE>
-        using unary_call_t =
-            unary_call_return_t<TRESPONSE> (stub_t::*) (
-                ::grpc::ClientContext*,
-                const TREQUEST&,
-                ::grpc::CompletionQueue*);
+        template < typename TREQUEST, typename TRESPONSE >
+        using unary_call_t = unary_call_return_t< TRESPONSE > (stub_t::*)(::grpc::ClientContext*, const TREQUEST&,
+                                                                          ::grpc::CompletionQueue*);
 
-        template<typename TREQUEST, typename TRESPONSE>
-        using unary_callback_t =
-            std::function<void(TRESPONSE&, ::grpc::Status& status)>;
+        template < typename TREQUEST, typename TRESPONSE >
+        using unary_callback_t = std::function< void(TRESPONSE&, ::grpc::Status& status) >;
 
         /**
          * Make a unary call.
@@ -288,13 +242,11 @@ class GrpcAsyncClient : public GrpcBaseClient {
          *     indicates the error code and error message.
          *
          */
-        template<typename TREQUEST, typename TRESPONSE>
-        void call_unary(
-            const TREQUEST& request,
-            unary_call_t<TREQUEST, TRESPONSE> call,
-            unary_callback_t<TREQUEST, TRESPONSE> callback) {
+        template < typename TREQUEST, typename TRESPONSE >
+        void call_unary(const TREQUEST& request, unary_call_t< TREQUEST, TRESPONSE > call,
+                        unary_callback_t< TREQUEST, TRESPONSE > callback) {
 
-            auto data = new ClientCallData<TREQUEST, TRESPONSE>(callback);
+            auto data = new ClientCallData< TREQUEST, TRESPONSE >(callback);
             // Note that async unary RPCs don't post a CQ tag in call
             data->responder_reader() = (stub_.get()->*call)(&data->context(), request, cq());
             // CQ tag posted here
@@ -303,30 +255,21 @@ class GrpcAsyncClient : public GrpcBaseClient {
             return;
         }
 
+        StubPtr< TSERVICE > stub_;
+        GrpcAyncClientWorker* worker_;
 
-        StubPtr<TSERVICE> stub_;
-        GrpcAyncClientWorker * worker_;
+        const StubPtr< TSERVICE >& stub() { return stub_; }
 
-        const StubPtr<TSERVICE>& stub() {
-            return stub_;
-        }
-
-        CompletionQueue* cq() {
-            return &worker_->cq();
-        }
-
+        CompletionQueue* cq() { return &worker_->cq(); }
     };
 
-
-    template<typename T, typename... Ts>
+    template < typename T, typename... Ts >
     static auto make(Ts&&... params) {
-        std::unique_ptr<T> ret;
+        std::unique_ptr< T > ret;
 
-        if (!std::is_base_of<GrpcAsyncClient, T>::value) {
-            return ret;
-        }
+        if (!std::is_base_of< GrpcAsyncClient, T >::value) { return ret; }
 
-        ret = std::make_unique<T>(std::forward<Ts>(params)...);
+        ret = std::make_unique< T >(std::forward< Ts >(params)...);
         if (!ret->init()) {
             ret.reset(nullptr);
             return ret;
@@ -335,10 +278,10 @@ class GrpcAsyncClient : public GrpcBaseClient {
         return ret;
     }
 
-    template<typename TSERVICE>
-    auto make_stub(const char * worker) {
+    template < typename TSERVICE >
+    auto make_stub(const char* worker) {
 
-        typename AsyncStub<TSERVICE>::UPtr ret;
+        typename AsyncStub< TSERVICE >::UPtr ret;
 
         auto w = GrpcAyncClientWorker::get_worker(worker);
         BOOST_ASSERT(w);
@@ -347,21 +290,15 @@ class GrpcAsyncClient : public GrpcBaseClient {
         }
 
         auto stub = TSERVICE::NewStub(channel_);
-        ret = std::make_unique<AsyncStub<TSERVICE>>(std::move(stub), w);
+        ret = std::make_unique< AsyncStub< TSERVICE > >(std::move(stub), w);
         return ret;
     }
 
-    GrpcAsyncClient(
-        const std::string& server_addr,
-        const std::string& target_domain = "",
-        const std::string& ssl_cert = "")
-        : GrpcBaseClient(server_addr, target_domain, ssl_cert) {
-    }
+    GrpcAsyncClient(const std::string& server_addr, const std::string& target_domain = "",
+                    const std::string& ssl_cert = "") :
+            GrpcBaseClient(server_addr, target_domain, ssl_cert) {}
 
-    virtual ~GrpcAsyncClient() {
-    }
-
-
+    virtual ~GrpcAsyncClient() {}
 };
 
 } // end of namespace sds::grpc

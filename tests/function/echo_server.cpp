@@ -24,10 +24,9 @@ using namespace ::sds::grpc;
 using namespace ::sds_grpc_test;
 using namespace std::placeholders;
 
-
 class EchoServiceImpl {
 
-  public:
+public:
     virtual ~EchoServiceImpl() = default;
 
     virtual ::grpc::Status echo_request(EchoRequest& request, EchoReply& response) {
@@ -38,7 +37,7 @@ class EchoServiceImpl {
 
     bool register_service(GrpcServer* server) {
 
-        if (!server->register_async_service<EchoService>()) {
+        if (!server->register_async_service< EchoService >()) {
             LOGERROR("register service failed");
             return false;
         }
@@ -48,23 +47,19 @@ class EchoServiceImpl {
 
     bool register_rpcs(GrpcServer* server) {
         LOGINFO("register rpc calls");
-        if (!server->register_rpc<EchoService, EchoRequest, EchoReply>(
-                    &EchoService::AsyncService::RequestEcho,
-                    std::bind(&EchoServiceImpl::echo_request, this, _1, _2))) {
+        if (!server->register_rpc< EchoService, EchoRequest, EchoReply >(
+                &EchoService::AsyncService::RequestEcho, std::bind(&EchoServiceImpl::echo_request, this, _1, _2))) {
             LOGERROR("register rpc failed");
             return false;
         }
 
         return true;
     }
-
 };
-
-
 
 class PingServiceImpl {
 
-  public:
+public:
     virtual ~PingServiceImpl() = default;
 
     virtual ::grpc::Status ping_request(PingRequest& request, PingReply& response) {
@@ -75,7 +70,7 @@ class PingServiceImpl {
 
     bool register_service(GrpcServer* server) {
 
-        if (!server->register_async_service<PingService>()) {
+        if (!server->register_async_service< PingService >()) {
             LOGERROR("register ping service failed");
             return false;
         }
@@ -85,25 +80,21 @@ class PingServiceImpl {
 
     bool register_rpcs(GrpcServer* server) {
         LOGINFO("register rpc calls");
-        if (!server->register_rpc<PingService, PingRequest, PingReply>(
-                    &PingService::AsyncService::RequestPing,
-                    std::bind(&PingServiceImpl::ping_request, this, _1, _2))) {
+        if (!server->register_rpc< PingService, PingRequest, PingReply >(
+                &PingService::AsyncService::RequestPing, std::bind(&PingServiceImpl::ping_request, this, _1, _2))) {
             LOGERROR("register ping rpc failed");
             return false;
         }
 
         return true;
     }
-
 };
 
-
 GrpcServer* g_grpc_server = nullptr;
-EchoServiceImpl * g_echo_impl = nullptr;
-PingServiceImpl * g_ping_impl = nullptr;
+EchoServiceImpl* g_echo_impl = nullptr;
+PingServiceImpl* g_ping_impl = nullptr;
 
-void sighandler(int signum, siginfo_t *info, void *ptr)
-{
+void sighandler(int signum, siginfo_t* info, void* ptr) {
     LOGINFO("Received signal {}", signum);
 
     if (signum == SIGTERM) {
@@ -130,13 +121,10 @@ void StartServer() {
 
     g_echo_impl->register_rpcs(g_grpc_server);
     g_ping_impl->register_rpcs(g_grpc_server);
-
 }
-
 
 SDS_LOGGING_INIT()
 SDS_OPTIONS_ENABLE(logging)
-
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
