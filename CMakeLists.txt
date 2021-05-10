@@ -38,14 +38,11 @@ if (DEFINED MALLOC_IMPL)
     endif()
 endif()
 
-if  (${MEMORY_SANITIZER_ON})
+if (DEFINED MEMORY_SANITIZER_ON AND ${MEMORY_SANITIZER_ON})
     include (cmake/mem_sanitizer.cmake)
-endif()
-
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    if (NOT ${MEMORY_SANITIZER_ON})
-        message(AUTHOR_WARNING "********* WARNING: Running with Memory Sanitizer OFF for debug build *********")
-    endif()
+    message(STATUS "********* WARNING: Running with Memory Sanitizer ON *********")
+else ()
+    message(STATUS "********* WARNING: Running with Memory Sanitizer OFF *********")
 endif()
 
 include(cmake/settings_gen.cmake)

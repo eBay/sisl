@@ -137,6 +137,8 @@ public:
     const auto& get_arenas_dirty_decay_mib() const { return m_arenas_dirty_decay; }
     const auto& get_arenas_muzzy_decay_mib() const { return m_arenas_muzzy_decay; }
     const auto& get_background_thread_mib() const { return m_background_thread; }
+    const auto& get_arena_decay_mib() const { return m_arena_decay; }
+    const auto& get_arena_purge_mib() const { return m_arena_purge; }
     size_t page_size() const { return m_page_size; }
 
 private:
@@ -154,6 +156,8 @@ private:
     std::pair< std::array< size_t, 2 >, size_t > m_arenas_dirty_decay{{0, 0}, 2};
     std::pair< std::array< size_t, 2 >, size_t > m_arenas_muzzy_decay{{0, 0}, 2};
     std::pair< std::array< size_t, 1 >, size_t > m_background_thread{{0}, 1};
+    std::pair< std::array< size_t, 3 >, size_t > m_arena_decay{{0, 0, 0}, 3};
+    std::pair< std::array< size_t, 3 >, size_t > m_arena_purge{{0, 0, 0}, 3};
     size_t m_page_size{4096};
 
     JEMallocStatics() {
@@ -215,6 +219,14 @@ private:
         if (::mallctlnametomib("background_thread", m_background_thread.first.data(), &m_background_thread.second) !=
             0) {
             LOGWARN("Failed to resolve jemalloc background_thread mib");
+        }
+
+        if (::mallctlnametomib("arena.0.decay", m_arena_decay.first.data(), &m_arena_decay.second) != 0) {
+            LOGWARN("Failed to resolve jemalloc arena decay mib");
+        }
+
+        if (::mallctlnametomib("arena.0.purge", m_arena_purge.first.data(), &m_arena_purge.second) != 0) {
+            LOGWARN("Failed to resolve jemalloc arena purge mib");
         }
 
         size_t page_size_len{sizeof(m_page_size)};
@@ -503,7 +515,8 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
 }
 
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-static bool set_jemalloc_decay_times(const ssize_t dirty_decay_ms_in = 0, const ssize_t muzzy_decay_ms_in = 0) {
+[[maybe_unused]] static bool set_jemalloc_decay_times(const ssize_t dirty_decay_ms_in = 0,
+                                                      const ssize_t muzzy_decay_ms_in = 0) {
     static const auto& jemalloc_statics{JEMallocStatics::get()};
 
     ssize_t dirty_decay_ms{dirty_decay_ms_in};
@@ -527,7 +540,7 @@ static bool set_jemalloc_decay_times(const ssize_t dirty_decay_ms_in = 0, const 
     return true;
 }
 
-static bool set_jemalloc_background_threads(const bool enable_in) {
+[[maybe_unused]] static bool set_jemalloc_background_threads(const bool enable_in) {
     static const auto& jemalloc_statics{JEMallocStatics::get()};
 
     bool enable{enable_in};
@@ -551,11 +564,61 @@ static bool set_jemalloc_background_threads(const bool enable_in) {
     return false;
 }
 
+#if defined(USING_TCMALLOC)
+namespace tcmalloc_helper {
+static std::atomic< bool > s_is_aggressive_decommit{false};
+} // namespace tcmalloc_helper
+#endif
+
+[[maybe_unused]] static bool set_aggressive_decommit_mem() {
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+    static thread_local auto arena_purge_mib{JEMallocStatics::get().get_arena_purge_mib()};
+    arena_purge_mib.first[1] = static_cast< size_t >(MALLCTL_ARENAS_ALL);
+    if (::mallctlbymib(arena_purge_mib.first.data(), arena_purge_mib.second, nullptr, nullptr, nullptr, 0) != 0) {
+        LOGWARN("failed to set jemalloc arena purge");
+        return false;
+    }
+#elif defined(USING_TCMALLOC)
+    MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 1);
+    MallocExtension::instance()->ReleaseFreeMemory();
+    tcmalloc_helper::s_is_aggressive_decommit.store(true, std::memory_order_release);
+#endif
+    return true;
+}
+
+[[maybe_unused]] static bool reset_aggressive_decommit_mem_if_needed(const size_t mem_usage,
+                                                                     const size_t aggressive_threshold) {
+#if defined(USING_TCMALLOC)
+    if (tcmalloc_helper::s_is_aggressive_decommit.load(std::memory_order_acquire)) {
+        LOGINFO("Total memory alloced={} is restored back to less than aggressive threshold limit {}, "
+                "set malloc lib to relax from aggressively decommitting",
+                mem_usage, aggressive_threshold);
+        MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 0);
+        tcmalloc_helper::s_is_aggressive_decommit.store(false);
+        return true;
+    }
+#endif
+    return false;
+}
+
+[[maybe_unused]] static bool soft_decommit_mem() {
+#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+    static thread_local auto arena_decay_mib{JEMallocStatics::get().get_arena_decay_mib()};
+    arena_decay_mib.first[1] = static_cast< size_t >(MALLCTL_ARENAS_ALL);
+    if (::mallctlbymib(arena_decay_mib.first.data(), arena_decay_mib.second, nullptr, nullptr, nullptr, 0) != 0) {
+        LOGWARN("failed to set jemalloc arena decay");
+        return false;
+    }
+#elif defined(USING_TCMALLOC)
+    MallocExtension::instance()->ReleaseFreeMemory();
+#endif
+    return true;
+}
+
 [[maybe_unused]] static bool release_mem_if_needed(const size_t soft_threshold, const size_t aggressive_threshold_in) {
     bool ret{false};
-#if defined(USING_TCMALLOC)
+#if defined(USING_TCMALLOC) || defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     size_t mem_usage{0};
-    static std::atomic< bool > is_aggressive_decommit{false};
     const size_t aggressive_threshold{std::max(aggressive_threshold_in, soft_threshold)};
 
     struct rusage usage;
@@ -572,32 +635,25 @@ static bool set_jemalloc_background_threads(const bool enable_in) {
     }
 
     if (mem_usage > aggressive_threshold) {
-        LOGINFO("Total memory alloced {} exceed aggressive threshold limit {}, ask tcmalloc to aggressively decommit ",
-                mem_usage, aggressive_threshold);
+        LOGINFO(
+            "Total memory alloced={} exceeds aggressive threshold limit={}, set malloc lib to decommit aggressively",
+            mem_usage, aggressive_threshold);
         COUNTER_INCREMENT(MallocMetrics::get(), num_times_exceed_aggressive_threshold, 1);
-        MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 1);
-        MallocExtension::instance()->ReleaseFreeMemory();
-        is_aggressive_decommit.store(true);
+        set_aggressive_decommit_mem();
         ret = true;
         goto done;
     }
 
     if (mem_usage > soft_threshold) {
-        LOGINFO("Total memory alloced {} exceed threshold limit {}, ask tcmalloc to release memory", mem_usage,
+        LOGINFO("Total memory alloced {} exceed soft threshold limit {}, ask tcmalloc to release memory", mem_usage,
                 soft_threshold);
         COUNTER_INCREMENT(MallocMetrics::get(), num_times_exceed_soft_threshold, 1);
-        MallocExtension::instance()->ReleaseFreeMemory();
+        soft_decommit_mem();
         ret = true;
     }
 
-    // We recovered from aggressive threshold, set the property back
-    if (is_aggressive_decommit.load()) {
-        LOGINFO("Total memory alloced {} is restored back to less than aggressive threshold limit {}, ask tcmalloc to "
-                "relax aggressively decommit ",
-                mem_usage, aggressive_threshold);
-        MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 0);
-        is_aggressive_decommit.store(false);
-    }
+    // We recovered from aggressive threshold, set the property back if malloc lib needs so
+    reset_aggressive_decommit_mem_if_needed(mem_usage, aggressive_threshold);
 done:
 #endif
     return ret;

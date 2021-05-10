@@ -62,20 +62,44 @@ pipeline {
                 axes {
                     axis {
                         name 'BUILD_TYPE'
-                        values 'debug', 'release', 'test'
+                        values 'sanitize', 'debug', 'test'
                     }
                     axis {
                         name 'COVERAGE'
                         values 'False'
+                    }
+                    axis {
+                        name 'ALLOC_IMPL'
+                        values 'tcmalloc', 'libc'
                 } }
                 excludes { exclude {
                     axis {
                         name 'BUILD_TYPE'
-                        values 'release', 'test'
+                        values 'sanitize', 'test'
                     }
                     axis {
                         name 'COVERAGE'
                         values 'True'
+                    }
+                }
+                    exclude {
+                    axis {
+                        name 'BUILD_TYPE'
+                        values 'test'
+                    }
+                    axis {
+                        name 'ALLOC_IMPL'
+                        values 'libc'
+                    }
+                }
+                    exclude {
+                    axis {
+                        name 'BUILD_TYPE'
+                        values 'sanitize'
+                    }
+                    axis {
+                        name 'ALLOC_IMPL'
+                        values 'tcmalloc'
                     }
                 } }
 
@@ -91,16 +115,28 @@ pipeline {
                     }
 
                     stage("Build") {
-                        when {
+                        when { allOf {
                             expression { "${COVERAGE}" == 'False' }
-                        }
+                            expression { "${BUILD_TYPE}" != 'sanitize' }
+                        } }
                         steps {
-                            sh "conan create ${BUILD_MISSING} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
+                            sh "conan create ${BUILD_MISSING} -o ${PROJECT}:malloc_impl=${ALLOC_IMPL} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
+
+                    stage("Sanitize") {
+                        when { allOf {
+                            expression { "${BUILD_TYPE}" == 'sanitize' }
+                        } }
+                        steps {
+                            sh "conan create ${BUILD_MISSING} -o ${PROJECT}:malloc_impl=${ALLOC_IMPL} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG}"
+                        }
+                    }
+
                     stage("Deploy") {
                         when { allOf {
                             expression { "${COVERAGE}" == 'False' }
+                            expression { "${BUILD_TYPE}" != 'sanitize' }
                             expression { not { branch "PR_*" } }
                         } }
                         steps {

@@ -57,11 +57,15 @@ protected:
 } // namespace
 
 TEST_F(JemallocTest, SetBackgroundThreads) {
-    ASSERT_TRUE(set_jemalloc_background_threads(false)); 
+    ASSERT_TRUE(set_jemalloc_background_threads(false));
     ASSERT_TRUE(set_jemalloc_background_threads(true));
 }
 
 TEST_F(JemallocTest, SetDecayOptions) { ASSERT_TRUE(set_jemalloc_decay_times()); }
+
+TEST_F(JemallocTest, SetArenaPurge) { ASSERT_TRUE(set_aggressive_decommit_mem()); }
+
+TEST_F(JemallocTest, SetArenaDecay) { ASSERT_TRUE(soft_decommit_mem()); }
 
 TEST_F(JemallocTest, GetDirtyPageCount) {
     MultiThreadedAllocDealloc(100);
@@ -90,9 +94,9 @@ TEST_F(JemallocTest, GetTotalMemory) {
     ASSERT_GT(total_memory2, static_cast< size_t >(0));
 }
 
-TEST_F(JemallocTest, GetJSONStatsDetailed) { 
+TEST_F(JemallocTest, GetJSONStatsDetailed) {
     // must use operator= construction as copy construction results in error
-    const nlohmann::json json_stats = get_malloc_stats_detailed(); 
+    const nlohmann::json json_stats = get_malloc_stats_detailed();
     const auto stats_itr{json_stats.find("Stats")};
     ASSERT_NE(stats_itr, std::cend(json_stats));
 }
