@@ -131,7 +131,7 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
     if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                    \
         fmt::memory_buffer _log_buf;                                                                                   \
         const auto& cb = formatter;                                                                                    \
-        [[likely]] if (cb(_log_buf, msg, ##__VA_ARGS__)) {                                                             \
+        [[likely]] if (cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__)) {                                                 \
             fmt::format_to(_log_buf, "{}", (char)0);                                                                   \
             _l->method(_log_buf.data());                                                                               \
             if (is_flush) {                                                                                            \
