@@ -404,5 +404,4 @@ static int spaceship_oper(const T& left, const T& right) {
 #define _PLACEHOLDER_PARAM(z, n, text) , text##n
 #define bind_this(method, nparams)                                                                                     \
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
-
 } // namespace sisl

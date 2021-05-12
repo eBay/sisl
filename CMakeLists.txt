@@ -104,6 +104,7 @@ add_subdirectory (src/utility)
 
 add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
+            $<TARGET_OBJECTS:sisl_settings>
            )
 target_link_libraries(sisl ${COMMON_LIB_DEPS})
 

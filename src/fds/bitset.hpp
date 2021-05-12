@@ -736,7 +736,7 @@ public:
      * @param start_bit Start bit after which (inclusive) search for next bit is on
      * @return uint64_t Returns the next set bit, if one available, else Bitset::npos is returned
      */
-    uint64_t get_next_set_bit(const uint64_t start_bit) {
+    uint64_t get_next_set_bit(const uint64_t start_bit) const {
         ReadLockGuard lock{this};
         uint64_t ret{npos};
 
@@ -806,12 +806,12 @@ public:
      * @return BitBlock Returns a BitBlock which provides the start bit and total number of bits found. Caller need to
      * check if returned count satisfies what is asked for.
      */
-    BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
+    BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) const {
         return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
     }
 
     // A backward compatible API
-    BitBlock get_next_contiguous_upto_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
+    BitBlock get_next_contiguous_upto_n_reset_bits(const uint64_t start_bit, const uint32_t n) const {
         return get_next_contiguous_n_reset_bits(start_bit, std::nullopt, n, n);
     }
 
@@ -828,7 +828,7 @@ public:
      * check if returned count satisfies what is asked for.
      */
     BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const std::optional< uint64_t > end_bit,
-                                              const uint32_t min_needed, const uint32_t max_needed) {
+                                              const uint32_t min_needed, const uint32_t max_needed) const {
         ReadLockGuard lock{this};
         BitBlock retb{start_bit, 0};
 
@@ -893,7 +893,7 @@ public:
         return retb;
     }
 
-    uint64_t get_next_reset_bit(const uint64_t start_bit) {
+    uint64_t get_next_reset_bit(const uint64_t start_bit) const {
         ReadLockGuard lock{this};
         uint64_t ret{npos};
 
