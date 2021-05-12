@@ -85,7 +85,8 @@ protected:
 };
 
 using testing::Types;
-typedef Types< std::mutex, std::shared_mutex, folly::SharedMutex > Implementations;
+// typedef Types< std::mutex, std::shared_mutex, folly::SharedMutex > Implementations;
+typedef Types< std::mutex > Implementations;
 TYPED_TEST_SUITE(CBMutexTest, Implementations);
 
 TYPED_TEST(CBMutexTest, LockUnlockTest) { this->run_lock_unlock(); }
