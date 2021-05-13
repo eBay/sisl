@@ -94,6 +94,20 @@ static void configure_sinks(N const& name, S& sinks, S& crit_sinks) {
 }
 
 template < typename N, typename S >
+static void create_append_sink(N const& name, S& sinks, const std::string& extn, const bool stdout_sink) {
+    if (stdout_sink) {
+        sinks.push_back(std::make_shared< sinks::stdout_color_sink_mt >());
+    } else {
+        auto const base_path = log_path(name);
+        auto const rot_size = SDS_OPTIONS["logfile_size"].as< uint32_t >() * Mi;
+        auto const rot_num = SDS_OPTIONS["logfile_cnt"].as< uint32_t >();
+
+        sinks.push_back(
+            std::make_shared< sinks::rotating_file_sink_mt >(base_path.string() + extn + "_log", rot_size, rot_num));
+    }
+}
+
+template < typename N, typename S >
 void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
     // Create/Setup and register spdlog regular logger
     if (SDS_OPTIONS.count("synclog")) {
@@ -176,7 +190,15 @@ static std::string setup_modules() {
 void SetLogger(std::string const& name, std::string const& pkg, std::string const& ver) {
     std::vector< spdlog::sink_ptr > mysinks{};
     std::vector< spdlog::sink_ptr > critical_sinks{};
-    configure_sinks(name, mysinks, critical_sinks);
+
+    // Create set of needed sinks
+    if (!SDS_OPTIONS.count("stdout")) {
+        create_append_sink(name, mysinks, "", false /* stdout_sink */);
+        create_append_sink(name, critical_sinks, "_critical", false /* stdout_sink */);
+    }
+    if (SDS_OPTIONS.count("stdout") || (!SDS_OPTIONS.count("quiet"))) {
+        create_append_sink(name, mysinks, "", true /* stdout_sink */);
+    }
 
     set_global_logger(name, mysinks, critical_sinks);
 
@@ -192,6 +214,37 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
 
     auto log_details = setup_modules();
     LOGINFO("Logging initialized: {}/{}, [logmods: {}]", pkg, ver, log_details);
+}
+
+void SetLogPattern(const std::string& pattern, const std::shared_ptr< logger_t >& logger) {
+    if (logger == nullptr) {
+        spdlog::set_pattern(pattern);
+    } else {
+        logger->set_pattern(pattern);
+    }
+}
+
+std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn, bool tee_to_stdout) {
+    std::vector< spdlog::sink_ptr > sinks{};
+    std::shared_ptr< spdlog::logger > custom_logger;
+
+    if (!SDS_OPTIONS.count("stdout")) {
+        create_append_sink(name, sinks, extn, false /* is_stdout_sink */);
+    }
+    if (SDS_OPTIONS.count("stdout") || tee_to_stdout) {
+        create_append_sink(name, sinks, "", true /* is_stdout_sink */);
+    }
+
+    if (SDS_OPTIONS.count("synclog")) {
+        custom_logger = std::make_shared< spdlog::logger >(name, sinks.begin(), sinks.end());
+        custom_logger->flush_on((spdlog::level::level_enum)SDS_OPTIONS["flush_every"].as< uint32_t >());
+    } else {
+        custom_logger =
+            std::make_shared< spdlog::async_logger >(name, sinks.begin(), sinks.end(), spdlog::thread_pool());
+    }
+    custom_logger->set_level(spdlog::level::level_enum::trace);
+    spdlog::register_logger(custom_logger);
+    return custom_logger;
 }
 
 void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level) {
