@@ -86,68 +86,98 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
 
-#define LOGTRACEMOD(mod, msg, ...)                                                                                     \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                \
+#define LOGTRACEMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
+    if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                                  \
         _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
     }
 
-#define LOGDEBUGMOD(mod, msg, ...)                                                                                     \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                \
+#define LOGDEBUGMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
+    if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                                  \
         _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
     }
 
-#define LOGINFOMOD(mod, msg, ...)                                                                                      \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::info)) {                 \
+#define LOGINFOMOD_USING_LOGGER(mod, logger, msg, ...)                                                                 \
+    if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::info)) {                                   \
         _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
     }
 
-#define LOGWARNMOD(mod, msg, ...)                                                                                      \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::warn)) {                 \
+#define LOGWARNMOD_USING_LOGGER(mod, logger, msg, ...)                                                                 \
+    if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::warn)) {                                   \
         _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
     }
 
-#define LOGERRORMOD(mod, msg, ...)                                                                                     \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::err)) {                  \
+#define LOGERRORMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
+    if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::err)) {                                    \
         _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
     }
 
-#define LOGCRITICALMOD(mod, msg, ...)                                                                                  \
+#define LOGCRITICALMOD_USING_LOGGER(mod, logger, msg, ...)                                                             \
     if (auto& _cl = sds_logging::GetCriticalLogger(); _cl && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {   \
         _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
     }                                                                                                                  \
-    if (auto& _l = sds_logging::GetLogger(); _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {             \
+    if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {                               \
         _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
     }
 
+#define LOGTRACEMOD(mod, msg, ...) LOGTRACEMOD_USING_LOGGER(mod, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
+#define LOGDEBUGMOD(mod, msg, ...) LOGDEBUGMOD_USING_LOGGER(mod, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
+#define LOGINFOMOD(mod, msg, ...) LOGINFOMOD_USING_LOGGER(mod, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
+#define LOGWARNMOD(mod, msg, ...) LOGWARNMOD_USING_LOGGER(mod, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
+#define LOGERRORMOD(mod, msg, ...) LOGERRORMOD_USING_LOGGER(mod, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
+#define LOGCRITICALMOD(mod, msg, ...) LOGCRITICALMOD_USING_LOGGER(mod, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
+
 /* Extension macros to support custom formatting of messages */
-#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, formatter, msg, ...)                                      \
+#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...)                            \
     if (auto& _l = logger; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                    \
         fmt::memory_buffer _log_buf;                                                                                   \
         const auto& cb = formatter;                                                                                    \
-        cb(_log_buf, msg, ##__VA_ARGS__);                                                                              \
-        fmt::format_to(_log_buf, "{}", (char)0);                                                                       \
-        _l->method(_log_buf.data());                                                                                   \
+        [[likely]] if (cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__)) {                                                 \
+            fmt::format_to(_log_buf, "{}", (char)0);                                                                   \
+            _l->method(_log_buf.data());                                                                               \
+            if (is_flush) {                                                                                            \
+                _l->flush();                                                                                           \
+            }                                                                                                          \
+        }                                                                                                              \
     }
 
+// With custom formatter and custom logger
+#define LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
+    _LOG_WITH_CUSTOM_FORMATTER(trace, trace, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+
+#define LOGDEBUGMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
+    _LOG_WITH_CUSTOM_FORMATTER(debug, debug, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+
+#define LOGINFOMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                  \
+    _LOG_WITH_CUSTOM_FORMATTER(info, info, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+
+#define LOGWARNMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                  \
+    _LOG_WITH_CUSTOM_FORMATTER(warn, warn, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+
+#define LOGERRORMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
+    _LOG_WITH_CUSTOM_FORMATTER(err, error, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+
+#define LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                              \
+    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, mod, logger, true, formatter, msg, ##__VA_ARGS__)
+
+// With custom formatter
 #define LOGTRACEMOD_FMT(mod, formatter, msg, ...)                                                                      \
-    _LOG_WITH_CUSTOM_FORMATTER(trace, trace, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+    LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGDEBUGMOD_FMT(mod, formatter, msg, ...)                                                                      \
-    _LOG_WITH_CUSTOM_FORMATTER(debug, debug, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+    LOGDEBUGMOD_FMT_USING_LOGGER(mod, formatter, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGINFOMOD_FMT(mod, formatter, msg, ...)                                                                       \
-    _LOG_WITH_CUSTOM_FORMATTER(info, info, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+    LOGINFOMOD_FMT_USING_LOGGER(mod, formatter, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGWARNMOD_FMT(mod, formatter, msg, ...)                                                                       \
-    _LOG_WITH_CUSTOM_FORMATTER(warn, warn, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+    LOGWARNMOD_FMT_USING_LOGGER(mod, formatter, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGERRORMOD_FMT(mod, formatter, msg, ...)                                                                      \
-    _LOG_WITH_CUSTOM_FORMATTER(err, error, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+    LOGERRORMOD_FMT_USING_LOGGER(mod, formatter, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGCRITICALMOD_FMT(mod, formatter, msg, ...)                                                                   \
-    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, mod, sds_logging::GetCriticalLogger(), formatter, msg,              \
-                               ##__VA_ARGS__)                                                                          \
-    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, mod, sds_logging::GetLogger(), formatter, msg, ##__VA_ARGS__)
+    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sds_logging::GetCriticalLogger(), msg, ##__VA_ARGS__)              \
+    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sds_logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGTRACE(msg, ...) LOGTRACEMOD(base, msg, ##__VA_ARGS__)
 #define LOGDEBUG(msg, ...) LOGDEBUGMOD(base, msg, ##__VA_ARGS__)
@@ -208,12 +238,11 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
     }
 
 #define _LOG_AND_ASSERT(is_log_assert, msg, ...)                                                                       \
-    LOGCRITICAL(msg, ##__VA_ARGS__);                                                                                   \
+    LOGCRITICAL_AND_FLUSH(msg, ##__VA_ARGS__);                                                                         \
     _ABORT_OR_DUMP(is_log_assert)
 
 #define _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ...)                                                        \
-    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, base, sds_logging::GetCriticalLogger(), formatter, msg,             \
-                               ##__VA_ARGS__)                                                                          \
+    LOGCRITICALMOD_FMT(base, formatter, msg, ##__VA_ARGS__)                                                            \
     _ABORT_OR_DUMP(is_log_assert)
 
 #define LOGDFATAL(msg, ...) _LOG_AND_ASSERT(1, msg, ##__VA_ARGS__)
@@ -233,16 +262,21 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 
 #define RELEASE_ASSERT(cond, m, ...)                                                                                   \
     _GENERIC_ASSERT(                                                                                                   \
-        0, cond, [](fmt::memory_buffer& buf, const char* msg, auto... args) { fmt::format_to(buf, msg, args...); }, m, \
-        ##__VA_ARGS__)
+        0, cond,                                                                                                       \
+        [](fmt::memory_buffer& buf, const char* msg, auto... args) -> bool {                                           \
+            fmt::format_to(buf, msg, args...);                                                                         \
+            return true;                                                                                               \
+        },                                                                                                             \
+        m, ##__VA_ARGS__)
 #define RELEASE_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(0, cond, formatter, msg, ##__VA_ARGS__)
 #define RELEASE_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                            \
     _GENERIC_ASSERT(0, ((val1)cmp(val2)), formatter, _FMT_LOG_MSG(__VA_ARGS__), val1, #cmp, val2)
 #define RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                           \
     RELEASE_ASSERT_CMP(                                                                                                \
         val1, cmp, val2,                                                                                               \
-        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                                 \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
             sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+            return true;                                                                                               \
         },                                                                                                             \
         ##__VA_ARGS__)
 
@@ -256,7 +290,11 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 
 #define LOGMSG_ASSERT(cond, m, ...)                                                                                    \
     _GENERIC_ASSERT(                                                                                                   \
-        1, cond, [](fmt::memory_buffer& buf, const char* msg, auto&&... args) { fmt::format_to(buf, msg, args...); },  \
+        1, cond,                                                                                                       \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
+            fmt::format_to(buf, msg, args...);                                                                         \
+            return true;                                                                                               \
+        },                                                                                                             \
         m, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(1, cond, formatter, msg, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                             \
@@ -265,8 +303,9 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 #define LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                            \
     LOGMSG_ASSERT_CMP(                                                                                                 \
         val1, cmp, val2,                                                                                               \
-        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) {                                                 \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
             sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+            return true;                                                                                               \
         },                                                                                                             \
         ##__VA_ARGS__)
 
@@ -305,6 +344,8 @@ constexpr const char* file_name(const char* str) { return str_slant(str) ? r_sla
 namespace sds_logging {
 template < typename T >
 using shared = std::shared_ptr< T >;
+
+typedef spdlog::logger logger_t;
 
 static constexpr uint32_t max_stacktrace_size() { return (64U * 1024U); }
 
@@ -388,8 +429,11 @@ MODLEVELDEC(_, _, base)
 namespace sds_logging {
 typedef void (*sig_handler_t)(int, siginfo_t*, void*);
 
-void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
-               std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+void SetLogger(std::string const& name,
+               std::string const& pkg =
+                   BOOST_PP_STRINGIZE(PACKAGE_NAME), std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn, bool tee_to_stdout);
+void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
 
 void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
 spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name);
@@ -397,9 +441,9 @@ nlohmann::json GetAllModuleLogLevel();
 void SetAllModuleLogLevel(spdlog::level::level_enum level);
 
 void log_stack_trace(bool all_threads = false);
-void install_signal_handler();
+void install_signal_handler(bool all_threads);
 void add_signal_handler(int sig_num, std::string_view sig_name, sig_handler_t hdlr);
-void install_crash_handler();
+void install_crash_handler(bool all_threads = true);
 bool is_crash_handler_installed();
 void override_setup_signals(const std::map< int, std::string > override_signals);
 void restore_signal_handler_to_default();
