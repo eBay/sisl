@@ -1,41 +1,44 @@
-#include <condition_variable>
+#include <chrono>
+#include <csignal>
+#include <cstdint>
 #include <iostream>
-#include <logging.h>
-#include <mutex>
 #include <thread>
-//#include <stack_trace.h>
+
 #include <sds_options/options.h>
 
-extern "C" {
-#include <unistd.h>
-}
+#include "logging.h"
 
 SDS_LOGGING_INIT(my_module)
 
-SDS_OPTIONS_ENABLE(logging)
-
-// SDS_LOG_LEVEL(my_module, spdlog::level::level_enum::error)
-
 void func() {
     LOGINFO("Thread func started");
-    auto i = 0;
+    size_t i{0};
     while (i < 3) {
         LOGINFO("Thread func {}th iteration", i + 1);
-        sleep(3);
+        std::this_thread::sleep_for(std::chrono::seconds{3});
         ++i;
     }
 }
 
+// clang-format off
+SDS_OPTION_GROUP(test_logging,
+    (signal, "si", "signal option", "signal option", ::cxxopts::value<uint32_t>(), "1-6"))
+// clang-format on
+
+#define ENABLED_OPTIONS test_logging, logging
+
+SDS_OPTIONS_ENABLE(ENABLED_OPTIONS)
+
 int main(int argc, char** argv) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
-    sds_logging::SetLogger(std::string(argv[0]));
+    SDS_OPTIONS_LOAD(argc, argv, ENABLED_OPTIONS)
+    sds_logging::SetLogger(std::string{argv[0]});
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
-    SDS_LOG_LEVEL(base, spdlog::level::level_enum::trace);
+    SDS_LOG_LEVEL(my_module, spdlog::level::level_enum::trace);
     sds_logging::install_crash_handler();
 
-    std::thread t(func);
-    sleep(1);
+    std::thread t{func};
+    std::this_thread::sleep_for(std::chrono::seconds{1});
     std::cout << "spdlog level base = " << module_level_base << "\n";
     LOGTRACE("Trace");
     LOGDEBUG("Debug");
@@ -51,17 +54,14 @@ int main(int argc, char** argv) {
 #if 0
     sds_logging::log_stack_trace();
 #else
-    RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build");
-    LOGMSG_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build");
-    RELEASE_ASSERT_EQ(argc, 2);
-    DEBUG_ASSERT_EQ(argc, 2, "I can't run without proper arguments in debug build, need {} args", 2);
-    RELEASE_ASSERT_EQ(argc, 2, "I can't run without proper arguments in release build, need {} args", 2);
-    int* x = nullptr;
-    *x = 5;
+    std::raise(SIGABRT);
+    // std::raise(SIGFPE);
+    // std::raise(SIGSEGV);
+    // std::raise(SIGILL);
+    // std::raise(SIGTERM);
+    // std::raise(SIGINT);
 #endif
 
-    LOGMSG_ASSERT((argc == 2), "Expecting number of args = {}", argc);
-
-    t.join();
+    if (t.joinable()) t.join();
     return 0;
 }
