@@ -9,10 +9,11 @@
 #include <chrono>
 #include <filesystem>
 #include <iomanip>
-extern "C" {
+
+#if defined(__linux__) || defined(__APPLE__)
 #include <linux/limits.h>
 #include <unistd.h>
-}
+#endif
 
 #include <sds_options/options.h>
 #include <spdlog/async.h>
@@ -41,14 +42,22 @@ constexpr auto Ki = 1024ul;
 constexpr auto Mi = Ki * Ki;
 
 std::shared_ptr< spdlog::logger >& GetLogger() {
-    if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(logger_thread_ctx.m_logger))) {
+#if __cplusplus > 201703L 
+    [[unlikely]] if (!(logger_thread_ctx.m_logger)) {
+#else
+    if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_logger))) {
+#endif
         logger_thread_ctx.m_logger = glob_spdlog_logger;
     }
     return logger_thread_ctx.m_logger;
 }
 
 std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
-    if (LOGGING_PREDICT_BRANCH_NOT_TAKEN(!(logger_thread_ctx.m_critical_logger))) {
+#if __cplusplus > 201703L
+    [[unlikely]] if (!(logger_thread_ctx.m_critical_logger)) {
+#else
+    if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_critical_logger))) {
+#endif
         logger_thread_ctx.m_critical_logger = glob_critical_logger;
     }
     return logger_thread_ctx.m_critical_logger;
