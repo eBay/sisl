@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "4.4.17"
+    version = "4.5.1"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -46,6 +46,7 @@ class MetricsConan(ConanFile):
                     ("openssl/1.1.1g", "override"),
                     "prometheus_cpp/0.7.2",
                     "userspace-rcu/0.11.2",
+                    "semver/1.1.0",
                 )
 
     generators = "cmake"

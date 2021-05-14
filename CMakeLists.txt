@@ -101,9 +101,11 @@ add_subdirectory (src/metrics)
 add_subdirectory (src/fds)
 add_subdirectory (src/settings)
 add_subdirectory (src/utility)
+add_subdirectory (src/sisl_version)
 
 add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
+            $<TARGET_OBJECTS:sisl_version>
             $<TARGET_OBJECTS:sisl_settings>
            )
 target_link_libraries(sisl ${COMMON_LIB_DEPS})
