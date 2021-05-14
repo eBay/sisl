@@ -146,33 +146,52 @@ static void bt_dumper([[maybe_unused]] const int signal_number, [[maybe_unused]]
 
 static void log_stack_trace_all_threads() {
     std::unique_lock lk{LoggerThreadContext::_logger_thread_mutex};
-    g_stack_dump_outstanding = LoggerThreadContext::_logger_thread_set.size();
-    for (const auto* const ctx : LoggerThreadContext::_logger_thread_set) {
-        send_thread_signal(ctx->m_thread_id, SIGUSR3);
-    }
+    auto& logger{GetLogger()};
+    auto& critical_logger{GetLogger()};
+    size_t thread_count{1};
 
-    auto& _l = GetLogger();
-    auto& _cl = GetCriticalLogger();
-    if (!_l || !_cl) {
-        return;
-    }
+    const auto dump_thread{[&lk, &logger, &critical_logger, &thread_count](const bool signal_thread, auto* ctx) {
+        if (signal_thread) {
+            g_stack_dump_outstanding = 1;
+            send_thread_signal(ctx->m_thread_id, SIGUSR3);
 
-    g_stack_dump_cv.wait(lk, [] { return (g_stack_dump_outstanding.load() == 0); });
+            g_stack_dump_cv.wait(lk, [] { return (g_stack_dump_outstanding.load() == 0); });
+        } else {
+            // dump the thread without recursive signal
+            ctx->m_stack_buff[0] = 0;
+            stack_backtrace(ctx->m_stack_buff.data(), ctx->m_stack_buff.size());
+        }
+
+        if (logger) {
+            logger->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thread_count,
+                             ctx->m_stack_buff.data());
+            logger->flush();
+        }
+        else if (critical_logger) {
+            critical_logger->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thread_count,
+                                      ctx->m_stack_buff.data());
+            critical_logger->flush();
+        }
+    }};
+
+    // flush logs
+    if (logger)
+        logger->flush();
+    if (critical_logger)
+        critical_logger->flush();
 
     // First dump this thread context
-    uint32_t thr_count = 1;
-    _l->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0, logger_thread_ctx.m_stack_buff.data());
-    _cl->critical("Thread ID: {}, Thread num: {}\n{}", logger_thread_ctx.m_thread_id, 0,
-                  logger_thread_ctx.m_stack_buff.data());
+    dump_thread(false, &logger_thread_ctx);
+    ++thread_count;
+
+    // dump other threads
     for (auto* const ctx : LoggerThreadContext::_logger_thread_set) {
         if (ctx == &logger_thread_ctx) {
             continue;
         }
-        _l->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thr_count, ctx->m_stack_buff.data());
-        _cl->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thr_count, ctx->m_stack_buff.data());
-        thr_count++;
+        dump_thread(true, ctx);
+        ++thread_count;
     }
-    _l->flush();
 }
 
 /************************************************* Exported APIs **********************************/

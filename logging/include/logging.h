@@ -369,24 +369,27 @@ static constexpr uint32_t max_stacktrace_size() { return static_cast< uint32_t >
 
 class LoggerThreadContext {
 public:
-    LoggerThreadContext();
+    LoggerThreadContext(const LoggerThreadContext&) = delete;
+    LoggerThreadContext& operator=(const LoggerThreadContext&) = delete;
+    LoggerThreadContext(LoggerThreadContext&&) noexcept = delete;
+    LoggerThreadContext& operator=(LoggerThreadContext&) noexcept = delete;
     ~LoggerThreadContext();
 
     static LoggerThreadContext& instance() {
-        static thread_local LoggerThreadContext inst;
+        static thread_local LoggerThreadContext inst{};
         return inst;
     }
 
     static std::mutex _logger_thread_mutex;
     static std::unordered_set< LoggerThreadContext* > _logger_thread_set;
 
-    static void add_logger_thread(LoggerThreadContext* ctx) {
-        std::unique_lock l(_logger_thread_mutex);
+    static void add_logger_thread(LoggerThreadContext* const ctx) {
+        std::unique_lock l{_logger_thread_mutex};
         _logger_thread_set.insert(ctx);
     }
 
-    static void remove_logger_thread(LoggerThreadContext* ctx) {
-        std::unique_lock l(_logger_thread_mutex);
+    static void remove_logger_thread(LoggerThreadContext* const ctx) {
+        std::unique_lock l{_logger_thread_mutex};
         _logger_thread_set.erase(ctx);
     }
 
@@ -394,6 +397,9 @@ public:
     std::shared_ptr< spdlog::logger > m_critical_logger;
     pthread_t m_thread_id;
     std::array < char, max_stacktrace_size()> m_stack_buff;
+
+private:
+    LoggerThreadContext();
 };
 
 #define logger_thread_ctx LoggerThreadContext::instance()
