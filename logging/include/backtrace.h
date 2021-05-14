@@ -308,7 +308,7 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
         //   /foo/bar/executable(+0x5996) [0x555555559996]
 
         size_t fname_len{0};
-        while (cur_frame[fname_len] != '(' && cur_frame[fname_len] != ' ' && cur_frame[fname_len] != 0x0) {
+        while ((cur_frame[fname_len] != '(') && (cur_frame[fname_len] != ' ') && (cur_frame[fname_len] != 0x0)) {
             ++fname_len;
         }
 
@@ -318,8 +318,6 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
         finfos[num_frames].frame = cur_frame;
         finfos[num_frames].fname_len = fname_len;
         finfos[num_frames].index = num_frames;
-        finfos[num_frames].demangled_name = nullptr;
-        finfos[num_frames].demangler_alloced = false;
 
         uintptr_t actual_addr{0x0};
         if (cur_frame[fname_len] == '(') {
