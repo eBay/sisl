@@ -41,6 +41,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cinttypes>
 #include <cstddef>
 #include <cstdio>
 #include <csignal>
@@ -55,7 +56,6 @@
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <execinfo.h>
-#include <inttypes.h>
 #endif
 
 #ifdef __APPLE__
