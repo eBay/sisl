@@ -100,6 +100,10 @@
 }
 #endif
 
+namespace backtrace_detail {
+constexpr size_t max_backtrace{256};
+}
+
 template < typename... Args >
 void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, Args&&... args) {
     avail_len = (avail_len > cur_len) ? (avail_len - cur_len) : 0;
@@ -108,7 +112,7 @@ void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, A
 }
 
 [[maybe_unused]] static size_t _stack_backtrace(void** stack_ptr, const size_t stack_ptr_capacity) {
-    return backtrace(stack_ptr, static_cast< int >(stack_ptr_capacity));
+    return ::backtrace(stack_ptr, static_cast< int >(stack_ptr_capacity));
 }
 
 #if defined(__linux__)
@@ -127,19 +131,18 @@ void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, A
 
 [[maybe_unused]] static size_t _stack_interpret(void** stack_ptr, const size_t stack_size, char* const output_buf,
                                                 size_t output_buflen) {
+    // NOTE:: possibly use file backed backtrace_symbols_fd
     char** stack_msg{nullptr};
-    stack_msg = backtrace_symbols(stack_ptr, static_cast< int >(stack_size));
-
-    size_t len = 0;
+    stack_msg = ::backtrace_symbols(stack_ptr, static_cast< int >(stack_size));
 
 #if defined(__linux__)
-    len = _stack_interpret_linux(stack_ptr, stack_msg, stack_size, output_buf, output_buflen);
+    const size_t len{_stack_interpret_linux(stack_ptr, stack_msg, stack_size, output_buf, output_buflen)};
 
 #elif defined(__APPLE__)
-    len = _stack_interpret_apple(stack_ptr, stack_msg, stack_size, output_buf, output_buflen);
+    const size_t len{_stack_interpret_apple(stack_ptr, stack_msg, stack_size, output_buf, output_buflen)};
 
 #else
-    len = _stack_interpret_other(stack_ptr, stack_msg, stack_size, output_buf, output_buflen);
+    const size_t len{_stack_interpret_other(stack_ptr, stack_msg, stack_size, output_buf, output_buflen)};
 
 #endif
     std::free(static_cast< void* >(stack_msg));
@@ -181,17 +184,17 @@ static bool _adjust_offset_symbol(const char* const symbol_str, char* const offs
     }
 
     // extract the symbolic information pointed by address
-    if (!dladdr(addr, &symbol_info)) {
+    if (!::dladdr(addr, &symbol_info)) {
         goto done;
     }
     *offset_ptr =
         (reinterpret_cast< uintptr_t >(symbol_info.dli_saddr) - reinterpret_cast< uintptr_t >(symbol_info.dli_fbase)) +
         *offset_ptr - 1;
-    sprintf(offset_str, "%" PRIxPTR, *offset_ptr);
+    std::sprintf(offset_str, "%" PRIxPTR, *offset_ptr);
     status = true;
 
 done:
-    dlclose(obj_file);
+    ::dlclose(obj_file);
     return status;
 }
 
@@ -232,6 +235,7 @@ static size_t find_frame_in_cmd_info(std::vector< _addr2line_cmd_info >& ainfos,
 }
 
 static void convert_frame_format(frame_info_t* const finfos, const size_t nframes) {
+    // NOTE: look at making this non memory consuming
     std::vector< _addr2line_cmd_info > ainfos;
     for (size_t f{0}; f < nframes; ++f) {
         frame_info_t* const finfo{&finfos[f]};
@@ -288,10 +292,11 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                                                       const char* const* const stack_msg, const size_t stack_size,
                                                       char* const output_buf, const size_t output_buflen) {
     size_t cur_len{0};
-    size_t nframes{0};
-    std::unique_ptr< frame_info_t[] > finfos(new frame_info_t[stack_size]);
+    // NOTE:  Look to make the following static to avoid memory allocation
+    std::vector< frame_info_t > finfos(backtrace_detail::max_backtrace);
 
     // NOTE: starting from 1, skipping this frame.
+    size_t num_frames{0};
     for (size_t i{1}; i < stack_size; ++i) {
         const char* const cur_frame{stack_msg[i]};
 
@@ -307,14 +312,19 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             ++fname_len;
         }
 
-        finfos[nframes].frame = stack_msg[i];
-        finfos[nframes].fname_len = fname_len;
-        finfos[nframes].index = nframes;
+        if (fname_len == 0)
+            break;
+
+        finfos[num_frames].frame = cur_frame;
+        finfos[num_frames].fname_len = fname_len;
+        finfos[num_frames].index = num_frames;
+        finfos[num_frames].demangled_name = nullptr;
+        finfos[num_frames].demangler_alloced = false;
 
         uintptr_t actual_addr{0x0};
         if (cur_frame[fname_len] == '(') {
             // Extract the symbol if present
-            std::array< char, 1024 > _symbol;
+            static std::array< char, 1024 > _symbol; // avoid memory allocation
             size_t _symbol_len{0};
             size_t _s{fname_len + 1};
             while ((cur_frame[_s] != '+') && (cur_frame[_s] != ')') && (cur_frame[_s] != 0x0) &&
@@ -326,37 +336,38 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             // Extract the offset
             if (cur_frame[_s] == '+') {
                 // ASLR is enabled, get the offset from here.
-                actual_addr = _extract_offset(&cur_frame[_s + 1], finfos[nframes].addr_str.data(),
-                                              finfos[nframes].addr_str.size());
+                actual_addr = _extract_offset(&cur_frame[_s + 1], finfos[num_frames].addr_str.data(),
+                                              finfos[num_frames].addr_str.size());
             }
 
             // If symbol is present, try to add offset and get the correct addr_str
             if (_symbol_len > 0) {
-                if (!_adjust_offset_symbol(_symbol.data(), finfos[nframes].addr_str.data(), &actual_addr)) {
+                if (!_adjust_offset_symbol(_symbol.data(), finfos[num_frames].addr_str.data(), &actual_addr)) {
                     // Resort to the default one
                     actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
-                    std::sprintf(finfos[nframes].addr_str.data(), "%" PRIxPTR, actual_addr);
+                    std::sprintf(finfos[num_frames].addr_str.data(), "%" PRIxPTR, actual_addr);
                 }
             }
         } else {
             actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
-            std::sprintf(finfos[nframes].addr_str.data(), "%" PRIxPTR, actual_addr);
+            std::sprintf(finfos[num_frames].addr_str.data(), "%" PRIxPTR, actual_addr);
         }
 
-        finfos[nframes].actual_addr = actual_addr;
-        ++nframes;
+        finfos[num_frames].actual_addr = actual_addr;
+        ++num_frames;
     }
 
-    convert_frame_format(finfos.get(), nframes);
-    for (size_t frame_num{0}; frame_num < nframes; ++frame_num) {
-        frame_info_t* const finfo{&finfos[frame_num]};
-
-        size_t msg_len{0};
-        size_t avail_len{output_buflen};
-        _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in %s at %s\n", frame_num,
-                  finfo->actual_addr, finfo->demangled_name, finfo->file_line.data());
-        if (finfo->demangler_alloced) {
-            std::free(static_cast< void* >(finfo->demangled_name));
+    if (num_frames > 0) {
+        convert_frame_format(finfos.data(), num_frames);
+        for (size_t frame_num{0}; frame_num < num_frames; ++frame_num) {
+            size_t msg_len{0};
+            size_t avail_len{output_buflen};
+            _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in %s at %s\n", frame_num,
+                      finfos[frame_num].actual_addr, finfos[frame_num].demangled_name,
+                      finfos[frame_num].file_line.data());
+            if (finfos[frame_num].demangler_alloced) {
+                std::free(static_cast< void* >(finfos[frame_num].demangled_name));
+            }
         }
     }
 
@@ -496,7 +507,8 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
 }
 
 [[maybe_unused]] static size_t stack_backtrace(char* const output_buf, const size_t output_buflen) {
-    std::array< void*, 256 > stack_ptr;
+    // make this static so no memory allocation needed
+    static std::array< void*, backtrace_detail::max_backtrace > stack_ptr;
     const size_t stack_size{_stack_backtrace(stack_ptr.data(), stack_ptr.size())};
     return _stack_interpret(stack_ptr.data(), stack_size, output_buf, output_buflen);
 }

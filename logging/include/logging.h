@@ -393,7 +393,7 @@ public:
     std::shared_ptr< spdlog::logger > m_logger;
     std::shared_ptr< spdlog::logger > m_critical_logger;
     pthread_t m_thread_id;
-    char m_stack_buff[max_stacktrace_size()];
+    std::array < char, max_stacktrace_size()> m_stack_buff;
 };
 
 #define logger_thread_ctx LoggerThreadContext::instance()
