@@ -39,17 +39,21 @@ static bool g_custom_signal_handler_installed{false};
 static bool g_crash_handle_all_threads{true};
 static std::atomic< size_t > g_stack_dump_outstanding{0};
 static std::condition_variable g_stack_dump_cv;
+static std::mutex g_hdlr_mutex;
 
 typedef int SignalType;
 typedef std::pair< std::string, sig_handler_t > signame_handler_pair_t;
 
 static void restore_signal_handler(const int signal_number) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
+    std::scoped_lock< std::mutex > lock{g_hdlr_mutex};
     struct sigaction action;
     std::memset(static_cast<void*>(&action), 0, sizeof(action)); //
     ::sigemptyset(&action.sa_mask);
     action.sa_handler = SIG_DFL; // take default action for the signal
     ::sigaction(signal_number, &action, NULL);
+
+    g_custom_signal_handler_installed = false;
 #endif
 }
 
@@ -200,11 +204,11 @@ static std::map< SignalType, signame_handler_pair_t > g_sighandler_map = {
     {SIGSEGV, {"SIGSEGV", &crash_handler}}, {SIGINT, {"SIGINT", &crash_handler}}, {SIGUSR3, {"SIGUSR3", &bt_dumper}},
     {SIGINT, {"SIGINT", &sigint_handler}},
 };
-static std::mutex install_hdlr_mutex;
 
 void install_signal_handler(const bool all_threads) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     // sigaction to use sa_sigaction file. ref: http://www.linuxprogrammingblog.com/code-examples/sigaction
+    std::scoped_lock< std::mutex > l{g_hdlr_mutex};
 
     // do it verbose style - install all signal actions
     for (const auto& sig_pair : g_sighandler_map) {
@@ -227,8 +231,7 @@ void install_signal_handler(const bool all_threads) {
 void add_signal_handler([[maybe_unused]] const int sig_num, [[maybe_unused]] const std::string_view& sig_name,
                         [[maybe_unused]] sig_handler_t hdlr) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
-    std::scoped_lock< std::mutex > l{install_hdlr_mutex};
-
+    std::scoped_lock< std::mutex > l{g_hdlr_mutex};
     struct sigaction action;
     std::memset(static_cast<void*>(&action), 0, sizeof(action));
     ::sigemptyset(&action.sa_mask);
@@ -248,7 +251,7 @@ void add_signal_handler([[maybe_unused]] const int sig_num, [[maybe_unused]] con
 void log_custom_signal_handlers() {
     std::string m;
     {
-        std::scoped_lock< std::mutex > l{install_hdlr_mutex};
+        std::scoped_lock< std::mutex > l{g_hdlr_mutex};
         for (const auto& sp : g_sighandler_map) {
             m += fmt::format("{}={}, ", sp.second.first, reinterpret_cast<const void*>(sp.second.second));
         }
