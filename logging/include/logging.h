@@ -463,7 +463,7 @@ void install_crash_handler(const bool all_threads = true);
 bool is_crash_handler_installed();
 void override_setup_signals(const std::map< int, std::string >& override_signals);
 void restore_signal_handler_to_default();
-void send_thread_signal(const pthread_t thr, const int sig_num);
+bool send_thread_signal(const pthread_t thr, const int sig_num);
 
 template < typename... Args >
 std::string format_log_msg(const char* const fmt, Args&&... args) {

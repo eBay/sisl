@@ -11,6 +11,8 @@
 
 #include <array>
 #include <atomic>
+#include <cassert>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <cstdio>
@@ -118,6 +120,7 @@ static void crash_handler(const int signal_number, [[maybe_unused]] siginfo_t* c
         }
     }
 
+    // NOTE: Possibly look to do this without memory allocation
     std::ostringstream fatal_stream;
     const auto fatal_reason{exit_reason_name(signal_number)};
     fatal_stream << "\n***** Received fatal SIGNAL: " << fatal_reason;
@@ -144,7 +147,8 @@ static void bt_dumper([[maybe_unused]] const int signal_number, [[maybe_unused]]
                       [[maybe_unused]] void* const unused_context) {
     logger_thread_ctx.m_stack_buff[0] = 0;
     stack_backtrace(logger_thread_ctx.m_stack_buff.data(), logger_thread_ctx.m_stack_buff.size());
-    --g_stack_dump_outstanding;
+    [[maybe_unused]] const auto prev{g_stack_dump_outstanding.fetch_sub(1)};
+    assert(prev > 0);
     g_stack_dump_cv.notify_all();
 }
 
@@ -156,10 +160,33 @@ static void log_stack_trace_all_threads() {
 
     const auto dump_thread{[&lk, &logger, &critical_logger, &thread_count](const bool signal_thread, auto* ctx) {
         if (signal_thread) {
-            g_stack_dump_outstanding = 1;
-            send_thread_signal(ctx->m_thread_id, SIGUSR3);
+            const auto log_failure{[&logger, &critical_logger, &thread_count, &ctx](const char* const msg) {
+                if (logger) {
+                    logger->critical("Thread ID: {}, Thread num: {} - {}\n", msg, ctx->m_thread_id,
+                                     thread_count);
+                    logger->flush();
+                } else if (critical_logger) {
+                    critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", msg, ctx->m_thread_id,
+                                      thread_count);
+                    critical_logger->flush();
+                }
+            }};
 
-            g_stack_dump_cv.wait(lk, [] { return (g_stack_dump_outstanding.load() == 0); });
+            assert(g_stack_dump_outstanding.load() == 0);
+            g_stack_dump_outstanding = 1;
+            if (!send_thread_signal(ctx->m_thread_id, SIGUSR3)) {
+                g_stack_dump_outstanding = 0;
+                log_failure("Invalid/terminated thread");
+                return;
+            }
+
+            const auto result{g_stack_dump_cv.wait_for(lk, std::chrono::seconds{1},
+                                                       [] { return (g_stack_dump_outstanding.load() == 0); })};
+            if (!result) {
+                g_stack_dump_outstanding = 0;
+                log_failure("Timeout waiting for stacktrace");
+                return;
+            }
         } else {
             // dump the thread without recursive signal
             ctx->m_stack_buff[0] = 0;
@@ -272,7 +299,7 @@ void log_stack_trace(const bool all_threads) {
     }
 }
 
-void send_thread_signal(const pthread_t thr, const int sig_num) { ::pthread_kill(thr, sig_num); }
+bool send_thread_signal(const pthread_t thr, const int sig_num) { return (::pthread_kill(thr, sig_num) == 0); }
 
 void install_crash_handler(const bool all_threads) { install_signal_handler(all_threads); }
 
