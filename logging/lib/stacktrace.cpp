@@ -276,6 +276,9 @@ void send_thread_signal(const pthread_t thr, const int sig_num) { ::pthread_kill
 
 void install_crash_handler(const bool all_threads) { install_signal_handler(all_threads); }
 
-bool is_crash_handler_installed() { return g_custom_signal_handler_installed; }
+bool is_crash_handler_installed() { 
+    std::scoped_lock< std::mutex > lock{g_hdlr_mutex};
+    return g_custom_signal_handler_installed;
+}
 
 } // namespace sds_logging
