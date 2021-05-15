@@ -120,16 +120,19 @@ void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, A
                                                       const char* const* const stack_msg, const size_t stack_size,
                                                       char* const output_buf, const size_t output_buflen);
 #elif defined(__APPLE__)
-[[maybe_unused]] static size_t _stack_interpret_apple(void** stack_ptr, const char* const* const stack_msg,
+[[maybe_unused]] static size_t _stack_interpret_apple(const void* const* const stack_ptr,
+                                                      const char* const* const stack_msg,
                                                       const size_t stack_size, char* const output_buf,
                                                       const size_t output_buflen);
 #else
-[[maybe_unused]] static size_t _stack_interpret_other(void** stack_ptr, const char* const* const stack_msg,
+[[maybe_unused]] static size_t _stack_interpret_other(const void* const* const stack_ptr,
+                                                      const char* const* const stack_msg,
                                                       const size_t stack_size, char* const output_buf,
                                                       const size_t output_buflen);
 #endif
 
-[[maybe_unused]] static size_t _stack_interpret(void** stack_ptr, const size_t stack_size, char* const output_buf,
+[[maybe_unused]] static size_t _stack_interpret(void* const* const stack_ptr, const size_t stack_size,
+                                                char* const output_buf,
                                                 size_t output_buflen) {
     // NOTE:: possibly use file backed backtrace_symbols_fd
     char** stack_msg{nullptr};
@@ -199,6 +202,13 @@ done:
 }
 
 struct frame_info_t {
+    frame_info_t() : frame{nullptr}, fname_len{0}, actual_addr{0}, index{0} {
+        addr_str.fill('\0'); 
+        demangled_name.fill('\0');
+        mangled_name.fill('\0');
+        file_line.fill('\0');
+    }
+
     const char* frame;                // Actual stack frame
     size_t fname_len;                 // The frame length containing the symbol to convert
     uintptr_t actual_addr;            // Actual address before converted to string
@@ -206,9 +216,7 @@ struct frame_info_t {
     uint32_t index;                   // In a list of frames the index in it
 
     // Result section
-    char* demangled_name;
-    bool demangler_alloced;
-
+    std::array< char, 1024 > demangled_name;
     std::array< char, 1024 > mangled_name; // Mangled name and file info
     std::array< char, 1024 > file_line;
 };
@@ -263,25 +271,23 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                 std::fscanf(fp, "%1023s %1023s", finfop->mangled_name.data(), finfop->file_line.data())};
 
             int status;
-            finfop->demangler_alloced = true;
-            finfop->demangled_name = abi::__cxa_demangle(finfop->mangled_name.data(), 0, 0, &status);
-            if (finfop->demangled_name == nullptr) {
-                const std::string msg_str{finfop->frame};
-                std::string _func_name{msg_str};
-                const size_t s_pos{msg_str.find("(")};
-                size_t e_pos{msg_str.rfind("+")};
-                if (e_pos == std::string::npos)
-                    e_pos = msg_str.rfind(")");
-                if (s_pos != std::string::npos && e_pos != std::string::npos) {
-                    _func_name = msg_str.substr(s_pos + 1, e_pos - s_pos - 1);
-                }
-                if (_func_name.empty()) {
-                    finfop->demangled_name = finfop->mangled_name.data();
-                    finfop->demangler_alloced = false;
+            const char* const demangled_name{abi::__cxa_demangle(finfop->mangled_name.data(), 0, 0, &status)};
+            if (!demangled_name) {
+                const char* const s_pos {std::strchr(finfop->frame, '(')};
+                const char* e_pos {s_pos ? std::strrchr(finfop->frame, '+') : nullptr};
+                if (s_pos && !e_pos)
+                    e_pos = std::strrchr(finfop->frame, ')');
+                if (!e_pos) {
+                    std::strncpy(finfop->demangled_name.data(), finfop->mangled_name.data(),
+                                 finfop->demangled_name.size() - 1);
                 } else {
-                    finfop->demangled_name = static_cast< char* >(std::malloc(_func_name.size() + 1));
-                    std::strcpy(finfop->demangled_name, _func_name.c_str());
+                    const size_t len{std::min< size_t >(e_pos - s_pos - 1, finfop->demangled_name.size() - 1)};
+                    std::strncpy(finfop->demangled_name.data(), s_pos + 1, len);
                 }
+            } else 
+            {
+                std::strncpy(finfop->demangled_name.data(), demangled_name, finfop->demangled_name.size() - 1);
+                std::free(static_cast< void* >(const_cast<char*>(demangled_name)));
             }
         }
         ::pclose(fp);
@@ -361,11 +367,8 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             size_t msg_len{0};
             size_t avail_len{output_buflen};
             _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in %s at %s\n", frame_num,
-                      finfos[frame_num].actual_addr, finfos[frame_num].demangled_name,
+                      finfos[frame_num].actual_addr, finfos[frame_num].demangled_name.data(),
                       finfos[frame_num].file_line.data());
-            if (finfos[frame_num].demangler_alloced) {
-                std::free(static_cast< void* >(finfos[frame_num].demangled_name));
-            }
         }
     }
 
