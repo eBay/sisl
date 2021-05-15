@@ -298,11 +298,11 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                                                       const char* const* const stack_msg, const size_t stack_size,
                                                       char* const output_buf, const size_t output_buflen) {
     size_t cur_len{0};
-    // NOTE:  Look to make the following static to avoid memory allocation
-    std::vector< frame_info_t > finfos(backtrace_detail::max_backtrace);
+    // make static to avoid memory allocation
+    static std::vector< frame_info_t > finfos(backtrace_detail::max_backtrace);
+    finfos.clear();
 
     // NOTE: starting from 1, skipping this frame.
-    size_t num_frames{0};
     for (size_t i{1}; i < stack_size; ++i) {
         const char* const cur_frame{stack_msg[i]};
 
@@ -321,9 +321,10 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
         if (fname_len == 0)
             break;
 
-        finfos[num_frames].frame = cur_frame;
-        finfos[num_frames].fname_len = fname_len;
-        finfos[num_frames].index = num_frames;
+        finfos.emplace_back();
+        finfos.back().frame = cur_frame;
+        finfos.back().fname_len = fname_len;
+        finfos.back().index = finfos.size() - 1;
 
         uintptr_t actual_addr{0x0};
         if (cur_frame[fname_len] == '(') {
@@ -340,35 +341,35 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             // Extract the offset
             if (cur_frame[_s] == '+') {
                 // ASLR is enabled, get the offset from here.
-                actual_addr = _extract_offset(&cur_frame[_s + 1], finfos[num_frames].addr_str.data(),
-                                              finfos[num_frames].addr_str.size());
+                actual_addr = _extract_offset(&cur_frame[_s + 1], finfos.back().addr_str.data(),
+                                              finfos.back().addr_str.size());
             }
 
             // If symbol is present, try to add offset and get the correct addr_str
             if (_symbol_len > 0) {
-                if (!_adjust_offset_symbol(_symbol.data(), finfos[num_frames].addr_str.data(), &actual_addr)) {
+                if (!_adjust_offset_symbol(_symbol.data(), finfos.back().addr_str.data(), &actual_addr)) {
                     // Resort to the default one
                     actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
-                    std::sprintf(finfos[num_frames].addr_str.data(), "%" PRIxPTR, actual_addr);
+                    std::sprintf(finfos.back().addr_str.data(), "%" PRIxPTR, actual_addr);
                 }
             }
         } else {
             actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
-            std::sprintf(finfos[num_frames].addr_str.data(), "%" PRIxPTR, actual_addr);
+            std::sprintf(finfos.back().addr_str.data(), "%" PRIxPTR, actual_addr);
         }
 
-        finfos[num_frames].actual_addr = actual_addr;
-        ++num_frames;
+        finfos.back().actual_addr = actual_addr;
     }
 
-    if (num_frames > 0) {
-        convert_frame_format(finfos.data(), num_frames);
-        for (size_t frame_num{0}; frame_num < num_frames; ++frame_num) {
+    if (!finfos.empty()) {
+        convert_frame_format(finfos.data(), finfos.size());
+        size_t frame_num{0};
+        for (auto& finfo : finfos) {
             size_t msg_len{0};
             size_t avail_len{output_buflen};
             _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in %s at %s\n", frame_num,
-                      finfos[frame_num].actual_addr, finfos[frame_num].demangled_name.data(),
-                      finfos[frame_num].file_line.data());
+                      finfo.actual_addr, finfo.demangled_name.data(), finfo.file_line.data());
+            ++frame_num;
         }
     }
 
