@@ -81,6 +81,12 @@ int main(int argc, char** argv) {
     // std::raise(SIGTERM);
     // std::raise(SIGINT);
 
+    /*
+    int* ptr{nullptr};
+    [[maybe_unused]] int i{*ptr};
+    std::cout << i << std::endl;
+    */
+
 #endif
 
     if (t.joinable()) t.join();
