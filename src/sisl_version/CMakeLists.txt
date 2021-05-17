@@ -9,6 +9,7 @@ set(VERSION_SOURCE_FILES
     version.cpp
    )
 add_library(sisl_version OBJECT ${VERSION_SOURCE_FILES})
+target_include_directories(sisl_version PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(TEST_VERSION_SOURCE_FILES
     tests/test_version.cpp
