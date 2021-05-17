@@ -51,15 +51,36 @@ int main(int argc, char** argv) {
     LOGINFOMOD(my_module, "Enabled Module Logger");
     LOGTRACEMOD(my_module, "Trace Module");
 
+   // sds_logging::log_stack_trace(true);
 #if 0
     sds_logging::log_stack_trace();
 #else
+    /*
+    // NOTE: Some reason signal not being recognized as option
+    switch (SDS_OPTIONS["signal"].as< uint32_t >()) {
+    case 1:
+        std::raise(SIGABRT);
+    case 2:
+        std::raise(SIGFPE);
+    case 3:
+        std::raise(SIGSEGV);
+    case 4:
+        std::raise(SIGILL);
+    case 5:
+        std::raise(SIGTERM);
+    case 6:
+        std::raise(SIGINT);
+    default: break;
+    }
+    */
+
     std::raise(SIGABRT);
     // std::raise(SIGFPE);
     // std::raise(SIGSEGV);
     // std::raise(SIGILL);
     // std::raise(SIGTERM);
     // std::raise(SIGINT);
+
 #endif
 
     if (t.joinable()) t.join();
