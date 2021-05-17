@@ -237,7 +237,7 @@ struct frame_info_t {
 struct _addr2line_cmd_info {
     const char* this_frame_name;
     std::vector< frame_info_t* > single_invoke_finfos; // NOTE: maybe make array in future to avoid memory allocation
-    std::array< char, 4096 > cmd;
+    std::array< char, 5000 > cmd; // 256*18 + buffer for process name
     size_t cmd_length;
 
     _addr2line_cmd_info() :

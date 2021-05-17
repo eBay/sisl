@@ -96,7 +96,7 @@ static void exit_with_default_sighandler(const SignalType fatal_signal_id) {
 
 /** \return signal_name Ref: signum.hpp and \ref installSignalHandler
  *  or for Windows exception name */
-static std::string exit_reason_name(const SignalType fatal_id) {
+static const char* exit_reason_name(const SignalType fatal_id) {
     const int signal_number{static_cast< int >(fatal_id)};
     switch (signal_number) {
     case SIGABRT: return "SIGABRT"; break;
@@ -106,9 +106,10 @@ static std::string exit_reason_name(const SignalType fatal_id) {
     case SIGTERM: return "SIGTERM"; break;
     case SIGINT: return "SIGINT"; break;
     default:
-        std::ostringstream oss;
-        oss << "UNKNOWN SIGNAL(" << signal_number << ")"; // for " << level.text;
-        return oss.str();
+        static std::array< char, 30 > unknown;
+        unknown.fill('0');
+        std::snprintf(unknown.data(), unknown.size(), "UNKNOWN SIGNAL(%i)", signal_number);
+        return unknown.data();
     }
 }
 
@@ -120,15 +121,10 @@ static void crash_handler(const int signal_number, [[maybe_unused]] siginfo_t* c
         }
     }
 
-    // NOTE: Possibly look to do this without memory allocation
-    std::ostringstream fatal_stream;
-    const auto fatal_reason{exit_reason_name(signal_number)};
-    fatal_stream << "\n***** Received fatal SIGNAL: " << fatal_reason;
-    fatal_stream << "(" << signal_number << ")\tPID: " << ::getpid();
-
     GetLogger()->set_pattern("%v");
     log_stack_trace(g_crash_handle_all_threads);
-    LOGCRITICAL("{}", fatal_stream.str());
+    LOGCRITICAL("\n * ****Received fatal SIGNAL : {}({})\tPID : {}", exit_reason_name(signal_number), signal_number,
+                ::getpid());
 
     spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) { l->flush(); });
     spdlog::shutdown();
