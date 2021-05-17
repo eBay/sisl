@@ -48,6 +48,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -136,20 +137,20 @@ void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, A
                                                 char* const output_buf,
                                                 size_t output_buflen) {
     // NOTE:: possibly use file backed backtrace_symbols_fd
-    char** stack_msg{nullptr};
-    stack_msg = ::backtrace_symbols(stack_ptr, static_cast< int >(stack_size));
+    const std::unique_ptr< char*, std::function< void(char** const) > > stack_msg{
+        ::backtrace_symbols(stack_ptr, static_cast< int >(stack_size)),
+        [](char** const ptr) { std::free(static_cast< void* >(ptr)); }};
 
 #if defined(__linux__)
-    const size_t len{_stack_interpret_linux(stack_ptr, stack_msg, stack_size, output_buf, output_buflen)};
+    const size_t len{_stack_interpret_linux(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen)};
 
 #elif defined(__APPLE__)
-    const size_t len{_stack_interpret_apple(stack_ptr, stack_msg, stack_size, output_buf, output_buflen)};
+    const size_t len{_stack_interpret_apple(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen)};
 
 #else
-    const size_t len{_stack_interpret_other(stack_ptr, stack_msg, stack_size, output_buf, output_buflen)};
+    const size_t len{_stack_interpret_other(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen)};
 
 #endif
-    std::free(static_cast< void* >(stack_msg));
 
     return len;
 }
@@ -163,7 +164,7 @@ static uintptr_t _extract_offset(const char* const input_str, char* const offset
         ++i;
     }
     const auto len{std::min(max_len - 1, i)};
-    std::snprintf(offset_str, max_len - 1, "%.*s", static_cast< int >(len), input_str);
+    std::snprintf(offset_str, max_len, "%.*s", static_cast< int >(len), input_str);
      
     // Convert hex string -> integer address.
     const char* pos {std::strpbrk(offset_str, "xX")};
@@ -207,7 +208,7 @@ static bool _adjust_offset_symbol(const char* const symbol_str, char* const offs
     *offset_ptr =
         (reinterpret_cast< uintptr_t >(symbol_info.dli_saddr) - reinterpret_cast< uintptr_t >(symbol_info.dli_fbase)) +
         *offset_ptr - 1;
-    std::snprintf(offset_str, max_len - 1, "%" PRIxPTR, *offset_ptr);
+    std::snprintf(offset_str, max_len, "%" PRIxPTR, *offset_ptr);
     status = true;
 
     return status;
@@ -274,16 +275,20 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
     }
 
     for (auto& ainfo : ainfos) {
-        FILE* const fp{::popen(ainfo.cmd.c_str(), "r")};
+        const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(ainfo.cmd.c_str(), "r"),
+                                                                             [](FILE* const ptr) { ::pclose(ptr); }};
         if (!fp)
             continue;
 
         for (auto& finfop : ainfo.single_invoke_finfos) {
             [[maybe_unused]] const int ret{
-                std::fscanf(fp, "%1023s %1023s", finfop->mangled_name.data(), finfop->file_line.data())};
+                std::fscanf(fp.get(), "%1023s %1023s", finfop->mangled_name.data(), finfop->file_line.data())};
 
             int status;
-            const char* const demangled_name{abi::__cxa_demangle(finfop->mangled_name.data(), 0, 0, &status)};
+            const std::unique_ptr < const char,
+                std::function< void(const char*) >> demangled_name{
+                    abi::__cxa_demangle(finfop->mangled_name.data(), 0, 0, &status),
+                    [](const char* ptr) { std::free(static_cast< void* >(const_cast< char* >(ptr))); }};
             if (!demangled_name) {
                 const char* const s_pos {std::strchr(finfop->frame, '(')};
                 const char* e_pos {s_pos ? std::strrchr(finfop->frame, '+') : nullptr};
@@ -298,11 +303,9 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                 }
             } else 
             {
-                std::strncpy(finfop->demangled_name.data(), demangled_name, finfop->demangled_name.size() - 1);
-                std::free(static_cast< void* >(const_cast<char*>(demangled_name)));
+                std::strncpy(finfop->demangled_name.data(), demangled_name.get(), finfop->demangled_name.size() - 1);
             }
         }
-        ::pclose(fp);
     }
 }
 
@@ -363,12 +366,12 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                                            finfos.back().addr_str.size(), & actual_addr)) {
                     // Resort to the default one
                     actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
-                    std::sprintf(finfos.back().addr_str.data(), "%" PRIxPTR, actual_addr);
+                    std::snprintf(finfos.back().addr_str.data(), finfos.back().addr_str.size(), "%" PRIxPTR, actual_addr);
                 }
             }
         } else {
             actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
-            std::sprintf(finfos.back().addr_str.data(), "%" PRIxPTR, actual_addr);
+            std::snprintf(finfos.back().addr_str.data(), finfos.back().addr_str.size(), "%" PRIxPTR, actual_addr);
         }
 
         finfos.back().actual_addr = actual_addr;
