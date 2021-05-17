@@ -236,28 +236,51 @@ struct frame_info_t {
 
 struct _addr2line_cmd_info {
     const char* this_frame_name;
-    std::vector< frame_info_t* > single_invoke_finfos;
-    std::string cmd;
+    std::vector< frame_info_t* > single_invoke_finfos; // NOTE: maybe make array in future to avoid memory allocation
+    std::array< char, 4096 > cmd;
+    size_t cmd_length;
 
-    _addr2line_cmd_info(const char* const frame, const size_t fname_len) : this_frame_name{frame} {
-        cmd = "addr2line -f -e ";
-        cmd.append(frame, fname_len);
-    }
+    _addr2line_cmd_info() :
+            this_frame_name{nullptr}, cmd_length{0} { cmd.fill('\0'); }
+
+    _addr2line_cmd_info(const char* const frame, const size_t fname_len) : this_frame_name{frame}, cmd_length{0} {
+        cmd.fill('\0');
+        append_to_command("addr2line -f -e ");
+        append_to_command(frame, fname_len);
+    };
+
+    void append_to_command(const char* const str, const size_t str_len = 0) {
+        if (str_len == 0) {
+            const auto written { std::snprintf(cmd.data() + cmd_length, cmd.size() - cmd_length, "%s", str) };
+            if (cmd_length + written >= cmd.size() - 1) {
+                cmd_length = cmd.size() - 1;
+            } else {
+                cmd_length += written;
+            }
+        } else {
+            const size_t len{std::min< size_t >(cmd.size() - cmd_length - 1, str_len)};
+            std::strncpy(cmd.data() + cmd_length, str, len);
+            cmd_length += len;
+        }
+    };
 };
 
-static size_t find_frame_in_cmd_info(std::vector< _addr2line_cmd_info >& ainfos, const char* const frame,
+static size_t find_frame_in_cmd_info(const std::vector< _addr2line_cmd_info >& ainfos, const char* const frame,
                                      const size_t fname_len) {
-    for (size_t i{0}; i < ainfos.size(); ++i) {
-        if (std::strncmp(ainfos[i].this_frame_name, frame, fname_len) == 0) {
+    size_t i{0};
+    for (const auto& ainfo : ainfos) {
+        if (std::strncmp(ainfo.this_frame_name, frame, fname_len) == 0) {
             return i;
         }
+        ++i;
     }
     return ainfos.size();
 }
 
 static void convert_frame_format(frame_info_t* const finfos, const size_t nframes) {
-    // NOTE: look at making this non memory consuming
-    std::vector< _addr2line_cmd_info > ainfos;
+    // make static to avoid memory allocation
+    static std::vector< _addr2line_cmd_info > ainfos(backtrace_detail::max_backtrace);
+    ainfos.clear();
     for (size_t f{0}; f < nframes; ++f) {
         frame_info_t* const finfo{&finfos[f]};
         _addr2line_cmd_info* ainfo;
@@ -270,12 +293,12 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             ainfo = &ainfos[ind];
         }
         ainfo->single_invoke_finfos.push_back(finfo);
-        ainfo->cmd.append(" ");
-        ainfo->cmd.append(finfo->addr_str.data());
+        ainfo->append_to_command(" ");
+        ainfo->append_to_command(finfo->addr_str.data());
     }
 
     for (auto& ainfo : ainfos) {
-        const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(ainfo.cmd.c_str(), "r"),
+        const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(ainfo.cmd.data(), "r"),
                                                                              [](FILE* const ptr) { ::pclose(ptr); }};
         if (!fp)
             continue;
@@ -296,7 +319,9 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                     e_pos = std::strrchr(finfop->frame, ')');
                 if (!e_pos) {
                     std::strncpy(finfop->demangled_name.data(), finfop->mangled_name.data(),
-                                 finfop->demangled_name.size() - 1);
+                                 finfop->demangled_name.size());
+                    finfop->demangled_name[finfop->demangled_name.size() - 1] = 0;
+
                 } else {
                     const size_t len{std::min< size_t >(e_pos - s_pos - 1, finfop->demangled_name.size() - 1)};
                     std::strncpy(finfop->demangled_name.data(), s_pos + 1, len);
