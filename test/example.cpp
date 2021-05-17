@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     LOGINFOMOD(my_module, "Enabled Module Logger");
     LOGTRACEMOD(my_module, "Trace Module");
 
-   // sds_logging::log_stack_trace(true);
+    // sds_logging::log_stack_trace(true);
 #if 0
     sds_logging::log_stack_trace();
 #else
@@ -89,6 +89,7 @@ int main(int argc, char** argv) {
 
 #endif
 
-    if (t.joinable()) t.join();
+    if (t.joinable())
+        t.join();
     return 0;
 }
