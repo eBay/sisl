@@ -46,6 +46,7 @@
 #include <cstdio>
 #include <csignal>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -155,49 +156,60 @@ void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, A
 
 #ifdef __linux__
 static uintptr_t _extract_offset(const char* const input_str, char* const offset_str, const size_t max_len) {
-    uintptr_t actual_addr;
+    uintptr_t actual_addr{0};
 
     size_t i{0};
     while (input_str[i] != ')' && input_str[i] != 0x0) {
         ++i;
     }
     const auto len{std::min(max_len - 1, i)};
-    std::sprintf(offset_str, "%.*s", static_cast< int >(len), input_str);
-
+    std::snprintf(offset_str, max_len - 1, "%.*s", static_cast< int >(len), input_str);
+     
     // Convert hex string -> integer address.
-    std::stringstream ss;
-    ss << std::hex << offset_str;
-    ss >> actual_addr;
+    const char* pos {std::strpbrk(offset_str, "xX")};
+    while (pos && (*(++pos) !='\0')) {
+        const char c{*pos};
+        uint8_t val{0};
+        if ((c >= '0') && (c <= '9')) {
+            val = static_cast<uint8_t>(c - '0');
+        } else if ((c >= 'A') && (c <='F')) {
+            val = static_cast< uint8_t >((c - 'A') + 10);
+        } else if ((c >= 'a') && (c <= 'f')) {
+            val = static_cast< uint8_t >((c - 'a') + 10);
+        } else {
+            break;
+        }
+        actual_addr <<= 4;
+        actual_addr += val;
+    }
 
     return actual_addr;
 }
 
-static bool _adjust_offset_symbol(const char* const symbol_str, char* const offset_str, uintptr_t* const offset_ptr) {
+static bool _adjust_offset_symbol(const char* const symbol_str, char* const offset_str, const size_t max_len, uintptr_t* const offset_ptr) {
     bool status{false};
     Dl_info symbol_info;
 
-    void* const obj_file{::dlopen(nullptr, RTLD_LAZY)};
+    const std::unique_ptr< void, std::function<void(void* const)> > obj_file{::dlopen(nullptr, RTLD_LAZY), [](void* const ptr) { ::dlclose(ptr); }};
     if (!obj_file) {
-        return false;
+        return status;
     }
 
-    void* const addr{::dlsym(obj_file, symbol_str)};
+    void* const addr{::dlsym(obj_file.get(), symbol_str)};
     if (!addr) {
-        goto done;
+        return status;
     }
 
     // extract the symbolic information pointed by address
     if (!::dladdr(addr, &symbol_info)) {
-        goto done;
+        return status;
     }
     *offset_ptr =
         (reinterpret_cast< uintptr_t >(symbol_info.dli_saddr) - reinterpret_cast< uintptr_t >(symbol_info.dli_fbase)) +
         *offset_ptr - 1;
-    std::sprintf(offset_str, "%" PRIxPTR, *offset_ptr);
+    std::snprintf(offset_str, max_len - 1, "%" PRIxPTR, *offset_ptr);
     status = true;
 
-done:
-    ::dlclose(obj_file);
     return status;
 }
 
@@ -347,7 +359,8 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
 
             // If symbol is present, try to add offset and get the correct addr_str
             if (_symbol_len > 0) {
-                if (!_adjust_offset_symbol(_symbol.data(), finfos.back().addr_str.data(), &actual_addr)) {
+                if (!_adjust_offset_symbol(_symbol.data(), finfos.back().addr_str.data(),
+                                           finfos.back().addr_str.size(), & actual_addr)) {
                     // Resort to the default one
                     actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
                     std::sprintf(finfos.back().addr_str.data(), "%" PRIxPTR, actual_addr);
@@ -510,9 +523,13 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
 
 [[maybe_unused]] static size_t stack_backtrace(char* const output_buf, const size_t output_buflen) {
     // make this static so no memory allocation needed
+    static std::mutex s_lock;
     static std::array< void*, backtrace_detail::max_backtrace > stack_ptr;
-    const size_t stack_size{_stack_backtrace(stack_ptr.data(), stack_ptr.size())};
-    return _stack_interpret(stack_ptr.data(), stack_size, output_buf, output_buflen);
+    {
+        std::scoped_lock lock{s_lock};
+        const size_t stack_size{_stack_backtrace(stack_ptr.data(), stack_ptr.size())};
+        return _stack_interpret(stack_ptr.data(), stack_size, output_buf, output_buflen);
+    }
 }
 
 // LCOV_EXCL_STOP
