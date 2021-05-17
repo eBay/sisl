@@ -107,13 +107,13 @@ constexpr size_t max_backtrace{256};
 }
 
 template < typename... Args >
-void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, Args&&... args) {
+void _snprintf(char* const msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, Args&&... args) {
     avail_len = (avail_len > cur_len) ? (avail_len - cur_len) : 0;
     msg_len = std::snprintf(msg + cur_len, avail_len, std::forward< Args >(args)...);
     cur_len += (avail_len > msg_len) ? msg_len : avail_len;
 }
 
-[[maybe_unused]] static size_t _stack_backtrace(void** stack_ptr, const size_t stack_ptr_capacity) {
+[[maybe_unused]] static size_t _stack_backtrace(void** const stack_ptr, const size_t stack_ptr_capacity) {
     return ::backtrace(stack_ptr, static_cast< int >(stack_ptr_capacity));
 }
 
@@ -123,19 +123,16 @@ void _snprintf(char* msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, A
                                                       char* const output_buf, const size_t output_buflen);
 #elif defined(__APPLE__)
 [[maybe_unused]] static size_t _stack_interpret_apple(const void* const* const stack_ptr,
-                                                      const char* const* const stack_msg,
-                                                      const size_t stack_size, char* const output_buf,
-                                                      const size_t output_buflen);
+                                                      const char* const* const stack_msg, const size_t stack_size,
+                                                      char* const output_buf, const size_t output_buflen);
 #else
 [[maybe_unused]] static size_t _stack_interpret_other(const void* const* const stack_ptr,
-                                                      const char* const* const stack_msg,
-                                                      const size_t stack_size, char* const output_buf,
-                                                      const size_t output_buflen);
+                                                      const char* const* const stack_msg, const size_t stack_size,
+                                                      char* const output_buf, const size_t output_buflen);
 #endif
 
 [[maybe_unused]] static size_t _stack_interpret(void* const* const stack_ptr, const size_t stack_size,
-                                                char* const output_buf,
-                                                size_t output_buflen) {
+                                                char* const output_buf, const size_t output_buflen) {
     // NOTE:: possibly use file backed backtrace_symbols_fd
     const std::unique_ptr< char*, std::function< void(char** const) > > stack_msg{
         ::backtrace_symbols(stack_ptr, static_cast< int >(stack_size)),
@@ -165,15 +162,15 @@ static uintptr_t _extract_offset(const char* const input_str, char* const offset
     }
     const auto len{std::min(max_len - 1, i)};
     std::snprintf(offset_str, max_len, "%.*s", static_cast< int >(len), input_str);
-     
+
     // Convert hex string -> integer address.
-    const char* pos {std::strpbrk(offset_str, "xX")};
-    while (pos && (*(++pos) !='\0')) {
+    const char* pos{std::strpbrk(offset_str, "xX")};
+    while (pos && (*(++pos) != '\0')) {
         const char c{*pos};
         uint8_t val{0};
         if ((c >= '0') && (c <= '9')) {
-            val = static_cast<uint8_t>(c - '0');
-        } else if ((c >= 'A') && (c <='F')) {
+            val = static_cast< uint8_t >(c - '0');
+        } else if ((c >= 'A') && (c <= 'F')) {
             val = static_cast< uint8_t >((c - 'A') + 10);
         } else if ((c >= 'a') && (c <= 'f')) {
             val = static_cast< uint8_t >((c - 'a') + 10);
@@ -187,11 +184,13 @@ static uintptr_t _extract_offset(const char* const input_str, char* const offset
     return actual_addr;
 }
 
-static bool _adjust_offset_symbol(const char* const symbol_str, char* const offset_str, const size_t max_len, uintptr_t* const offset_ptr) {
+static bool _adjust_offset_symbol(const char* const symbol_str, char* const offset_str, const size_t max_len,
+                                  uintptr_t* const offset_ptr) {
     bool status{false};
     Dl_info symbol_info;
 
-    const std::unique_ptr< void, std::function<void(void* const)> > obj_file{::dlopen(nullptr, RTLD_LAZY), [](void* const ptr) { ::dlclose(ptr); }};
+    const std::unique_ptr< void, std::function< void(void* const) > > obj_file{::dlopen(nullptr, RTLD_LAZY),
+                                                                               [](void* const ptr) { ::dlclose(ptr); }};
     if (!obj_file) {
         return status;
     }
@@ -216,7 +215,7 @@ static bool _adjust_offset_symbol(const char* const symbol_str, char* const offs
 
 struct frame_info_t {
     frame_info_t() : frame{nullptr}, fname_len{0}, actual_addr{0}, index{0} {
-        addr_str.fill('\0'); 
+        addr_str.fill('\0');
         demangled_name.fill('\0');
         mangled_name.fill('\0');
         file_line.fill('\0');
@@ -237,11 +236,10 @@ struct frame_info_t {
 struct _addr2line_cmd_info {
     const char* this_frame_name;
     std::vector< frame_info_t* > single_invoke_finfos; // NOTE: maybe make array in future to avoid memory allocation
-    std::array< char, 5000 > cmd; // 256*18 + buffer for process name
+    std::array< char, 5000 > cmd;                      // 256*18 + buffer for process name
     size_t cmd_length;
 
-    _addr2line_cmd_info() :
-            this_frame_name{nullptr}, cmd_length{0} { cmd.fill('\0'); }
+    _addr2line_cmd_info() : this_frame_name{nullptr}, cmd_length{0} { cmd.fill('\0'); }
 
     _addr2line_cmd_info(const char* const frame, const size_t fname_len) : this_frame_name{frame}, cmd_length{0} {
         cmd.fill('\0');
@@ -251,7 +249,7 @@ struct _addr2line_cmd_info {
 
     void append_to_command(const char* const str, const size_t str_len = 0) {
         if (str_len == 0) {
-            const auto written { std::snprintf(cmd.data() + cmd_length, cmd.size() - cmd_length, "%s", str) };
+            const auto written{std::snprintf(cmd.data() + cmd_length, cmd.size() - cmd_length, "%s", str)};
             if (cmd_length + written >= cmd.size() - 1) {
                 cmd_length = cmd.size() - 1;
             } else {
@@ -304,17 +302,19 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             continue;
 
         for (auto& finfop : ainfo.single_invoke_finfos) {
+            static std::array< char, 15 > format;
+            std::snprintf(format.data(), format.size(), "%%%zus %%%zus", finfop->mangled_name.size() - 1,
+                          finfop->file_line.size() - 1);
             [[maybe_unused]] const int ret{
-                std::fscanf(fp.get(), "%1023s %1023s", finfop->mangled_name.data(), finfop->file_line.data())};
+                std::fscanf(fp.get(), format.data(), finfop->mangled_name.data(), finfop->file_line.data())};
 
             int status;
-            const std::unique_ptr < const char,
-                std::function< void(const char*) >> demangled_name{
-                    abi::__cxa_demangle(finfop->mangled_name.data(), 0, 0, &status),
-                    [](const char* ptr) { std::free(static_cast< void* >(const_cast< char* >(ptr))); }};
+            const std::unique_ptr< const char, std::function< void(const char* const) > > demangled_name{
+                abi::__cxa_demangle(finfop->mangled_name.data(), 0, 0, &status),
+                [](const char* const ptr) { std::free(static_cast< void* >(const_cast< char* >(ptr))); }};
             if (!demangled_name) {
-                const char* const s_pos {std::strchr(finfop->frame, '(')};
-                const char* e_pos {s_pos ? std::strrchr(finfop->frame, '+') : nullptr};
+                const char* const s_pos{std::strchr(finfop->frame, '(')};
+                const char* e_pos{s_pos ? std::strrchr(finfop->frame, '+') : nullptr};
                 if (s_pos && !e_pos)
                     e_pos = std::strrchr(finfop->frame, ')');
                 if (!e_pos) {
@@ -326,8 +326,7 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                     const size_t len{std::min< size_t >(e_pos - s_pos - 1, finfop->demangled_name.size() - 1)};
                     std::strncpy(finfop->demangled_name.data(), s_pos + 1, len);
                 }
-            } else 
-            {
+            } else {
                 std::strncpy(finfop->demangled_name.data(), demangled_name.get(), finfop->demangled_name.size() - 1);
             }
         }
@@ -359,7 +358,7 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
         }
 
         if (fname_len == 0)
-            break;
+            continue;
 
         finfos.emplace_back();
         finfos.back().frame = cur_frame;
@@ -372,7 +371,7 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             static std::array< char, 1024 > _symbol; // avoid memory allocation
             size_t _symbol_len{0};
             size_t _s{fname_len + 1};
-            while ((cur_frame[_s] != '+') && (cur_frame[_s] != ')') && (cur_frame[_s] != 0x0) &&
+            while ((cur_frame[_s] != 0x0) && (cur_frame[_s] != '+') && (cur_frame[_s] != ')') &&
                    (_symbol_len < _symbol.size() - 1)) {
                 _symbol[_symbol_len++] = cur_frame[_s++];
             }
@@ -381,17 +380,18 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             // Extract the offset
             if (cur_frame[_s] == '+') {
                 // ASLR is enabled, get the offset from here.
-                actual_addr = _extract_offset(&cur_frame[_s + 1], finfos.back().addr_str.data(),
-                                              finfos.back().addr_str.size());
+                actual_addr =
+                    _extract_offset(&cur_frame[_s + 1], finfos.back().addr_str.data(), finfos.back().addr_str.size());
             }
 
             // If symbol is present, try to add offset and get the correct addr_str
             if (_symbol_len > 0) {
-                if (!_adjust_offset_symbol(_symbol.data(), finfos.back().addr_str.data(),
-                                           finfos.back().addr_str.size(), & actual_addr)) {
+                if (!_adjust_offset_symbol(_symbol.data(), finfos.back().addr_str.data(), finfos.back().addr_str.size(),
+                                           &actual_addr)) {
                     // Resort to the default one
                     actual_addr = reinterpret_cast< uintptr_t >(stack_ptr[i]);
-                    std::snprintf(finfos.back().addr_str.data(), finfos.back().addr_str.size(), "%" PRIxPTR, actual_addr);
+                    std::snprintf(finfos.back().addr_str.data(), finfos.back().addr_str.size(), "%" PRIxPTR,
+                                  actual_addr);
                 }
             }
         } else {
@@ -490,9 +490,11 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
         if (filename != exec_file) {
             // Dynamic library.
             int status;
-            char* const cc{abi::__cxa_demangle(func_mangled.c_str(), 0, 0, &status)};
+            const std::unique_ptr< const char, std::function< void(const char* const) > > cc{
+                abi::__cxa_demangle(func_mangled.c_str(), 0, 0, &status),
+                [](const char* const ptr) { std::free(static_cast< void* >(const_cast< char* >(ptr))); }};
             if (cc) {
-                _snprintf(output_buf, avail_len, cur_len, msg_len, "%s at %s\n", cc, filename.c_str());
+                _snprintf(output_buf, avail_len, cur_len, msg_len, "%s at %s\n", cc.get(), filename.c_str());
             } else {
                 _snprintf(output_buf, avail_len, cur_len, msg_len, "%s() at %s\n", func_mangled.c_str(),
                           filename.c_str());
@@ -505,7 +507,8 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             ss << std::hex << load_base;
             ss << " -o " << exec_full_path;
             ss << " " << address;
-            FILE* const fp{::popen(ss.str().c_str(), "r")};
+            const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{
+                ::popen(ss.str().c_str() "r"), [](FILE* const ptr) { ::pclose(ptr); }};
             if (!fp)
                 continue;
 
