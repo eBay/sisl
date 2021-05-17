@@ -372,7 +372,7 @@ public:
     LoggerThreadContext(const LoggerThreadContext&) = delete;
     LoggerThreadContext& operator=(const LoggerThreadContext&) = delete;
     LoggerThreadContext(LoggerThreadContext&&) noexcept = delete;
-    LoggerThreadContext& operator=(LoggerThreadContext&) noexcept = delete;
+    LoggerThreadContext& operator=(LoggerThreadContext&&) noexcept = delete;
     ~LoggerThreadContext();
 
     static LoggerThreadContext& instance() {
@@ -396,7 +396,7 @@ public:
     std::shared_ptr< spdlog::logger > m_logger;
     std::shared_ptr< spdlog::logger > m_critical_logger;
     pthread_t m_thread_id;
-    std::array < char, max_stacktrace_size()> m_stack_buff;
+    std::array< char, max_stacktrace_size() > m_stack_buff;
 
 private:
     LoggerThreadContext();
@@ -458,7 +458,7 @@ void SetAllModuleLogLevel(const spdlog::level::level_enum level);
 
 void log_stack_trace(const bool all_threads = false);
 void install_signal_handler(const bool all_threads);
-void add_signal_handler(const int sig_num, const std::string_view& sig_name, const sig_handler_t hdlr);
+void add_signal_handler(const int sig_num, const std::string_view& sig_name, sig_handler_t hdlr);
 void install_crash_handler(const bool all_threads = true);
 bool is_crash_handler_installed();
 void override_setup_signals(const std::map< int, std::string >& override_signals);

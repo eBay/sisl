@@ -53,7 +53,7 @@ constexpr uint64_t Ki{1024};
 constexpr uint64_t Mi{Ki * Ki};
 
 std::shared_ptr< spdlog::logger >& GetLogger() {
-#if __cplusplus > 201703L 
+#if __cplusplus > 201703L
     [[unlikely]] if (!(logger_thread_ctx.m_logger)) {
 #else
     if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_logger))) {
@@ -133,7 +133,8 @@ void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
     // Create/Setup and register spdlog regular logger
     if (SDS_OPTIONS.count("synclog")) {
         glob_spdlog_logger = std::make_shared< spdlog::logger >(name, sinks.begin(), sinks.end());
-        glob_spdlog_logger->flush_on(static_cast<spdlog::level::level_enum>(SDS_OPTIONS["flush_every"].as< uint32_t >()));
+        glob_spdlog_logger->flush_on(
+            static_cast< spdlog::level::level_enum >(SDS_OPTIONS["flush_every"].as< uint32_t >()));
     } else {
         spdlog::init_thread_pool(SDS_OPTIONS["log_queue"].as< uint32_t >(), 1);
         glob_spdlog_logger =
@@ -167,7 +168,7 @@ static std::string setup_modules() {
         auto lvl_str{SDS_OPTIONS["verbosity"].as< std::string >()};
         auto lvl{spdlog::level::from_str(lvl_str)};
         if ((spdlog::level::level_enum::off == lvl) && (lvl_str.size() == 1)) {
-            lvl = static_cast<spdlog::level::level_enum>(std::stoi(lvl_str));
+            lvl = static_cast< spdlog::level::level_enum >(std::stoi(lvl_str));
             lvl_str = spdlog::level::to_string_view(lvl).data();
         }
 
@@ -186,12 +187,12 @@ static std::string setup_modules() {
                 std::string module_name, module_level;
                 std::getline(mod_stream, module_name, ':');
                 const std::string sym{std::string{"module_level_"} + module_name};
-                    if (auto* const mod_level{
-                            static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
+                if (auto* const mod_level{
+                        static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
                     nullptr != mod_level) {
                     if (std::getline(mod_stream, module_level, ':')) {
                         *mod_level = (1 == module_level.size())
-                            ? static_cast<spdlog::level::level_enum>(std::strtol(module_level.data(), nullptr, 0))
+                            ? static_cast< spdlog::level::level_enum >(std::strtol(module_level.data(), nullptr, 0))
                             : spdlog::level::from_str(module_level.data());
                     }
                 } else {
@@ -246,7 +247,8 @@ void SetLogPattern(const std::string& pattern, const std::shared_ptr< logger_t >
     }
 }
 
-std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn, const bool tee_to_stdout) {
+std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
+                                               const bool tee_to_stdout) {
     std::vector< spdlog::sink_ptr > sinks{};
     std::shared_ptr< spdlog::logger > custom_logger;
 

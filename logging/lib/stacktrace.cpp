@@ -50,7 +50,7 @@ static void restore_signal_handler(const int signal_number) {
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     std::scoped_lock< std::mutex > lock{g_hdlr_mutex};
     struct sigaction action;
-    std::memset(static_cast<void*>(&action), 0, sizeof(action)); //
+    std::memset(static_cast< void* >(&action), 0, sizeof(action)); //
     ::sigemptyset(&action.sa_mask);
     action.sa_handler = SIG_DFL; // take default action for the signal
     ::sigaction(signal_number, &action, NULL);
@@ -107,13 +107,13 @@ static const char* exit_reason_name(const SignalType fatal_id) {
     case SIGINT: return "SIGINT"; break;
     default:
         static std::array< char, 30 > unknown;
-        unknown.fill('0');
         std::snprintf(unknown.data(), unknown.size(), "UNKNOWN SIGNAL(%i)", signal_number);
         return unknown.data();
     }
 }
 
-static void crash_handler(const int signal_number, [[maybe_unused]] siginfo_t* const info, [[maybe_unused]] void* const unused_context) {
+static void crash_handler(const int signal_number, [[maybe_unused]] siginfo_t* const info,
+                          [[maybe_unused]] void* const unused_context) {
     // Only one signal will be allowed past this point
     if (exit_in_progress()) {
         while (true) {
@@ -132,7 +132,8 @@ static void crash_handler(const int signal_number, [[maybe_unused]] siginfo_t* c
     exit_with_default_sighandler(signal_number);
 }
 
-static void sigint_handler(const int signal_number, [[maybe_unused]] siginfo_t* const info, [[maybe_unused]] void* const unused_context) {
+static void sigint_handler(const int signal_number, [[maybe_unused]] siginfo_t* const info,
+                           [[maybe_unused]] void* const unused_context) {
     spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) { l->flush(); });
     spdlog::shutdown();
 
@@ -158,12 +159,11 @@ static void log_stack_trace_all_threads() {
         if (signal_thread) {
             const auto log_failure{[&logger, &critical_logger, &thread_count, &ctx](const char* const msg) {
                 if (logger) {
-                    logger->critical("Thread ID: {}, Thread num: {} - {}\n", msg, ctx->m_thread_id,
-                                     thread_count);
+                    logger->critical("Thread ID: {}, Thread num: {} - {}\n", ctx->m_thread_id, thread_count, msg);
                     logger->flush();
                 } else if (critical_logger) {
-                    critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", msg, ctx->m_thread_id,
-                                      thread_count);
+                    critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", ctx->m_thread_id, thread_count,
+                                              msg);
                     critical_logger->flush();
                 }
             }};
@@ -193,8 +193,7 @@ static void log_stack_trace_all_threads() {
             logger->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thread_count,
                              ctx->m_stack_buff.data());
             logger->flush();
-        }
-        else if (critical_logger) {
+        } else if (critical_logger) {
             critical_logger->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thread_count,
                                       ctx->m_stack_buff.data());
             critical_logger->flush();
@@ -236,7 +235,7 @@ void install_signal_handler(const bool all_threads) {
     // do it verbose style - install all signal actions
     for (const auto& sig_pair : g_sighandler_map) {
         struct sigaction action;
-        std::memset(static_cast<void*>(&action), 0, sizeof(action));
+        std::memset(static_cast< void* >(&action), 0, sizeof(action));
         ::sigemptyset(&action.sa_mask);
         action.sa_sigaction = sig_pair.second.second; // callback to crashHandler for fatal signals
         action.sa_flags = SA_SIGINFO;
@@ -256,7 +255,7 @@ void add_signal_handler([[maybe_unused]] const int sig_num, [[maybe_unused]] con
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     std::scoped_lock< std::mutex > l{g_hdlr_mutex};
     struct sigaction action;
-    std::memset(static_cast<void*>(&action), 0, sizeof(action));
+    std::memset(static_cast< void* >(&action), 0, sizeof(action));
     ::sigemptyset(&action.sa_mask);
     action.sa_sigaction = hdlr; // callback to crashHandler for fatal signals
     action.sa_flags = SA_SIGINFO;
@@ -276,7 +275,7 @@ void log_custom_signal_handlers() {
     {
         std::scoped_lock< std::mutex > l{g_hdlr_mutex};
         for (const auto& sp : g_sighandler_map) {
-            m += fmt::format("{}={}, ", sp.second.first, reinterpret_cast<const void*>(sp.second.second));
+            m += fmt::format("{}={}, ", sp.second.first, reinterpret_cast< const void* >(sp.second.second));
         }
     }
 
@@ -288,7 +287,7 @@ void log_stack_trace(const bool all_threads) {
         log_stack_trace_all_threads();
     } else {
         // make this static so that no memory allocation is necessary
-        static std::array < char, max_stacktrace_size()> buff;
+        static std::array< char, max_stacktrace_size() > buff;
         buff[0] = 0;
         [[maybe_unused]] const size_t s{stack_backtrace(buff.data(), buff.size())};
         LOGCRITICAL("\n\n{}", buff.data());
@@ -299,7 +298,7 @@ bool send_thread_signal(const pthread_t thr, const int sig_num) { return (::pthr
 
 void install_crash_handler(const bool all_threads) { install_signal_handler(all_threads); }
 
-bool is_crash_handler_installed() { 
+bool is_crash_handler_installed() {
     std::scoped_lock< std::mutex > lock{g_hdlr_mutex};
     return g_custom_signal_handler_installed;
 }
