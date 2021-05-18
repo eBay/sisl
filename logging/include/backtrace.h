@@ -404,12 +404,21 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
 
     if (!finfos.empty()) {
         convert_frame_format(finfos.data(), finfos.size());
+        // look for internal handler
         size_t frame_num{0};
         for (auto& finfo : finfos) {
+            ++frame_num;
+            if (std::strstr(finfo.file_line.data(), "sigaction"))
+                break;
+        }
+        if (frame_num == finfos.size())
+            frame_num = 0;
+        size_t line_num{0};
+        for (size_t frame{frame_num}; frame < finfos.size(); ++frame, ++line_num) {
             size_t msg_len{0};
             size_t avail_len{output_buflen};
-            _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in %s at %s\n", frame_num,
-                      finfo.actual_addr, finfo.demangled_name.data(), finfo.file_line.data());
+            _snprintf(output_buf, avail_len, cur_len, msg_len, "#%-2zu 0x%016" PRIxPTR " in %s at %s\n", line_num,
+                      finfos[frame].actual_addr, finfos[frame].demangled_name.data(), finfos[frame].file_line.data());
             ++frame_num;
         }
     }
