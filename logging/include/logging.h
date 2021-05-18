@@ -474,15 +474,15 @@ std::string format_log_msg(const char* const fmt, Args&&... args) {
 std::string format_log_msg();
 
 template < typename T1, typename T2, typename T3, typename... Args >
-void _cmp_assert_with_msg(const fmt::memory_buffer& buf, const char* const msg, const T1& val1, const T2& op,
-                          const T3& val2, Args&&... args) {
-    fmt::format_to(buf, "******************** Assertion failure: =====> Expected '{}' to be {} to '{}' ", val1, op,
-                   val2);
+void _cmp_assert_with_msg(fmt::memory_buffer& buf, const char* const msg, T1&& val1, T2&& op, T3&& val2,
+                          Args&&... args) {
+    fmt::format_to(buf, "******************** Assertion failure: =====> Expected '{}' to be {} to '{}' ",
+                   std::forward< T1 >(val1), std::forward< T2 >(op), std::forward< T3 >(val2));
     fmt::format_to(buf, msg, std::forward< Args >(args)...);
 }
 
 template < typename... Args >
-void default_cmp_assert_formatter(const fmt::memory_buffer& buf, const char* const msg, Args&&... args) {
+void default_cmp_assert_formatter(fmt::memory_buffer& buf, const char* const msg, Args&&... args) {
     _cmp_assert_with_msg(buf, msg, std::forward< Args >(args)...);
 }
 

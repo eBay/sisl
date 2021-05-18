@@ -151,7 +151,7 @@ void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
 }
 
 static void _set_module_log_level(const std::string& module_name, const spdlog::level::level_enum level) {
-    const std::string sym{std::string{"module_level_"} + module_name};
+    const auto sym{std::string{"module_level_"} + module_name};
     auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
     if (mod_level == nullptr) {
         LOGWARN("Unable to locate the module {} in registered modules", module_name);
@@ -186,7 +186,7 @@ static std::string setup_modules() {
                 auto mod_stream{std::istringstream(it->str())};
                 std::string module_name, module_level;
                 std::getline(mod_stream, module_name, ':');
-                const std::string sym{std::string{"module_level_"} + module_name};
+                const auto sym{std::string{"module_level_"} + module_name};
                 if (auto* const mod_level{
                         static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
                     nullptr != mod_level) {
@@ -277,7 +277,7 @@ void SetModuleLogLevel(const std::string& module_name, const spdlog::level::leve
 }
 
 spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name) {
-    const std::string sym{std::string{"module_level_"} + module_name};
+    const auto sym{std::string{"module_level_"} + module_name};
     auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
     if (mod_level == nullptr) {
         LOGWARN("Unable to locate the module {} in registered modules", module_name);
@@ -301,7 +301,9 @@ void SetAllModuleLogLevel(const spdlog::level::level_enum level) {
     }
 }
 
-std::string format_log_msg() { return ""; }
+std::string format_log_msg() { 
+    return std::string{}; 
+}
 
 LoggerThreadContext::LoggerThreadContext() {
     m_thread_id = pthread_self();
