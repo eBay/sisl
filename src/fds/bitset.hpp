@@ -584,13 +584,13 @@ public:
      *
      * @return sisl::byte_array
      */
-    const sisl::byte_array serialize() const {
+    const sisl::byte_array serialize(const uint32_t alignment = 0) const {
         ReadLockGuard lock{this};
         assert(m_s);
         const uint64_t num_bits{total_bits()};
         const uint64_t total_words{bitset_serialized::total_words(num_bits)};
         const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
-        auto buf{make_byte_array(total_bytes)};
+        auto buf{make_byte_array(total_bytes, alignment)};
         new (buf->bytes) bitset_serialized{m_s->m_id, num_bits, 0, false};
 
         // copy the unshifted data words
