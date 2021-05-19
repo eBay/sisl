@@ -134,7 +134,10 @@ static void crash_handler(const int signal_number, [[maybe_unused]] siginfo_t* c
 
 static void sigint_handler(const int signal_number, [[maybe_unused]] siginfo_t* const info,
                            [[maybe_unused]] void* const unused_context) {
-    spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) { l->flush(); });
+    spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
+        if (l)
+            l->flush();
+    });
     spdlog::shutdown();
 
     exit_with_default_sighandler(signal_number);
@@ -143,7 +146,7 @@ static void sigint_handler(const int signal_number, [[maybe_unused]] siginfo_t* 
 static void bt_dumper([[maybe_unused]] const int signal_number, [[maybe_unused]] siginfo_t* const info,
                       [[maybe_unused]] void* const unused_context) {
     logger_thread_ctx.m_stack_buff[0] = 0;
-    stack_backtrace(logger_thread_ctx.m_stack_buff.data(), logger_thread_ctx.m_stack_buff.size());
+    stack_backtrace(logger_thread_ctx.m_stack_buff.data(), logger_thread_ctx.m_stack_buff.size(), true);
     [[maybe_unused]] const auto prev{g_stack_dump_outstanding.fetch_sub(1)};
     assert(prev > 0);
     g_stack_dump_cv.notify_all();
@@ -186,7 +189,7 @@ static void log_stack_trace_all_threads() {
         } else {
             // dump the thread without recursive signal
             ctx->m_stack_buff[0] = 0;
-            stack_backtrace(ctx->m_stack_buff.data(), ctx->m_stack_buff.size());
+            stack_backtrace(ctx->m_stack_buff.data(), ctx->m_stack_buff.size(), true);
         }
 
         if (logger) {
@@ -222,8 +225,11 @@ static void log_stack_trace_all_threads() {
 
 /************************************************* Exported APIs **********************************/
 static std::map< SignalType, signame_handler_pair_t > g_sighandler_map = {
-    {SIGABRT, {"SIGABRT", &crash_handler}}, {SIGFPE, {"SIGFPE", &crash_handler}}, {SIGILL, {"SIGILL", &crash_handler}},
-    {SIGSEGV, {"SIGSEGV", &crash_handler}}, {SIGINT, {"SIGINT", &crash_handler}}, {SIGUSR3, {"SIGUSR3", &bt_dumper}},
+    {SIGABRT, {"SIGABRT", &crash_handler}},
+    {SIGFPE, {"SIGFPE", &crash_handler}},
+    {SIGILL, {"SIGILL", &crash_handler}},
+    {SIGSEGV, {"SIGSEGV", &crash_handler}},
+    /* {SIGINT, {"SIGINT", &crash_handler}}, */ {SIGUSR3, {"SIGUSR3", &bt_dumper}},
     {SIGINT, {"SIGINT", &sigint_handler}},
 };
 
@@ -289,7 +295,7 @@ void log_stack_trace(const bool all_threads) {
         // make this static so that no memory allocation is necessary
         static std::array< char, max_stacktrace_size() > buff;
         buff[0] = 0;
-        [[maybe_unused]] const size_t s{stack_backtrace(buff.data(), buff.size())};
+        [[maybe_unused]] const size_t s{stack_backtrace(buff.data(), buff.size(), true)};
         LOGCRITICAL("\n\n{}", buff.data());
     }
 }

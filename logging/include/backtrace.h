@@ -120,32 +120,40 @@ void _snprintf(char* const msg, size_t& avail_len, size_t& cur_len, size_t& msg_
 #if defined(__linux__)
 [[maybe_unused]] static size_t _stack_interpret_linux(const void* const* const stack_ptr,
                                                       const char* const* const stack_msg, const size_t stack_size,
-                                                      char* const output_buf, const size_t output_buflen);
+                                                      char* const output_buf, const size_t output_buflen,
+                                                      const bool trim_internal);
 #elif defined(__APPLE__)
 [[maybe_unused]] static size_t _stack_interpret_apple(const void* const* const stack_ptr,
                                                       const char* const* const stack_msg, const size_t stack_size,
-                                                      char* const output_buf, const size_t output_buflen);
+                                                      char* const output_buf, const size_t output_buflen,
+                                                      const bool trim_internal,
+                                                      [[maybe_unused]] const bool trim_internal);
 #else
 [[maybe_unused]] static size_t _stack_interpret_other(const void* const* const stack_ptr,
                                                       const char* const* const stack_msg, const size_t stack_size,
-                                                      char* const output_buf, const size_t output_buflen);
+                                                      char* const output_buf, const size_t output_buflen,
+                                                      [[maybe_unused]] const bool trim_internal);
 #endif
 
 [[maybe_unused]] static size_t _stack_interpret(void* const* const stack_ptr, const size_t stack_size,
-                                                char* const output_buf, const size_t output_buflen) {
+                                                char* const output_buf, const size_t output_buflen,
+                                                const bool trim_internal) {
     // NOTE:: possibly use file backed backtrace_symbols_fd
     const std::unique_ptr< char*, std::function< void(char** const) > > stack_msg{
         ::backtrace_symbols(stack_ptr, static_cast< int >(stack_size)),
         [](char** const ptr) { std::free(static_cast< void* >(ptr)); }};
 
 #if defined(__linux__)
-    const size_t len{_stack_interpret_linux(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen)};
+    const size_t len{
+        _stack_interpret_linux(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen, trim_internal)};
 
 #elif defined(__APPLE__)
-    const size_t len{_stack_interpret_apple(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen)};
+    const size_t len{
+        _stack_interpret_apple(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen, trim_internal)};
 
 #else
-    const size_t len{_stack_interpret_other(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen)};
+    const size_t len{
+        _stack_interpret_other(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen, trim_internal)};
 
 #endif
 
@@ -335,7 +343,8 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
 
 [[maybe_unused]] static size_t _stack_interpret_linux(const void* const* const stack_ptr,
                                                       const char* const* const stack_msg, const size_t stack_size,
-                                                      char* const output_buf, const size_t output_buflen) {
+                                                      char* const output_buf, const size_t output_buflen,
+                                                      const bool trim_internal) {
     size_t cur_len{0};
     // make static to avoid memory allocation
     static std::vector< frame_info_t > finfos(backtrace_detail::max_backtrace);
@@ -406,13 +415,22 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
         convert_frame_format(finfos.data(), finfos.size());
         // look for internal handler
         size_t frame_num{0};
-        for (auto& finfo : finfos) {
-            ++frame_num;
-            if (std::strstr(finfo.file_line.data(), "sigaction"))
-                break;
+        if (trim_internal) {
+            for (auto& finfo : finfos) {
+                if (std::strstr(finfo.demangled_name.data(), "sds_logging::bt_dumper") ||
+                    std::strstr(finfo.demangled_name.data(), "sds_logging::crash_handler")) {
+                    // skip to next line and check if can trim from sigaction
+                    if ((++frame_num < finfos.size()) && std::strstr(finfos[frame_num].file_line.data(), "sigaction.c")) {
+                        // skip sigaction
+                        ++frame_num;
+                    }
+                    break;
+                }
+                ++frame_num;
+            }
+            if (frame_num == finfos.size())
+                frame_num = 0;
         }
-        if (frame_num == finfos.size())
-            frame_num = 0;
         size_t line_num{0};
         for (size_t frame{frame_num}; frame < finfos.size(); ++frame, ++line_num) {
             size_t msg_len{0};
@@ -440,7 +458,8 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
 #ifdef __APPLE__
 [[maybe_unused]] static size_t _stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr,
                                                       const char* const* const stack_msg, const size_t stack_size,
-                                                      char* const output_buf, const size_t output_buflen) {
+                                                      char* const output_buf, const size_t output_buflen, ,
+                                                      [[maybe_unused]] const bool trim_internal) {
     size_t cur_len{0};
 
     [[maybe_unused]] size_t frame_num{0};
@@ -547,7 +566,8 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
 
 [[maybe_unused]] static size_t _stack_interpret_other([[maybe_unused]] const void* const* const stack_ptr,
                                                       const char* const* const stack_msg, const size_t stack_size,
-                                                      char* const output_buf, const size_t output_buflen) {
+                                                      char* const output_buf, const size_t output_buflen,
+                                                      [[maybe_unused]] const bool trim_internal) {
     size_t cur_len{0};
     [[maybe_unused]] size_t frame_num{0};
 
@@ -561,14 +581,15 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
     return cur_len;
 }
 
-[[maybe_unused]] static size_t stack_backtrace(char* const output_buf, const size_t output_buflen) {
+[[maybe_unused]] static size_t stack_backtrace(char* const output_buf, const size_t output_buflen,
+                                               const bool trim_internal) {
     // make this static so no memory allocation needed
     static std::mutex s_lock;
     static std::array< void*, backtrace_detail::max_backtrace > stack_ptr;
     {
         std::scoped_lock lock{s_lock};
         const size_t stack_size{_stack_backtrace(stack_ptr.data(), stack_ptr.size())};
-        return _stack_interpret(stack_ptr.data(), stack_size, output_buf, output_buflen);
+        return _stack_interpret(stack_ptr.data(), stack_size, output_buf, output_buflen, trim_internal);
     }
 }
 
