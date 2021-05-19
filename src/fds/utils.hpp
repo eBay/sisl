@@ -161,6 +161,8 @@ public:
         p->~T();
         aligned_free(p);
     }
+
+    virtual size_t buf_size(uint8_t* buf) const { return ::malloc_usable_size(buf); }
 };
 
 class AlignedAllocator {
@@ -233,8 +235,7 @@ struct io_blob : public blob {
     io_blob() = default;
     io_blob(const size_t sz, const uint32_t align_size = 512) { buf_alloc(sz, align_size); }
     io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size),
-            aligned{is_aligned} {}
+            blob(bytes, size), aligned{is_aligned} {}
     ~io_blob() = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512) {
@@ -403,5 +404,4 @@ static int spaceship_oper(const T& left, const T& right) {
 #define _PLACEHOLDER_PARAM(z, n, text) , text##n
 #define bind_this(method, nparams)                                                                                     \
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
-
 } // namespace sisl

@@ -5,6 +5,11 @@ endif()
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
+set(SETTINGS_SOURCE_FILES 
+    settings.cpp
+   )
+add_library(sisl_settings OBJECT ${SETTINGS_SOURCE_FILES})
+
 set(TEST_SETTINGS_SOURCE_FILES
     tests/test_settings.cpp
    )

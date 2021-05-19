@@ -124,6 +124,22 @@ protected:
     void SetUp() override {}
     void TearDown() override {}
 
+    void fill_random(const uint64_t start, const uint32_t nbits) {
+        static thread_local std::random_device rd{};
+        static thread_local std::default_random_engine re{rd()};
+        std::uniform_int_distribution< uint8_t > rand{0, 1};
+        for (uint64_t bit{start}; bit < start + nbits; ++bit) {
+            const bool set{rand(re) == 1};
+            if (set) {
+                m_bset.set_bit(bit);
+                m_shadow_bm.set(true, bit);
+            } else {
+                m_bset.reset_bit(bit);
+                m_shadow_bm.set(false, bit);
+            }
+        }
+    }
+
     void set(const uint64_t start_bit, const uint32_t nbits) {
         m_bset.set_bits(start_bit, nbits);
         m_shadow_bm.set(true, start_bit, nbits);
@@ -149,7 +165,7 @@ protected:
     sisl::byte_array serialize() { return m_bset.serialize(); }
 
     void deserialize(sisl::byte_array buf) {
-        sisl::ThreadSafeBitset tmp_bset(buf);
+        sisl::ThreadSafeBitset tmp_bset{buf};
         m_bset = std::move(tmp_bset);
     }
 
@@ -264,18 +280,24 @@ TEST_F(BitsetTest, TestSetCountWithShift) {
 
     // offset right a partial word
     const uint64_t offset1{4};
-    m_bset.shrink_head(offset1);
-    ASSERT_EQ(m_bset.get_set_count(), g_total_bits - offset1);
+    shrink_head(offset1);
 
     // offset right more than a word
     const uint64_t offset2{static_cast< uint64_t >(2 * m_bset.word_size())};
-    m_bset.shrink_head(offset2);
+    shrink_head(offset2);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2));
 
     // offset right an exact multiple of a word
     const uint64_t offset3{static_cast< uint64_t >(m_bset.word_size() - ((offset1 + offset2) % m_bset.word_size()))};
-    m_bset.shrink_head(offset3);
+    shrink_head(offset3);
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - (offset1 + offset2 + offset3));
+
+    // test same first word shifted
+    m_bset.reset_bits(0, 2);
+    ASSERT_EQ(m_bset.get_set_count(0, 1), static_cast< uint64_t >(0));
+    shrink_head(2);
+    ASSERT_EQ(m_bset.get_set_count(0, 0), static_cast< uint64_t >(1));
+    ASSERT_EQ(m_bset.get_set_count(0, 61), static_cast< uint64_t >(62));
 }
 
 TEST_F(BitsetTest, TestSetCount) {
@@ -302,6 +324,55 @@ TEST_F(BitsetTest, TestSetCount) {
     ASSERT_EQ(m_bset.get_set_count(), g_total_bits - 6 * word_size - word_size / 2);
 }
 
+TEST_F(BitsetTest, TestGetWordValue) {
+    // use pointer constructor
+    constexpr std::array< uint8_t, 16 > bits1{0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                                              0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint8_t > >, true > bset1{bits1.data(), bits1.data() + bits1.size()};
+
+    ASSERT_EQ(bset1.get_word_value(0), static_cast< uint8_t >(0x00));
+    ASSERT_EQ(bset1.get_word_value(8), static_cast< uint8_t >(0x11));
+    ASSERT_EQ(bset1.get_word_value(bits1.size() * 8 - 8), static_cast< uint8_t >(0xFF));
+
+    // shift half word so composed of two words, data is ordered LSB to MSB per word
+    constexpr uint64_t shrink_bits1{4};
+    bset1.shrink_head(shrink_bits1);
+    ASSERT_EQ(bset1.get_word_value(0), static_cast< uint8_t >(0x10));
+    ASSERT_EQ(bset1.get_word_value(8), static_cast< uint8_t >(0x21));
+    // get partial last word
+    ASSERT_EQ(bset1.get_word_value(bits1.size() * 8 - shrink_bits1 - 4), static_cast< uint8_t >(0xF));
+
+    // use iterator constructor
+    const std::vector< uint8_t > bits2{0xFF, 0xEE, 0xDD, 0xCC, 0xBB, 0xAA, 0x99, 0x88,
+                                       0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00};
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint8_t > >, true > bset2{std::cbegin(bits2), std::cend(bits2)};
+
+    ASSERT_EQ(bset2.get_word_value(0), static_cast< uint8_t >(0xFF));
+    ASSERT_EQ(bset2.get_word_value(8), static_cast< uint8_t >(0xEE));
+    ASSERT_EQ(bset2.get_word_value(bits2.size() * 8 - 8), static_cast< uint8_t >(0x00));
+
+    // shift half word so composed of two words, data is ordered LSB to MSB per word
+    constexpr uint64_t shrink_bits2{4};
+    bset2.shrink_head(shrink_bits2);
+    ASSERT_EQ(bset2.get_word_value(0), static_cast< uint8_t >(0xEF));
+    ASSERT_EQ(bset2.get_word_value(8), static_cast< uint8_t >(0xDE));
+    // get partial last word
+    ASSERT_EQ(bset2.get_word_value(bits2.size() * 8 - shrink_bits2 - 4), static_cast< uint8_t >(0x00));
+
+    constexpr std::array< uint64_t, 2 > bits3{0x0123456789ABCDEF, 0xFEDCBA9876543210};
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint64_t > >, true > bset3{bits3.data(), bits3.data() + bits3.size()};
+
+    ASSERT_EQ(bset3.get_word_value(0), static_cast< uint64_t >(0x0123456789ABCDEF));
+    ASSERT_EQ(bset3.get_word_value(64), static_cast< uint64_t >(0xFEDCBA9876543210));
+    // get partial last word
+    ASSERT_EQ(bset3.get_word_value(96), static_cast< uint64_t >(0xFEDCBA98));
+
+    // shift a byte
+    constexpr uint64_t shrink_bits3{8};
+    bset3.shrink_head(shrink_bits3);
+    ASSERT_EQ(bset3.get_word_value(0), static_cast< uint64_t >(0x100123456789ABCD));
+}
+
 TEST_F(BitsetTest, TestPrint) {
     const std::string str1{m_bset.to_string()};
     for (const char x : str1) {
@@ -313,6 +384,43 @@ TEST_F(BitsetTest, TestPrint) {
     for (const char x : str2) {
         ASSERT_EQ(x, '1');
     }
+
+    // test correct bit order of output
+    constexpr std::array< uint64_t, 1 > bits1{0x0123456789ABCDEF};
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint64_t > >, true > bset1{bits1.data(), bits1.data() + bits1.size()};
+    const std::string str3{bset1.to_string()};
+    ASSERT_EQ(str3, std::string{"0000000100100011010001010110011110001001101010111100110111101111"});
+
+    bset1.shrink_head(4);
+    const std::string str4{bset1.to_string()};
+    ASSERT_EQ(str4, std::string{"000000010010001101000101011001111000100110101011110011011110"});
+
+    // test partial last word
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint64_t > >, true > bset2{32};
+    bset2.set_bits(28, 4);
+    bset2.set_bits(20, 4);
+    bset2.set_bits(12, 4);
+    bset2.set_bits(4, 4);
+    const std::string str5{bset2.to_string()};
+    ASSERT_EQ(str5, std::string{"11110000111100001111000011110000"});
+
+    bset2.shrink_head(4);
+    const std::string str6{bset2.to_string()};
+    ASSERT_EQ(str6, std::string{"1111000011110000111100001111"});
+
+    // test partial last word
+    sisl::BitsetImpl< Bitword< unsafe_bits< uint32_t > >, true > bset3{36};
+    bset3.set_bits(32, 4);
+    bset3.set_bits(24, 4);
+    bset3.set_bits(16, 4);
+    bset3.set_bits(8, 4);
+    bset3.set_bits(0, 4);
+    const std::string str7{bset3.to_string()};
+    ASSERT_EQ(str7, std::string{"111100001111000011110000111100001111"});
+
+    bset3.shrink_head(4);
+    const std::string str8{bset3.to_string()};
+    ASSERT_EQ(str8, std::string{"11110000111100001111000011110000"});
 }
 
 TEST_F(BitsetTest, TestIsSetReset) {
@@ -330,6 +438,21 @@ TEST_F(BitsetTest, TestIsSetReset) {
     // test half upper/lower next word
     m_bset.set_bits(word_size, word_size / 2);
     ASSERT_TRUE(m_bset.is_bits_set(start_bit1, word_size));
+}
+
+TEST_F(BitsetTest, TestCopyUnshifted) {
+    // fill bitset with random data, shift, and make unshifted copy
+    for (uint64_t shift{0}; shift <= m_bset.word_size(); ++shift) {
+        const uint64_t total_bits{g_total_bits - shift};
+        if (shift > 0) shrink_head(1);
+        fill_random(0, total_bits);
+        sisl::ThreadSafeBitset tmp_bset{};
+        tmp_bset.copy_unshifted(m_bset);
+
+        for (uint64_t bit{0}; bit < total_bits; ++bit) {
+            ASSERT_EQ(m_bset.get_bitval(bit), tmp_bset.get_bitval(bit));
+        }
+    }
 }
 
 TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
@@ -399,49 +522,64 @@ TEST_F(BitsetTest, GetNextContiguousUptoNResetBits) {
     ASSERT_EQ(result13.nbits, static_cast< uint32_t >(32));
 }
 
-TEST_F(BitsetTest, AlternateSetAndShrink) {
-    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
-        LOGINFO("INFO: Setting alternate bits (set even and reset odd) in range[{} - {}]", start, start + count - 1);
-        for (auto i{start}; i < start + count; ++i) {
-            (i % 2 == 0) ? set(i, 1) : reset(i, 1);
+TEST_F(BitsetTest, EqualityLogicCheck) {
+    // flip random bits
+    const auto flip_random_bits{[this](auto& tmp_bitset, const size_t num_bits, const size_t num_flips) {
+        static thread_local std::random_device rd{};
+        static thread_local std::default_random_engine re{rd()};
+        std::uniform_int_distribution< uint64_t > bit_rand{0, num_bits - 1};
+        for (size_t flip{0}; flip < num_flips; ++flip) {
+            const uint64_t bit{bit_rand(re)};
+
+            if (tmp_bitset.get_bitval(bit)) {
+                tmp_bitset.reset_bit(bit);
+                ASSERT_FALSE(tmp_bitset.get_bitval(bit));
+                ASSERT_FALSE(m_bset == tmp_bitset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                ASSERT_FALSE(tmp_bitset == m_bset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                tmp_bitset.set_bit(bit);
+                ASSERT_TRUE(tmp_bitset.get_bitval(bit));
+            } else {
+                tmp_bitset.set_bit(bit);
+                ASSERT_TRUE(tmp_bitset.get_bitval(bit));
+                ASSERT_FALSE(m_bset == tmp_bitset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                ASSERT_FALSE(tmp_bitset == m_bset) << "Failed flipping bit " << bit << " out of " << num_bits;
+                tmp_bitset.reset_bit(bit);
+                ASSERT_FALSE(tmp_bitset.get_bitval(bit));
+            }
         }
-    });
-    validate_all(1);
+    }};
 
-    LOGINFO("INFO: Shrink and right shift by 15 bits");
-    shrink_head(15);
-
-    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
-        LOGINFO("INFO: Now toggle set/reset (reset even and set odd) in range[{} - {}]", start, start + count - 1);
-        for (auto i{start}; i < start + count; ++i) {
-            (i % 2 == 1) ? set(i, 1) : reset(i, 1);
+    // shift both equally through all alignments and test
+    fill_random(0, g_total_bits);
+    sisl::ThreadSafeBitset tmp_bset1{};
+    tmp_bset1.copy(m_bset);
+    uint64_t total_bits{g_total_bits};
+    for (uint64_t shift{0}; shift <= m_bset.word_size(); ++shift) {
+        if (shift > 0) {
+            shrink_head(1);
+            tmp_bset1.shrink_head(1);
+            --total_bits;
         }
-    });
+        ASSERT_TRUE(m_bset == tmp_bset1);
+        ASSERT_TRUE(tmp_bset1 == m_bset);
+        flip_random_bits(tmp_bset1, total_bits, total_bits / 20);
+        ASSERT_TRUE(m_bset == tmp_bset1);
+        ASSERT_TRUE(tmp_bset1 == m_bset);
+    }
 
-    validate_all(1);
-}
+    // test shifted against unshifted through all alignments
+    sisl::ThreadSafeBitset tmp_bset2{};
+    for (uint64_t shift{0}; shift < m_bset.word_size(); ++shift) {
+        shrink_head(1);
+        --total_bits;
+        tmp_bset2.copy_unshifted(m_bset);
 
-TEST_F(BitsetTest, SequentialSetAndExpand) {
-    LOGINFO("INFO: Setting all bits from {} to end {}", total_bits() / 2, total_bits());
-    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
-        for (auto i{start}; i < start + count; ++i) {
-            (i > total_bits() / 2) ? set(i, 1) : reset(i, 1);
-        }
-    });
-    validate_all(1);
-
-    LOGINFO("INFO: Increase the size by 1000 bits");
-    expand_tail(1000);
-
-    LOGINFO("INFO: Setting all bits from 0 to 200");
-    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
-        for (auto i{start}; i < start + count; ++i) {
-            if (i <= 200) { set(i, 1); }
-        }
-    });
-
-    validate_all(6);
-    validate_by_next_continous_bits(161);
+        ASSERT_TRUE(m_bset == tmp_bset2);
+        ASSERT_TRUE(tmp_bset2 == m_bset);
+        flip_random_bits(tmp_bset2, total_bits, total_bits / 20);
+        ASSERT_TRUE(m_bset == tmp_bset2);
+        ASSERT_TRUE(tmp_bset2 == m_bset);
+    }
 }
 
 TEST_F(BitsetTest, RandomSetAndShrink) {
@@ -579,8 +717,9 @@ SDS_OPTION_GROUP(test_bitset,
                   ::cxxopts::value< uint32_t >()->default_value("72"), "number"))
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_bitset);
-    ::testing::InitGoogleTest(&argc, argv);
+    int parsed_argc{argc};
+    ::testing::InitGoogleTest(&parsed_argc, argv);
+    SDS_OPTIONS_LOAD(parsed_argc, argv, logging, test_bitset);
     sds_logging::SetLogger("test_bitset");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 

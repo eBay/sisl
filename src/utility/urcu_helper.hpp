@@ -183,20 +183,22 @@ public:
     static void sync_rcu() { synchronize_rcu(); }
 };
 
+/* TODO : Try an ensure the lifetime of this object does not exceed the scoped_ptr that created it */
 template < typename T >
 class _urcu_access_ptr {
+
 public:
     T* m_p;
 
-    _urcu_access_ptr(T* p) : m_p(p) { rcu_read_lock(); }
+    _urcu_access_ptr(T* p) : m_p(p) {}
     ~_urcu_access_ptr() { rcu_read_unlock(); }
-
     _urcu_access_ptr(const _urcu_access_ptr& other) = delete;
     _urcu_access_ptr& operator=(const _urcu_access_ptr& other) = delete;
     _urcu_access_ptr(_urcu_access_ptr&& other) noexcept { std::swap(m_p, other.m_p); }
 
-    const T* operator->() const { return rcu_dereference(m_p); }
-    T* get() const { return rcu_dereference(m_p); }
+    const T* operator->() const { return m_p; }
+    T* operator->() { return m_p; }
+    T* get() const { return m_p; }
 };
 
 /* Simplified urcu pointer access */
@@ -208,8 +210,15 @@ public:
         m_cur_obj = new T(std::forward< Args1 >(args)...);
     }
 
+    urcu_scoped_ptr(urcu_scoped_ptr const&) = delete;
+    urcu_scoped_ptr(urcu_scoped_ptr&&) = delete;
+    urcu_scoped_ptr& operator=(urcu_scoped_ptr const&) = delete;
+    urcu_scoped_ptr& operator=(urcu_scoped_ptr&&) = delete;
+
     ~urcu_scoped_ptr() {
-        if (m_cur_obj) delete m_cur_obj;
+        rcu_read_lock(); // Take read-fence prior to accessing m_cur_obj
+        if (m_cur_obj) delete rcu_dereference(m_cur_obj);
+        rcu_read_unlock();
     }
 
     void read(const auto& cb) const {
@@ -219,16 +228,22 @@ public:
         rcu_read_unlock();
     }
 
-    _urcu_access_ptr< T > access() const { return _urcu_access_ptr< T >(m_cur_obj); }
+    _urcu_access_ptr< T > access() const {
+        rcu_read_lock();                                          // Take read-fence prior to accessing m_cur_obj
+        return _urcu_access_ptr< T >(rcu_dereference(m_cur_obj)); // This object will read_unlock when it's destroyed
+    }
 
     void update(const auto& edit_cb) {
-        std::scoped_lock l(m_updater_mutex);             // TODO: Should we have it here or leave it to caller???
-        T* new_obj = new T((const T&)*(access().get())); // Create new obj from old obj
-        edit_cb(new_obj);
+        T* old_obj{nullptr};
+        {
+            auto l = std::scoped_lock(m_updater_mutex);        // TODO: Should we have it here or leave it to caller???
+            auto new_obj = new T(*rcu_dereference(m_cur_obj)); // Create new obj from old obj
+            edit_cb(new_obj);
 
-        auto old_obj = rcu_xchg_pointer(&m_cur_obj, new_obj);
+            old_obj = rcu_xchg_pointer(&m_cur_obj, new_obj);
+        }
         synchronize_rcu();
-        delete old_obj;
+        if (old_obj) [[likely]] delete old_obj;
     }
 
     T* make_and_exchange(const bool sync_rcu_now = true) {
@@ -238,7 +253,7 @@ public:
 private:
     template < std::size_t... Is >
     T* _make_and_exchange(const bool sync_rcu_now, const std::tuple< Args... >& tuple, std::index_sequence< Is... >) {
-        T* new_obj = new T(std::get< Is >(tuple)...); // Make new object with saved constructor params
+        auto new_obj = new T(std::get< Is >(tuple)...); // Make new object with saved constructor params
         auto old_obj = rcu_xchg_pointer(&m_cur_obj, new_obj);
         if (sync_rcu_now) { synchronize_rcu(); }
         return old_obj;
