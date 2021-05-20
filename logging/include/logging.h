@@ -13,6 +13,7 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
+#include <initializer_list>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -396,21 +397,31 @@ public:
     std::shared_ptr< spdlog::logger > m_logger;
     std::shared_ptr< spdlog::logger > m_critical_logger;
     pthread_t m_thread_id;
-    std::array< char, max_stacktrace_size() > m_stack_buff;
 
 private:
     LoggerThreadContext();
+};
+
+class InitModules {
+public:
+    InitModules(std::initializer_list< const char* > list) { init_modules(list); }
+    InitModules(const InitModules&) = delete;
+    InitModules& operator=(const InitModules&) = delete;
+    InitModules(InitModules&&) noexcept = delete;
+    InitModules& operator=(InitModules&&) noexcept = delete;
+    ~InitModules() = default;
+
+private:
+    void init_modules(std::initializer_list< const char* > mods_list);
 };
 
 #define logger_thread_ctx LoggerThreadContext::instance()
 #define mythread_logger logger_thread_ctx.m_logger
 #define mycritical_logger logger_thread_ctx.m_critical_logger
 
-extern std::shared_ptr< spdlog::logger > glob_spdlog_logger;
-extern std::shared_ptr< spdlog::logger > glob_critical_logger;
-extern std::shared_ptr< spdlog::logger >& GetLogger() __attribute__((weak));
-extern std::shared_ptr< spdlog::logger >& GetCriticalLogger() __attribute__((weak));
-extern std::vector< std::string > glob_enabled_mods;
+[[maybe_unused]] extern std::shared_ptr< spdlog::logger >& GetLogger();
+[[maybe_unused]] extern std::shared_ptr< spdlog::logger >& GetCriticalLogger();
+
 } // namespace sds_logging
 
 #define MODLEVELDEC(r, _, module)                                                                                      \
@@ -430,40 +441,35 @@ MODLEVELDEC(_, _, base)
     BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define SDS_LOGGING_INIT(...)                                                                                          \
-    BOOST_PP_SEQ_FOR_EACH(                                                                                             \
-        MODLEVELDEF, spdlog::level::level_enum::info,                                                                  \
-        BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_TUPLE_PUSH_FRONT(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__), base)))               \
-    namespace sds_logging {                                                                                            \
-    std::shared_ptr< spdlog::logger > glob_spdlog_logger;                                                              \
-    std::shared_ptr< spdlog::logger > glob_critical_logger;                                                            \
-    std::vector< std::string > glob_enabled_mods = {                                                                   \
-        MOD_LEVEL_STRING(, , base) BOOST_PP_SEQ_FOR_EACH(MOD_LEVEL_STRING, , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};  \
-    std::mutex LoggerThreadContext::_logger_thread_mutex;                                                              \
-    std::unordered_set< LoggerThreadContext* > LoggerThreadContext::_logger_thread_set;                                \
-    }
+    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::info,                                                \
+                          BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__)))                              \
+    sds_logging::InitModules s_init_enabled_mods{                                                                      \
+        BOOST_PP_SEQ_FOR_EACH(MOD_LEVEL_STRING, , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};
 
 namespace sds_logging {
 typedef void (*sig_handler_t)(int, siginfo_t*, void*);
 
-void SetLogger(std::string const& name,
-               std::string const& pkg =
-                   BOOST_PP_STRINGIZE(PACKAGE_NAME), std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
-std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn, bool tee_to_stdout);
-void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
+extern void
+SetLogger(std::string const& name,
+          std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
+                                                      std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+extern std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
+                                                      bool tee_to_stdout);
+extern void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
 
-void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
-spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name);
-nlohmann::json GetAllModuleLogLevel();
-void SetAllModuleLogLevel(const spdlog::level::level_enum level);
+extern void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
+extern spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name);
+extern nlohmann::json GetAllModuleLogLevel();
+extern void SetAllModuleLogLevel(const spdlog::level::level_enum level);
 
-void log_stack_trace(const bool all_threads = false);
-void install_signal_handler(const bool all_threads);
-void add_signal_handler(const int sig_num, const std::string_view& sig_name, sig_handler_t hdlr);
-void install_crash_handler(const bool all_threads = true);
-bool is_crash_handler_installed();
-void override_setup_signals(const std::map< int, std::string >& override_signals);
-void restore_signal_handler_to_default();
-bool send_thread_signal(const pthread_t thr, const int sig_num);
+extern void log_stack_trace(const bool all_threads = false);
+extern void install_signal_handler(const bool all_threads);
+extern void add_signal_handler(const int sig_num, const std::string_view& sig_name, sig_handler_t hdlr);
+extern void install_crash_handler(const bool all_threads = true);
+extern bool is_crash_handler_installed();
+extern void override_setup_signals(const std::map< int, std::string >& override_signals);
+extern void restore_signal_handler_to_default();
+extern bool send_thread_signal(const pthread_t thr, const int sig_num);
 
 template < typename... Args >
 std::string format_log_msg(const char* const fmt, Args&&... args) {
@@ -471,7 +477,7 @@ std::string format_log_msg(const char* const fmt, Args&&... args) {
     fmt::format_to(buf, fmt, std::forward< Args >(args)...);
     return to_string(buf);
 }
-std::string format_log_msg();
+extern std::string format_log_msg();
 
 template < typename T1, typename T2, typename T3, typename... Args >
 void _cmp_assert_with_msg(fmt::memory_buffer& buf, const char* const msg, T1&& val1, T2&& op, T3&& val2,

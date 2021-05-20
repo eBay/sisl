@@ -47,10 +47,35 @@ SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable
                           (version,    "V", "version", "Print the version and exist", ::cxxopts::value<bool>(), ""))
 // clang-format on
 
+// logger required define if not inited
+extern "C" {
+spdlog::level::level_enum module_level_base;
+}
+
 namespace sds_logging {
 
 constexpr uint64_t Ki{1024};
 constexpr uint64_t Mi{Ki * Ki};
+
+// SDS_LOGGING_INIT declared global variables
+static std::shared_ptr< spdlog::logger > glob_spdlog_logger;
+static std::shared_ptr< spdlog::logger > glob_critical_logger;
+// NOTE: glob_enabled_mods should be a vector but sanitizer reports a leak so changed to array of pointers
+static constexpr size_t MAX_MODULES{100};
+static std::array< const char*, MAX_MODULES > glob_enabled_mods{"base"};
+static size_t glob_num_mods{1};
+
+/****************************** LoggerThreadContext ******************************/
+std::mutex LoggerThreadContext::_logger_thread_mutex;
+std::unordered_set< LoggerThreadContext* > LoggerThreadContext::_logger_thread_set;
+
+/******************************** InitModules *********************************/
+void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
+    assert(glob_num_mods + mods_list.size() <= MAX_MODULES);
+    for (const auto& mod : mods_list) {
+        glob_enabled_mods[glob_num_mods++] = mod;
+    }
+}
 
 std::shared_ptr< spdlog::logger >& GetLogger() {
 #if __cplusplus > 201703L
@@ -172,9 +197,10 @@ static std::string setup_modules() {
             lvl_str = spdlog::level::to_string_view(lvl).data();
         }
 
-        for (auto& module_name : glob_enabled_mods) {
-            _set_module_log_level(module_name, lvl);
-            fmt::format_to(std::back_inserter(out_str), "{}={}, ", module_name, lvl_str);
+        for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
+            const std::string& mod_name{glob_enabled_mods[mod_num]};
+            _set_module_log_level(mod_name, lvl);
+            fmt::format_to(std::back_inserter(out_str), "{}={}, ", mod_name, lvl_str);
         }
     } else {
         if (SDS_OPTIONS.count("log_mods")) {
@@ -201,9 +227,10 @@ static std::string setup_modules() {
             }
         }
 
-        for (const auto& module_name : glob_enabled_mods) {
-            fmt::format_to(std::back_inserter(out_str), "{}={}, ", module_name,
-                           spdlog::level::to_string_view(GetModuleLogLevel(module_name)).data());
+        for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
+            const std::string& mod_name{glob_enabled_mods[mod_num]};
+            fmt::format_to(std::back_inserter(out_str), "{}={}, ", mod_name,
+                           spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data());
         }
     }
 
@@ -289,21 +316,21 @@ spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name) {
 
 nlohmann::json GetAllModuleLogLevel() {
     nlohmann::json j;
-    for (const auto& mod_name : glob_enabled_mods) {
+    for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
+        const std::string& mod_name{glob_enabled_mods[mod_num]};
         j[mod_name] = spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data();
     }
     return j;
 }
 
 void SetAllModuleLogLevel(const spdlog::level::level_enum level) {
-    for (const auto& mod_name : glob_enabled_mods) {
+    for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
+        const std::string& mod_name{glob_enabled_mods[mod_num]};
         SetModuleLogLevel(mod_name, level);
     }
 }
 
-std::string format_log_msg() { 
-    return std::string{}; 
-}
+std::string format_log_msg() { return std::string{}; }
 
 LoggerThreadContext::LoggerThreadContext() {
     m_thread_id = pthread_self();

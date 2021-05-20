@@ -42,6 +42,7 @@ static bool g_crash_handle_all_threads{true};
 static std::atomic< size_t > g_stack_dump_outstanding{0};
 static std::condition_variable g_stack_dump_cv;
 static std::mutex g_hdlr_mutex;
+static std::array< char, max_stacktrace_size() > g_stacktrace_buff;
 
 typedef int SignalType;
 typedef std::pair< std::string, sig_handler_t > signame_handler_pair_t;
@@ -145,8 +146,8 @@ static void sigint_handler(const int signal_number, [[maybe_unused]] siginfo_t* 
 
 static void bt_dumper([[maybe_unused]] const int signal_number, [[maybe_unused]] siginfo_t* const info,
                       [[maybe_unused]] void* const unused_context) {
-    logger_thread_ctx.m_stack_buff[0] = 0;
-    stack_backtrace(logger_thread_ctx.m_stack_buff.data(), logger_thread_ctx.m_stack_buff.size(), true);
+    g_stacktrace_buff.fill(0);
+    stack_backtrace(g_stacktrace_buff.data(), g_stacktrace_buff.size(), true);
     [[maybe_unused]] const auto prev{g_stack_dump_outstanding.fetch_sub(1)};
     assert(prev > 0);
     g_stack_dump_cv.notify_all();
@@ -158,14 +159,14 @@ static void log_stack_trace_all_threads() {
     auto& critical_logger{GetLogger()};
     size_t thread_count{1};
 
-    const auto dump_thread{[&lk, &logger, &critical_logger, &thread_count](const bool signal_thread, auto* ctx) {
+    const auto dump_thread{[&lk, &logger, &critical_logger, &thread_count](const bool signal_thread, const auto thread_id) {
         if (signal_thread) {
-            const auto log_failure{[&logger, &critical_logger, &thread_count, &ctx](const char* const msg) {
+            const auto log_failure{[&logger, &critical_logger, &thread_count, &thread_id](const char* const msg) {
                 if (logger) {
-                    logger->critical("Thread ID: {}, Thread num: {} - {}\n", ctx->m_thread_id, thread_count, msg);
+                    logger->critical("Thread ID: {}, Thread num: {} - {}\n", thread_id, thread_count, msg);
                     logger->flush();
                 } else if (critical_logger) {
-                    critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", ctx->m_thread_id, thread_count,
+                    critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", thread_id, thread_count,
                                               msg);
                     critical_logger->flush();
                 }
@@ -173,7 +174,7 @@ static void log_stack_trace_all_threads() {
 
             assert(g_stack_dump_outstanding.load() == 0);
             g_stack_dump_outstanding = 1;
-            if (!send_thread_signal(ctx->m_thread_id, SIGUSR3)) {
+            if (!send_thread_signal(thread_id, SIGUSR3)) {
                 g_stack_dump_outstanding = 0;
                 log_failure("Invalid/terminated thread");
                 return;
@@ -188,17 +189,17 @@ static void log_stack_trace_all_threads() {
             }
         } else {
             // dump the thread without recursive signal
-            ctx->m_stack_buff[0] = 0;
-            stack_backtrace(ctx->m_stack_buff.data(), ctx->m_stack_buff.size(), true);
+            g_stacktrace_buff.fill(0);
+            stack_backtrace(g_stacktrace_buff.data(), g_stacktrace_buff.size(), true);
         }
 
         if (logger) {
-            logger->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thread_count,
-                             ctx->m_stack_buff.data());
+            logger->critical("Thread ID: {}, Thread num: {}\n{}", thread_id, thread_count,
+                             g_stacktrace_buff.data());
             logger->flush();
         } else if (critical_logger) {
-            critical_logger->critical("Thread ID: {}, Thread num: {}\n{}", ctx->m_thread_id, thread_count,
-                                      ctx->m_stack_buff.data());
+            critical_logger->critical("Thread ID: {}, Thread num: {}\n{}", thread_id, thread_count,
+                                      g_stacktrace_buff.data());
             critical_logger->flush();
         }
     }};
@@ -210,7 +211,7 @@ static void log_stack_trace_all_threads() {
         critical_logger->flush();
 
     // First dump this thread context
-    dump_thread(false, &logger_thread_ctx);
+    dump_thread(false, logger_thread_ctx.m_thread_id);
     ++thread_count;
 
     // dump other threads
@@ -218,7 +219,7 @@ static void log_stack_trace_all_threads() {
         if (ctx == &logger_thread_ctx) {
             continue;
         }
-        dump_thread(true, ctx);
+        dump_thread(true, ctx->m_thread_id);
         ++thread_count;
     }
 }
@@ -294,7 +295,7 @@ void log_stack_trace(const bool all_threads) {
     } else {
         // make this static so that no memory allocation is necessary
         static std::array< char, max_stacktrace_size() > buff;
-        buff[0] = 0;
+        buff.fill(0);
         [[maybe_unused]] const size_t s{stack_backtrace(buff.data(), buff.size(), true)};
         LOGCRITICAL("\n\n{}", buff.data());
     }

@@ -419,10 +419,14 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             for (auto& finfo : finfos) {
                 if (std::strstr(finfo.demangled_name.data(), "sds_logging::bt_dumper") ||
                     std::strstr(finfo.demangled_name.data(), "sds_logging::crash_handler")) {
-                    // skip to next line and check if can trim from sigaction
-                    if ((++frame_num < finfos.size()) && std::strstr(finfos[frame_num].file_line.data(), "sigaction.c")) {
-                        // skip sigaction
-                        ++frame_num;
+                    // search to end for sigaction.c after handler found
+                    size_t alt_frame_num{frame_num};
+                    while (++alt_frame_num < finfos.size()) {
+                        if (std::strstr(finfos[alt_frame_num].file_line.data(), "sigaction.c")) {
+                            // advance to right after sigaction.c
+                            frame_num = alt_frame_num + 1;
+                            break;
+                        }
                     }
                     break;
                 }
