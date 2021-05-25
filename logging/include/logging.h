@@ -376,23 +376,14 @@ public:
     LoggerThreadContext& operator=(LoggerThreadContext&&) noexcept = delete;
     ~LoggerThreadContext();
 
-    static LoggerThreadContext& instance() {
-        static thread_local LoggerThreadContext inst{};
-        return inst;
-    }
+    static LoggerThreadContext& instance();
 
-    static std::mutex _logger_thread_mutex;
-    static std::unordered_set< LoggerThreadContext* > _logger_thread_set;
+    static void add_logger_thread(LoggerThreadContext* const ctx);
 
-    static void add_logger_thread(LoggerThreadContext* const ctx) {
-        std::unique_lock l{_logger_thread_mutex};
-        _logger_thread_set.insert(ctx);
-    }
+    static void remove_logger_thread(LoggerThreadContext* const ctx);
 
-    static void remove_logger_thread(LoggerThreadContext* const ctx) {
-        std::unique_lock l{_logger_thread_mutex};
-        _logger_thread_set.erase(ctx);
-    }
+    static std::mutex s_logger_thread_mutex;
+    static std::unordered_set< LoggerThreadContext* > s_logger_thread_set;
 
     std::shared_ptr< spdlog::logger > m_logger;
     std::shared_ptr< spdlog::logger > m_critical_logger;

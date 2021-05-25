@@ -66,8 +66,30 @@ static std::array< const char*, MAX_MODULES > glob_enabled_mods{"base"};
 static size_t glob_num_mods{1};
 
 /****************************** LoggerThreadContext ******************************/
-std::mutex LoggerThreadContext::_logger_thread_mutex;
-std::unordered_set< LoggerThreadContext* > LoggerThreadContext::_logger_thread_set;
+std::mutex LoggerThreadContext::s_logger_thread_mutex;
+std::unordered_set< LoggerThreadContext* > LoggerThreadContext::s_logger_thread_set;
+
+LoggerThreadContext::LoggerThreadContext() {
+    m_thread_id = pthread_self();
+    LoggerThreadContext::add_logger_thread(this);
+}
+
+LoggerThreadContext::~LoggerThreadContext() { LoggerThreadContext::remove_logger_thread(this); }
+
+LoggerThreadContext& LoggerThreadContext::instance() {
+    static thread_local LoggerThreadContext inst{};
+    return inst;
+}
+
+void LoggerThreadContext::add_logger_thread(LoggerThreadContext* const ctx) {
+    std::unique_lock l{s_logger_thread_mutex};
+    s_logger_thread_set.insert(ctx);
+}
+
+void LoggerThreadContext::remove_logger_thread(LoggerThreadContext* const ctx) {
+    std::unique_lock l{s_logger_thread_mutex};
+    s_logger_thread_set.erase(ctx);
+}
 
 /******************************** InitModules *********************************/
 void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
@@ -332,10 +354,4 @@ void SetAllModuleLogLevel(const spdlog::level::level_enum level) {
 
 std::string format_log_msg() { return std::string{}; }
 
-LoggerThreadContext::LoggerThreadContext() {
-    m_thread_id = pthread_self();
-    LoggerThreadContext::add_logger_thread(this);
-}
-
-LoggerThreadContext::~LoggerThreadContext() { LoggerThreadContext::remove_logger_thread(this); }
 } // namespace sds_logging

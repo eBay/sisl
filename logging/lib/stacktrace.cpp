@@ -10,7 +10,6 @@
  */
 
 #include <array>
-#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <csignal>
@@ -39,7 +38,8 @@
 namespace sds_logging {
 static bool g_custom_signal_handler_installed{false};
 static bool g_crash_handle_all_threads{true};
-static std::atomic< size_t > g_stack_dump_outstanding{0};
+static std::mutex g_mtx_stack_dump_outstanding;
+static size_t g_stack_dump_outstanding{0};
 static std::condition_variable g_stack_dump_cv;
 static std::mutex g_hdlr_mutex;
 static std::array< char, max_stacktrace_size() > g_stacktrace_buff;
@@ -148,44 +148,57 @@ static void bt_dumper([[maybe_unused]] const int signal_number, [[maybe_unused]]
                       [[maybe_unused]] void* const unused_context) {
     g_stacktrace_buff.fill(0);
     stack_backtrace(g_stacktrace_buff.data(), g_stacktrace_buff.size(), true);
-    [[maybe_unused]] const auto prev{g_stack_dump_outstanding.fetch_sub(1)};
-    assert(prev > 0);
+    {
+        std::unique_lock lock{g_mtx_stack_dump_outstanding};
+        assert(g_stack_dump_outstanding > 0);
+        --g_stack_dump_outstanding;
+    }
     g_stack_dump_cv.notify_all();
 }
 
 static void log_stack_trace_all_threads() {
-    std::unique_lock lk{LoggerThreadContext::_logger_thread_mutex};
+    std::unique_lock logger_lock{LoggerThreadContext::s_logger_thread_mutex};
     auto& logger{GetLogger()};
     auto& critical_logger{GetLogger()};
     size_t thread_count{1};
 
-    const auto dump_thread{[&lk, &logger, &critical_logger, &thread_count](const bool signal_thread, const auto thread_id) {
+    const auto dump_thread{[&logger, &critical_logger, &thread_count](const bool signal_thread,
+                                                                           const auto thread_id) {
         if (signal_thread) {
             const auto log_failure{[&logger, &critical_logger, &thread_count, &thread_id](const char* const msg) {
                 if (logger) {
                     logger->critical("Thread ID: {}, Thread num: {} - {}\n", thread_id, thread_count, msg);
                     logger->flush();
                 } else if (critical_logger) {
-                    critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", thread_id, thread_count,
-                                              msg);
+                    critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", thread_id, thread_count, msg);
                     critical_logger->flush();
                 }
             }};
 
-            assert(g_stack_dump_outstanding.load() == 0);
-            g_stack_dump_outstanding = 1;
+            {
+                std::unique_lock outstanding_lock{g_mtx_stack_dump_outstanding};
+                assert(g_stack_dump_outstanding == 0);
+                g_stack_dump_outstanding = 1;
+            }
             if (!send_thread_signal(thread_id, SIGUSR3)) {
-                g_stack_dump_outstanding = 0;
+                {
+                    std::unique_lock outstanding_lock{g_mtx_stack_dump_outstanding};
+                    g_stack_dump_outstanding = 0;
+                }
                 log_failure("Invalid/terminated thread");
                 return;
             }
 
-            const auto result{g_stack_dump_cv.wait_for(lk, std::chrono::seconds{1},
-                                                       [] { return (g_stack_dump_outstanding.load() == 0); })};
-            if (!result) {
-                g_stack_dump_outstanding = 0;
-                log_failure("Timeout waiting for stacktrace");
-                return;
+            {
+                std::unique_lock outstanding_lock{g_mtx_stack_dump_outstanding};
+                const auto result{g_stack_dump_cv.wait_for(outstanding_lock, std::chrono::seconds{1},
+                                                           [] { return (g_stack_dump_outstanding == 0); })};
+                if (!result) {
+                    g_stack_dump_outstanding = 0;
+                    outstanding_lock.unlock();
+                    log_failure("Timeout waiting for stacktrace");
+                    return;
+                }
             }
         } else {
             // dump the thread without recursive signal
@@ -194,8 +207,7 @@ static void log_stack_trace_all_threads() {
         }
 
         if (logger) {
-            logger->critical("Thread ID: {}, Thread num: {}\n{}", thread_id, thread_count,
-                             g_stacktrace_buff.data());
+            logger->critical("Thread ID: {}, Thread num: {}\n{}", thread_id, thread_count, g_stacktrace_buff.data());
             logger->flush();
         } else if (critical_logger) {
             critical_logger->critical("Thread ID: {}, Thread num: {}\n{}", thread_id, thread_count,
@@ -215,7 +227,7 @@ static void log_stack_trace_all_threads() {
     ++thread_count;
 
     // dump other threads
-    for (auto* const ctx : LoggerThreadContext::_logger_thread_set) {
+    for (auto* const ctx : LoggerThreadContext::s_logger_thread_set) {
         if (ctx == &logger_thread_ctx) {
             continue;
         }
