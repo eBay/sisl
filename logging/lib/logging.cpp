@@ -49,7 +49,7 @@ SDS_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enable
 
 // logger required define if not inited
 extern "C" {
-spdlog::level::level_enum module_level_base;
+spdlog::level::level_enum module_level_base{spdlog::level::level_enum::info};
 }
 
 namespace sds_logging {
