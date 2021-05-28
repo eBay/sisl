@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "4.5.2"
+    version = "4.6.0"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
