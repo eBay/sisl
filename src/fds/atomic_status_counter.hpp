@@ -17,7 +17,7 @@ namespace sisl {
 template < typename StatusType, StatusType default_val >
 struct _status_counter {
     typedef int32_t counter_type;
-    static_cast(sizeof(_status_counter) <= 8, "Sizes of class must be contained in uint64_t");
+    static_cast(sizeof(_status_counter) <= sizeof(uint64_t), "Sizes of class must be contained in uint64_t");
     counter_type counter{0};
     StatusType status{default_val};
 
@@ -140,7 +140,7 @@ struct atomic_status_counter {
      */
     bool increment_if_status(const StatusType exp_status) {
         const auto new_val{set_value([exp_status](status_counter_t& val) {
-            if (val.status == exp_status) { val.counter++; }
+            if (val.status == exp_status) { ++val.counter; }
         })};
         return (new_val.status == exp_status);
     }
@@ -152,7 +152,7 @@ struct atomic_status_counter {
      * @return true or false depending on ((status == exp_status) && (counter == 0)) done atomically
      */
     bool decrement_testz_and_test_status(const StatusType exp_status) {
-        const auto new_val{set_value([exp_status](status_counter_t& val) { val.counter--; })};
+        const auto new_val{set_value([exp_status](status_counter_t& val) { --val.counter; })};
         return ((new_val.counter == 0) && (new_val.status == exp_status));
     }
 
