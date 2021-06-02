@@ -18,7 +18,7 @@ pipeline {
             steps {
                 script {
                     sh(script: "sed -Ei 's,version = .*\"([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*,version = \"\\1-${env.BUILD_NUMBER}\",' conanfile.py")
-                    BUILD_MISSING = "--build cascade --build missing"
+                    BUILD_MISSING = "--build missing"
                 }
             }
         }
