@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "4.6.1"
+    version = "5.0.2"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -33,7 +33,7 @@ class MetricsConan(ConanFile):
                     "gtest/1.10.0",
                 )
     requires = (
-                    "sds_logging/[~=9, include_prerelease=True]@sds/master",
+                    "sds_logging/[~=10, include_prerelease=True]@sds/master",
                     "sds_options/[~=1, include_prerelease=True]@sds/master",
 
                     "boost/1.73.0",
@@ -100,7 +100,8 @@ class MetricsConan(ConanFile):
             cmake.test(target=test_target)
 
     def package(self):
-        self.copy("*.hpp", src="src/", dst="include/", keep_path=True)
+        self.copy("version.hpp", src="src/", dst="include/sisl/", keep_path=True)
+        self.copy("*.hpp", src="src/", dst="include/", excludes="version.hpp", keep_path=True)
         self.copy("*.h", src="src/", dst="include/", keep_path=True)
         self.copy("*.a", dst="lib/", keep_path=False)
         self.copy("*.lib", dst="lib/", keep_path=False)
