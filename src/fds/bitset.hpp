@@ -31,7 +31,7 @@
 #include <sds_logging/logging.h>
 
 #include "bitword.hpp"
-#include "utils.hpp"
+#include "buffer.hpp"
 
 //
 // This is a improved bitset, which can efficiently identify and get the leading bitset or reset
@@ -178,7 +178,7 @@ public:
             m_alignment_size{alignment_size} {
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast< uint32_t >(size), alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(size), alignment_size, sisl::buftag::bitset);
         m_s = new (m_buf->bytes) bitset_serialized{m_id, nbits};
         m_words_cap = bitset_serialized::total_words(nbits);
     }
@@ -204,7 +204,7 @@ public:
         const uint64_t total_bytes{bitset_serialized::nbytes(ptr->m_nbits)};
         assert(b->size >= total_bytes);
         m_alignment_size = 0; // Assume no alignment
-        m_buf = make_byte_array(static_cast< uint32_t >(total_bytes), m_alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(total_bytes), m_alignment_size, sisl::buftag::bitset);
         m_s = new (m_buf->bytes) bitset_serialized{ptr->m_id, ptr->m_nbits, ptr->m_skip_bits, false};
         m_words_cap = bitset_serialized::total_words(m_s->m_nbits);
         const word_t* b_words{reinterpret_cast< const word_t* >(b->bytes + sizeof(bitset_serialized))};
@@ -220,7 +220,7 @@ public:
         const uint64_t nbits{static_cast< uint64_t >(num_words) * word_size()};
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast< uint32_t >(size), m_alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(size), m_alignment_size, sisl::buftag::bitset);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, false};
         m_words_cap = bitset_serialized::total_words(nbits);
 
@@ -238,7 +238,7 @@ public:
         const uint64_t nbits{static_cast< uint64_t >(num_words) * word_size()};
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast< uint32_t >(size), m_alignment_size);
+        m_buf = make_byte_array(static_cast< uint32_t >(size), m_alignment_size, sisl::buftag::bitset);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, false};
         m_words_cap = bitset_serialized::total_words(nbits);
 
@@ -482,7 +482,7 @@ public:
                     // destroy original bitset if last one
                     if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
 
-                    m_buf = make_byte_array(other.m_buf->size, other.m_alignment_size);
+                    m_buf = make_byte_array(other.m_buf->size, other.m_alignment_size, sisl::buftag::bitset);
                     m_s = new (m_buf->bytes)
                         bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits, false};
                     std::uninitialized_copy(other.m_s->get_words_const(), other.m_s->end_words_const(),
@@ -518,7 +518,7 @@ public:
                     // destroy original bitset if last one
                     if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
 
-                    m_buf = make_byte_array(size, m_alignment_size);
+                    m_buf = make_byte_array(size, m_alignment_size, sisl::buftag::bitset);
                     uninitialized = true;
                 }
                 m_s = new (m_buf->bytes) bitset_serialized{other.m_s->m_id, nbits, 0, false};
@@ -590,7 +590,7 @@ public:
         const uint64_t num_bits{total_bits()};
         const uint64_t total_words{bitset_serialized::total_words(num_bits)};
         const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
-        auto buf{make_byte_array(total_bytes, alignment)};
+        auto buf{make_byte_array(total_bytes, alignment, sisl::buftag::bitset)};
         new (buf->bytes) bitset_serialized{m_s->m_id, num_bits, 0, false};
 
         // copy the unshifted data words
@@ -1050,7 +1050,7 @@ private:
 
         const uint64_t new_nbits{nbits + new_skip_bits};
         const uint64_t new_cap{bitset_serialized::total_words(new_nbits)};
-        auto new_buf{make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size)};
+        auto new_buf{make_byte_array(bitset_serialized::nbytes(new_nbits), m_alignment_size, sisl::buftag::bitset)};
         auto new_s{new (new_buf->bytes) bitset_serialized{m_s->m_id, new_nbits, new_skip_bits, false}};
 
         // copy to resized

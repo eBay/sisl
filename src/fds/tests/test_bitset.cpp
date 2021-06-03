@@ -19,6 +19,7 @@
 using namespace sisl;
 
 SDS_LOGGING_INIT(test_bitset)
+THREAD_BUFFER_INIT
 
 namespace {
 uint64_t g_total_bits;
