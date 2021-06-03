@@ -77,7 +77,7 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     else()
         message("Release build")
         remove_flag("-O[0-4]")
-        add_flags("-O3")
+        add_flags("-O3 -D_PRERELEASE=1")
         # add debug info
         add_flags("-g")
     endif()
@@ -107,6 +107,7 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
             $<TARGET_OBJECTS:sisl_version>
             $<TARGET_OBJECTS:sisl_settings>
+            $<TARGET_OBJECTS:sisl_buffer>
            )
 target_link_libraries(sisl ${COMMON_LIB_DEPS})
 

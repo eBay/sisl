@@ -7,6 +7,6 @@ set(TEST_HTTP_SERVER_SOURCES
     tests/test_http_server.cpp
    )
 add_executable(test_http_server ${TEST_HTTP_SERVER_SOURCES})
-target_link_libraries(test_http_server ${Boost_LIBRARIES} ${CONAN_LIBS})
+target_link_libraries(test_http_server sisl ${Boost_LIBRARIES} ${CONAN_LIBS})
 #add_test(NAME HttpServerTest COMMAND test_http_server)
 

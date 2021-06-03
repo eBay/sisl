@@ -5,6 +5,11 @@ endif()
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
+set(BUFFER_SOURCE_FILES 
+    buffer.cpp
+   )
+add_library(sisl_buffer OBJECT ${BUFFER_SOURCE_FILES})
+
 set(TEST_STREAM_TRACKER_SOURCES 
     tests/test_stream_tracker.cpp
    )
