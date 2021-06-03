@@ -14,9 +14,10 @@
 
 namespace sisl {
 
-template < typename T >
+template < typename T, const bool ForceUnsigned = true >
 class atomic_counter {
-    typedef std::decay_t< T > value_type;
+    typedef std::conditional_t< ForceUnsigned, std::make_unsigned_t< std::decay_t< T > >, std::decay_t< T > >
+        value_type;
     static_assert(std::is_integral< value_type >::value, "atomic_counter needs integer");
 
 public:
