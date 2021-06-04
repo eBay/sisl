@@ -240,7 +240,7 @@ public:
     byte_view(byte_view v, const uint32_t offset, const uint32_t sz) : byte_view(v.m_base_buf, offset, sz) {}
 
     blob get_blob() const { return m_view; }
-    uint8_t* bytes() { return m_view.bytes; }
+    uint8_t* bytes() const { return m_view.bytes; }
     uint32_t size() const { return m_view.size; }
     void move_forward(const uint32_t by) {
         assert(m_view.size >= by);
