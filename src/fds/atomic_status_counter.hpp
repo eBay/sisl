@@ -14,17 +14,19 @@
 namespace sisl {
 
 #pragma pack(1)
-template < typename StatusType, StatusType default_val >
+template < typename StatusType, const StatusType default_val >
 struct _status_counter {
     typedef int32_t counter_type;
-    static_cast(sizeof(_status_counter) <= sizeof(uint64_t), "Sizes of class must be contained in uint64_t");
+    typedef std::decay_t< StatusType > status_type;
+    static_assert(sizeof(counter_type) + sizeof(status_type) <= sizeof(uint64_t),
+                  "Sizes of class must be contained in uint64_t");
     counter_type counter{0};
-    StatusType status{default_val};
+    status_type status{default_val};
 
-    _status_counter(const counter_type cnt = 0, const StatusType s = default_val) : counter{cnt}, status{s} {}
+    _status_counter(const counter_type cnt = 0, const status_type s = default_val) : counter{cnt}, status{s} {}
 
     operator uint64_t() const { return to_integer(); }
-    uint64_t to_integer() const { 
+    uint64_t to_integer() const {
         const uint64_t val{static_cast< uint64_t >(counter) |
                            (static_cast< uint64_t >(status) << (sizeof(counter_type) * 8))};
         return val;
@@ -38,10 +40,11 @@ struct _status_counter {
 
    It does the atomicity by packing them in a word length boundary.
 */
-template < typename StatusType, StatusType default_val >
+template < typename StatusType, const StatusType default_val >
 struct atomic_status_counter {
-    typedef _status_counter<StatusType, default_val> status_counter_t;
+    typedef _status_counter< StatusType, default_val > status_counter_t;
     typedef typename status_counter_t::counter_type counter_type;
+    typedef typename status_counter_t::status_type status_type;
     std::atomic< status_counter_t > m_val;
 
     /**
@@ -50,7 +53,7 @@ struct atomic_status_counter {
      * @param counter: Counter value to set, defaults to 0
      * @param status Status value to set, defaults to default_val in template parameter
      */
-    atomic_status_counter(const counter_type counter = 0, const StatusType status = default_val) :
+    atomic_status_counter(const counter_type counter = 0, const status_type status = default_val) :
             m_val{status_counter_t{counter, status}} {}
 
     /**
@@ -58,7 +61,7 @@ struct atomic_status_counter {
      *
      * @return StatusType
      */
-    StatusType get_status() const { return m_val.load(std::memory_order_acquire).status; }
+    status_type get_status() const { return m_val.load(std::memory_order_acquire).status; }
 
     /**
      * @brief Get the value of the counter portion of this container
@@ -72,9 +75,9 @@ struct atomic_status_counter {
      *
      * @return std::pair< StatusType, int32_t >: A pair of status and counter
      */
-    std::pair< StatusType, counter_type > get_status_count() const {
+    std::pair< status_type, counter_type > get_status_count() const {
         const auto val{m_val.load(std::memory_order_acquire)};
-        return std::make_pair< StatusType, counter_type >(val.status, val.counter);
+        return std::make_pair< status_type, counter_type >(val.status, val.counter);
     }
 
     /**
@@ -82,7 +85,7 @@ struct atomic_status_counter {
      *
      * @param status to set
      */
-    void set_status(const StatusType status) {
+    void set_status(const status_type status) {
         set_value([status](status_counter_t& val) { val.status = status; });
     }
 
@@ -92,7 +95,7 @@ struct atomic_status_counter {
      * @param exp_status
      * @param new_status
      */
-    void xchng_status(const StatusType exp_status, const StatusType new_status) {
+    void xchng_status(const status_type exp_status, const status_type new_status) {
         set_value([exp_status, new_status](status_counter_t& val) {
             if (val.status == exp_status) { val.status = new_status; }
         });
@@ -106,7 +109,7 @@ struct atomic_status_counter {
      * @param new_status
      * @return true or false based on if the counter reached 0 or not.
      */
-    bool dec_xchng_status_ifz(const StatusType exp_status, const StatusType new_status) {
+    bool dec_xchng_status_ifz(const status_type exp_status, const status_type new_status) {
         const auto new_val{set_value([exp_status, new_status](status_counter_t& val) {
             --val.counter;
             if ((val.counter == 0) && (val.status == exp_status)) { val.status = new_status; }
@@ -122,7 +125,7 @@ struct atomic_status_counter {
      * @param new_status
      * @return true or false based on if the counter reached 0 and status was updated
      */
-    bool dec_xchng_status_only_ifz(const StatusType exp_status, const StatusType new_status) {
+    bool dec_xchng_status_only_ifz(const status_type exp_status, const status_type new_status) {
         const auto new_val{set_value([exp_status, new_status](status_counter_t& val) {
             if ((val.counter == 1) && (val.status == exp_status)) {
                 --val.counter;
@@ -138,7 +141,7 @@ struct atomic_status_counter {
      * @param exp_status
      * @return true or false based if it did change or not
      */
-    bool increment_if_status(const StatusType exp_status) {
+    bool increment_if_status(const status_type exp_status) {
         const auto new_val{set_value([exp_status](status_counter_t& val) {
             if (val.status == exp_status) { ++val.counter; }
         })};
@@ -151,7 +154,7 @@ struct atomic_status_counter {
      * @param exp_status
      * @return true or false depending on ((status == exp_status) && (counter == 0)) done atomically
      */
-    bool decrement_testz_and_test_status(const StatusType exp_status) {
+    bool decrement_testz_and_test_status(const status_type exp_status) {
         const auto new_val{set_value([exp_status](status_counter_t& val) { --val.counter; })};
         return ((new_val.counter == 0) && (new_val.status == exp_status));
     }
@@ -163,7 +166,7 @@ struct atomic_status_counter {
      * @param new_status
      * @return true or false depending on if counter reached 0 and that new status is set.
      */
-    bool dec_set_status_ifz(const StatusType new_status) {
+    bool dec_set_status_ifz(const status_type new_status) {
         const auto new_val{set_value([new_status](status_counter_t& val) {
             --val.counter;
             val.status = new_status;
@@ -217,7 +220,7 @@ struct atomic_status_counter {
      * @param modifier: A callback which accepts counter and status pointers, whose values can be modified if needbe
      * @return true or false based on if the modifier has changed the value or not
      */
-    bool set_atomic_value(const std::function< bool(counter_type&, StatusType&) >& modifier) {
+    bool set_atomic_value(const std::function< bool(counter_type&, status_type&) >& modifier) {
         status_counter_t old_v, new_v;
         bool updated{true};
         do {
