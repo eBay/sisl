@@ -39,7 +39,7 @@ TEST_F(AtomicCounterTest, TestSetGet) {
     uac.set(2);
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(2));
 
-    atomic_counter< int64_t, false > sac{};
+    atomic_counter< int64_t > sac{};
     sac.set(2);
     EXPECT_EQ(sac.get(), static_cast< int64_t >(2));
     sac.set(-2);
@@ -51,7 +51,7 @@ TEST_F(AtomicCounterTest, TestIncrement) {
     EXPECT_EQ(uac.increment(2), static_cast< uint64_t >(2));
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(2));
 
-    atomic_counter< int64_t, false > sac{};
+    atomic_counter< int64_t > sac{};
     EXPECT_EQ(sac.increment(2), static_cast< int64_t >(2));
     EXPECT_EQ(sac.get(), static_cast< int64_t >(2));
     EXPECT_EQ(sac.increment(-4), static_cast< int64_t >(-2));
@@ -62,9 +62,9 @@ TEST_F(AtomicCounterTest, TestIncrementDeath) {
     atomic_counter< uint8_t > uac{255};
     ASSERT_DEBUG_DEATH(uac.increment(1), "");
 
-    atomic_counter< int8_t, false > sac1{127};
+    atomic_counter< int8_t > sac1{127};
     ASSERT_DEBUG_DEATH(sac1.increment(1), "");
-    atomic_counter< int8_t, false > sac2{-128};
+    atomic_counter< int8_t > sac2{-128};
     ASSERT_DEBUG_DEATH(sac2.increment(-1), "");
 }
 
@@ -73,7 +73,7 @@ TEST_F(AtomicCounterTest, TestDecrement) {
     EXPECT_EQ(uac.decrement(2), static_cast< uint64_t >(0));
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(0));
 
-    atomic_counter< int64_t, false > sac{};
+    atomic_counter< int64_t > sac{};
     EXPECT_EQ(sac.decrement(2), static_cast< int64_t >(-2));
     EXPECT_EQ(sac.get(), static_cast< int64_t >(-2));
     EXPECT_EQ(sac.decrement(-4), static_cast< int64_t >(2));
@@ -84,9 +84,9 @@ TEST_F(AtomicCounterTest, TestDecrementDeath) {
     atomic_counter< uint8_t > uac{};
     ASSERT_DEBUG_DEATH(uac.decrement(1), "");
 
-    atomic_counter< int8_t, false > sac1{-128};
+    atomic_counter< int8_t > sac1{-128};
     ASSERT_DEBUG_DEATH(sac1.decrement(1), "");
-    atomic_counter< int8_t, false > sac2{127};
+    atomic_counter< int8_t > sac2{127};
     ASSERT_DEBUG_DEATH(sac2.decrement(-1), "");
 }
 
@@ -96,7 +96,7 @@ TEST_F(AtomicCounterTest, TestIncrementEqual) {
     EXPECT_TRUE(uac.increment_test_eq(3, 2));
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(3));
 
-    atomic_counter< int64_t, false > sac{1};
+    atomic_counter< int64_t > sac{1};
     EXPECT_FALSE(sac.increment_test_eq(3, 0));
     EXPECT_TRUE(sac.increment_test_eq(3, 2));
     EXPECT_EQ(sac.get(), static_cast< int64_t >(3));
@@ -108,9 +108,9 @@ TEST_F(AtomicCounterTest, TestIncrementEqualDeath) {
     atomic_counter< uint8_t > uac{255};
     ASSERT_DEBUG_DEATH(uac.increment_test_eq(1, 1), "");
 
-    atomic_counter< int8_t, false > sac1{127};
+    atomic_counter< int8_t > sac1{127};
     ASSERT_DEBUG_DEATH(sac1.increment_test_eq(1, 1), "");
-    atomic_counter< int8_t, false > sac2{-128};
+    atomic_counter< int8_t > sac2{-128};
     ASSERT_DEBUG_DEATH(sac2.increment_test_eq(1, -1), "");
 }
 
@@ -119,7 +119,7 @@ TEST_F(AtomicCounterTest, TestDecrementEqual) {
     EXPECT_TRUE(uac.decrement_test_eq(1, 2));
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(1));
 
-    atomic_counter< int64_t, false > sac{3};
+    atomic_counter< int64_t > sac{3};
     EXPECT_TRUE(sac.decrement_test_eq(1, 2));
     EXPECT_EQ(sac.get(), static_cast< int64_t >(1));
     EXPECT_TRUE(sac.decrement_test_eq(3, -2));
@@ -130,9 +130,9 @@ TEST_F(AtomicCounterTest, TestDecrementEqualDeath) {
     atomic_counter< uint8_t > uac{};
     ASSERT_DEBUG_DEATH(uac.decrement_test_eq(1, 1), "");
 
-    atomic_counter< int8_t, false > sac1{-128};
+    atomic_counter< int8_t > sac1{-128};
     ASSERT_DEBUG_DEATH(sac1.decrement_test_eq(1, 1), "");
-    atomic_counter< int8_t, false > sac2{127};
+    atomic_counter< int8_t > sac2{127};
     ASSERT_DEBUG_DEATH(sac2.decrement_test_eq(1, -1), "");
 }
 
@@ -144,7 +144,7 @@ TEST_F(AtomicCounterTest, TestIncrementGreaterEqual) {
     EXPECT_TRUE(uac.increment_test_ge(3, 1));
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(4));
 
-    atomic_counter< int64_t, false > sac{1};
+    atomic_counter< int64_t > sac{1};
     EXPECT_FALSE(sac.increment_test_ge(2, 0));
     EXPECT_TRUE(sac.increment_test_ge(3, 2));
     EXPECT_EQ(sac.get(), static_cast< int64_t >(3));
@@ -160,9 +160,9 @@ TEST_F(AtomicCounterTest, TestIncrementGreaterEqualDeath) {
     atomic_counter< uint8_t > uac{255};
     ASSERT_DEBUG_DEATH(uac.increment_test_ge(1, 1), "");
 
-    atomic_counter< int8_t, false > sac1{127};
+    atomic_counter< int8_t > sac1{127};
     ASSERT_DEBUG_DEATH(sac1.increment_test_ge(1, 1), "");
-    atomic_counter< int8_t, false > sac2{-128};
+    atomic_counter< int8_t > sac2{-128};
     ASSERT_DEBUG_DEATH(sac2.increment_test_ge(1, -1), "");
 }
 
@@ -176,7 +176,7 @@ TEST_F(AtomicCounterTest, TestIncrementGreaterEqualWithCount) {
     EXPECT_TRUE(uresult2.first);
     EXPECT_EQ(uresult2.second, static_cast< uint64_t >(4));
 
-    atomic_counter< int64_t, false > sac{1};
+    atomic_counter< int64_t > sac{1};
     EXPECT_FALSE(sac.increment_test_ge_with_count(2, 0).first);
     const auto sresult1{sac.increment_test_ge_with_count(3, 2)};
     EXPECT_TRUE(sresult1.first);
@@ -196,9 +196,9 @@ TEST_F(AtomicCounterTest, TestIncrementGreaterEqualWithCountDeath) {
     atomic_counter< uint8_t > uac{255};
     ASSERT_DEBUG_DEATH(uac.increment_test_ge_with_count(1, 1), "");
 
-    atomic_counter< int8_t, false > sac1{127};
+    atomic_counter< int8_t > sac1{127};
     ASSERT_DEBUG_DEATH(sac1.increment_test_ge_with_count(1, 1), "");
-    atomic_counter< int8_t, false > sac2{-128};
+    atomic_counter< int8_t > sac2{-128};
     ASSERT_DEBUG_DEATH(sac2.increment_test_ge_with_count(1, -1), "");
 }
 
@@ -210,7 +210,7 @@ TEST_F(AtomicCounterTest, TestDecrementLessEqual) {
     EXPECT_TRUE(uac.decrement_test_le(1, 1));
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(0));
 
-    atomic_counter< int64_t, false > sac{3};
+    atomic_counter< int64_t > sac{3};
     EXPECT_FALSE(sac.decrement_test_le(2, 0));
     EXPECT_TRUE(sac.decrement_test_le(1, 2));
     EXPECT_EQ(sac.get(), static_cast< int64_t >(1));
@@ -226,9 +226,9 @@ TEST_F(AtomicCounterTest, TestDecrementLessEqualDeath) {
     atomic_counter< uint8_t > uac{};
     ASSERT_DEBUG_DEATH(uac.decrement_test_le(1, 1), "");
 
-    atomic_counter< int8_t, false > sac1{-128};
+    atomic_counter< int8_t > sac1{-128};
     ASSERT_DEBUG_DEATH(sac1.decrement_test_le(1, 1), "");
-    atomic_counter< int8_t, false > sac2{127};
+    atomic_counter< int8_t > sac2{127};
     ASSERT_DEBUG_DEATH(sac2.decrement_test_le(1, -1), "");
 }
 
@@ -242,7 +242,7 @@ TEST_F(AtomicCounterTest, TestDecrementLessEqualWithCount) {
     EXPECT_TRUE(uresult2.first);
     EXPECT_EQ(uresult2.second, static_cast< uint64_t >(0));
 
-    atomic_counter< int64_t, false > sac{3};
+    atomic_counter< int64_t > sac{3};
     EXPECT_FALSE(sac.decrement_test_le(2, 0));
     const auto sresult1{sac.decrement_test_le_with_count(1, 2)};
     EXPECT_TRUE(sresult1.first);
@@ -262,9 +262,9 @@ TEST_F(AtomicCounterTest, TestDecrementLessEqualWithCountDeath) {
     atomic_counter< uint8_t > uac{};
     ASSERT_DEBUG_DEATH(uac.decrement_test_le_with_count(1, 1), "");
 
-    atomic_counter< int8_t, false > sac1{-128};
+    atomic_counter< int8_t > sac1{-128};
     ASSERT_DEBUG_DEATH(sac1.decrement_test_le_with_count(1, 1), "");
-    atomic_counter< int8_t, false > sac2{127};
+    atomic_counter< int8_t > sac2{127};
     ASSERT_DEBUG_DEATH(sac2.decrement_test_le_with_count(1, -1), "");
 }
 
@@ -274,12 +274,12 @@ TEST_F(AtomicCounterTest, TestDecrementZero) {
     EXPECT_TRUE(uac.decrement_testz(2));
     EXPECT_EQ(uac.get(), static_cast< uint64_t >(0));
 
-    atomic_counter< int64_t, false > sac1{2};
+    atomic_counter< int64_t > sac1{2};
     EXPECT_FALSE(sac1.decrement_testz(0));
     EXPECT_TRUE(sac1.decrement_testz(2));
     EXPECT_EQ(sac1.get(), static_cast< int64_t >(0));
 
-    atomic_counter< int64_t, false > sac2{-2};
+    atomic_counter< int64_t > sac2{-2};
     EXPECT_FALSE(sac2.decrement_testz(0));
     EXPECT_TRUE(sac2.decrement_testz(-2));
     EXPECT_EQ(sac2.get(), static_cast< int64_t >(0));
@@ -289,9 +289,9 @@ TEST_F(AtomicCounterTest, TestDecrementZeroDeath) {
     atomic_counter< uint8_t > uac{};
     ASSERT_DEBUG_DEATH(uac.decrement_testz(1), "");
 
-    atomic_counter< int8_t, false > sac1{-128};
+    atomic_counter< int8_t > sac1{-128};
     ASSERT_DEBUG_DEATH(sac1.decrement_testz(1), "");
-    atomic_counter< int8_t, false > sac2{127};
+    atomic_counter< int8_t > sac2{127};
     ASSERT_DEBUG_DEATH(sac2.decrement_testz(-1), "");
 }
 
@@ -301,7 +301,7 @@ TEST_F(AtomicCounterTest, TestZero) {
     uac.decrement(2);
     EXPECT_TRUE(uac.testz());
 
-    atomic_counter< int64_t, false > sac{-2};
+    atomic_counter< int64_t > sac{-2};
     EXPECT_FALSE(sac.testz());
     sac.increment(2);
     EXPECT_TRUE(sac.testz());
@@ -312,7 +312,7 @@ TEST_F(AtomicCounterTest, TestEqual) {
     EXPECT_FALSE(uac.test_eq(0));
     EXPECT_TRUE(uac.test_eq(2));
 
-    const atomic_counter< int64_t, false > sac{-2};
+    const atomic_counter< int64_t > sac{-2};
     EXPECT_FALSE(sac.test_eq(0));
     EXPECT_TRUE(sac.test_eq(-2));
 }
@@ -323,7 +323,7 @@ TEST_F(AtomicCounterTest, TestLessEqual) {
     EXPECT_TRUE(uac.test_le(2));
     EXPECT_TRUE(uac.test_le(3));
 
-    const atomic_counter< int64_t, false > sac{-2};
+    const atomic_counter< int64_t > sac{-2};
     EXPECT_FALSE(sac.test_le(-3));
     EXPECT_TRUE(sac.test_le(-2));
     EXPECT_TRUE(sac.test_le(-1));
@@ -339,7 +339,7 @@ TEST_F(AtomicCounterTest, TestLessEqualWithCount) {
     EXPECT_TRUE(uresult2.first);
     EXPECT_EQ(uresult2.second, static_cast< uint64_t >(2));
 
-    atomic_counter< int64_t, false > sac{-2};
+    atomic_counter< int64_t > sac{-2};
     EXPECT_FALSE(sac.test_le_with_count(-3).first);
     const auto sresult1{sac.test_le_with_count(-2)};
     EXPECT_TRUE(sresult1.first);
@@ -355,7 +355,7 @@ TEST_F(AtomicCounterTest, TestGreaterEqual) {
     EXPECT_TRUE(uac.test_ge(2));
     EXPECT_TRUE(uac.test_ge(1));
 
-    const atomic_counter< int64_t, false > sac{-2};
+    const atomic_counter< int64_t > sac{-2};
     EXPECT_FALSE(sac.test_ge(-1));
     EXPECT_TRUE(sac.test_ge(-2));
     EXPECT_TRUE(sac.test_ge(-3));
@@ -371,7 +371,7 @@ TEST_F(AtomicCounterTest, TestGreaterEqualWithCount) {
     EXPECT_TRUE(uresult2.first);
     EXPECT_EQ(uresult2.second, static_cast< uint64_t >(2));
 
-    atomic_counter< int64_t, false > sac{-2};
+    atomic_counter< int64_t > sac{-2};
     EXPECT_FALSE(sac.test_ge_with_count(-1).first);
     const auto sresult1{sac.test_ge_with_count(-2)};
     EXPECT_TRUE(sresult1.first);
