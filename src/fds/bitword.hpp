@@ -255,13 +255,15 @@ struct bit_match_result {
 template < typename Word >
 class Bitword {
 public:
-    static constexpr uint8_t bits() { return (sizeof(Word) * 8); }
-    typedef typename Word::word_t word_t;
+    typedef typename std::decay_t< Word > word_type;
+    static constexpr uint8_t bits() { return (sizeof(word_type) * 8); }
+    typedef typename word_type::word_t word_t;
     static_assert(std::is_unsigned_v< word_t > && (sizeof(word_t) <= 16),
                   "Underlying type must be unsigned of 128 bits or less.");
+    typedef typename word_type::value_type value_type;
 
     Bitword() { m_bits.set(0); }
-    explicit Bitword(const Word& b) { m_bits.set(b.get()); }
+    explicit Bitword(const word_type& b) { m_bits.set(b.get()); }
     explicit Bitword(const word_t& val) { m_bits.set(val); }
     Bitword(const Bitword& other) : m_bits{other.to_integer()} {}
     Bitword(Bitword&&) noexcept = delete;
@@ -565,6 +567,7 @@ class unsafe_bits {
 public:
     typedef std::decay_t< WType > word_t;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
+    typedef word_t value_type;
 
     unsafe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     unsafe_bits(const unsafe_bits&) = delete;
@@ -604,7 +607,7 @@ public:
     bool operator!=(const unsafe_bits& rhs) const { return get() != rhs.get(); }
 
 private:
-    word_t m_Value;
+    value_type m_Value;
 };
 
 template < typename WType >
@@ -612,6 +615,7 @@ class safe_bits {
 public:
     typedef std::decay_t< WType > word_t;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
+    typedef std::atomic< word_t > value_type;
 
     safe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     safe_bits(const safe_bits&) = delete;
@@ -653,6 +657,6 @@ public:
     bool operator!=(const safe_bits& rhs) const { return get() != rhs.get(); }
 
 private:
-    std::atomic< word_t > m_Value;
+    value_type m_Value;
 };
 } // namespace sisl
