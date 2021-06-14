@@ -90,9 +90,9 @@ private:
             std::destroy(get_words(), end_words());
         }
 
-        bool valid_bit(const uint64_t bit) const { return bit + m_skip_bits < m_nbits; }
-        bitword_type* end_words() { return get_words() + total_words(m_nbits); }
-        const bitword_type* end_words_const() const { return get_words_const() + total_words(m_nbits); }
+        bool valid_bit(const uint64_t bit) const { return (bit + m_skip_bits) < m_nbits; }
+        bitword_type* end_words() { return std::next(get_words(), total_words(m_nbits)); }
+        const bitword_type* end_words_const() const { return std::next(get_words_const(), total_words(m_nbits)); }
         bitword_type* get_words() {
             return reinterpret_cast< bitword_type* >(reinterpret_cast< uint8_t* >(this) + sizeof(bitset_serialized));
         }
@@ -213,7 +213,7 @@ public:
         m_words_cap = bitset_serialized::total_words(nbits);
         const word_t* b_words{reinterpret_cast< const word_t* >(b->bytes + sizeof(bitset_serialized))};
         // copy the data
-        std::uninitialized_copy(b_words, b_words + m_words_cap, m_s->get_words());
+        std::uninitialized_copy(b_words, std::next(b_words, m_words_cap), m_s->get_words());
     }
 
     explicit BitsetImpl(const word_t* const start_ptr, const word_t* const end_ptr, const uint64_t id = 0,
@@ -265,12 +265,15 @@ public:
             WriteLockGuard lock{this};
             {
                 ReadLockGuard rhs_lock{&rhs};
-                // destroy original bitset if last one
-                if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+                // duplicate buffer if different
+                if (m_buf != rhs.m_buf) {
+                    // destroy original bitset if last one
+                    if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
 
-                m_buf = rhs.m_buf;
-                m_s = rhs.m_s;
-                m_words_cap = rhs.m_words_cap;
+                    m_buf = rhs.m_buf;
+                    m_s = rhs.m_s;
+                    m_words_cap = rhs.m_words_cap;
+                }
             }
         }
         return *this;
@@ -282,13 +285,17 @@ public:
             WriteLockGuard lock{this};
             {
                 WriteLockGuard rhs_lock{&rhs};
-                // destroy original bitset if last one
-                if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+                if (m_buf != rhs.m_buf) {
+                    // destroy original bitset if last one
+                    if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
 
-                m_buf = std::move(rhs.m_buf);
-                m_s = std::move(rhs.m_s);
-                m_words_cap = std::move(rhs.m_words_cap);
-
+                    m_buf = std::move(rhs.m_buf);
+                    m_s = std::move(rhs.m_s);
+                    m_words_cap = std::move(rhs.m_words_cap);
+                } else {
+                    // already sharing same buffer so just clear
+                    rhs.m_buf.reset();
+                }
                 rhs.m_s = nullptr;
                 rhs.m_words_cap = 0;
             }
@@ -478,13 +485,30 @@ public:
                     std::uninitialized_copy(other.m_s->get_words_const(), other.m_s->end_words_const(),
                                             m_s->get_words());
                 } else {
-                    // Word array is initialized here so std::copy suffices
-                    m_s = new (m_buf->bytes)
-                        bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits,
-                                          other.m_s->m_alignment_size, false};
-                    std::copy(other.m_s->get_words_const(), other.m_s->end_words_const(), m_s->get_words());
-                }
+                    // Word array is initialized here so std::copy suffices for some or all
+                    if (other.m_words_cap > m_words_cap) {
+                        m_s = new (m_buf->bytes)
+                            bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits,
+                                              other.m_s->m_alignment_size, false};
+                        // copy into previously initialized spaces
+                        std::copy(other.m_s->get_words_const(), std::next(other.m_s->get_words_const(), m_words_cap),
+                                  m_s->get_words());
+                        // unitialize copy the rest
+                        std::uninitialized_copy(std::next(other.m_s->get_words_const(), m_words_cap),
+                                                other.m_s->end_words_const(), std::next(m_s->get_words(), m_words_cap));
+                    } else {
+                        if (m_words_cap > other.m_words_cap) {
+                            // destroy extra bitwords
+                            std::destroy(std::next(m_s->get_words(), other.m_words_cap),
+                                         std::next(m_s->get_words(), m_words_cap));
+                        }
 
+                        m_s = new (m_buf->bytes)
+                            bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits,
+                                              other.m_s->m_alignment_size, false};
+                        std::copy(other.m_s->get_words_const(), other.m_s->end_words_const(), m_s->get_words());
+                    }
+                }
                 m_words_cap = other.m_words_cap;
             }
         }
@@ -510,18 +534,34 @@ public:
                     uninitialized = true;
                 }
                 m_s = new (m_buf->bytes) bitset_serialized{other.m_s->m_id, nbits, 0, alignment_size, false};
-                m_words_cap = bitset_serialized::total_words(nbits);
+                const auto new_words_cap{bitset_serialized::total_words(nbits)};
                 bitword_type* word_ptr{m_s->get_words()};
                 const uint8_t rhs_offset{other.get_word_offset(0)};
                 const bitword_type* rhs_word_ptr{other.get_word_const(0)};
                 if (rhs_offset == 0) {
                     // can do straight copy
-                    if (!uninitialized)
-                        std::copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
-                    else
+                    if (!uninitialized) {
+                        if (new_words_cap > m_words_cap) {
+                            // copy into previously initialized spaces
+                            std::copy(rhs_word_ptr, std::next(rhs_word_ptr, m_words_cap), word_ptr);
+                            // copy rest into unitialized
+                            std::uninitialized_copy(std::next(rhs_word_ptr, m_words_cap),
+                                                    other.m_s->end_words_const(),
+                                      std::next(word_ptr, m_words_cap));
+                        }
+                        else {
+                            if (m_words_cap > new_words_cap) {
+                                // destroy extra bitwords
+                                std::destroy(std::next(word_ptr, new_words_cap), std::next(word_ptr, m_words_cap));
+                            } 
+                            std::copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
+                        }
+                    } else {
                         std::uninitialized_copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
+                    }
                 } else {
                     // do word by word copy
+                    uint64_t word_num{1};
                     uint64_t bits_remaining{nbits};
                     const uint8_t rhs_low_bits{
                         static_cast< uint8_t >(static_cast< uint8_t >(word_size() - rhs_offset))};
@@ -532,13 +572,19 @@ public:
                         const word_t val{
                             (static_cast< word_t >(rhs_word_ptr->to_integer() >> rhs_offset) & rhs_low_mask) |
                             static_cast< word_t >(((rhs_word_ptr + 1)->to_integer() & rhs_high_mask) << rhs_low_bits)};
-                        if (!uninitialized)
-                            word_ptr->set(val);
-                        else
+                        if (!uninitialized) {
+                            if (word_num <= m_words_cap) {
+                                word_ptr->set(val);
+                            } else {
+                                new (word_ptr) bitword_type{val};
+                            }
+                        } else {
                             new (word_ptr) bitword_type{val};
+                        }
                         ++word_ptr;
                         ++rhs_word_ptr;
                         bits_remaining -= word_size();
+                        ++word_num;
                     }
 
                     // copy partial last word
@@ -553,12 +599,18 @@ public:
                             val = (static_cast< word_t >(val >> rhs_offset) & rhs_low_mask) |
                                 (static_cast< word_t >(rhs_word_ptr->to_integer() & mask) << rhs_low_bits);
                         }
-                        if (!uninitialized)
-                            word_ptr->set(val);
-                        else
+                        if (!uninitialized) {
+                            if (word_num <= m_words_cap) {
+                                word_ptr->set(val);
+                            } else {
+                                new (word_ptr) bitword_type{val};
+                            }
+                        } else {
                             new (word_ptr) bitword_type{val};
+                        }
                     }
                 }
+                m_words_cap = new_words_cap;
             }
         }
     }
@@ -1065,15 +1117,15 @@ private:
 
         // copy to resized
         const uint64_t move_nwords{std::min(m_words_cap - shrink_words, new_cap)};
-        std::uninitialized_copy(m_s->get_words_const() + shrink_words, m_s->end_words_const(), new_s->get_words());
+        std::uninitialized_copy(std::next(m_s->get_words_const(), shrink_words), m_s->end_words_const(), new_s->get_words());
         if (new_cap > move_nwords) {
             // Fill in the remaining space with value passed
-            std::uninitialized_fill(new_s->get_words() + move_nwords, new_s->end_words(),
+            std::uninitialized_fill(std::next(new_s->get_words(), move_nwords), new_s->end_words(),
                                     (value ? bitword_type{static_cast< word_t >(~word_t{})} : bitword_type{word_t{}}));
         }
 
         // destroy original if last 1
-        if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+        if (m_buf.use_count() == 1) m_s->~bitset_serialized();
 
         // swap old with new
         m_buf = new_buf;
