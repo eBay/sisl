@@ -173,7 +173,7 @@ public:
     ~BitsetImpl() {
         {
             WriteLockGuard lock{this};
-            if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+            if (m_buf && (m_buf.use_count() == 1)) m_s->~bitset_serialized();
             m_buf.reset();
         }
     }
@@ -262,7 +262,7 @@ public:
                 // duplicate buffer if different
                 if (m_buf != rhs.m_buf) {
                     // destroy original bitset if last one
-                    if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
 
                     m_buf = rhs.m_buf;
                     m_s = rhs.m_s;
@@ -280,7 +280,7 @@ public:
                 WriteLockGuard rhs_lock{&rhs};
                 if (m_buf != rhs.m_buf) {
                     // destroy original bitset if last one
-                    if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
 
                     m_buf = std::move(rhs.m_buf);
                     m_s = std::move(rhs.m_s);
@@ -465,9 +465,9 @@ public:
             {
                 ReadLockGuard other_lock{&other};
                 // ensure distinct buffers
-                if (!m_buf || (m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
+                if ((m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
                     // destroy original bitset if last one
-                    if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
 
                     m_buf = make_byte_array(other.m_buf->size, other.m_s->m_alignment_size, sisl::buftag::bitset);
                     m_s = new (m_buf->bytes)
@@ -518,14 +518,14 @@ public:
                                                          : bitset_serialized::nbytes(nbits)};
                 // ensure distinct buffers
                 bool uninitialized{false};
-                if (!m_buf || (m_buf->size != size) || (m_buf == other.m_buf)) {
+                const auto old_words_cap{m_s->m_words_cap};
+                if ((m_buf->size != size) || (m_buf == other.m_buf)) {
                     // destroy original bitset if last one
-                    if ((m_buf.use_count() == 1) && m_s) m_s->~bitset_serialized();
+                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
 
                     m_buf = make_byte_array(size, alignment_size, sisl::buftag::bitset);
                     uninitialized = true;
                 }
-                const auto old_words_cap{m_s->m_words_cap};
                 m_s = new (m_buf->bytes) bitset_serialized{other.m_s->m_id, nbits, 0, alignment_size, false};
                 const auto new_words_cap{m_s->m_words_cap};
                 bitword_type* word_ptr{m_s->get_words()};
@@ -975,7 +975,7 @@ public:
         return ret;
     }
 
-    void print() const { std::cout << to_string << std::endl; }
+    void print() const { std::cout << to_string() << std::endl; }
 
     // print out the bitset in the order last bit to first bit
     std::string to_string() const {
