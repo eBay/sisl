@@ -78,7 +78,10 @@ private:
 
         bitset_serialized(const uint64_t id, const uint64_t nbits, const uint64_t skip_bits = 0,
                           const uint32_t alignment_size = 0, const bool fill = true) :
-                m_id{id}, m_nbits{nbits}, m_skip_bits{skip_bits}, m_alignment_size{alignment_size},
+                m_id{id},
+                m_nbits{nbits},
+                m_skip_bits{skip_bits},
+                m_alignment_size{alignment_size},
                 m_words_cap{total_words(nbits)} {
             // memory is unitialized so use uninitialized fill which does proper construction for non POD types
             if (fill) std::uninitialized_fill(get_words(), end_words(), bitword_type{});
@@ -100,7 +103,7 @@ private:
         }
         const bitword_type* get_words_const() const {
             return reinterpret_cast< const bitword_type* >(reinterpret_cast< const uint8_t* >(this) +
-                                                   sizeof(bitset_serialized));
+                                                           sizeof(bitset_serialized));
         }
         static constexpr uint64_t nbytes(const uint64_t nbits) {
             return sizeof(bitset_serialized) + total_words(nbits) * sizeof(bitword_type);
@@ -540,12 +543,12 @@ public:
                             // copy rest into unitialized
                             std::uninitialized_copy(std::next(rhs_word_ptr, old_words_cap),
                                                     other.m_s->end_words_const(), std::next(word_ptr, old_words_cap));
-                        }
-                        else {
+                        } else {
                             if (old_words_cap > new_words_cap) {
                                 // destroy extra bitwords
-                                std::destroy(std::next(word_ptr, new_words_cap), std::next(word_ptr, old_words_cap));
-                            } 
+                                std::destroy(std::next(word_ptr, new_words_cap),
+                                             std::next(word_ptr, old_words_cap));
+                            }
                             std::copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
                         }
                     } else {
@@ -553,7 +556,7 @@ public:
                     }
                 } else {
                     // do word by word copy
-                    uint64_t word_num{1};
+                    uint64_t word_num{0};
                     uint64_t bits_remaining{nbits};
                     const uint8_t rhs_low_bits{
                         static_cast< uint8_t >(static_cast< uint8_t >(word_size() - rhs_offset))};
@@ -565,7 +568,7 @@ public:
                             (static_cast< word_t >(rhs_word_ptr->to_integer() >> rhs_offset) & rhs_low_mask) |
                             static_cast< word_t >(((rhs_word_ptr + 1)->to_integer() & rhs_high_mask) << rhs_low_bits)};
                         if (!uninitialized) {
-                            if (word_num <= old_words_cap) {
+                            if (word_num < old_words_cap) {
                                 word_ptr->set(val);
                             } else {
                                 new (word_ptr) bitword_type{val};
@@ -592,13 +595,21 @@ public:
                                 (static_cast< word_t >(rhs_word_ptr->to_integer() & mask) << rhs_low_bits);
                         }
                         if (!uninitialized) {
-                            if (word_num <= old_words_cap) {
+                            if (word_num < old_words_cap) {
                                 word_ptr->set(val);
                             } else {
                                 new (word_ptr) bitword_type{val};
                             }
                         } else {
                             new (word_ptr) bitword_type{val};
+                        }
+                        ++word_num;
+                    }
+
+                    if (!uninitialized) {
+                        if (word_num < old_words_cap) {
+                            // destroy extra bitwords
+                            std::destroy(std::next(word_ptr, word_num), std::next(word_ptr, old_words_cap));
                         }
                     }
                 }
@@ -1108,7 +1119,8 @@ private:
 
         // copy to resized
         const uint64_t move_nwords{std::min(m_s->m_words_cap - shrink_words, new_cap)};
-        std::uninitialized_copy(std::next(m_s->get_words_const(), shrink_words), m_s->end_words_const(), new_s->get_words());
+        std::uninitialized_copy(std::next(m_s->get_words_const(), shrink_words), m_s->end_words_const(),
+                                new_s->get_words());
         if (new_cap > move_nwords) {
             // Fill in the remaining space with value passed
             std::uninitialized_fill(std::next(new_s->get_words(), move_nwords), new_s->end_words(),
