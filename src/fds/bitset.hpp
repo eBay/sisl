@@ -156,6 +156,19 @@ private:
         BitsetImpl* const m_b;
     };
 
+    static sisl::byte_array make_byte_array_with_deleter(const uint32_t sz, const uint32_t alignment = 0,
+                                                         const buftag tag = buftag::bitset) {
+        return std::shared_ptr< byte_array_impl >{
+            new byte_array_impl{sz, alignment, tag}, [](byte_array_impl* const ptr) {
+                if (ptr) {
+                    // beginning of buffer is bitset_serialized
+                    bitset_serialized* const bitset_serialized_ptr{reinterpret_cast< bitset_serialized* >(ptr)};
+                    bitset_serialized_ptr->~bitset_serialized();
+                    delete ptr;
+                }
+            }};
+    }
+
     sisl::byte_array m_buf;
     bitset_serialized* m_s{nullptr};
     mutable folly::SharedMutex m_lock;
@@ -176,7 +189,6 @@ public:
     ~BitsetImpl() {
         {
             WriteLockGuard lock{this};
-            if (m_buf && (m_buf.use_count() == 1)) m_s->~bitset_serialized();
             m_buf.reset();
         }
     }
@@ -184,7 +196,7 @@ public:
     explicit BitsetImpl(const uint64_t nbits = 0, const uint64_t m_id = 0, const uint32_t alignment_size = 0) {
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast< uint32_t >(size), alignment_size, sisl::buftag::bitset);
+        m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{m_id, nbits, 0, alignment_size};
     }
 
@@ -210,7 +222,7 @@ public:
         const uint32_t alignment_size{opt_alignment_size ? (*opt_alignment_size) : ptr->m_alignment_size};
         const uint64_t size{(alignment_size > 0) ? round_up(total_bytes, alignment_size) : total_bytes};
         assert(b->size >= total_bytes);
-        m_buf = make_byte_array(static_cast< uint32_t >(size), alignment_size, sisl::buftag::bitset);
+        m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{ptr->m_id, nbits, ptr->m_skip_bits, alignment_size, false};
         const word_t* b_words{reinterpret_cast< const word_t* >(b->bytes + sizeof(bitset_serialized))};
         // copy the data
@@ -224,7 +236,7 @@ public:
         const uint64_t nbits{static_cast< uint64_t >(num_words) * word_size()};
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast< uint32_t >(size), alignment_size, sisl::buftag::bitset);
+        m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, alignment_size, false};
 
         // copy the data into the uninitialized bitset
@@ -240,7 +252,7 @@ public:
         const uint64_t nbits{static_cast< uint64_t >(num_words) * word_size()};
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        m_buf = make_byte_array(static_cast< uint32_t >(size), alignment_size, sisl::buftag::bitset);
+        m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, alignment_size, false};
 
         // copy the data into the unitialized bitset
@@ -264,9 +276,6 @@ public:
                 ReadLockGuard rhs_lock{&rhs};
                 // duplicate buffer if different
                 if (m_buf != rhs.m_buf) {
-                    // destroy original bitset if last one
-                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
-
                     m_buf = rhs.m_buf;
                     m_s = rhs.m_s;
                 }
@@ -282,9 +291,6 @@ public:
             {
                 WriteLockGuard rhs_lock{&rhs};
                 if (m_buf != rhs.m_buf) {
-                    // destroy original bitset if last one
-                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
-
                     m_buf = std::move(rhs.m_buf);
                     m_s = std::move(rhs.m_s);
                 } else {
@@ -469,10 +475,7 @@ public:
                 ReadLockGuard other_lock{&other};
                 // ensure distinct buffers
                 if ((m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
-                    // destroy original bitset if last one
-                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
-
-                    m_buf = make_byte_array(other.m_buf->size, other.m_s->m_alignment_size, sisl::buftag::bitset);
+                    m_buf = make_byte_array_with_deleter(other.m_buf->size, other.m_s->m_alignment_size);
                     m_s = new (m_buf->bytes)
                         bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits,
                                           other.m_s->m_alignment_size, false};
@@ -523,10 +526,7 @@ public:
                 bool uninitialized{false};
                 const auto old_words_cap{m_s->m_words_cap};
                 if ((m_buf->size != size) || (m_buf == other.m_buf)) {
-                    // destroy original bitset if last one
-                    if (m_buf.use_count() == 1) m_s->~bitset_serialized();
-
-                    m_buf = make_byte_array(size, alignment_size, sisl::buftag::bitset);
+                    m_buf = make_byte_array_with_deleter(size, alignment_size);
                     uninitialized = true;
                 }
                 m_s = new (m_buf->bytes) bitset_serialized{other.m_s->m_id, nbits, 0, alignment_size, false};
@@ -629,14 +629,10 @@ public:
      * @return sisl::byte_array
      */
     const sisl::byte_array serialize(const std::optional< uint32_t > opt_alignment_size = std::optional< uint32_t >{},
-                                     const bool force_copy = true) const {
+                                     const bool force_copy = false) const {
         ReadLockGuard lock{this};
         assert(m_s);
-        const uint64_t num_bits{total_bits()};
-        const uint64_t total_words{bitset_serialized::total_words(num_bits)};
-        const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
         const uint32_t alignment_size{opt_alignment_size ? (*opt_alignment_size) : m_s->m_alignment_size};
-        const uint64_t size{(alignment_size > 0) ? round_up(total_bytes, alignment_size) : total_bytes};
 
         if (std::is_standard_layout_v< bitword_type > && std::is_trivial_v< value_type > &&
             (sizeof(value_type) == sizeof(bitword_type)) && (alignment_size == m_s->m_alignment_size) && !force_copy) {
@@ -645,7 +641,13 @@ public:
             return m_buf;
         } else {
             // underlying BitWord is not standard layout or different alignment or copy
-            auto buf{make_byte_array(size, alignment_size, sisl::buftag::bitset)};
+            const uint64_t num_bits{total_bits()};
+            const uint64_t total_words{bitset_serialized::total_words(num_bits)};
+            const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
+            const uint64_t size{(alignment_size > 0) ? round_up(total_bytes, alignment_size) : total_bytes};
+
+            // NOTE: custom deleter not needed since underlying is POD word_t, i.e. uint64_t or similar
+            auto buf{make_byte_array(size, alignment_size, buftag::bitset)};
             word_t* word_ptr{reinterpret_cast< word_t* >(buf->bytes + sizeof(bitset_serialized))};
             if (std::is_standard_layout_v< bitword_type > && std::is_trivial_v< value_type > &&
                 (sizeof(value_type) == sizeof(bitword_type))) {
@@ -1112,7 +1114,7 @@ private:
 
         const uint64_t new_nbits{nbits + new_skip_bits};
         auto new_buf{
-            make_byte_array(bitset_serialized::nbytes(new_nbits), m_s->m_alignment_size, sisl::buftag::bitset)};
+            make_byte_array_with_deleter(bitset_serialized::nbytes(new_nbits), m_s->m_alignment_size)};
         auto new_s{new (new_buf->bytes)
                        bitset_serialized{m_s->m_id, new_nbits, new_skip_bits, m_s->m_alignment_size, false}};
         const auto new_cap{new_s->m_words_cap};
@@ -1126,9 +1128,6 @@ private:
             std::uninitialized_fill(std::next(new_s->get_words(), move_nwords), new_s->end_words(),
                                     (value ? bitword_type{static_cast< word_t >(~word_t{})} : bitword_type{word_t{}}));
         }
-
-        // destroy original if last 1
-        if (m_buf.use_count() == 1) m_s->~bitset_serialized();
 
         // swap old with new
         m_buf = new_buf;
