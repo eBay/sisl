@@ -90,9 +90,12 @@ private:
         bitset_serialized(bitset_serialized&&) noexcept = delete;
         bitset_serialized& operator=(const bitset_serialized&) = delete;
         bitset_serialized& operator=(bitset_serialized&&) noexcept = delete;
-        ~bitset_serialized() {
-            // destruct the Words
-            std::destroy(get_words(), end_words());
+        ~bitset_serialized() = default;
+
+        void destroy(const bool destroy_words = true) {
+            // destruct the BitWords
+            if (destroy_words) { std::destroy(get_words(), end_words()); }
+            this->~bitset_serialized();
         }
 
         bool valid_bit(const uint64_t bit) const { return (bit + m_skip_bits) < m_nbits; }
@@ -163,7 +166,7 @@ private:
                 if (ptr) {
                     // beginning of buffer is bitset_serialized
                     bitset_serialized* const bitset_serialized_ptr{reinterpret_cast< bitset_serialized* >(ptr)};
-                    bitset_serialized_ptr->~bitset_serialized();
+                    bitset_serialized_ptr->destroy(true);
                     delete ptr;
                 }
             }};
@@ -646,8 +649,16 @@ public:
             const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
             const uint64_t size{(alignment_size > 0) ? round_up(total_bytes, alignment_size) : total_bytes};
 
-            // NOTE: custom deleter not needed since underlying is POD word_t, i.e. uint64_t or similar
-            auto buf{make_byte_array(size, alignment_size, buftag::bitset)};
+            // create buffer that only destroys bit_serialized and not underlying words since they are POD
+            auto buf{std::shared_ptr< byte_array_impl >{
+                new byte_array_impl{static_cast<uint32_t>(size), alignment_size, buftag::bitset}, [](byte_array_impl* const ptr) {
+                    if (ptr) {
+                        // beginning of buffer is bitset_serialized
+                        bitset_serialized* const bitset_serialized_ptr{reinterpret_cast< bitset_serialized* >(ptr)};
+                        bitset_serialized_ptr->destroy(false);
+                        delete ptr;
+                    }
+                }}};
             word_t* word_ptr{reinterpret_cast< word_t* >(buf->bytes + sizeof(bitset_serialized))};
             if (std::is_standard_layout_v< bitword_type > && std::is_trivial_v< value_type > &&
                 (sizeof(value_type) == sizeof(bitword_type))) {
@@ -673,12 +684,25 @@ public:
      *
      * @return uint64_t
      */
-    uint64_t serialized_size() const {
+    uint64_t serialized_size(const std::optional< uint32_t > opt_alignment_size = std::optional< uint32_t >{},
+                             const bool force_copy = false) const {
         ReadLockGuard lock{this};
-        const uint64_t num_bits{total_bits()};
-        const uint64_t total_words{bitset_serialized::total_words(num_bits)};
-        const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
-        return total_bytes;
+        assert(m_s);
+        const uint32_t alignment_size{opt_alignment_size ? (*opt_alignment_size) : m_s->m_alignment_size};
+
+        if (std::is_standard_layout_v< bitword_type > && std::is_trivial_v< value_type > &&
+            (sizeof(value_type) == sizeof(bitword_type)) && (alignment_size == m_s->m_alignment_size) && !force_copy) {
+            // underlying BitWord class is standard layout and same alignment
+            // so return the underlying byte_array
+            return static_cast<uint64_t>(m_buf->size());
+        } else {
+            // underlying BitWord is not standard layout or different alignment or copy
+            const uint64_t num_bits{total_bits()};
+            const uint64_t total_words{bitset_serialized::total_words(num_bits)};
+            const uint64_t total_bytes{sizeof(bitset_serialized) + sizeof(word_t) * total_words};
+            const uint64_t size{(alignment_size > 0) ? round_up(total_bytes, alignment_size) : total_bytes};
+            return size;
+        }
     }
 
     /**
