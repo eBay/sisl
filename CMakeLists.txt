@@ -6,8 +6,6 @@ option(DEBUG_CMAKE "Debug CMake messages option" OFF)
 # Set Global CMake Options
 set_property(GLOBAL PROPERTY USE_FOLDERS ON) # turn on folder hierarchies
 
-enable_testing()
-
 include (cmake/Flags.cmake)
 
 set(CMAKE_CXX_STANDARD 20)
