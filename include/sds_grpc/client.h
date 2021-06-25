@@ -240,13 +240,15 @@ public:
          *     The callback function must check if `::grpc::Status` argument is
          *     OK before handling the response. If call failed, `::grpc::Status`
          *     indicates the error code and error message.
+         * @param deadline - deadline in seconds
          *
          */
         template < typename TREQUEST, typename TRESPONSE >
         void call_unary(const TREQUEST& request, unary_call_t< TREQUEST, TRESPONSE > call,
-                        unary_callback_t< TREQUEST, TRESPONSE > callback) {
+                        unary_callback_t< TREQUEST, TRESPONSE > callback, uint32_t deadline) {
 
             auto data = new ClientCallData< TREQUEST, TRESPONSE >(callback);
+            data->set_deadline(deadline);
             // Note that async unary RPCs don't post a CQ tag in call
             data->responder_reader() = (stub_.get()->*call)(&data->context(), request, cq());
             // CQ tag posted here

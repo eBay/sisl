@@ -43,12 +43,12 @@ public:
 
     void Echo(const EchoRequest& request, std::function< void(EchoReply&, ::grpc::Status& status) > callback) {
 
-        echo_stub_->call_unary< EchoRequest, EchoReply >(request, &EchoService::StubInterface::AsyncEcho, callback);
+        echo_stub_->call_unary< EchoRequest, EchoReply >(request, &EchoService::StubInterface::AsyncEcho, callback, 1);
     }
 
     void Ping(const PingRequest& request, std::function< void(PingReply&, ::grpc::Status& status) > callback) {
 
-        ping_stub_->call_unary< PingRequest, PingReply >(request, &PingService::StubInterface::AsyncPing, callback);
+        ping_stub_->call_unary< PingRequest, PingReply >(request, &PingService::StubInterface::AsyncPing, callback, 1);
     }
 
     AsyncStub< EchoService >::UPtr echo_stub_;
@@ -148,4 +148,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
