@@ -29,6 +29,7 @@ int main(int argc, char* argv[]) {
             SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
     MY_SETTINGS_FACTORY.save("/tmp/settings_out");
     SETTINGS(test_app_schema, s, {
+        LOGINFO("databaseHost = {}", s.config.database.databaseHost);
         LOGINFO("databasePort = {}", s.config.database.databasePort);
         LOGINFO("numThreads = {}", s.config.database.numThreads);
     });
