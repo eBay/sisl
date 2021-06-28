@@ -5,13 +5,17 @@
 #include <cassert>
 #include <chrono>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
+#include <functional>
 #include <iostream>
 #include <memory>
+#include <type_traits>
 
 #include "boost/preprocessor/arithmetic/inc.hpp"
 #include "boost/preprocessor/repetition/repeat_from_to.hpp"
 
+// NOTE: In future should use [[likely]] and [[unlikely]] but not valid syntax in if predicate
 #if defined __GNUC__ || defined __llvm__
 #define sisl_likely(x) __builtin_expect(!!(x), 1)
 #define sisl_unlikely(x) __builtin_expect(!!(x), 0)
@@ -20,13 +24,13 @@
 #define sisl_unlikely(x) (x)
 #endif
 
-using Clock = std::chrono::steady_clock;
+typedef std::chrono::steady_clock Clock;
 
 /*************** Clock/Time Related Methods/Definitions **************/
 #define CURRENT_CLOCK(name) Clock::time_point name = Clock::now()
 
 inline uint64_t get_elapsed_time_ns(const Clock::time_point& t) {
-    std::chrono::nanoseconds ns = std::chrono::duration_cast< std::chrono::nanoseconds >(Clock::now() - t);
+    const std::chrono::nanoseconds ns{std::chrono::duration_cast< std::chrono::nanoseconds >(Clock::now() - t)};
     return ns.count();
 }
 
@@ -120,10 +124,11 @@ inline uint64_t round_down(const uint64_t num_to_round, const uint64_t multiple)
 // A simple wrapper to atomic to allow them to put it in vector or other STL containers
 template < typename T >
 struct atomwrapper {
-    std::atomic< T > m_a;
+    typedef std::decay_t< T > value_type;
+    std::atomic< value_type > m_a;
 
-    atomwrapper(const T& val) : m_a{val} {}
-    atomwrapper(const std::atomic< T >& a) : m_a{a.load()} {}
+    atomwrapper(const value_type& val) : m_a{val} {}
+    atomwrapper(const std::atomic< value_type >& a) : m_a{a.load()} {}
     atomwrapper(const atomwrapper& other) : m_a{other.m_a.load()} {}
     atomwrapper& operator=(const atomwrapper& other) noexcept {
         m_a.store(other.m_a.load());
@@ -132,17 +137,17 @@ struct atomwrapper {
     atomwrapper& operator=(atomwrapper&&) noexcept = delete;
 
     template < typename... Args >
-    T fetch_add(Args&&... args) {
+    value_type fetch_add(Args&&... args) {
         return m_a.fetch_add(std::forward< Args >(args)...);
     }
 
     template < typename... Args >
-    T fetch_sub(Args&&... args) {
+    value_type fetch_sub(Args&&... args) {
         return m_a.fetch_add(std::forward< Args >(args)...);
     }
 
     template < typename... Args >
-    T load(Args&&... args) const {
+    value_type load(Args&&... args) const {
         return m_a.load(std::forward< Args >(args)...);
     }
 
@@ -151,7 +156,7 @@ struct atomwrapper {
         m_a.store(std::forward< Args >(args)...);
     }
 
-    std::atomic< T >& get() { return m_a; }
+    std::atomic< value_type >& get() { return m_a; }
 };
 
 /********* Bitwise and math related manipulation ********/
