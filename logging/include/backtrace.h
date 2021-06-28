@@ -419,6 +419,7 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
             for (auto& finfo : finfos) {
                 if (std::strstr(finfo.demangled_name.data(), "sds_logging::bt_dumper") ||
                     std::strstr(finfo.demangled_name.data(), "sds_logging::crash_handler")) {
+                    /*
                     // search to end for sigaction.c after handler found
                     size_t alt_frame_num{frame_num};
                     while (++alt_frame_num < finfos.size()) {
@@ -428,6 +429,7 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
                             break;
                         }
                     }
+                    */
                     break;
                 }
                 ++frame_num;
@@ -591,7 +593,7 @@ static void convert_frame_format(frame_info_t* const finfos, const size_t nframe
     static std::mutex s_lock;
     static std::array< void*, backtrace_detail::max_backtrace > stack_ptr;
     {
-        std::scoped_lock lock{s_lock};
+        std::lock_guard<std::mutex> lock{s_lock};
         const size_t stack_size{_stack_backtrace(stack_ptr.data(), stack_ptr.size())};
         return _stack_interpret(stack_ptr.data(), stack_size, output_buf, output_buflen, trim_internal);
     }

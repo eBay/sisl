@@ -438,29 +438,31 @@ MODLEVELDEC(_, _, base)
         BOOST_PP_SEQ_FOR_EACH(MOD_LEVEL_STRING, , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};
 
 namespace sds_logging {
-typedef void (*sig_handler_t)(int, siginfo_t*, void*);
+typedef int SignalType;
+typedef void (*sig_handler_t)(SignalType);
 
 extern void
 SetLogger(std::string const& name,
           std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
-                                                      std::string const& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+                                                      const std::string& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 extern std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
-                                                      bool tee_to_stdout);
+                                                      const bool tee_to_stdout);
 extern void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
 
-extern void SetModuleLogLevel(const std::string& module_name, spdlog::level::level_enum level);
+extern void SetModuleLogLevel(const std::string& module_name, const spdlog::level::level_enum level);
 extern spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name);
 extern nlohmann::json GetAllModuleLogLevel();
 extern void SetAllModuleLogLevel(const spdlog::level::level_enum level);
 
 extern void log_stack_trace(const bool all_threads = false);
-extern void install_signal_handler(const bool all_threads);
-extern void add_signal_handler(const int sig_num, const std::string_view& sig_name, sig_handler_t hdlr);
-extern void install_crash_handler(const bool all_threads = true);
+extern bool install_signal_handler(const bool all_threads);
+extern bool add_signal_handler(const SignalType sig_num, const std::string_view& sig_name, const sig_handler_t hdlr);
+extern bool install_crash_handler(const bool all_threads = true);
 extern bool is_crash_handler_installed();
-extern void override_setup_signals(const std::map< int, std::string >& override_signals);
-extern void restore_signal_handler_to_default();
-extern bool send_thread_signal(const pthread_t thr, const int sig_num);
+//extern void override_setup_signals(const std::map< int, std::string >& override_signals);
+extern bool restore_signal_handler(const SignalType sig_num);
+extern bool restore_signal_handlers();
+extern bool send_thread_signal(const pthread_t thr, const SignalType sig_num);
 
 template < typename... Args >
 std::string format_log_msg(const char* const fmt, Args&&... args) {
