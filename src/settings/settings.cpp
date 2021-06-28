@@ -18,7 +18,12 @@ static nlohmann::json kv_path_to_json(const std::vector< std::string >& paths, c
     for (auto& p : paths) {
         json_str += "{\"" + p + "\":";
     }
-    json_str += val;
+
+    if (val.find_first_not_of("0123456789") == std::string::npos) {
+        json_str += val;
+    } else {
+        json_str += fmt::format("\"{}\"", val);
+    }
     json_str += std::string(paths.size(), '}');
 
     return nlohmann::json::parse(json_str);
