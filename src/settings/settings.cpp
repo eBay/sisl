@@ -1,10 +1,13 @@
-#include <string>
-#include <vector>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
+#include <vector>
+
 #include <boost/algorithm/string.hpp>
 
 #include <sds_options/options.h>
+
 #include "settings.hpp"
 
 SDS_OPTION_GROUP(config,
@@ -19,7 +22,8 @@ static nlohmann::json kv_path_to_json(const std::vector< std::string >& paths, c
         json_str += "{\"" + p + "\":";
     }
 
-    if (val.find_first_not_of("0123456789") == std::string::npos) {
+    if (std::find_if(std::cbegin(val), std::cend(val), [](const char c){
+        return !std::isdigit(c);}) == std::cend(val)) {
         json_str += val;
     } else {
         json_str += fmt::format("\"{}\"", val);
@@ -31,8 +35,8 @@ static nlohmann::json kv_path_to_json(const std::vector< std::string >& paths, c
 
 SettingsFactoryRegistry::SettingsFactoryRegistry() {
     if (SDS_OPTIONS.count("override_config") != 0) {
-        auto cfgs = SDS_OPTIONS["override_config"].as< std::vector< std::string > >();
-        for (auto& cfg : cfgs) {
+        const auto cfgs{SDS_OPTIONS["override_config"].as< std::vector< std::string > >()};
+        for (const auto& cfg : cfgs) {
             // Get the entire path along with module name and its value
             std::vector< std::string > kv;
             boost::split(kv, cfg, boost::is_any_of(":="));
@@ -42,26 +46,27 @@ SettingsFactoryRegistry::SettingsFactoryRegistry() {
             // there are cuter ways to do this, but well someother time....
             std::vector< std::string > paths;
             boost::split(paths, kv[0], boost::is_any_of("."));
-            const auto schema_name{paths[0]};
-            paths.erase(paths.begin());
+            if (paths.size() < 2) { continue; }
+            auto schema_name{std::move(paths.front())};
+            paths.erase(std::begin(paths));
 
             auto j = kv_path_to_json(paths, kv[1]); // Need a copy constructor here.
-            auto it{m_override_cfgs.find(schema_name)};
-            if (it != m_override_cfgs.end()) {
+            const auto it{m_override_cfgs.find(schema_name)};
+            if (it != std::cend(m_override_cfgs)) {
                 it->second.merge_patch(j);
             } else {
-                m_override_cfgs.insert(std::make_pair(schema_name, j));
+                m_override_cfgs.emplace(std::move(schema_name), std::move(j));
             }
         }
     }
 }
 
-void SettingsFactoryRegistry::register_factory(const std::string& name, SettingsFactoryBase* f) {
+void SettingsFactoryRegistry::register_factory(const std::string& name, SettingsFactoryBase* const f) {
     if (SDS_OPTIONS.count("config_path") == 0) { return; }
 
     const auto config_file{fmt::format("{}/{}.json", SDS_OPTIONS["config_path"].as< std::string >(), name)};
     {
-        std::unique_lock lg(m_mtx);
+        std::unique_lock lg{m_mtx};
         f->set_config_file(config_file);
 
         // First create the default file
@@ -71,20 +76,20 @@ void SettingsFactoryRegistry::register_factory(const std::string& name, Settings
         }
 
         // Check if we have overridden config for this schema name
-        const auto it = m_override_cfgs.find(name);
-        if (it != m_override_cfgs.cend()) {
+        const auto it{m_override_cfgs.find(name)};
+        if (it != std::cend(m_override_cfgs)) {
             // Read the json file and push the overridden config inside
             assert(std::filesystem::is_regular_file(std::filesystem::status(config_file)));
             LOGINFO("Settings schema {} has some overridden parameters, applying that", name);
 
             nlohmann::json config_js;
             {
-                std::ifstream ifs(config_file);
+                std::ifstream ifs{config_file};
                 config_js = nlohmann::json::parse(ifs);
             }
             config_js.merge_patch(it->second); // Merge the overridden json with current config json
             {
-                std::ofstream ofs(config_file);
+                std::ofstream ofs{config_file};
                 ofs << config_js.dump(2);
             }
         }
@@ -97,13 +102,13 @@ void SettingsFactoryRegistry::register_factory(const std::string& name, Settings
 }
 
 void SettingsFactoryRegistry::unregister_factory(const std::string& name) {
-    std::unique_lock lg(m_mtx);
+    std::unique_lock lg{m_mtx};
     m_factories.erase(name);
 }
 
 bool SettingsFactoryRegistry::reload_all() {
     bool ret{false};
-    std::shared_lock lg(m_mtx);
+    std::shared_lock lg{m_mtx};
     for (auto& [name, factory] : m_factories) {
         if (factory->reload()) { ret = true; }
     }
@@ -111,7 +116,7 @@ bool SettingsFactoryRegistry::reload_all() {
 }
 
 void SettingsFactoryRegistry::save_all() {
-    std::shared_lock lg(m_mtx);
+    std::shared_lock lg{m_mtx};
     for (auto& [name, factory] : m_factories) {
         factory->save();
     }
@@ -119,7 +124,7 @@ void SettingsFactoryRegistry::save_all() {
 
 nlohmann::json SettingsFactoryRegistry::get_json() const {
     nlohmann::json j;
-    std::shared_lock lg(m_mtx);
+    std::shared_lock lg{m_mtx};
     for (auto& [name, factory] : m_factories) {
         j[name] = nlohmann::json::parse(factory->get_json());
     }

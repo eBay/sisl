@@ -1,10 +1,13 @@
+#include <cstdint>
+#include <iostream>
+
+#include <nlohmann/json.hpp>
+#include <sds_logging/logging.h>
+#include <sds_options/options.h>
+
 #include "generated/test_app_schema_generated.h"
 //#include "generated/test_app_schema_bindump.hpp"
 #include "settings/settings.hpp"
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
-#include <iostream>
-#include <nlohmann/json.hpp>
 
 #define MY_SETTINGS_FACTORY SETTINGS_FACTORY(test_app_schema)
 
