@@ -73,18 +73,13 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
         message("Debug build")
         remove_flag("-O[0-4]")
-        add_flags("-O0 -D_PRERELEASE=1 -DDEBUG_RCU")
+        add_flags("-O0 -DDEBUG_RCU")
     else()
         message("Release build")
         remove_flag("-O[0-4]")
-        add_flags("-O3 -D_PRERELEASE=1")
-        # add debug info
-        add_flags("-g")
+        add_flags("-O3")
     endif()
 endif()
-
-# add boost options
-add_flags("-DBOOST_ALLOW_DEPRECATED_HEADERS")
 
 # add conan information 
 add_flags("-DPACKAGE_NAME=\\\"${CONAN_PACKAGE_NAME}\\\"")
