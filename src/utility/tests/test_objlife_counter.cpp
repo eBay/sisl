@@ -95,6 +95,10 @@ int main(int argc, char* argv[]) {
 
     g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();
 
+#ifdef _PRERELEASE
     const auto ret{RUN_ALL_TESTS()};
     return ret;
+#else
+    return 0;
+#endif
 }
