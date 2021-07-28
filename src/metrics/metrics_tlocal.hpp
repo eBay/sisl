@@ -1,11 +1,16 @@
 #pragma once
 
-#include "histogram_buckets.hpp"
-#include <atomic>
+
 #include <array>
-#include <vector>
+#include <atomic>
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <tuple>
+#include <type_traits>
+#include <vector>
+
+#include "histogram_buckets.hpp"
 #include "metrics_group_impl.hpp"
 
 namespace sisl {
@@ -14,20 +19,24 @@ static_assert(std::is_trivially_copyable< HistogramValue >::value, "Expecting Hi
 class HistogramStaticInfo;
 class PerThreadMetrics {
 private:
-    CounterValue* m_counters = nullptr;
-    HistogramValue* m_histograms = nullptr;
+    std::unique_ptr< CounterValue[] > m_counters{nullptr};
+    std::unique_ptr< HistogramValue[] > m_histograms{nullptr};
     const std::vector< HistogramStaticInfo >& m_histogram_info;
 
     uint32_t m_ncntrs;
     uint32_t m_nhists;
 
 public:
-    PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, uint32_t ncntrs, uint32_t nhists);
+    PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, const uint32_t ncntrs, const uint32_t nhists);
+    PerThreadMetrics(const PerThreadMetrics&) = delete;
+    PerThreadMetrics(PerThreadMetrics&&) noexcept = delete;
+    PerThreadMetrics& operator=(const PerThreadMetrics&) = delete;
+    PerThreadMetrics& operator=(PerThreadMetrics&&) noexcept = delete;
     ~PerThreadMetrics();
 
-    static void merge(PerThreadMetrics* a, PerThreadMetrics* b);
-    CounterValue& get_counter(uint64_t index);
-    HistogramValue& get_histogram(uint64_t index);
+    static void merge(PerThreadMetrics* const a, PerThreadMetrics* const b);
+    CounterValue& get_counter(const uint64_t index);
+    HistogramValue& get_histogram(const uint64_t index);
 
     auto get_num_metrics() const { return std::make_tuple(m_ncntrs, m_nhists); }
 };
@@ -49,14 +58,21 @@ using PerThreadMetricsBuffer =
  */
 class ThreadBufferMetricsGroup : public MetricsGroupImpl {
 public:
-    ThreadBufferMetricsGroup(const char* grp_name, const char* inst_name) : MetricsGroupImpl(grp_name, inst_name) {}
+    ThreadBufferMetricsGroup(const char* const grp_name, const char* const inst_name) :
+            MetricsGroupImpl{grp_name, inst_name} {}
     ThreadBufferMetricsGroup(const std::string& grp_name, const std::string& inst_name) :
-            MetricsGroupImpl(grp_name, inst_name) {}
+            MetricsGroupImpl{grp_name, inst_name} {}
 
-    void counter_increment(uint64_t index, int64_t val = 1) override;
-    void counter_decrement(uint64_t index, int64_t val = 1) override;
-    void histogram_observe(uint64_t index, int64_t val) override;
-    void histogram_observe(uint64_t index, int64_t val, uint64_t count) override;
+    ThreadBufferMetricsGroup(const ThreadBufferMetricsGroup&) = delete;
+    ThreadBufferMetricsGroup(ThreadBufferMetricsGroup&&) noexcept = delete;
+    ThreadBufferMetricsGroup& operator=(const ThreadBufferMetricsGroup&) = delete;
+    ThreadBufferMetricsGroup& operator=(ThreadBufferMetricsGroup&&) noexcept = delete;
+    ~ThreadBufferMetricsGroup();
+
+    void counter_increment(const uint64_t index, const int64_t val = 1) override;
+    void counter_decrement(const uint64_t index, const int64_t val = 1) override;
+    void histogram_observe(const uint64_t index, const int64_t val) override;
+    void histogram_observe(const uint64_t index, const int64_t val, const uint64_t count) override;
 
     static void flush_core_cache();
 
@@ -64,7 +80,7 @@ public:
 
 private:
     void on_register();
-    void gather_result(bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
+    void gather_result(const bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
                        const histogram_gather_cb_t& histogram_cb) override;
 
 private:

@@ -45,7 +45,7 @@ public:
 
     CounterValue() = default;
     CounterValue(const CounterValue&) = default;
-    CounterValue(CounterValue&&) noexcept = delete;
+    CounterValue(CounterValue&&) noexcept = default;
     CounterValue& operator=(const CounterValue&) = delete;
     CounterValue& operator=(CounterValue&&) noexcept = delete;
 
@@ -189,7 +189,7 @@ public:
 
     HistogramValue() = default;
     HistogramValue(const HistogramValue&) = default;
-    HistogramValue(HistogramValue&&) noexcept = delete;
+    HistogramValue(HistogramValue&&) noexcept = default;
     HistogramValue& operator=(const HistogramValue&) = delete;
     HistogramValue& operator=(HistogramValue&&) noexcept = delete;
 
