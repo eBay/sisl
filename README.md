@@ -81,10 +81,17 @@ $ conan build ..
 ### Without conan
 To be Added
 
-## License Information
-Copyright 2019 eBay Inc.
+## Contributing to This Project
+We welcome contributions. If you find any bugs, potential flaws and edge cases, improvements, new feature suggestions or discussions, please submit issues or pull requests.
 
-Primary authors: Harihara Kadayam, Rishabh Mittal, Bryan Zimmerman, Brian Szymd, Yaming Kuang
+Contact
+Harihara Kadayam hkadayam@ebay.com
+
+## License Information
+Copyright 2021 eBay Inc.
+
+Primary Author: Harihara Kadayam
+Primary Developers: Harihara Kadayam, Rishabh Mittal, Bryan Zimmerman, Brian Szymd
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
 
