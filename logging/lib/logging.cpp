@@ -197,7 +197,7 @@ void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
     spdlog::register_logger(glob_critical_logger);
 }
 
-static void _set_module_log_level(const std::string& module_name, const spdlog::level::level_enum level) {
+static void set_module_log_level(const std::string& module_name, const spdlog::level::level_enum level) {
     const auto sym{std::string{"module_level_"} + module_name};
     auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
     if (mod_level == nullptr) {
@@ -221,7 +221,7 @@ static std::string setup_modules() {
 
         for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
             const std::string& mod_name{glob_enabled_mods[mod_num]};
-            _set_module_log_level(mod_name, lvl);
+            set_module_log_level(mod_name, lvl);
             fmt::format_to(std::back_inserter(out_str), "{}={}, ", mod_name, lvl_str);
         }
     } else {
@@ -321,7 +321,7 @@ std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const st
 }
 
 void SetModuleLogLevel(const std::string& module_name, const spdlog::level::level_enum level) {
-    _set_module_log_level(module_name, level);
+    set_module_log_level(module_name, level);
     LOGINFO("Set module '{}' log level to '{}'", module_name, spdlog::level::to_string_view(level));
 }
 

@@ -55,22 +55,27 @@ typedef struct SignalHandlerData {
 
 static bool exit_in_progress() {
     static std::atomic< pthread_t > tracing_thread_id{0};
-    bool ret;
-    pthread_t id;
-    pthread_t new_id;
+    auto& logger{GetLogger()};
+    auto& critical_logger{GetCriticalLogger()};
+    pthread_t current_id{tracing_thread_id.load()};
+    pthread_t new_id{pthread_self()};
 
-    do {
-        id = tracing_thread_id.load();
-        if ((id == 0) || (id == pthread_self())) {
-            ret = false;
-            new_id = pthread_self();
-        } else {
-            ret = true;
-            break;
-        }
-    } while (!tracing_thread_id.compare_exchange_weak(id, new_id));
+    if (logger) {
+        logger->critical("Thread num: {} entered exit handler\n", new_id);
+    }
+    if (critical_logger) {
+        critical_logger->critical("Thread num: {} entered exit handler\n", new_id);
+    }
 
-    return ret;
+    if (current_id == new_id) {
+        // we are already marked in exit handler
+        return false;
+    } else if (current_id != 0) {
+        // another thread already marked in exit handler
+        return true;
+    }
+    // try to mark this thread as the active exit handler
+    return !tracing_thread_id.compare_exchange_strong(current_id, new_id);
 }
 
 static void exit_with_default_sighandler(const SignalType fatal_signal_id) {
@@ -109,19 +114,24 @@ static const char* exit_reason_name(const SignalType fatal_id) {
 }
 
 static void crash_handler(const SignalType signal_number) {
+    const auto flush_logs{[]() { // flush all logs
+        spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
+            if (l)
+                l->flush();
+        });
+        std::this_thread::sleep_for(std::chrono::milliseconds{250});
+    }};
+
     // Only one signal will be allowed past this point
     if (exit_in_progress()) {
+        // already have thread in exit handler so just spin
+        flush_logs();
         while (true) {
             std::this_thread::sleep_for(std::chrono::seconds{1});
         }
+    } else {
+        flush_logs();
     }
-
-    // flush all logs
-    spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
-        if (l)
-            l->flush();
-    });
-    std::this_thread::sleep_for(std::chrono::milliseconds{250});
 
     // remove all default logging info except for message
     GetLogger()->set_pattern("%v");
@@ -130,11 +140,7 @@ static void crash_handler(const SignalType signal_number) {
                 ::getpid());
 
     // flush again and shutdown
-    spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
-        if (l)
-            l->flush();
-    });
-    std::this_thread::sleep_for(std::chrono::milliseconds{250});
+    flush_logs();
     spdlog::shutdown();
 
     exit_with_default_sighandler(signal_number);
@@ -202,7 +208,7 @@ static void log_stack_trace_all_threads() {
 
             {
                 std::unique_lock outstanding_lock{g_mtx_stack_dump_outstanding};
-                const auto result{g_stack_dump_cv.wait_for(outstanding_lock, std::chrono::seconds{1},
+                const auto result{g_stack_dump_cv.wait_for(outstanding_lock, std::chrono::seconds{5},
                                                            [] { return (g_stack_dump_outstanding == 0); })};
                 if (!result) {
                     g_stack_dump_outstanding = 0;
