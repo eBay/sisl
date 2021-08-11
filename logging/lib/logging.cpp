@@ -298,14 +298,23 @@ void SetLogPattern(const std::string& pattern, const std::shared_ptr< logger_t >
 
 std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
                                                const bool tee_to_stdout) {
+    // For backwards compatibility
+    return CreateCustomLogger(name, extn, tee_to_stdout, false);
+}
+
+std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
+                                               const bool tee_to_stdout, const bool tee_to_stderr) {
     std::vector< spdlog::sink_ptr > sinks{};
     std::shared_ptr< spdlog::logger > custom_logger;
 
     if (!SDS_OPTIONS.count("stdout")) {
         create_append_sink(name, sinks, extn, false /* is_stdout_sink */);
     }
-    if (SDS_OPTIONS.count("stdout") || tee_to_stdout) {
+    if ((SDS_OPTIONS.count("stdout") && !tee_to_stderr) || tee_to_stdout) {
         create_append_sink(name, sinks, "", true /* is_stdout_sink */);
+    }
+    if (!SDS_OPTIONS.count("quiet") && tee_to_stderr) {
+        sinks.push_back(std::make_shared< sinks::stderr_color_sink_mt >());
     }
 
     if (SDS_OPTIONS.count("synclog")) {

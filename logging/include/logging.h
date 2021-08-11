@@ -441,12 +441,12 @@ namespace sds_logging {
 typedef int SignalType;
 typedef void (*sig_handler_t)(SignalType);
 
-extern void
-SetLogger(std::string const& name,
-          std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
-                                                      const std::string& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+extern void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
+                      const std::string& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 extern std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
                                                       const bool tee_to_stdout);
+extern std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
+                                                      const bool tee_to_stdout, const bool tee_to_stderr);
 extern void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
 
 extern void SetModuleLogLevel(const std::string& module_name, const spdlog::level::level_enum level);
@@ -459,7 +459,7 @@ extern bool install_signal_handler(const bool all_threads);
 extern bool add_signal_handler(const SignalType sig_num, const std::string_view& sig_name, const sig_handler_t hdlr);
 extern bool install_crash_handler(const bool all_threads = true);
 extern bool is_crash_handler_installed();
-//extern void override_setup_signals(const std::map< int, std::string >& override_signals);
+// extern void override_setup_signals(const std::map< int, std::string >& override_signals);
 extern bool restore_signal_handler(const SignalType sig_num);
 extern bool restore_signal_handlers();
 extern bool send_thread_signal(const pthread_t thr, const SignalType sig_num);
