@@ -297,12 +297,6 @@ void SetLogPattern(const std::string& pattern, const std::shared_ptr< logger_t >
 }
 
 std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
-                                               const bool tee_to_stdout) {
-    // For backwards compatibility
-    return CreateCustomLogger(name, extn, tee_to_stdout, false);
-}
-
-std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
                                                const bool tee_to_stdout, const bool tee_to_stderr) {
     std::vector< spdlog::sink_ptr > sinks{};
     std::shared_ptr< spdlog::logger > custom_logger;
