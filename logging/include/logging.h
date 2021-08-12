@@ -444,9 +444,7 @@ typedef void (*sig_handler_t)(SignalType);
 extern void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
                       const std::string& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 extern std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
-                                                      const bool tee_to_stdout);
-extern std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
-                                                      const bool tee_to_stdout, const bool tee_to_stderr);
+                                                      const bool tee_to_stdout, const bool tee_to_stderr = false);
 extern void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
 
 extern void SetModuleLogLevel(const std::string& module_name, const spdlog::level::level_enum level);
