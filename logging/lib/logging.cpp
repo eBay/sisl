@@ -121,22 +121,28 @@ std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
     return logger_thread_ctx.m_critical_logger;
 }
 
-static std::filesystem::path log_path(std::string const& name) {
+static std::filesystem::path get_base_dir() {
     const auto cwd{std::filesystem::current_path()};
     auto p{cwd / "logs"};
+    // Construct a unique directory path based on the current time
+    auto const current_time{std::chrono::system_clock::now()};
+    auto const current_t{std::chrono::system_clock::to_time_t(current_time)};
+    auto const current_tm{std::localtime(&current_t)};
+    std::array< char, PATH_MAX > c_time;
+    if (std::strftime(c_time.data(), c_time.size(), "%F_%R", current_tm)) {
+        p /= c_time.data();
+        std::filesystem::create_directories(p);
+    }
+    return p;
+}
+
+static std::filesystem::path log_path(std::string const& name) {
+    std::filesystem::path p;
     if (0 < SDS_OPTIONS.count("logfile")) {
         p = std::filesystem::path{SDS_OPTIONS["logfile"].as< std::string >()};
     } else {
-        // Construct a unique directory path based on the current time
-        auto const current_time{std::chrono::system_clock::now()};
-        auto const current_t{std::chrono::system_clock::to_time_t(current_time)};
-        auto const current_tm{std::localtime(&current_t)};
-        std::array< char, PATH_MAX > c_time;
-        if (std::strftime(c_time.data(), c_time.size(), "%F_%R", current_tm)) {
-            p /= c_time.data();
-            std::filesystem::create_directories(p);
-        }
-        p /= std::filesystem::path{name}.filename();
+        static std::filesystem::path base_dir{get_base_dir()};
+        p = base_dir / std::filesystem::path{name}.filename();
     }
     return p;
 }
