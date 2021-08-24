@@ -62,7 +62,7 @@ class MetricsConan(ConanFile):
             self.options.sanitize = True
 
     def configure(self):
-        self.options.prerelease = self.options['sds_logging'].prerelease
+        self.options['sds_logging'].prerelease = self.options.prerelease
         if self.settings.build_type == "Debug":
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
