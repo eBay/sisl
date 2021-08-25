@@ -6,8 +6,6 @@ option(DEBUG_CMAKE "Debug CMake messages option" OFF)
 # Set Global CMake Options
 set_property(GLOBAL PROPERTY USE_FOLDERS ON) # turn on folder hierarchies
 
-enable_testing()
-
 include (cmake/Flags.cmake)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -38,9 +36,11 @@ if (DEFINED MALLOC_IMPL)
     endif()
 endif()
 
-if (DEFINED MEMORY_SANITIZER_ON AND ${MEMORY_SANITIZER_ON})
-    include (cmake/mem_sanitizer.cmake)
-    message(STATUS "********* WARNING: Running with Memory Sanitizer ON *********")
+if (DEFINED MEMORY_SANITIZER_ON)
+    if (${MEMORY_SANITIZER_ON}) 
+        include (cmake/mem_sanitizer.cmake)
+        message(STATUS "********* WARNING: Running with Memory Sanitizer ON *********")
+    endif()
 else ()
     message(STATUS "********* WARNING: Running with Memory Sanitizer OFF *********")
 endif()
@@ -73,18 +73,13 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
         message("Debug build")
         remove_flag("-O[0-4]")
-        add_flags("-O0 -D_PRERELEASE=1 -DDEBUG_RCU")
+        add_flags("-O0 -DDEBUG_RCU")
     else()
         message("Release build")
         remove_flag("-O[0-4]")
         add_flags("-O3")
-        # add debug info
-        add_flags("-g")
     endif()
 endif()
-
-# add boost options
-add_flags("-DBOOST_ALLOW_DEPRECATED_HEADERS")
 
 # add conan information 
 add_flags("-DPACKAGE_NAME=\\\"${CONAN_PACKAGE_NAME}\\\"")
@@ -107,6 +102,7 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
             $<TARGET_OBJECTS:sisl_version>
             $<TARGET_OBJECTS:sisl_settings>
+            $<TARGET_OBJECTS:sisl_buffer>
            )
 target_link_libraries(sisl ${COMMON_LIB_DEPS})
 

@@ -5,6 +5,11 @@ endif()
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
+set(BUFFER_SOURCE_FILES 
+    buffer.cpp
+   )
+add_library(sisl_buffer OBJECT ${BUFFER_SOURCE_FILES})
+
 set(TEST_STREAM_TRACKER_SOURCES 
     tests/test_stream_tracker.cpp
    )
@@ -17,6 +22,13 @@ set(GROUP_COMMIT_SOURCES
    )
 add_executable(group_commit ${GROUP_COMMIT_SOURCES})
 target_link_libraries(group_commit sisl ${CONAN_LIBS})
+
+set(TEST_ATOMIC_STATUS_COUNTER_SOURCES 
+    tests/test_atomic_status_counter.cpp
+   )
+add_executable(test_atomic_status_counter ${TEST_ATOMIC_STATUS_COUNTER_SOURCES})
+target_link_libraries(test_atomic_status_counter sisl ${CONAN_LIBS} -latomic)
+add_test(NAME atomic_status_counter COMMAND test_atomic_status_counter)
 
 set(TEST_BITSET_SOURCES 
     tests/test_bitset.cpp

@@ -19,6 +19,7 @@
 using namespace sisl;
 
 SDS_LOGGING_INIT(test_bitset)
+THREAD_BUFFER_INIT
 
 namespace {
 uint64_t g_total_bits;
@@ -38,19 +39,19 @@ public:
     ShadowBitset& operator=(ShadowBitset&&) noexcept = delete;
 
     void set(const bool value, const uint64_t start_bit, const uint32_t total_bits = 1) {
-        std::unique_lock l(m_mutex);
-        for (auto b = start_bit; b < start_bit + total_bits; ++b) {
+        std::unique_lock l{m_mutex};
+        for (auto b{start_bit}; b < start_bit + total_bits; ++b) {
             m_bitset[b] = value;
         }
     }
 
     uint64_t get_next_set_bit(const uint64_t start_bit) {
-        std::unique_lock l(m_mutex);
+        std::unique_lock l{m_mutex};
         return (start_bit == boost::dynamic_bitset<>::npos) ? m_bitset.find_first() : m_bitset.find_next(start_bit);
     }
 
     uint64_t get_next_reset_bit(const uint64_t start_bit) {
-        std::unique_lock l(m_mutex);
+        std::unique_lock l{m_mutex};
         return (start_bit == boost::dynamic_bitset<>::npos) ? (~m_bitset).find_first()
                                                             : (~m_bitset).find_next(start_bit);
     }
@@ -58,7 +59,7 @@ public:
     sisl::BitBlock get_next_contiguous_n_reset_bits(const uint64_t start_bit, const uint32_t n) {
         sisl::BitBlock ret{boost::dynamic_bitset<>::npos, 0u};
 
-        std::unique_lock l(m_mutex);
+        std::unique_lock l{m_mutex};
         // LOGINFO("ShadowBitset next reset request bit={}", start_bit);
         const uint64_t offset_bit{(start_bit == 0) ? (~m_bitset).find_first() : (~m_bitset).find_next(start_bit - 1)};
         for (auto b{offset_bit}; b < m_bitset.size(); ++b) {
@@ -68,7 +69,7 @@ public:
                     ret.start_bit = b;
                     ret.nbits = 1;
                 } else {
-                    ret.nbits++;
+                    ++ret.nbits;
                 }
                 if (ret.nbits == n) { return ret; }
             } else {
@@ -160,13 +161,6 @@ protected:
         m_bset.resize(m_total_bits + nbits);
         m_shadow_bm.resize(m_total_bits + nbits);
         m_total_bits += nbits;
-    }
-
-    sisl::byte_array serialize() { return m_bset.serialize(); }
-
-    void deserialize(sisl::byte_array buf) {
-        sisl::ThreadSafeBitset tmp_bset{buf};
-        m_bset = std::move(tmp_bset);
     }
 
     void validate_all(const uint32_t n_continous_expected) {
@@ -671,37 +665,240 @@ TEST_F(BitsetTest, RandomMultiSetAndShrinkExpandToBoundaries) {
     validate_all(1);
 }
 
-TEST_F(BitsetTest, SerializeDeserialize) {
-    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
-        static thread_local std::random_device s_rd{};
-        static thread_local std::default_random_engine s_engine{s_rd()};
-        std::uniform_int_distribution< uint32_t > pct_gen{0, 99};
-
-        LOGINFO("INFO: Setting/Resetting all bits in range[{} - {}] set_pct={}", start, start + count - 1, g_set_pct);
-        for (auto i{start}; i < start + count; ++i) {
-            (pct_gen(s_engine) < g_set_pct) ? set(i, 1) : reset(i, 1);
+TEST_F(BitsetTest, SerializeDeserializePODBitset) {
+    const auto fill_random{[](auto& bitset) {
+        static thread_local std::random_device rd{};
+        static thread_local std::default_random_engine re{rd()};
+        std::uniform_int_distribution< uint8_t > rand{0, 1};
+        const uint64_t nbits{bitset.size()};
+        for (uint64_t bit{0}; bit < nbits; ++bit) {
+            const bool set{rand(re) == 1};
+            if (set) {
+                bitset.set_bit(bit);
+            } else {
+                bitset.reset_bit(bit);
+            }
         }
-    });
+    }};
 
-    validate_all(1);
-    shrink_head(139);
+    // test 0 aligned bitsets
+    Bitset bset1{1000};
+    fill_random(bset1);
+    Bitset bset2{};
+    bset2.copy(bset1);
+    const auto b1{bset1.serialize(0, false)};
+    bset1 = Bitset{b1};
+    EXPECT_EQ(bset1, bset2);
+    const auto b2{bset1.serialize(0, true)};
+    bset1 = Bitset{b2};
+    EXPECT_EQ(bset1, bset2);
 
-    LOGINFO("INFO: Serialize and then deserialize the bitset and then validate");
-    auto b{serialize()};
-    deserialize(b);
-    validate_all(1);
+    // shift whole word
+    bset1.shrink_head(Bitset::word_size());
+    bset2.copy(bset1);
+    const auto b3{bset1.serialize(0, false)};
+    bset1 = Bitset{b3};
+    EXPECT_EQ(bset1, bset2);
+    const auto b4{bset1.serialize(0, true)};
+    bset1 = Bitset{b4};
+    EXPECT_EQ(bset1, bset2);
 
-    run_parallel(total_bits(), g_num_threads, [&](const uint64_t start, const uint32_t count) {
-        static thread_local std::random_device s_rd{};
-        static thread_local std::default_random_engine s_engine{s_rd()};
-        std::uniform_int_distribution< uint32_t > pct_gen{0, 99};
+    // shift half word
+    bset1.shrink_head(Bitset::word_size() / 2);
+    bset2.copy(bset1);
+    const auto b5{bset1.serialize(0, false)};
+    bset1 = Bitset{b5};
+    EXPECT_EQ(bset1, bset2);
+    const auto b6{bset1.serialize(0, true)};
+    bset1 = Bitset{b6};
+    EXPECT_EQ(bset1, bset2);
 
-        LOGINFO("INFO: Setting/Resetting all bits in range[{} - {}] set_pct={}", start, start + count - 1, g_set_pct);
-        for (auto i{start}; i < start + count; ++i) {
-            (pct_gen(s_engine) < g_set_pct) ? set(i, 1) : reset(i, 1);
+    // shift one bit
+    bset1.shrink_head(1);
+    bset2.copy(bset1);
+    const auto b7{bset1.serialize(0, false)};
+    bset1 = Bitset{b7};
+    EXPECT_EQ(bset1, bset2);
+    const auto b8{bset1.serialize(0, true)};
+    bset1 = Bitset{b8};
+    EXPECT_EQ(bset1, bset2);
+
+    // test aligned bitsets
+    Bitset bset3{1000, 0, 512};
+    fill_random(bset3);
+    bset2.copy(bset3);
+    const auto ab1{bset3.serialize(0, false)};
+    bset3 = Bitset{ab1};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab2{bset3.serialize(0, true)};
+    bset3 = Bitset{ab2};
+    EXPECT_EQ(bset3, bset2);
+
+    // shif whole word
+    bset3.shrink_head(Bitset::word_size());
+    bset2.copy(bset3);
+    const auto ab3{bset3.serialize(0, false)};
+    bset3 = Bitset{ab3};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab4{bset3.serialize(0, true)};
+    bset3 = Bitset{ab4};
+    EXPECT_EQ(bset3, bset2);
+
+    // shift half word
+    bset3.shrink_head(Bitset::word_size() / 2);
+    bset2.copy(bset3);
+    const auto ab5{bset3.serialize(0, false)};
+    bset3 = Bitset{ab5};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab6{bset3.serialize(0, true)};
+    bset3 = Bitset{ab6};
+    EXPECT_EQ(bset3, bset2);
+
+    // shift one bit
+    bset3.shrink_head(1);
+    bset2.copy(bset3);
+    const auto ab7{bset3.serialize(0, false)};
+    bset3 = Bitset{ab7};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab8{bset3.serialize(0, true)};
+    bset3 = Bitset{ab8};
+    EXPECT_EQ(bset3, bset2);
+
+    // serialize different alignment
+    bset2.copy(bset1);
+    const auto dab1{bset1.serialize(512, false)};
+    bset1 = Bitset{dab1};
+    EXPECT_EQ(bset1, bset2);
+    const auto dab2{bset1.serialize(512, true)};
+    bset1 = Bitset{dab2};
+    EXPECT_EQ(bset1, bset2);
+
+    // reserialize different alignment
+    bset2.copy(bset1);
+    const auto dab3{bset1.serialize(0, false)};
+    bset1 = Bitset{dab3, 512};
+    EXPECT_EQ(bset1, bset2);
+    const auto dab4{bset1.serialize(0, true)};
+    bset1 = Bitset{dab4, 512};
+    EXPECT_EQ(bset1, bset2);
+}
+
+TEST_F(BitsetTest, SerializeDeserializeAtomicBitset) {
+    const auto fill_random{[](auto& bitset) {
+        static thread_local std::random_device rd{};
+        static thread_local std::default_random_engine re{rd()};
+        std::uniform_int_distribution< uint8_t > rand{0, 1};
+        const uint64_t nbits{bitset.size()};
+        for (uint64_t bit{0}; bit < nbits; ++bit) {
+            const bool set{rand(re) == 1};
+            if (set) {
+                bitset.set_bit(bit);
+            } else {
+                bitset.reset_bit(bit);
+            }
         }
-    });
-    validate_all(3);
+    }};
+
+    // test 0 aligned bitsets
+    AtomicBitset bset1{1000};
+    fill_random(bset1);
+    AtomicBitset bset2{};
+    bset2.copy(bset1);
+    const auto b1{bset1.serialize(0, false)};
+    bset1 = AtomicBitset{b1};
+    EXPECT_EQ(bset1, bset2);
+    const auto b2{bset1.serialize(0, true)};
+    bset1 = AtomicBitset{b2};
+    EXPECT_EQ(bset1, bset2);
+
+    // shif whole word
+    bset1.shrink_head(AtomicBitset::word_size());
+    bset2.copy(bset1);
+    const auto b3{bset1.serialize(0, false)};
+    bset1 = AtomicBitset{b3};
+    EXPECT_EQ(bset1, bset2);
+    const auto b4{bset1.serialize(0, true)};
+    bset1 = AtomicBitset{b4};
+    EXPECT_EQ(bset1, bset2);
+
+    // shift half word
+    bset1.shrink_head(AtomicBitset::word_size() / 2);
+    bset2.copy(bset1);
+    const auto b5{bset1.serialize(0, false)};
+    bset1 = AtomicBitset{b5};
+    EXPECT_EQ(bset1, bset2);
+    const auto b6{bset1.serialize(0, true)};
+    bset1 = AtomicBitset{b6};
+    EXPECT_EQ(bset1, bset2);
+
+    // shift one bit
+    bset1.shrink_head(1);
+    bset2.copy(bset1);
+    const auto b7{bset1.serialize(0, false)};
+    bset1 = AtomicBitset{b7};
+    EXPECT_EQ(bset1, bset2);
+    const auto b8{bset1.serialize(0, true)};
+    bset1 = AtomicBitset{b8};
+    EXPECT_EQ(bset1, bset2);
+
+    // test aligned bitsets
+    AtomicBitset bset3{1000, 0, 512};
+    fill_random(bset3);
+    bset2.copy(bset3);
+    const auto ab1{bset3.serialize(0, false)};
+    bset3 = AtomicBitset{ab1};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab2{bset3.serialize(0, true)};
+    bset3 = AtomicBitset{ab2};
+    EXPECT_EQ(bset3, bset2);
+
+    // shif whole word
+    bset3.shrink_head(AtomicBitset::word_size());
+    bset2.copy(bset3);
+    const auto ab3{bset3.serialize(0, false)};
+    bset3 = AtomicBitset{ab3};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab4{bset3.serialize(0, true)};
+    bset3 = AtomicBitset{ab4};
+    EXPECT_EQ(bset3, bset2);
+
+    // shift half word
+    bset3.shrink_head(AtomicBitset::word_size() / 2);
+    bset2.copy(bset3);
+    const auto ab5{bset3.serialize(0, false)};
+    bset3 = AtomicBitset{ab5};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab6{bset3.serialize(0, true)};
+    bset3 = AtomicBitset{ab6};
+    EXPECT_EQ(bset3, bset2);
+
+    // shift one bit
+    bset3.shrink_head(1);
+    bset2.copy(bset3);
+    const auto ab7{bset3.serialize(0, false)};
+    bset3 = AtomicBitset{ab7};
+    EXPECT_EQ(bset3, bset2);
+    const auto ab8{bset3.serialize(0, true)};
+    bset3 = AtomicBitset{ab8};
+    EXPECT_EQ(bset3, bset2);
+
+    // serialize different alignment
+    bset2.copy(bset1);
+    const auto dab1{bset1.serialize(512, false)};
+    bset1 = AtomicBitset{dab1};
+    EXPECT_EQ(bset1, bset2);
+    const auto dab2{bset1.serialize(512, true)};
+    bset1 = AtomicBitset{dab2};
+    EXPECT_EQ(bset1, bset2);
+
+    // reserialize different alignment
+    bset2.copy(bset1);
+    const auto dab3{bset1.serialize(0, false)};
+    bset1 = AtomicBitset{dab3, 512};
+    EXPECT_EQ(bset1, bset2);
+    const auto dab4{bset1.serialize(0, true)};
+    bset1 = AtomicBitset{dab4, 512};
+    EXPECT_EQ(bset1, bset2);
 }
 
 SDS_OPTIONS_ENABLE(logging, test_bitset)

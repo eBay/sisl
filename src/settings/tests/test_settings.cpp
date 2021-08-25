@@ -1,10 +1,13 @@
+#include <cstdint>
+#include <iostream>
+
+#include <nlohmann/json.hpp>
+#include <sds_logging/logging.h>
+#include <sds_options/options.h>
+
 #include "generated/test_app_schema_generated.h"
 //#include "generated/test_app_schema_bindump.hpp"
 #include "settings/settings.hpp"
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
-#include <iostream>
-#include <nlohmann/json.hpp>
 
 #define MY_SETTINGS_FACTORY SETTINGS_FACTORY(test_app_schema)
 
@@ -29,6 +32,7 @@ int main(int argc, char* argv[]) {
             SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
     MY_SETTINGS_FACTORY.save("/tmp/settings_out");
     SETTINGS(test_app_schema, s, {
+        LOGINFO("databaseHost = {}", s.config.database.databaseHost);
         LOGINFO("databasePort = {}", s.config.database.databasePort);
         LOGINFO("numThreads = {}", s.config.database.numThreads);
     });
