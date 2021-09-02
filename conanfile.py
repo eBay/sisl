@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "5.0.8"
+    version = "5.0.9"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -55,6 +55,8 @@ class MetricsConan(ConanFile):
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
     def config_options(self):
+        self.options['sds_logging'].prerelease = self.options.prerelease
+        self.options['sds_options'].prerelease = self.options.prerelease
         if self.settings.build_type != "Debug":
             del self.options.sanitize
             del self.options.coverage

@@ -58,7 +58,7 @@ HistogramValue& PerThreadMetrics::get_histogram(const uint64_t index) {
 static int outstanding_flush{0};
 static std::mutex flush_cv_mtx;
 static std::condition_variable flush_cv;
-static void flush_cache_handler([[maybe_unused]] int signal_number) {
+static void flush_cache_handler([[maybe_unused]] sds_logging::SignalType signal_number) {
     assert(signal_number == SIGUSR4);
 
     std::atomic_thread_fence(std::memory_order_release);
