@@ -19,6 +19,7 @@ class MetricsConan(ConanFile):
                 "coverage": ['True', 'False'],
                 "sanitize": ['True', 'False'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
+                'prerelease' : ['True', 'False'],
               }
     default_options = (
                         'shared=False',
@@ -26,6 +27,7 @@ class MetricsConan(ConanFile):
                         'coverage=False',
                         'sanitize=False',
                         'malloc_impl=tcmalloc',
+                        'prerelease=True',
                         )
 
     build_requires = (
@@ -60,6 +62,7 @@ class MetricsConan(ConanFile):
             self.options.sanitize = True
 
     def configure(self):
+        self.options['sds_logging'].prerelease = self.options.prerelease
         if self.settings.build_type == "Debug":
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
