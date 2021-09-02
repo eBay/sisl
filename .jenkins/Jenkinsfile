@@ -134,7 +134,7 @@ pipeline {
                             expression { "${BUILD_TYPE}" != 'sanitize' }
                         } }
                         steps {
-                            sh "conan create ${BUILD_MISSING} -o ${PROJECT}:prerelease=${PRERELEASE} -o ${PROJECT}:malloc_impl=${ALLOC_IMPL} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
+                            sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o malloc_impl=${ALLOC_IMPL} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
 
@@ -143,7 +143,7 @@ pipeline {
                             expression { "${BUILD_TYPE}" == 'sanitize' }
                         } }
                         steps {
-                            sh "conan create ${BUILD_MISSING} -o ${PROJECT}:malloc_impl=${ALLOC_IMPL} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG}"
+                            sh "conan create ${BUILD_MISSING} -o malloc_impl=${ALLOC_IMPL} -o sanitize=True -pr debug . ${PROJECT}/${TAG}"
                         }
                     }
 
