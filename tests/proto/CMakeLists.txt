@@ -1,7 +1,7 @@
 
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS sds_grpc_test.proto)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS grpc_helper_test.proto)
 
-PROTOBUF_GENERATE_GRPC_CPP(GRPC_SRCS GRPC_HDRS sds_grpc_test.proto)
+PROTOBUF_GENERATE_GRPC_CPP(GRPC_SRCS GRPC_HDRS grpc_helper_test.proto)
 
 
 MESSAGE( STATUS "PROTO_SRCS = " ${PROTO_SRCS} " " ${PROTO_HDRS})

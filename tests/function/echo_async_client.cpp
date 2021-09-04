@@ -1,150 +1,220 @@
-/*
- * echo_async_client.cpp
- *
- *  Created on: Oct 9, 2018
- */
-
-#include <iostream>
 #include <memory>
 #include <string>
-#include <fstream>
 #include <functional>
 #include <chrono>
 #include <thread>
-#include <atomic>
-#include <cassert>
+#include <mutex>
 
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
 
-#include "sds_grpc/client.h"
-#include "sds_grpc_test.grpc.pb.h"
+#include "grpc_helper/rpc_client.hpp"
+#include "grpc_helper/rpc_server.hpp"
+#include "grpc_helper_test.grpc.pb.h"
 
-using namespace ::grpc;
-using namespace ::sds::grpc;
-using namespace ::sds_grpc_test;
+using namespace grpc_helper;
+using namespace ::grpc_helper_test;
 using namespace std::placeholders;
 
-#define WORKER_NAME "worker-1"
-
-class EchoAndPingAsyncClient : GrpcAsyncClient {
-
+class TestClient {
 public:
-    using GrpcAsyncClient::GrpcAsyncClient;
+    static constexpr int GRPC_CALL_COUNT = 100;
+    const std::string WORKER_NAME{"Worker-1"};
 
-    virtual bool init() {
-        if (!GrpcAsyncClient::init()) { return false; }
-
-        echo_stub_ = make_stub< EchoService >(WORKER_NAME);
-        ping_stub_ = make_stub< PingService >(WORKER_NAME);
-
-        return true;
-    }
-
-    void Echo(const EchoRequest& request, std::function< void(EchoReply&, ::grpc::Status& status) > callback) {
-
-        echo_stub_->call_unary< EchoRequest, EchoReply >(request, &EchoService::StubInterface::AsyncEcho, callback, 1);
-    }
-
-    void Ping(const PingRequest& request, std::function< void(PingReply&, ::grpc::Status& status) > callback) {
-
-        ping_stub_->call_unary< PingRequest, PingReply >(request, &PingService::StubInterface::AsyncPing, callback, 1);
-    }
-
-    AsyncStub< EchoService >::UPtr echo_stub_;
-    AsyncStub< PingService >::UPtr ping_stub_;
-};
-
-std::atomic_int g_echo_counter;
-std::atomic_int g_ping_counter;
-
-/**
- * Echo implements async response handler.
- */
-class Echo {
-public:
-    Echo(int seqno) { request_.set_message(std::to_string(seqno)); }
-
-    void handle_echo_reply(EchoReply& reply, ::grpc::Status& status) {
-        if (!status.ok()) {
-            LOGERROR("echo request {} failed, status {}: {}", request_.message(), status.error_code(),
-                     status.error_message());
-            return;
+    void validate_echo_reply(const EchoRequest& req, EchoReply& reply, ::grpc::Status& status) {
+        RELEASE_ASSERT_EQ(status.ok(), true, "echo request {} failed, status {}: {}", req.message(),
+                          status.error_code(), status.error_message());
+        LOGDEBUGMOD(grpc_server, "echo request {} reply {}", req.message(), reply.message());
+        RELEASE_ASSERT_EQ(req.message(), reply.message());
+        {
+            std::unique_lock lk(m_wait_mtx);
+            if (--m_echo_counter == 0) { m_cv.notify_all(); }
         }
-
-        LOGINFO("echo request {} reply {}", request_.message(), reply.message());
-
-        assert(request_.message() == reply.message());
-        g_echo_counter.fetch_add(1, std::memory_order_relaxed);
     }
 
-    EchoRequest request_;
-};
-
-#define GRPC_CALL_COUNT 10
-
-int RunClient(const std::string& server_address) {
-
-    GrpcAyncClientWorker::create_worker(WORKER_NAME, 4);
-
-    auto client = GrpcAsyncClient::make< EchoAndPingAsyncClient >(server_address, "", "");
-    if (!client) {
-        LOGCRITICAL("Create async client failed.");
-        return -1;
+    void validate_ping_reply(const PingRequest& req, PingReply& reply, ::grpc::Status& status) {
+        RELEASE_ASSERT_EQ(status.ok(), true, "ping request {} failed, status {}: {}", req.seqno(), status.error_code(),
+                          status.error_message());
+        LOGDEBUGMOD(grpc_server, "ping request {} reply {}", req.seqno(), reply.seqno());
+        RELEASE_ASSERT_EQ(req.seqno(), reply.seqno());
+        {
+            std::unique_lock lk(m_wait_mtx);
+            if (--m_ping_counter == 0) { m_cv.notify_all(); }
+        }
     }
 
-    for (int i = 0; i < GRPC_CALL_COUNT; i++) {
-        if (i % 2 == 0) {
-            // Async response handling logic can be put in a class's member
-            // function, then use a lambda to wrap it.
-            Echo* echo = new Echo(i);
-            client->Echo(echo->request_, [echo](EchoReply& reply, ::grpc::Status& status) {
-                echo->handle_echo_reply(reply, status);
-                delete echo;
-            });
+    void run(const std::string& server_address) {
+        auto client = std::make_unique< GrpcAsyncClient >(server_address, "", "");
+        GrpcAsyncClientWorker::create_worker(WORKER_NAME, 4);
 
-            // std::bind() can also be used, but need to take care releasing
-            // 'echo' additionally:
-            // std::bind(&Echo::handle_echo_reply, echo, _1, _2);
+        auto echo_stub = client->make_stub< EchoService >(WORKER_NAME);
+        auto ping_stub = client->make_stub< PingService >(WORKER_NAME);
 
-        } else {
-            PingRequest* request = new PingRequest;
-            request->set_seqno(i);
-
-            // response can be handled with lambda directly
-            client->Ping(*request, [request](PingReply& reply, ::grpc::Status& status) {
-                if (!status.ok()) {
-                    LOGERROR("ping request {} failed, status {}: {}", request->seqno(), status.error_code(),
-                             status.error_message());
-                    return;
+        m_ping_counter = GRPC_CALL_COUNT;
+        m_echo_counter = GRPC_CALL_COUNT;
+        for (int i = 1; i <= GRPC_CALL_COUNT * 2; ++i) {
+            if ((i % 2) == 0) {
+                if ((i % 4) == 0) {
+                    EchoRequest req;
+                    req.set_message(std::to_string(i));
+                    echo_stub->call_unary< EchoRequest, EchoReply >(
+                        req, &EchoService::StubInterface::AsyncEcho,
+                        [req, this](EchoReply& reply, ::grpc::Status& status) {
+                            validate_echo_reply(req, reply, status);
+                        },
+                        1);
+                } else {
+                    echo_stub->call_rpc< EchoRequest, EchoReply >(
+                        [i](EchoRequest& req) { req.set_message(std::to_string(i)); },
+                        &EchoService::StubInterface::AsyncEcho,
+                        [this](ClientRpcData< EchoRequest, EchoReply >& cd) {
+                            validate_echo_reply(cd.req(), cd.reply(), cd.status());
+                        },
+                        1);
                 }
-
-                LOGINFO("ping request {} reply {}", request->seqno(), reply.seqno());
-
-                assert(request->seqno() == reply.seqno());
-                g_ping_counter.fetch_add(1, std::memory_order_relaxed);
-                delete request;
-            });
+            } else {
+                if ((i % 3) == 0) {
+                    PingRequest req;
+                    req.set_seqno(i);
+                    ping_stub->call_unary< PingRequest, PingReply >(
+                        req, &PingService::StubInterface::AsyncPing,
+                        [req, this](PingReply& reply, ::grpc::Status& status) {
+                            validate_ping_reply(req, reply, status);
+                        },
+                        1);
+                } else {
+                    ping_stub->call_rpc< PingRequest, PingReply >(
+                        [i](PingRequest& req) { req.set_seqno(i); }, &PingService::StubInterface::AsyncPing,
+                        [this](ClientRpcData< PingRequest, PingReply >& cd) {
+                            validate_ping_reply(cd.req(), cd.reply(), cd.status());
+                        },
+                        1);
+                }
+            }
         }
     }
 
-    GrpcAyncClientWorker::shutdown_all();
+    void wait() {
+        std::unique_lock lk(m_wait_mtx);
+        m_cv.wait(lk, [this]() { return ((m_echo_counter == 0) && (m_ping_counter == 0)); });
+        GrpcAsyncClientWorker::shutdown_all();
+    }
 
-    return g_echo_counter.load() + g_ping_counter.load();
-}
+private:
+    int m_echo_counter;
+    int m_ping_counter;
+    std::mutex m_wait_mtx;
+    std::condition_variable m_cv;
+};
 
-SDS_LOGGING_INIT()
+class TestServer {
+public:
+    class EchoServiceImpl {
+    public:
+        virtual ~EchoServiceImpl() = default;
+
+        virtual bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
+            LOGDEBUGMOD(grpc_server, "receive echo request {}", rpc_data->request().message());
+            rpc_data->response().set_message(rpc_data->request().message());
+            return true;
+        }
+
+        bool register_service(GrpcServer* server) {
+            if (!server->register_async_service< EchoService >()) {
+                LOGERROR("register service failed");
+                return false;
+            }
+
+            return true;
+        }
+
+        bool register_rpcs(GrpcServer* server) {
+            LOGINFO("register rpc calls");
+            if (!server->register_rpc< EchoService, EchoRequest, EchoReply, false >(
+                    "Echo", &EchoService::AsyncService::RequestEcho,
+                    std::bind(&EchoServiceImpl::echo_request, this, _1))) {
+                LOGERROR("register rpc failed");
+                return false;
+            }
+
+            return true;
+        }
+    };
+
+    class PingServiceImpl {
+    public:
+        virtual ~PingServiceImpl() = default;
+
+        virtual bool ping_request(const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
+            LOGDEBUGMOD(grpc_server, "receive ping request {}", rpc_data->request().seqno());
+            rpc_data->response().set_seqno(rpc_data->request().seqno());
+            return true;
+        }
+
+        bool register_service(GrpcServer* server) {
+            if (!server->register_async_service< PingService >()) {
+                LOGERROR("register ping service failed");
+                return false;
+            }
+            return true;
+        }
+
+        bool register_rpcs(GrpcServer* server) {
+            LOGINFO("register rpc calls");
+            if (!server->register_rpc< PingService, PingRequest, PingReply, false >(
+                    "Ping", &PingService::AsyncService::RequestPing,
+                    std::bind(&PingServiceImpl::ping_request, this, _1))) {
+                LOGERROR("register ping rpc failed");
+                return false;
+            }
+
+            return true;
+        }
+    };
+
+    void start(const std::string& server_address) {
+        LOGINFO("Start echo and ping server on {}...", server_address);
+        m_grpc_server = GrpcServer::make(server_address, 4, "", "");
+        m_echo_impl = new EchoServiceImpl();
+        m_echo_impl->register_service(m_grpc_server);
+
+        m_ping_impl = new PingServiceImpl();
+        m_ping_impl->register_service(m_grpc_server);
+
+        m_grpc_server->run();
+        LOGINFO("Server listening on {}", server_address);
+
+        m_echo_impl->register_rpcs(m_grpc_server);
+        m_ping_impl->register_rpcs(m_grpc_server);
+    }
+
+    void shutdown() {
+        LOGINFO("Shutting down grpc server");
+        m_grpc_server->shutdown();
+    }
+
+private:
+    GrpcServer* m_grpc_server = nullptr;
+    EchoServiceImpl* m_echo_impl = nullptr;
+    PingServiceImpl* m_ping_impl = nullptr;
+};
+
+SDS_LOGGING_INIT(logging, grpc_server)
 SDS_OPTIONS_ENABLE(logging)
+THREAD_BUFFER_INIT
 
 int main(int argc, char** argv) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
     sds_logging::SetLogger("async_client");
+
+    TestServer server;
     std::string server_address("0.0.0.0:50051");
+    server.start(server_address);
 
-    if (RunClient(server_address) != GRPC_CALL_COUNT) {
-        LOGERROR("Only {} calls are successful", GRPC_CALL_COUNT);
-        return 1;
-    }
+    TestClient client;
+    client.run(server_address);
+    client.wait();
 
+    server.shutdown();
     return 0;
 }

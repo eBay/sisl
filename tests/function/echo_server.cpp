@@ -16,27 +16,25 @@
 #include <sds_logging/logging.h>
 #include <sds_options/options.h>
 
-#include "sds_grpc/server.h"
-#include "sds_grpc_test.grpc.pb.h"
+#include "grpc_helper/rpc_server.hpp"
+#include "grpc_helper_test.grpc.pb.h"
 
 using namespace ::grpc;
-using namespace ::sds::grpc;
-using namespace ::sds_grpc_test;
+using namespace grpc_helper;
+using namespace ::grpc_helper_test;
 using namespace std::placeholders;
 
 class EchoServiceImpl {
-
 public:
     virtual ~EchoServiceImpl() = default;
 
-    virtual ::grpc::Status echo_request(EchoRequest& request, EchoReply& response) {
-        LOGINFO("receive echo request {}", request.message());
-        response.set_message(request.message());
-        return ::grpc::Status::OK;
+    virtual bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
+        LOGINFO("receive echo request {}", rpc_data->request().message());
+        rpc_data->response().set_message(rpc_data->request().message());
+        return true;
     }
 
     bool register_service(GrpcServer* server) {
-
         if (!server->register_async_service< EchoService >()) {
             LOGERROR("register service failed");
             return false;
@@ -47,8 +45,8 @@ public:
 
     bool register_rpcs(GrpcServer* server) {
         LOGINFO("register rpc calls");
-        if (!server->register_rpc< EchoService, EchoRequest, EchoReply >(
-                &EchoService::AsyncService::RequestEcho, std::bind(&EchoServiceImpl::echo_request, this, _1, _2))) {
+        if (!server->register_rpc< EchoService, EchoRequest, EchoReply, false >(
+                "Echo", &EchoService::AsyncService::RequestEcho, std::bind(&EchoServiceImpl::echo_request, this, _1))) {
             LOGERROR("register rpc failed");
             return false;
         }
@@ -62,26 +60,24 @@ class PingServiceImpl {
 public:
     virtual ~PingServiceImpl() = default;
 
-    virtual ::grpc::Status ping_request(PingRequest& request, PingReply& response) {
-        LOGINFO("receive ping request {}", request.seqno());
-        response.set_seqno(request.seqno());
-        return ::grpc::Status::OK;
+    virtual bool ping_request(const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
+        LOGINFO("receive ping request {}", rpc_data->request().seqno());
+        rpc_data->response().set_seqno(rpc_data->request().seqno());
+        return true;
     }
 
     bool register_service(GrpcServer* server) {
-
         if (!server->register_async_service< PingService >()) {
             LOGERROR("register ping service failed");
             return false;
         }
-
         return true;
     }
 
     bool register_rpcs(GrpcServer* server) {
         LOGINFO("register rpc calls");
-        if (!server->register_rpc< PingService, PingRequest, PingReply >(
-                &PingService::AsyncService::RequestPing, std::bind(&PingServiceImpl::ping_request, this, _1, _2))) {
+        if (!server->register_rpc< PingService, PingRequest, PingReply, false >(
+                "Ping", &PingService::AsyncService::RequestPing, std::bind(&PingServiceImpl::ping_request, this, _1))) {
             LOGERROR("register ping rpc failed");
             return false;
         }
@@ -94,14 +90,11 @@ GrpcServer* g_grpc_server = nullptr;
 EchoServiceImpl* g_echo_impl = nullptr;
 PingServiceImpl* g_ping_impl = nullptr;
 
-void sighandler(int signum, siginfo_t* info, void* ptr) {
-    LOGINFO("Received signal {}", signum);
+void waiter_thread() {
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
-    if (signum == SIGTERM) {
-        // shutdown server gracefully for check memory leak
-        LOGINFO("Shutdown grpc server");
-        g_grpc_server->shutdown();
-    }
+    LOGINFO("Shutting down grpc server");
+    g_grpc_server->shutdown();
 }
 
 void StartServer() {
@@ -123,8 +116,9 @@ void StartServer() {
     g_ping_impl->register_rpcs(g_grpc_server);
 }
 
-SDS_LOGGING_INIT()
+SDS_LOGGING_INIT(logging, grpc_server)
 SDS_OPTIONS_ENABLE(logging)
+THREAD_BUFFER_INIT
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
@@ -133,20 +127,15 @@ int main(int argc, char* argv[]) {
 
     StartServer();
 
-    struct sigaction act;
-    memset(&act, 0, sizeof(act));
-    act.sa_sigaction = sighandler;
-
-    sigaction(SIGTERM, &act, NULL);
-
+    auto t = std::thread(waiter_thread);
     while (!g_grpc_server->is_terminated()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
+    t.join();
     delete g_grpc_server;
     delete g_echo_impl;
     delete g_ping_impl;
 
     return 0;
 }
-

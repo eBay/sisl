@@ -16,17 +16,15 @@ if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
     list(REMOVE_ITEM CONAN_LIBS tcmalloc tcmalloc_minimal)
 endif ()
 
-set(SDS_GRPC_LIBS ${CONAN_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+set(GRPC_HELPER_LIBS ${CONAN_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 
 
-set (SDS_GRPC_SOURCE
-    lib/client.cpp
-    lib/server.cpp
-    lib/utils.cpp
+set (GRPC_HELPER_SOURCE
+    lib/rpc_server.cpp
+    lib/rpc_client.cpp
 )
 
 
-add_library(sds_grpc ${SDS_GRPC_SOURCE})
-
+add_library(grpc_helper ${GRPC_HELPER_SOURCE})
  
 add_subdirectory(tests)
