@@ -14,7 +14,6 @@
 #include "obj_life_counter.hpp"
 
 SDS_LOGGING_INIT(test_objlife)
-THREAD_BUFFER_INIT
 
 template < typename T1, typename T2 >
 struct TestClass : sisl::ObjLifeCounter< TestClass< T1, T2 > > {
