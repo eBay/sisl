@@ -5,7 +5,6 @@
 #include <boost/preprocessor/repetition/repeat.hpp>
 
 SDS_LOGGING_INIT(vmod_metrics_framework)
-THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
 
 #define ITERATIONS 1000

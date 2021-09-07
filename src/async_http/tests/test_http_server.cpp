@@ -9,8 +9,6 @@
 #include <condition_variable>
 
 SDS_LOGGING_INIT(httpserver_lmod)
-THREAD_BUFFER_INIT
-
 SDS_OPTIONS_ENABLE(logging)
 
 sisl::HttpServer* server;
