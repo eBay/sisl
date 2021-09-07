@@ -24,6 +24,7 @@ Reporter& MetricsFarm::get_reporter() { return *getInstance().m_reporter; }
 
 MetricsFarm::MetricsFarm() {
     metrics_farm_initialized = true;
+    m_treg = ThreadRegistry::get_instance_ptr();
 
 #ifdef PROMETHEUS_METRICS_REPORTER
     // m_reporter = std::dynamic_pointer_cast< Reporter >(std::make_unique< PrometheusReporter >());

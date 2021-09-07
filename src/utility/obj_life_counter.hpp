@@ -27,6 +27,8 @@ public:
 private:
     std::unordered_map< std::string, pair_of_atomic_ptrs > m_tracker_map;
     std::unique_ptr< ObjCounterMetrics > m_metrics;
+    // Get a ThreadRegsitry instance to ensure threadregistry is destructed only after us.
+    std::shared_ptr< ThreadRegistry > m_treg{ThreadRegistry::get_instance_ptr()};
 
 public:
     static ObjCounterRegistry& inst() {
