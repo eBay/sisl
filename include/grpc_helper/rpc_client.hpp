@@ -14,8 +14,8 @@
 #include <grpc/support/log.h>
 
 #include <sds_logging/logging.h>
-#include <utility/obj_life_counter.hpp>
-#include <utility/enum.hpp>
+#include <sisl/utility/obj_life_counter.hpp>
+#include <sisl/utility/enum.hpp>
 
 namespace grpc_helper {
 
@@ -120,6 +120,7 @@ public:
                    const std::string& ssl_cert = "");
     virtual ~GrpcBaseClient() = default;
     virtual bool is_connection_ready() const;
+    virtual void init();
 
 private:
     // virtual bool load_ssl_cert(const std::string& ssl_cert, std::string& content);

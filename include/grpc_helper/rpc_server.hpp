@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <memory>
 #include <string>
@@ -5,7 +7,7 @@
 #include <boost/core/noncopyable.hpp>
 #include <grpcpp/completion_queue.h>
 #include <sds_logging/logging.h>
-#include <utility/enum.hpp>
+#include <sisl/utility/enum.hpp>
 #include "rpc_call.hpp"
 
 namespace grpc_helper {
@@ -78,6 +80,15 @@ public:
         }
 
         return true;
+    }
+
+    template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
+    bool register_sync_rpc(const std::string& name, const request_call_cb_t& request_call_cb,
+                           const rpc_sync_handler_cb_t& handler) {
+        return register_rpc(name, request_call_cb, [handler](const RPC_DATA_PTR_SPEC& rpc_data) -> bool {
+            rpc_data->set_status(handler(rpc_data->request(), rpc_data->response()));
+            return true;
+        });
     }
 
 private:

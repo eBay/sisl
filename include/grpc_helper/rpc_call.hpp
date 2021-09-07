@@ -10,9 +10,9 @@
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
 
 #include <sds_logging/logging.h>
-#include <utility/obj_life_counter.hpp>
-#include <utility/atomic_counter.hpp>
-#include <utility/enum.hpp>
+#include <sisl/utility/obj_life_counter.hpp>
+#include <sisl/utility/atomic_counter.hpp>
+#include <sisl/utility/enum.hpp>
 #include "rpc_common.hpp"
 
 SDS_LOGGING_DECL(grpc_server)
@@ -107,6 +107,7 @@ using StreamRpcDataPtr = boost::intrusive_ptr< RpcData< ServiceT, ReqT, RespT, t
 #define rpc_handler_cb_t std::function< bool(const RPC_DATA_PTR_SPEC& rpc_call) >
 #define rpc_completed_cb_t std::function< void(const RPC_DATA_PTR_SPEC& rpc_call) >
 #define rpc_call_static_info_t RpcStaticInfo< ServiceT, ReqT, RespT, streaming >
+#define rpc_sync_handler_cb_t std::function< ::grpc::Status(const ReqT&, RespT&) >
 
 // This class represents all static information related to a specific RpcData, so these information does not need to be
 // built for every RPC
@@ -154,6 +155,8 @@ public:
     std::enable_if_t< !mode, RespT& > response() {
         return *m_response;
     }
+
+    void set_status(grpc::Status status) { m_retstatus = status; }
 
     // invoked by the application completion flow when the response payload `m_response` is formed
     //@param is_last - true to indicate that this is the last chunk in a streaming response (where

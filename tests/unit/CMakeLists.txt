@@ -1,7 +1,7 @@
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../proto)
 
-# enable_testing()
+#enable_testing()
 
 file(GLOB TEST_SRC_FILES **/*.cpp)
 

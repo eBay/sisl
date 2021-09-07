@@ -118,7 +118,6 @@ void StartServer() {
 
 SDS_LOGGING_INIT(logging, grpc_server)
 SDS_OPTIONS_ENABLE(logging)
-THREAD_BUFFER_INIT
 
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging)

@@ -45,6 +45,7 @@ public:
 
     void run(const std::string& server_address) {
         auto client = std::make_unique< GrpcAsyncClient >(server_address, "", "");
+        client->init();
         GrpcAsyncClientWorker::create_worker(WORKER_NAME, 4);
 
         auto echo_stub = client->make_stub< EchoService >(WORKER_NAME);
@@ -201,7 +202,6 @@ private:
 
 SDS_LOGGING_INIT(logging, grpc_server)
 SDS_OPTIONS_ENABLE(logging)
-THREAD_BUFFER_INIT
 
 int main(int argc, char** argv) {
     SDS_OPTIONS_LOAD(argc, argv, logging)

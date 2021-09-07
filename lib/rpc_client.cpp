@@ -4,7 +4,9 @@ namespace grpc_helper {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
                                const std::string& ssl_cert) :
-        m_server_addr(server_addr), m_target_domain(target_domain), m_ssl_cert(ssl_cert) {
+        m_server_addr(server_addr), m_target_domain(target_domain), m_ssl_cert(ssl_cert) {}
+
+void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
     if (!m_ssl_cert.empty()) {
 #if 0
