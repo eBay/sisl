@@ -192,6 +192,9 @@ public:
     void shutdown() {
         LOGINFO("Shutting down grpc server");
         m_grpc_server->shutdown();
+        delete m_grpc_server;
+        delete m_echo_impl;
+        delete m_ping_impl;
     }
 
 private:
