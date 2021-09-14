@@ -141,7 +141,7 @@ template < typename... Args >
         ++cursor;
 }
 
-template <typename... Args>
+template < typename... Args >
 [[maybe_unused]] void log_message(const char* const format, Args&&... args) {
     auto& logger{sds_logging::GetLogger()};
     auto& critical_logger{sds_logging::GetCriticalLogger()};
@@ -200,14 +200,18 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
         return {mangled_name, file_line};
 
     // form the command
-    static constexpr std::array< char, 17 > prefix{"addr2line -f -e "};
-    static std::array< char, prefix.size() + backtrace_detail::process_name_length + backtrace_detail::address_length >
+    static constexpr size_t extra_length{10}; // includes single quotes around process name and " -a 0x" and null terminator
+    static constexpr std::array< char, 18 > prefix{"addr2line -f -e \'"};
+    static std::array<
+        char, extra_length + prefix.size() + backtrace_detail::process_name_length + backtrace_detail::address_length >
         s_command;
     size_t command_length{prefix.size() - 1};
     std::memcpy(s_command.data(), prefix.data(), command_length);
     std::memcpy(s_command.data() + command_length, process_name, process_name_length);
     command_length += process_name_length;
-    std::snprintf(s_command.data() + command_length, s_command.size() - command_length, " -a 0x%" PRIxPTR, address);
+    static std::array< char, backtrace_detail::address_length + 1 > s_address;
+    std::snprintf(s_address.data(), s_address.size(), "%" PRIxPTR, address);
+    std::snprintf(s_command.data() + command_length, s_command.size() - command_length, "\' -a 0x%s", s_address.data());
     // log_message("symbol_line with command {}", s_command.data());
 
     const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(s_command.data(), "r"),
@@ -230,8 +234,8 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
         }};
 
         // read the pipe
-        constexpr uint64_t loop_wait_ms{50};
-        constexpr size_t read_tries{3};
+        constexpr uint64_t loop_wait_ms{500};
+        constexpr size_t read_tries{4};
         constexpr size_t newlines_expected{3};
         std::array< const char*, newlines_expected > newline_positions;
         size_t total_bytes_read{0};
@@ -239,25 +243,49 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
         static std::array<
             char, backtrace_detail::symbol_name_length + backtrace_detail::process_name_length + line_number_length >
             s_pipe_data;
+        bool address_found{false};
         for (size_t read_try{0}; (read_try < read_tries) && (total_newlines < newlines_expected); ++read_try) {
             if (waitOnPipe(loop_wait_ms)) {
-                const size_t bytes{std::fread(s_pipe_data.data() + total_bytes_read, 1,
-                                              s_pipe_data.size() - total_bytes_read, fp.get())};
-                //std::printf("%.*s", static_cast<int>(bytes), s_pipe_data.data() + total_bytes_read); 
+                size_t bytes{std::fread(s_pipe_data.data() + total_bytes_read, 1, s_pipe_data.size() - total_bytes_read,
+                                        fp.get())};
                 // count new newlines and null terminate at those positions
                 for (size_t byte_num{0}; byte_num < bytes; ++byte_num) {
+                    const auto updateNewlines{[&total_newlines, &newline_positions](const size_t offset) {
+                        if (total_newlines < newlines_expected) {
+                            newline_positions[total_newlines] = &s_pipe_data[offset];
+                        }
+                        ++total_newlines;
+                    }};
+
                     const size_t offset{byte_num + total_bytes_read};
                     if (s_pipe_data[offset] == '\n') {
-                        if (total_newlines < newlines_expected)
-                            newline_positions[total_newlines] = &s_pipe_data[offset];
-                        s_pipe_data[offset] = 0x00;
-                        ++total_newlines;
+                        s_pipe_data[offset] = 0x00; // convert newline to null terminator
+                        if (!address_found) {
+                            // check for address in pipe data
+                            const char* const address_ptr{std::strstr(s_pipe_data.data(), s_address.data())};
+                            if (address_ptr) {
+                                address_found = true;
+                                updateNewlines(offset);
+                            } else {
+                                // wipe all pipe data up to and including null ptr
+                                if (byte_num < bytes - 1) {
+                                    std::memmove(s_pipe_data.data(), s_pipe_data.data() + offset + 1,
+                                                 bytes + total_bytes_read - offset - 1);
+                                    bytes -= byte_num + 1;
+                                } else {
+                                    bytes = 0;
+                                }
+                                total_bytes_read = 0;
+                                byte_num = 0;
+                            }
+                        } else {
+                            updateNewlines(offset);
+                        }
                     }
                 }
                 total_bytes_read += bytes;
             }
         }
-        //std::printf("\n");
         s_pipe_data[total_bytes_read] = 0;
 
         // read the pipe
@@ -270,13 +298,12 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
                 mangled_name = newline_positions[0] + 1;
                 mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
                 mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
-            }
-            else if (total_newlines == 2) {
+            } else if (total_newlines == 2) {
                 log_message("Pipe did not return expected number of newlines {}", total_newlines);
                 mangled_name = newline_positions[0] + 1;
                 mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
                 mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
-            }  else {
+            } else {
                 log_message("Pipe did not return expected number of newlines {}", total_newlines);
             }
         } else {
