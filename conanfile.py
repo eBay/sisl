@@ -35,14 +35,14 @@ class MetricsConan(ConanFile):
                     "gtest/1.10.0",
                 )
     requires = (
-                    "sds_logging/[~=10, include_prerelease=True]@sds/master",
+                    "sds_logging/[~=11, include_prerelease=True]@sds/develop",
                     "sds_options/[~=1, include_prerelease=True]@sds/master",
 
                     "boost/1.73.0",
                     "evhtp/1.2.18.2",
                     "snappy/1.1.8",
                     "flatbuffers/1.11.0",
-                    ("fmt/7.1.3", "override"),
+                    ("fmt/8.0.1", "override"),
                     "folly/2020.05.04.00",
                     "nlohmann_json/3.8.0",
                     ("openssl/1.1.1g", "override"),
