@@ -208,7 +208,7 @@ static void log_stack_trace_all_threads() {
 
             {
                 std::unique_lock outstanding_lock{g_mtx_stack_dump_outstanding};
-                const auto result{g_stack_dump_cv.wait_for(outstanding_lock, std::chrono::seconds{5},
+                const auto result{g_stack_dump_cv.wait_for(outstanding_lock, std::chrono::seconds{10},
                                                            [] { return (g_stack_dump_outstanding == 0); })};
                 if (!result) {
                     g_stack_dump_outstanding = 0;

@@ -235,7 +235,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
 
         // read the pipe
         constexpr uint64_t loop_wait_ms{500};
-        constexpr size_t read_tries{4};
+        constexpr size_t read_tries{10};
         constexpr size_t newlines_expected{3};
         std::array< const char*, newlines_expected > newline_positions;
         size_t total_bytes_read{0};
