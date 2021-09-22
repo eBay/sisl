@@ -35,6 +35,10 @@
 #include "backtrace.h"
 #include "logging.h"
 
+namespace {
+constexpr uint64_t backtrace_timeout_ms{6 * backtrace_detail::pipe_timeout_ms};
+}
+
 namespace sds_logging {
 static bool g_custom_signal_handler_installed{false};
 static size_t g_custom_signal_handlers{0};
@@ -208,7 +212,8 @@ static void log_stack_trace_all_threads() {
 
             {
                 std::unique_lock outstanding_lock{g_mtx_stack_dump_outstanding};
-                const auto result{g_stack_dump_cv.wait_for(outstanding_lock, std::chrono::seconds{10},
+                const auto result{g_stack_dump_cv.wait_for(outstanding_lock,
+                                                           std::chrono::milliseconds{backtrace_timeout_ms},
                                                            [] { return (g_stack_dump_outstanding == 0); })};
                 if (!result) {
                     g_stack_dump_outstanding = 0;

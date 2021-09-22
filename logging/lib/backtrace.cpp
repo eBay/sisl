@@ -1,12 +1,10 @@
-#include <iostream>
-
 #include <algorithm>
 #include <cctype>
 #include <cinttypes>
 #include <cstdio>
 #include <csignal>
 #include <cstring>
-#include <functional>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -212,7 +210,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
     static std::array< char, backtrace_detail::address_length + 1 > s_address;
     std::snprintf(s_address.data(), s_address.size(), "%" PRIxPTR, address);
     std::snprintf(s_command.data() + command_length, s_command.size() - command_length, "\' -a 0x%s", s_address.data());
-    // log_message("symbol_line with command {}", s_command.data());
+    // log_message("SDS Logging - symbol_line with command {}", s_command.data());
 
     const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(s_command.data(), "r"),
                                                                          [](FILE* const ptr) {
@@ -235,7 +233,8 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
 
         // read the pipe
         constexpr uint64_t loop_wait_ms{500};
-        constexpr size_t read_tries{10};
+        constexpr size_t read_tries{
+            static_cast< size_t >(backtrace_detail::pipe_timeout_ms / loop_wait_ms)};
         constexpr size_t newlines_expected{3};
         std::array< const char*, newlines_expected > newline_positions;
         size_t total_bytes_read{0};
@@ -299,23 +298,23 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
                 mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
                 mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
             } else if (total_newlines == 2) {
-                log_message("Pipe did not return expected number of newlines {}", total_newlines);
+                log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
                 mangled_name = newline_positions[0] + 1;
                 mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
                 mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
             } else {
-                log_message("Pipe did not return expected number of newlines {}", total_newlines);
+                log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
             }
         } else {
             // no pipe data just continue
-            log_message("No pipe data");
+            log_message("SDS Logging - No pipe data");
         }
     } else {
         // no pipe just continue
-        log_message("Could not open pipe to resolve symbol_line with command {}", s_command.data());
+        log_message("SDS Logging - Could not open pipe to resolve symbol_line with command {}", s_command.data());
     }
     if (std::strstr(mangled_name, "??")) {
-        log_message("Could not resolve symbol_line with command {}", s_command.data());
+        log_message("SDS Logging - Could not resolve symbol_line with command {}", s_command.data());
     }
 
     // demangle the name
@@ -329,7 +328,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
         }};
     if (!cxa_demangled_name) {
         if (status != -2) { // check that not a mangled name
-            log_message("Could not demangle name {} error {}", mangled_name, status);
+            log_message("SDS Logging - Could not demangle name {} error {}", mangled_name, status);
         }
         if (!symbol_name || (symbol_name[0] == '+') || (symbol_name[0] == 0x00)) {
             // no symbol name so use mangled name
@@ -351,7 +350,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
             // use the resolved file name and unknown line number
             std::strcat(s_absolute_file_path.data(), ":?");
         } else {
-            log_message("Could not resolve real path for process {}", process_name);
+            log_message("SDS Logging - Could not resolve real path for process {}", process_name);
             // use the default unknown
             std::memcpy(s_absolute_file_path.data(), file_line, file_line_length);
             s_absolute_file_path[file_line_length] = 0x00;
@@ -470,7 +469,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
                     if (offset_result) {
                         actual_addr = offset_addr;
                     } else {
-                        log_message("Could not resolve offset_symbol_address for symbol {} with address {}",
+                        log_message("SDS Logging - Could not resolve offset_symbol_address for symbol {} with address {}",
                                     s_symbol.data(), symbol_address);
                     }
                 }

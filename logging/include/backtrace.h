@@ -41,25 +41,11 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
 #include <memory>
 #include <mutex>
-
-
-#include <algorithm>
-
-#include <cctype>
-#include <cinttypes>
-
-#include <cstdio>
-#include <csignal>
-#include <cstring>
-#include <functional>
-
-
-#include <sstream>
-#include <string>
-#include <type_traits>
-#include <vector>
 
 #if defined(__linux__) || defined(__APPLE__)
 #include <cxxabi.h>
@@ -79,6 +65,7 @@ constexpr size_t max_backtrace{256};
 constexpr size_t process_name_length{PATH_MAX};
 constexpr size_t symbol_name_length{1024};
 constexpr size_t address_length{16};
+constexpr uint64_t pipe_timeout_ms{10000}; // 10 seconds.  Addr2line can be extremely slow the first time
 } // namespace backtrace_detail
 
 
