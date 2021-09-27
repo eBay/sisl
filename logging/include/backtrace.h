@@ -62,10 +62,10 @@
 
 namespace backtrace_detail {
 constexpr size_t max_backtrace{256};
-constexpr size_t process_name_length{PATH_MAX};
+constexpr size_t file_name_length{PATH_MAX};
 constexpr size_t symbol_name_length{1024};
 constexpr size_t address_length{16};
-constexpr uint64_t pipe_timeout_ms{10000}; // 10 seconds.  Addr2line can be extremely slow the first time
+constexpr uint64_t pipe_timeout_ms{15000}; // 15 seconds.  Addr2line can be extremely slow the first time
 } // namespace backtrace_detail
 
 

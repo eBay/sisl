@@ -25,6 +25,7 @@
 #include "backtrace.h"
 
 namespace {
+
 #ifdef __APPLE__
 [[maybe_unused]] uint64_t static_base_address(void) {
     const struct segment_command_64* const command{::getsegbyname(SEG_TEXT /*"__TEXT"*/)};
@@ -62,7 +63,7 @@ namespace {
     }
     return -1;
 }
-#endif
+#endif // __APPLE__
 
 template < typename... Args >
 [[maybe_unused]] void t_snprintf(char* const msg, size_t& avail_len, size_t& cur_len, size_t& msg_len, Args&&... args) {
@@ -158,18 +159,21 @@ std::pair< bool, uintptr_t > offset_symbol_address(const char* const symbol_str,
     uintptr_t offset_address{symbol_address};
     Dl_info symbol_info;
 
-    const std::unique_ptr< void, std::function< void(void* const) > > obj_file{::dlopen(nullptr, RTLD_LAZY),
-                                                                               [](void* const ptr) {
-                                                                                   if (ptr)
-                                                                                       ::dlclose(ptr);
-                                                                               }};
-    if (!obj_file) {
-        return {status, offset_address};
-    }
+    void* addr{nullptr};
+    {
+        const std::unique_ptr< void, std::function< void(void* const) > > obj_file{::dlopen(nullptr, RTLD_LAZY),
+                                                                                   [](void* const ptr) {
+                                                                                       if (ptr)
+                                                                                           ::dlclose(ptr);
+                                                                                   }};
+        if (!obj_file) {
+            return {status, offset_address};
+        }
 
-    void* const addr{::dlsym(obj_file.get(), symbol_str)};
-    if (!addr) {
-        return {status, offset_address};
+        addr = ::dlsym(obj_file.get(), symbol_str);
+        if (!addr) {
+            return {status, offset_address};
+        }
     }
 
     // extract the symbolic information pointed by address
@@ -184,8 +188,8 @@ std::pair< bool, uintptr_t > offset_symbol_address(const char* const symbol_str,
     return {status, offset_address};
 }
 
-std::pair< const char*, const char* > convert_symbol_line(const char* const process_name,
-                                                          const size_t process_name_length, const uintptr_t address,
+std::pair< const char*, const char* > convert_symbol_line(const char* const file_name,
+                                                          const size_t file_name_length, const uintptr_t address,
                                                           const char* const symbol_name) {
     static constexpr size_t line_number_length{24};
     static constexpr std::array< char, 10 > s_pipe_unknown{"??\0??:?\0"};
@@ -194,177 +198,196 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const proc
     const char* file_line{s_pipe_unknown.data() + 3};
     size_t file_line_length{4};
 
-    if (process_name_length == 0)
+    if (file_name_length == 0)
         return {mangled_name, file_line};
 
     // form the command
-    static constexpr size_t extra_length{10}; // includes single quotes around process name and " -a 0x" and null terminator
+    static constexpr size_t extra_length{
+        10}; // includes single quotes around process name and " -a 0x" and null terminator
     static constexpr std::array< char, 18 > prefix{"addr2line -f -e \'"};
     static std::array<
-        char, extra_length + prefix.size() + backtrace_detail::process_name_length + backtrace_detail::address_length >
+        char, extra_length + prefix.size() + backtrace_detail::file_name_length + backtrace_detail::address_length >
         s_command;
     size_t command_length{prefix.size() - 1};
     std::memcpy(s_command.data(), prefix.data(), command_length);
-    std::memcpy(s_command.data() + command_length, process_name, process_name_length);
-    command_length += process_name_length;
+    std::memcpy(s_command.data() + command_length, file_name, file_name_length);
+    command_length += file_name_length;
     static std::array< char, backtrace_detail::address_length + 1 > s_address;
     std::snprintf(s_address.data(), s_address.size(), "%" PRIxPTR, address);
     std::snprintf(s_command.data() + command_length, s_command.size() - command_length, "\' -a 0x%s", s_address.data());
     // log_message("SDS Logging - symbol_line with command {}", s_command.data());
 
-    const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(s_command.data(), "r"),
-                                                                         [](FILE* const ptr) {
-                                                                             if (ptr)
-                                                                                 ::pclose(ptr);
-                                                                         }};
-    if (fp) {
-        // wait on pipe
-        const auto waitOnPipe{[rfd{::fileno(fp.get())}](const uint64_t wait_ms) {
-            fd_set rfds;
-            FD_ZERO(&rfds);
-            FD_SET(rfd, &rfds);
+    // execute command and read data from pipe
+    {
+        const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(s_command.data(), "re"),
+                                                                             [](FILE* const ptr) {
+                                                                                 if (ptr)
+                                                                                     ::pclose(ptr);
+                                                                             }};
+        if (fp) {
+            // wait on pipe
+            const auto waitOnPipe{[rfd{::fileno(fp.get())}](const uint64_t wait_ms) {
+                fd_set rfds;
+                FD_ZERO(&rfds);
+                FD_SET(rfd, &rfds);
 
-            timespec ts;
-            ts.tv_sec = static_cast< decltype(ts.tv_sec) >(wait_ms / 1000);
-            ts.tv_nsec = static_cast< decltype(ts.tv_nsec) >((wait_ms % 1000) * 1000000);
-            const int result{::pselect(FD_SETSIZE, &rfds, nullptr, nullptr, &ts, nullptr)};
-            return (result > 0);
-        }};
+                timespec ts;
+                ts.tv_sec = static_cast< decltype(ts.tv_sec) >(wait_ms / 1000);
+                ts.tv_nsec = static_cast< decltype(ts.tv_nsec) >((wait_ms % 1000) * 1000000);
+                const int result{::pselect(FD_SETSIZE, &rfds, nullptr, nullptr, &ts, nullptr)};
+                return (result > 0);
+            }};
 
-        // read the pipe
-        constexpr uint64_t loop_wait_ms{500};
-        constexpr size_t read_tries{
-            static_cast< size_t >(backtrace_detail::pipe_timeout_ms / loop_wait_ms)};
-        constexpr size_t newlines_expected{3};
-        std::array< const char*, newlines_expected > newline_positions;
-        size_t total_bytes_read{0};
-        size_t total_newlines{0};
-        static std::array<
-            char, backtrace_detail::symbol_name_length + backtrace_detail::process_name_length + line_number_length >
-            s_pipe_data;
-        bool address_found{false};
-        for (size_t read_try{0}; (read_try < read_tries) && (total_newlines < newlines_expected); ++read_try) {
-            if (waitOnPipe(loop_wait_ms)) {
-                size_t bytes{std::fread(s_pipe_data.data() + total_bytes_read, 1, s_pipe_data.size() - total_bytes_read,
-                                        fp.get())};
-                // count new newlines and null terminate at those positions
-                for (size_t byte_num{0}; byte_num < bytes; ++byte_num) {
-                    const auto updateNewlines{[&total_newlines, &newline_positions](const size_t offset) {
-                        if (total_newlines < newlines_expected) {
-                            newline_positions[total_newlines] = &s_pipe_data[offset];
-                        }
-                        ++total_newlines;
-                    }};
-
-                    const size_t offset{byte_num + total_bytes_read};
-                    if (s_pipe_data[offset] == '\n') {
-                        s_pipe_data[offset] = 0x00; // convert newline to null terminator
-                        if (!address_found) {
-                            // check for address in pipe data
-                            const char* const address_ptr{std::strstr(s_pipe_data.data(), s_address.data())};
-                            if (address_ptr) {
-                                address_found = true;
-                                updateNewlines(offset);
-                            } else {
-                                // wipe all pipe data up to and including null ptr
-                                if (byte_num < bytes - 1) {
-                                    std::memmove(s_pipe_data.data(), s_pipe_data.data() + offset + 1,
-                                                 bytes + total_bytes_read - offset - 1);
-                                    bytes -= byte_num + 1;
-                                } else {
-                                    bytes = 0;
-                                }
-                                total_bytes_read = 0;
-                                byte_num = 0;
+            // read the pipe
+            constexpr uint64_t loop_wait_ms{1000};
+            constexpr size_t read_tries{static_cast< size_t >(backtrace_detail::pipe_timeout_ms / loop_wait_ms)};
+            constexpr size_t newlines_expected{3};
+            std::array< const char*, newlines_expected > newline_positions;
+            size_t total_bytes_read{0};
+            size_t total_newlines{0};
+            static std::array< char,
+                               backtrace_detail::symbol_name_length + backtrace_detail::file_name_length +
+                                   line_number_length >
+                s_pipe_data;
+            bool address_found{false};
+            for (size_t read_try{0}; (read_try < read_tries) && (total_newlines < newlines_expected); ++read_try) {
+                if (waitOnPipe(loop_wait_ms)) {
+                    size_t bytes{std::fread(s_pipe_data.data() + total_bytes_read, 1,
+                                            s_pipe_data.size() - total_bytes_read, fp.get())};
+                    // count new newlines and null terminate at those positions
+                    for (size_t byte_num{0}; byte_num < bytes; ++byte_num) {
+                        const auto updateNewlines{[&total_newlines, &newline_positions](const size_t offset) {
+                            if (total_newlines < newlines_expected) {
+                                newline_positions[total_newlines] = &s_pipe_data[offset];
                             }
-                        } else {
-                            updateNewlines(offset);
+                            ++total_newlines;
+                        }};
+
+                        const size_t offset{byte_num + total_bytes_read};
+                        if (s_pipe_data[offset] == '\n') {
+                            s_pipe_data[offset] = 0x00; // convert newline to null terminator
+                            if (!address_found) {
+                                // check for address in pipe data
+                                const char* const address_ptr{std::strstr(s_pipe_data.data(), s_address.data())};
+                                if (address_ptr) {
+                                    address_found = true;
+                                    updateNewlines(offset);
+                                } else {
+                                    // wipe all pipe data up to and including null ptr
+                                    if (byte_num < bytes - 1) {
+                                        std::memmove(s_pipe_data.data(), s_pipe_data.data() + offset + 1,
+                                                     bytes + total_bytes_read - offset - 1);
+                                        bytes -= byte_num + 1;
+                                    } else {
+                                        bytes = 0;
+                                    }
+                                    total_bytes_read = 0;
+                                    byte_num = 0;
+                                }
+                            } else {
+                                updateNewlines(offset);
+                            }
                         }
                     }
+                    total_bytes_read += bytes;
                 }
-                total_bytes_read += bytes;
             }
-        }
-        s_pipe_data[total_bytes_read] = 0;
+            s_pipe_data[total_bytes_read] = 0;
 
-        // read the pipe
-        if (total_newlines > 0) {
-            if (total_newlines == 3) {
-                // file and name info
-                file_line = newline_positions[1] + 1;
-                file_line_length = static_cast< size_t >(newline_positions[2] - file_line);
-                file_line_length = trim_whitespace(const_cast< char* >(file_line), file_line_length);
-                mangled_name = newline_positions[0] + 1;
-                mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
-                mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
-            } else if (total_newlines == 2) {
-                log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
-                mangled_name = newline_positions[0] + 1;
-                mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
-                mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
+            // read the pipe
+            if (total_newlines > 0) {
+                if (total_newlines == 3) {
+                    // file and name info
+                    file_line = newline_positions[1] + 1;
+                    file_line_length = static_cast< size_t >(newline_positions[2] - file_line);
+                    file_line_length = trim_whitespace(const_cast< char* >(file_line), file_line_length);
+                    mangled_name = newline_positions[0] + 1;
+                    mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
+                    mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
+                } else if (total_newlines == 2) {
+                    log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
+                    mangled_name = newline_positions[0] + 1;
+                    mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
+                    mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
+                } else {
+                    log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
+                }
             } else {
-                log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
+                // no pipe data just continue
+                log_message("SDS Logging - No pipe data");
             }
         } else {
-            // no pipe data just continue
-            log_message("SDS Logging - No pipe data");
+            // no pipe just continue
+            log_message("SDS Logging - Could not open pipe to resolve symbol_line with command {}", s_command.data());
         }
-    } else {
-        // no pipe just continue
-        log_message("SDS Logging - Could not open pipe to resolve symbol_line with command {}", s_command.data());
-    }
-    if (std::strstr(mangled_name, "??")) {
-        log_message("SDS Logging - Could not resolve symbol_line with command {}", s_command.data());
+        if (std::strstr(mangled_name, "??")) {
+            log_message("SDS Logging - Could not resolve symbol_line with command {}", s_command.data());
+        }
     }
 
     // demangle the name
     static std::array< char, backtrace_detail::symbol_name_length > demangled_name;
-    [[maybe_unused]] int status{-3}; // one of the arguments is invalid
-    const std::unique_ptr< const char, std::function< void(const char* const) > > cxa_demangled_name{
-        std::strstr(mangled_name, "??") ? nullptr : abi::__cxa_demangle(mangled_name, 0, 0, &status),
-        [](const char* const ptr) {
-            if (ptr)
-                std::free(static_cast< void* >(const_cast< char* >(ptr)));
-        }};
-    if (!cxa_demangled_name) {
-        if (status != -2) { // check that not a mangled name
-            log_message("SDS Logging - Could not demangle name {} error {}", mangled_name, status);
-        }
-        if (!symbol_name || (symbol_name[0] == '+') || (symbol_name[0] == 0x00)) {
-            // no symbol name so use mangled name
-            std::memcpy(demangled_name.data(), mangled_name, mangled_name_length);
-            demangled_name[mangled_name_length] = 0x00;
+    {
+        [[maybe_unused]] int status{-3}; // one of the arguments is invalid
+        const std::unique_ptr< const char, std::function< void(const char* const) > > cxa_demangled_name{
+            std::strstr(mangled_name, "??") ? nullptr : abi::__cxa_demangle(mangled_name, 0, 0, &status),
+            [](const char* const ptr) {
+                if (ptr)
+                    std::free(static_cast< void* >(const_cast< char* >(ptr)));
+            }};
+        if (!cxa_demangled_name) {
+            if (status != -2) { // check that not a mangled name
+                log_message("SDS Logging - Could not demangle name {} error {}", mangled_name, status);
+            }
+            if (!symbol_name || (symbol_name[0] == '+') || (symbol_name[0] == 0x00)) {
+                // no symbol name so use mangled name
+                std::memcpy(demangled_name.data(), mangled_name, mangled_name_length);
+                demangled_name[mangled_name_length] = 0x00;
+            } else {
+                // use the symbol name
+                std::snprintf(demangled_name.data(), demangled_name.size(), "%s", symbol_name);
+            }
         } else {
-            // use the symbol name
-            std::snprintf(demangled_name.data(), demangled_name.size(), "%s", symbol_name);
+            // use the demangled name
+            std::snprintf(demangled_name.data(), demangled_name.size(), "%s", cxa_demangled_name.get());
         }
-    } else {
-        // use the demangled name
-        std::snprintf(demangled_name.data(), demangled_name.size(), "%s", cxa_demangled_name.get());
     }
 
-    // resolve file name if unknown
-    static std::array< char, backtrace_detail::process_name_length + line_number_length > s_absolute_file_path;
-    if (std::strstr(file_line, "??")) {
-        if (const char* const path{::realpath(process_name, s_absolute_file_path.data())}) {
-            // use the resolved file name and unknown line number
-            std::strcat(s_absolute_file_path.data(), ":?");
-        } else {
-            log_message("SDS Logging - Could not resolve real path for process {}", process_name);
-            // use the default unknown
-            std::memcpy(s_absolute_file_path.data(), file_line, file_line_length);
-            s_absolute_file_path[file_line_length] = 0x00;
-        }
+    // resolve file name absolute path
+    static std::array< char, backtrace_detail::file_name_length + line_number_length > s_absolute_file_path;
+    static std::array< char, backtrace_detail::file_name_length > s_relative_file_path;
+    const char* const colon_ptr{std::strrchr(file_line, ':')};
+    const size_t relative_file_name_length{colon_ptr ? static_cast< size_t >(colon_ptr - file_line) : file_line_length};
+    if (std::strstr(file_line, "??") || (relative_file_name_length == 0)) {
+        // no resolved file name, use process/lib name
+        std::memcpy(s_relative_file_path.data(), file_name, file_name_length);
+        s_relative_file_path[file_name_length] = 0x00;
     } else {
-        // file name resolved already
-        std::memcpy(s_absolute_file_path.data(), file_line, file_line_length);
-        s_absolute_file_path[file_line_length] = 0x00;
+        // use previoulsy received possibly relative path
+        std::memcpy(s_relative_file_path.data(), file_line, relative_file_name_length);
+        s_relative_file_path[relative_file_name_length] = 0x00;
+    }
+    if (const char* const path{::realpath(s_relative_file_path.data(), s_absolute_file_path.data())}) {
+        // absolute path resolved
+    } else {
+        // use the relative file name path
+        std::strcpy(s_absolute_file_path.data(), s_relative_file_path.data());
+    }
+    // append line number
+    if (colon_ptr) {
+        std::strcat(s_absolute_file_path.data(), colon_ptr);
+    } else {
+        std::strcat(s_absolute_file_path.data(), ":?");
     }
 
     return {demangled_name.data(), s_absolute_file_path.data()};
 }
-}
 
+#endif // __linux__
+
+} // anonymous namespace
+
+#ifdef __linux__
 size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* const stack_file, const size_t stack_size,
                                   char* const output_buf, const size_t output_buflen, const bool trim_internal) {
     static std::array< size_t, backtrace_detail::max_backtrace > s_output_line_start;
@@ -434,11 +457,11 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
         // NOTE: with ASLR
         //   /foo/bar/executable(+0x5996) [0x555555559996]
 
-        static std::array< char, backtrace_detail::process_name_length > s_process_name;
-        const size_t process_name_length{
-            trim_whitespace(s_process_name.data(), extractName(s_process_name, std::array< char, 2 >{'(', '\n'}))};
+        static std::array< char, backtrace_detail::file_name_length > s_file_name;
+        const size_t file_name_length{
+            trim_whitespace(s_file_name.data(), extractName(s_file_name, std::array< char, 2 >{'(', '\n'}))};
 
-        if (process_name_length == 0) {
+        if (file_name_length == 0) {
             if (c != '\n')
                 readTillEOL();
             continue;
@@ -469,15 +492,16 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
                     if (offset_result) {
                         actual_addr = offset_addr;
                     } else {
-                        log_message("SDS Logging - Could not resolve offset_symbol_address for symbol {} with address {}",
-                                    s_symbol.data(), symbol_address);
+                        log_message(
+                            "SDS Logging - Could not resolve offset_symbol_address for symbol {} with address {}",
+                            s_symbol.data(), symbol_address);
                     }
                 }
             }
         }
 
         const auto [demangled_name, file_line]{
-            convert_symbol_line(s_process_name.data(), process_name_length, actual_addr, s_symbol.data())};
+            convert_symbol_line(s_file_name.data(), file_name_length, actual_addr, s_symbol.data())};
         if (!demangled_name || !file_line) {
             if (c != '\n')
                 readTillEOL();
@@ -515,7 +539,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
 
     return cur_len;
 }
-#endif
+#endif // __linux__
 
 #ifdef __APPLE__
 size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr, const char* const* const stack_msg,
@@ -628,7 +652,7 @@ size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr
 
     return cur_len;
 }
-#endif
+#endif // __APPLE__
 
 size_t stack_interpret_other([[maybe_unused]] const void* const* const stack_ptr, const char* const* const stack_msg,
                              const size_t stack_size, char* const output_buf, const size_t output_buflen,
