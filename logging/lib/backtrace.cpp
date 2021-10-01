@@ -4,7 +4,6 @@
 #include <cstdio>
 #include <csignal>
 #include <cstring>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -13,6 +12,10 @@
 #if defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
 #include <sys/select.h>
+#endif
+
+#ifdef __linux__
+#include <unistd.h>
 #endif
 
 #ifdef __APPLE__
@@ -154,14 +157,15 @@ template < typename... Args >
 }
 
 #ifdef __linux__
-std::pair< bool, uintptr_t > offset_symbol_address(const char* const symbol_str, const uintptr_t symbol_address) {
+std::pair< bool, uintptr_t > offset_symbol_address(const char* const file_name, const char* const symbol_str,
+                                                   const uintptr_t symbol_address) {
     bool status{false};
     uintptr_t offset_address{symbol_address};
     Dl_info symbol_info;
 
     void* addr{nullptr};
     {
-        const std::unique_ptr< void, std::function< void(void* const) > > obj_file{::dlopen(nullptr, RTLD_LAZY),
+        const std::unique_ptr< void, std::function< void(void* const) > > obj_file{::dlopen(file_name, RTLD_LAZY),
                                                                                    [](void* const ptr) {
                                                                                        if (ptr)
                                                                                            ::dlclose(ptr);
@@ -388,21 +392,40 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
 } // anonymous namespace
 
 #ifdef __linux__
+
+const char* linux_process_name() {
+    static std::array< char, backtrace_detail::file_name_length > s_process_name;
+    const auto length{::readlink("/proc/self/exe", s_process_name.data(), s_process_name.size())};
+    if (length == -1) {
+        s_process_name[0] = 0;
+    } else if (static_cast< size_t >(length) == s_process_name.size()) {
+        // truncation occurred so null terminate
+        s_process_name[s_process_name.size() - 1] = 0;
+    } else {
+        // success so null terminate
+        s_process_name[static_cast< size_t >(length)] = 0;
+    }
+    return s_process_name.data();
+}
+
 size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* const stack_file, const size_t stack_size,
                                   char* const output_buf, const size_t output_buflen, const bool trim_internal) {
-    static std::array< size_t, backtrace_detail::max_backtrace > s_output_line_start;
-    size_t cur_len{0};
     std::rewind(stack_file);
     char c{0x00};
 
     /*
-    while (!feof(stack_file)) {
-        c = fgetc(stack_file);
-        std::cout << c;
-    }
+    while (!feof(stack_file)) std::putc(fgetc(stack_file), stdout);
     std::rewind(stack_file);
     */
 
+    // get the current process name
+    const char* const absolute_process_name{linux_process_name()};
+    const char* const slash_pos{std::strrchr(absolute_process_name, '/')};
+    const char* const process_name{slash_pos ? slash_pos + 1 : absolute_process_name};
+    const size_t process_name_length{std::strlen(process_name)};
+    
+    static std::array< size_t, backtrace_detail::max_backtrace > s_output_line_start;
+    size_t cur_len{0};
     size_t chars_read{0};
     const auto extractName{[&stack_file, &c, &chars_read](auto& dest, const auto& term_chars) {
         size_t len{0};
@@ -488,7 +511,12 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
                         // truncate symbol at + so just function name
                         *plus = 0x00;
                     }
-                    const auto [offset_result, offset_addr]{offset_symbol_address(s_symbol.data(), symbol_address)};
+                    const bool main_program{
+                        file_name_length < process_name_length
+                            ? false
+                            : std::strcmp(process_name, s_file_name.data() + file_name_length - process_name_length) == 0};
+                    const auto [offset_result,
+                                offset_addr]{offset_symbol_address(main_program ? nullptr : s_file_name.data(), s_symbol.data(), symbol_address)};
                     if (offset_result) {
                         actual_addr = offset_addr;
                     } else {

@@ -276,8 +276,8 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define RELEASE_ASSERT(cond, m, ...)                                                                                   \
     _GENERIC_ASSERT(                                                                                                   \
         0, cond,                                                                                                       \
-        [](fmt::memory_buffer& buf, const char* msg, auto... args) -> bool {                                           \
-            fmt::format_to(buf, msg, args...);                                                                         \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                           \
+            fmt::format_to(buf, msg, std::forward< decltype(args) >(args)...);                                                                         \
             return true;                                                                                               \
         },                                                                                                             \
         m, ##__VA_ARGS__)
@@ -288,7 +288,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
     RELEASE_ASSERT_CMP(                                                                                                \
         val1, cmp, val2,                                                                                               \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+            sds_logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                                                      \
             return true;                                                                                               \
         },                                                                                                             \
         ##__VA_ARGS__)
@@ -305,7 +305,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
     _GENERIC_ASSERT(                                                                                                   \
         1, cond,                                                                                                       \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            fmt::format_to(buf, msg, args...);                                                                         \
+            fmt::format_to(buf, msg, std::forward< decltype(args) >(args)...);                                                                         \
             return true;                                                                                               \
         },                                                                                                             \
         m, ##__VA_ARGS__)
@@ -317,7 +317,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
     LOGMSG_ASSERT_CMP(                                                                                                 \
         val1, cmp, val2,                                                                                               \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            sds_logging::_cmp_assert_with_msg(buf, msg, args...);                                                      \
+            sds_logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                                                      \
             return true;                                                                                               \
         },                                                                                                             \
         ##__VA_ARGS__)
