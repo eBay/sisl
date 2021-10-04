@@ -98,6 +98,7 @@ public:
     CounterDynamicInfo& operator=(CounterDynamicInfo&&) noexcept = delete;
 
     void publish(const CounterValue& value);
+    void unregister(const CounterStaticInfo& static_info);
 
 private:
     std::shared_ptr< ReportCounter >& as_counter() {
@@ -177,6 +178,7 @@ public:
     GaugeDynamicInfo& operator=(GaugeDynamicInfo&&) noexcept = delete;
 
     void publish(const GaugeValue& value);
+    void unregister(const GaugeStaticInfo& static_info);
 
 private:
     std::shared_ptr< ReportGauge > m_report_gauge;
@@ -264,6 +266,7 @@ public:
     [[nodiscard]] double average(const HistogramValue& hvalue) const;
 
     void publish(const HistogramValue& hvalue);
+    void unregister(const HistogramStaticInfo& static_info);
 
 private:
     std::shared_ptr< ReportHistogram >& as_histogram() {
@@ -334,6 +337,7 @@ private:
 
 public:
     MetricsGroupImpl(const std::string& grp_name, const std::string& inst_name);
+    ~MetricsGroupImpl();
 
     MetricsGroupImpl(const MetricsGroupImpl&) = delete;
     MetricsGroupImpl(MetricsGroupImpl&&) noexcept = delete;

@@ -113,6 +113,15 @@ void setup() {
     MetricsFarm::getInstance().register_metrics_group(glob_atomic_mgroup);
 }
 
+void teardown() {
+    MetricsFarm::getInstance().deregister_metrics_group(glob_tbuffer_mgroup);
+    MetricsFarm::getInstance().deregister_metrics_group(glob_rcu_mgroup);
+    MetricsFarm::getInstance().deregister_metrics_group(glob_atomic_mgroup);
+    glob_tbuffer_mgroup.reset();
+    glob_rcu_mgroup.reset();
+    glob_atomic_mgroup.reset();
+}
+
 void test_counters_write_tbuffer(benchmark::State& state) {
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
@@ -364,4 +373,5 @@ int main(int argc, char** argv) {
     setup();
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();
+    teardown();
 }
