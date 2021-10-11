@@ -51,6 +51,8 @@ int main(int argc, char** argv) {
     LOGINFOMOD(my_module, "Enabled Module Logger");
     LOGTRACEMOD(my_module, "Trace Module");
 
+    // RELEASE_ASSERT_EQ(0, 1, "test");
+
     // sds_logging::log_stack_trace(true);
 #if 0
     sds_logging::log_stack_trace();
