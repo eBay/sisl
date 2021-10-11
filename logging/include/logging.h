@@ -122,10 +122,10 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #if __cplusplus > 201703L
 #define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...)                            \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                     \
-        fmt::memory_buffer _log_buf;                                                                                   \
+        fmt::memory_buffer _log_buf{};                                                                                 \
         const auto& cb{formatter};                                                                                     \
         [[likely]] if (cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__)) {                                                 \
-            fmt::format_to(_log_buf, "{}", (char)0);                                                                   \
+            fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));             \
             _l->method(_log_buf.data());                                                                               \
             if (is_flush) {                                                                                            \
                 _l->flush();                                                                                           \
@@ -135,10 +135,10 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #else
 #define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...)                            \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                     \
-        fmt::memory_buffer _log_buf;                                                                                   \
+        fmt::memory_buffer _log_buf{};                                                                                 \
         const auto& cb{formatter};                                                                                     \
         if (LOGGING_PREDICT_TRUE(cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__))) {                                      \
-            fmt::format_to(_log_buf, "{}", (char)0);                                                                   \
+            fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));             \
             _l->method(_log_buf.data());                                                                               \
             if (is_flush) {                                                                                            \
                 _l->flush();                                                                                           \
@@ -276,8 +276,9 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define RELEASE_ASSERT(cond, m, ...)                                                                                   \
     _GENERIC_ASSERT(                                                                                                   \
         0, cond,                                                                                                       \
-        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                           \
-            fmt::format_to(buf, msg, std::forward< decltype(args) >(args)...);                                                                         \
+        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
+            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg},                                                 \
+                            fmt::make_format_args(std::forward< decltype(args) >(args)...));                           \
             return true;                                                                                               \
         },                                                                                                             \
         m, ##__VA_ARGS__)
@@ -288,7 +289,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
     RELEASE_ASSERT_CMP(                                                                                                \
         val1, cmp, val2,                                                                                               \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            sds_logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                                                      \
+            sds_logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                      \
             return true;                                                                                               \
         },                                                                                                             \
         ##__VA_ARGS__)
@@ -305,7 +306,8 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
     _GENERIC_ASSERT(                                                                                                   \
         1, cond,                                                                                                       \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            fmt::format_to(buf, msg, std::forward< decltype(args) >(args)...);                                                                         \
+            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg},                                                 \
+                            fmt::make_format_args(std::forward< decltype(args) >(args)...));                           \
             return true;                                                                                               \
         },                                                                                                             \
         m, ##__VA_ARGS__)
@@ -441,8 +443,10 @@ namespace sds_logging {
 typedef int SignalType;
 typedef void (*sig_handler_t)(SignalType);
 
-extern void SetLogger(std::string const& name, std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
-                      const std::string& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+extern void
+SetLogger(std::string const& name,
+          std::string const& pkg = BOOST_PP_STRINGIZE(PACKAGE_NAME),
+                                                      const std::string& ver = BOOST_PP_STRINGIZE(PACKAGE_VERSION));
 extern std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const std::string& extn,
                                                       const bool tee_to_stdout, const bool tee_to_stderr = false);
 extern void SetLogPattern(const std::string& pattern, const std::shared_ptr< sds_logging::logger_t >& logger = nullptr);
@@ -463,19 +467,21 @@ extern bool restore_signal_handlers();
 extern bool send_thread_signal(const pthread_t thr, const SignalType sig_num);
 
 template < typename... Args >
-std::string format_log_msg(const char* const fmt, Args&&... args) {
-    fmt::memory_buffer buf;
-    fmt::format_to(buf, fmt, std::forward< Args >(args)...);
-    return to_string(buf);
+std::string format_log_msg(const char* const msg, Args&&... args) {
+    fmt::memory_buffer buf{};
+    fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(std::forward< Args >(args)...));
+    return fmt::to_string(buf);
 }
 extern std::string format_log_msg();
 
 template < typename T1, typename T2, typename T3, typename... Args >
 void _cmp_assert_with_msg(fmt::memory_buffer& buf, const char* const msg, T1&& val1, T2&& op, T3&& val2,
                           Args&&... args) {
-    fmt::format_to(buf, "******************** Assertion failure: =====> Expected '{}' to be {} to '{}' ",
-                   std::forward< T1 >(val1), std::forward< T2 >(op), std::forward< T3 >(val2));
-    fmt::format_to(buf, msg, std::forward< Args >(args)...);
+
+    fmt::vformat_to(fmt::appender{buf},
+                    fmt::string_view{"******************** Assertion failure: =====> Expected '{}' to be {} to '{}' "},
+                    fmt::make_format_args(std::forward< T1 >(val1), std::forward< T2 >(op), std::forward< T3 >(val2)));
+    fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(std::forward< Args >(args)...));
 }
 
 template < typename... Args >

@@ -228,7 +228,8 @@ static std::string setup_modules() {
         for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
             const std::string& mod_name{glob_enabled_mods[mod_num]};
             set_module_log_level(mod_name, lvl);
-            fmt::format_to(std::back_inserter(out_str), "{}={}, ", mod_name, lvl_str);
+            fmt::vformat_to(std::back_inserter(out_str), fmt::string_view{"{}={}, "},
+                            fmt::make_format_args(mod_name, lvl_str));
         }
     } else {
         if (SDS_OPTIONS.count("log_mods")) {
@@ -257,8 +258,9 @@ static std::string setup_modules() {
 
         for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
             const std::string& mod_name{glob_enabled_mods[mod_num]};
-            fmt::format_to(std::back_inserter(out_str), "{}={}, ", mod_name,
-                           spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data());
+            fmt::vformat_to(
+                std::back_inserter(out_str), fmt::string_view{"{}={}, "},
+                fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data()));
         }
     }
 
