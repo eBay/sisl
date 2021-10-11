@@ -12,7 +12,7 @@
 #include <string>
 
 #ifdef __linux__
-    #include <fcntl.h>
+#include <fcntl.h>
 #endif
 
 #include <boost/intrusive/slist.hpp>
@@ -25,7 +25,6 @@
 
 using namespace sisl;
 
-THREAD_BUFFER_INIT
 SDS_LOGGING_INIT(group_commit)
 
 #pragma pack(1)
@@ -91,17 +90,21 @@ struct log_record {
         sr->log_idx = log_idx;
         sr->size = size;
         sr->is_inlined = is_inlinebale();
-        if (is_inlinebale()) { std::memcpy(static_cast<void*>(sr->data), static_cast<const void*>(data_ptr), size); }
+        if (is_inlinebale()) {
+            std::memcpy(static_cast< void* >(sr->data), static_cast< const void* >(data_ptr), size);
+        }
         return sr;
     }
 
     // NOTE: serialized_log_record contains 1 byte of data already which is why - 1
     size_t inlined_size() const {
-        return sizeof(serialized_log_record) + (((size > 0)  && is_inlinebale()) ? size - 1 : 0);
+        return sizeof(serialized_log_record) + (((size > 0) && is_inlinebale()) ? size - 1 : 0);
     }
     size_t serialized_size() const { return sizeof(serialized_log_record) + ((size > 0) ? (size - 1) : 0); }
     bool is_inlinebale() const { return (size <= inline_size); }
-    static size_t serialized_size(const uint32_t sz) { return sizeof(serialized_log_record) + ((sz > 0 ? (sz - 1) : 0)); }
+    static size_t serialized_size(const uint32_t sz) {
+        return sizeof(serialized_log_record) + ((sz > 0 ? (sz - 1) : 0));
+    }
 };
 
 static constexpr uint32_t flush_idx_frequency{64};
@@ -115,7 +118,8 @@ struct iovec_wrapper : public iovec {
 
 class LogGroup {
     template < typename charT, typename traits >
-    friend std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& outStream, const LogGroup& lg);
+    friend std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& outStream,
+                                                           const LogGroup& lg);
 
 public:
     static constexpr uint32_t estimated_iovs{10};
@@ -133,17 +137,17 @@ public:
         m_nrecords = 0;
         m_total_non_inlined_size = 0;
 
-        m_iovecs.emplace_back(static_cast<void*>(m_cur_log_buf), 0);
+        m_iovecs.emplace_back(static_cast< void* >(m_cur_log_buf), 0);
     }
 
     void create_overflow_buf(const uint32_t min_needed) {
         const uint32_t new_len{std::max(min_needed, m_cur_buf_len * 2)};
         auto new_buf{std::unique_ptr< uint8_t[] >(new uint8_t[new_len])};
-        std::memcpy(static_cast<void*>(new_buf.get()), static_cast<const void*>(m_cur_log_buf), m_cur_buf_len);
+        std::memcpy(static_cast< void* >(new_buf.get()), static_cast< const void* >(m_cur_log_buf), m_cur_buf_len);
         m_overflow_log_buf = std::move(new_buf);
         m_cur_log_buf = m_overflow_log_buf.get();
         m_cur_buf_len = new_len;
-        m_iovecs[0].iov_base = static_cast<void*>(m_cur_log_buf);
+        m_iovecs[0].iov_base = static_cast< void* >(m_cur_log_buf);
     }
 
     bool can_accomodate(const log_record& record) const {
@@ -169,7 +173,7 @@ public:
         m_iovecs[0].iov_len += size;
         if (!record.is_inlinebale()) {
             // TODO: Round this up to 512 byte boundary
-            m_iovecs.emplace_back(static_cast<void*>(record.data_ptr), record.size);
+            m_iovecs.emplace_back(static_cast< void* >(record.data_ptr), record.size);
             m_total_non_inlined_size += record.size;
         }
         m_nrecords++;
@@ -189,13 +193,13 @@ public:
         return &m_iovecs;
     }
 
-    log_group_header* header() const { return reinterpret_cast<log_group_header*>(m_cur_log_buf); }
+    log_group_header* header() const { return reinterpret_cast< log_group_header* >(m_cur_log_buf); }
     iovec_array& iovecs() { return m_iovecs; }
 
     uint32_t data_size() const { return header()->group_size - sizeof(log_group_header); }
 
 private:
-    std::array < uint8_t, inline_log_buf_size> m_log_buf;
+    std::array< uint8_t, inline_log_buf_size > m_log_buf;
     uint8_t* m_cur_log_buf{m_log_buf.data()};
     uint32_t m_cur_buf_len{inline_log_buf_size};
     uint32_t m_cur_buf_pos{sizeof(log_group_header)};
@@ -219,10 +223,10 @@ std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, trait
     outStringStream.copyfmt(outStream);
 
     // output the date time
-    const auto s {fmt::format("-----------------------------------------------------------------\n"
+    const auto s{fmt::format("-----------------------------------------------------------------\n"
                              "Header: [{}]\nLog_idx_range:[{} - {}] Offset={} non_inlined_size={}\n"
                              "-----------------------------------------------------------------\n",
-                             *(reinterpret_cast<log_group_header*>(lg.m_cur_log_buf)), lg.m_flush_log_idx_from, 
+                             *(reinterpret_cast< log_group_header* >(lg.m_cur_log_buf)), lg.m_flush_log_idx_from,
                              lg.m_flush_log_idx_upto, lg.m_log_dev_offset, lg.m_total_non_inlined_size)};
     outStringStream << s;
 
@@ -352,12 +356,12 @@ static void on_append_completion(const int64_t idx, const uint64_t offset, void*
 }
 
 int main(int argc, char* argv[]) {
-    std::array<std::string, 1024> s;
+    std::array< std::string, 1024 > s;
     LogDev ld;
     ld.register_cb(on_append_completion);
 
     for (size_t i{0}; i < 200; ++i) {
         s[i] = std::to_string(i);
-        ld.append(reinterpret_cast<uint8_t*>(const_cast<char*>(s[i].c_str())), s[i].size() + 1, nullptr);
+        ld.append(reinterpret_cast< uint8_t* >(const_cast< char* >(s[i].c_str())), s[i].size() + 1, nullptr);
     }
 }

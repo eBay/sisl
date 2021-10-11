@@ -6,6 +6,8 @@
 
 #include "metrics.hpp"
 
+THREAD_BUFFER_INIT
+
 namespace sisl {
 
 #define PROMETHEUS_METRICS_REPORTER

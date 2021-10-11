@@ -13,7 +13,6 @@
 #include <gtest/gtest.h>
 
 using namespace sisl;
-THREAD_BUFFER_INIT
 
 SDS_LOGGING_INIT(test_stream_tracker)
 

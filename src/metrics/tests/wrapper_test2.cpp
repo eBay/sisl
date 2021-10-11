@@ -12,11 +12,9 @@
 
 #define ITERATIONS 4
 
-THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
 
 using namespace sisl;
-
 
 TEST(counterTest, wrapperTest) {
     Tree tree1("tree1"), tree2("tree2");

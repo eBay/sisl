@@ -18,7 +18,6 @@
 using namespace sisl;
 
 SDS_LOGGING_INIT(test_jemalloc)
-THREAD_BUFFER_INIT
 
 namespace {
 uint32_t g_num_threads;

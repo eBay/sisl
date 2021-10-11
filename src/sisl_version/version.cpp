@@ -4,7 +4,6 @@
 
 #include "version.hpp"
 #include <cassert>
-#include <boost/preprocessor/stringize.hpp>
 
 namespace sisl {
 
@@ -30,8 +29,8 @@ version::Semver200_version VersionMgr::getVersion(const std::string& name) {
     return it->second;
 }
 
-std::vector<modinfo> VersionMgr::getVersions() {
-    std::vector<modinfo> res;
+std::vector< modinfo > VersionMgr::getVersions() {
+    std::vector< modinfo > res;
     auto ver_info{VersionMgr::getInstance()};
     std::unique_lock l{ver_info->m_mutex};
     res.insert(res.end(), ver_info->m_version_map.begin(), ver_info->m_version_map.end());
@@ -42,9 +41,7 @@ void VersionMgr::addVersion(const std::string& name, const version::Semver200_ve
     auto ver_info{VersionMgr::getInstance()};
     std::unique_lock l{ver_info->m_mutex};
     auto it{ver_info->m_version_map.find(name)};
-    if (it == ver_info->m_version_map.end()) {
-        ver_info->m_version_map[name] = ver;
-    }
+    if (it == ver_info->m_version_map.end()) { ver_info->m_version_map[name] = ver; }
 }
 
 } // namespace sisl
