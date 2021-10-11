@@ -18,7 +18,7 @@
 #include <boost/preprocessor/tuple/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
-#include <cxxopts/cxxopts.hpp>
+#include <cxxopts.hpp>
 
 namespace sds_options {
 template < bool... >
