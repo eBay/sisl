@@ -195,3 +195,21 @@ static int spaceship_oper(const T& left, const T& right) {
 #define bind_this(method, nparams)                                                                                     \
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
 } // namespace sisl
+
+template < typename T >
+using d_cast = dynamic_cast< T >;
+
+template < typename T >
+using s_cast = static_cast< T >;
+
+template < typename T >
+using r_cast = reinterpret_cast< T >;
+
+using void_cast = reinterpret_cast< void* >;
+using uint8p_cast = reinterpret_cast< uint8_t* >;
+
+template < typename T >
+using dp_cast = std::dynamic_pointer_cast< T >;
+
+template < typename T >
+using sp_cast = std::static_pointer_cast< T >;
