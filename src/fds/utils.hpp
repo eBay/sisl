@@ -196,6 +196,7 @@ static int spaceship_oper(const T& left, const T& right) {
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
 } // namespace sisl
 
+#if 0
 template < typename T >
 using d_cast = dynamic_cast< T >;
 
@@ -213,3 +214,4 @@ using dp_cast = std::dynamic_pointer_cast< T >;
 
 template < typename T >
 using sp_cast = std::static_pointer_cast< T >;
+#endif
