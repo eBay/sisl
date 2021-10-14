@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "5.0.10"
+    version = "6.0.1"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -35,14 +35,14 @@ class MetricsConan(ConanFile):
                     "gtest/1.10.0",
                 )
     requires = (
-                    "sds_logging/[~=10, include_prerelease=True]@sds/master",
+                    "sds_logging/[~=11, include_prerelease=True]@sds/master",
                     "sds_options/[~=1, include_prerelease=True]@sds/master",
 
                     "boost/1.73.0",
                     "evhtp/1.2.18.2",
                     "snappy/1.1.8",
                     "flatbuffers/1.11.0",
-                    ("fmt/7.1.3", "override"),
+                    ("fmt/8.0.1", "override"),
                     "folly/2020.05.04.00",
                     "nlohmann_json/3.8.0",
                     ("openssl/1.1.1g", "override"),
@@ -105,9 +105,8 @@ class MetricsConan(ConanFile):
             cmake.test(target=test_target)
 
     def package(self):
-        self.copy("version.hpp", src="src/", dst="include/sisl/", keep_path=True)
-        self.copy("*.hpp", src="src/", dst="include/", excludes="version.hpp", keep_path=True)
-        self.copy("*.h", src="src/", dst="include/", keep_path=True)
+        self.copy("*.hpp", src="src/", dst="include/sisl", keep_path=True)
+        self.copy("*.h", src="src/", dst="include/sisl", keep_path=True)
         self.copy("*.a", dst="lib/", keep_path=False)
         self.copy("*.lib", dst="lib/", keep_path=False)
         self.copy("*.so", dst="lib/", keep_path=False)
@@ -119,6 +118,7 @@ class MetricsConan(ConanFile):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
         self.cpp_info.cppflags.append("-fconcepts")
+        self.cpp_info.includedirs = ["include", "include/sisl/"]
         if self.settings.os == "Linux":
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")

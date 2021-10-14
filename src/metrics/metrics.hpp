@@ -72,7 +72,6 @@ private:
     mutable std::mutex m_lock;
     std::unique_ptr< Reporter > m_reporter;
     std::shared_ptr< ThreadRegistry > m_treg; // Keep a ref of ThreadRegistry to prevent it from destructing before us.
-
 private:
     MetricsFarm();
 

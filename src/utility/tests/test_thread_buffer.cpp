@@ -32,7 +32,7 @@ static constexpr size_t INITIAL_THREADS{6};
 static constexpr size_t ADDLN_THREADS{2};
 static constexpr size_t ENTRIES_PER_THREAD{10000};
 static constexpr size_t TOTAL_THREADS{INITIAL_THREADS + ADDLN_THREADS};
-static constexpr size_t TOTAL_ENTRIES(ENTRIES_PER_THREAD * TOTAL_THREADS);
+static constexpr size_t TOTAL_ENTRIES(ENTRIES_PER_THREAD* TOTAL_THREADS);
 
 struct ThreadBufferTest : public testing::Test {
     ThreadBufferTest() {
@@ -85,10 +85,10 @@ protected:
 
         do {
             std::this_thread::sleep_for(std::chrono::microseconds(50000));
-            test->m_buffer.access_all_threads([&merge_list](MyList* const ml, 
-                                                            const bool is_thread_running,
+            test->m_buffer.access_all_threads([&merge_list](MyList* const ml, const bool is_thread_running,
                                                             [[maybe_unused]] const bool is_last_thread) {
-                // it is a race to access the the thread MyList from the write thread and scrapper thread at the same time
+                // it is a race to access the the thread MyList from the write thread and scrapper thread at the same
+                // time
                 if (!is_thread_running) { merge_list.add(*ml); }
                 return !is_thread_running;
             });
