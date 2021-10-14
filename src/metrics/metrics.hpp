@@ -34,25 +34,24 @@
 namespace sisl {
 
 class MetricsGroupStaticInfo;
+class MetricsFarm;
 class MetricsGroup {
 public:
+    MetricsGroup(const std::string& grp_name, const std::string& inst_name = "Instance1",
+                 group_impl_type_t type = group_impl_type_t::rcu);
+    ~MetricsGroup();
+
     MetricsGroup(const MetricsGroup&) = delete;
     MetricsGroup(MetricsGroup&&) noexcept = delete;
     MetricsGroup& operator=(const MetricsGroup&) = delete;
     MetricsGroup& operator=(MetricsGroup&&) noexcept = delete;
 
     MetricsGroupImplPtr m_impl_ptr;
+    std::shared_ptr< MetricsFarm > m_farm_ptr; // Take reference to prevent from singleton destruction before
 
     std::atomic< bool > m_is_registered = false;
     static MetricsGroupImplPtr make_group(const std::string& grp_name, const std::string& inst_name,
                                           group_impl_type_t type = group_impl_type_t::rcu);
-
-    MetricsGroup(const std::string& grp_name, const std::string& inst_name = "Instance1",
-                 group_impl_type_t type = group_impl_type_t::rcu) {
-        m_impl_ptr = make_group(grp_name, inst_name, type);
-    }
-
-    ~MetricsGroup() { deregister_me_from_farm(); }
 
     void register_me_to_farm();
     void deregister_me_from_farm();
@@ -85,7 +84,13 @@ public:
     MetricsFarm& operator=(const MetricsFarm&) = delete;
     MetricsFarm& operator=(MetricsFarm&&) noexcept = delete;
 
-    static MetricsFarm& getInstance();
+    static MetricsFarm& getInstance() { return *get_instance_ptr(); }
+
+    static std::shared_ptr< MetricsFarm > get_instance_ptr() {
+        static std::shared_ptr< MetricsFarm > inst_ptr{new MetricsFarm()};
+        return inst_ptr;
+    }
+
     static Reporter& get_reporter();
     static bool is_initialized();
 

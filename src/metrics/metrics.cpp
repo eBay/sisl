@@ -15,11 +15,6 @@ namespace sisl {
 static std::atomic< bool > metrics_farm_initialized{false};
 
 /**************************** MetricsFarm ***********************************/
-MetricsFarm& MetricsFarm::getInstance() {
-    static MetricsFarm instance;
-    return instance;
-}
-
 Reporter& MetricsFarm::get_reporter() { return *getInstance().m_reporter; }
 
 MetricsFarm::MetricsFarm() {
