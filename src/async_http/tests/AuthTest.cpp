@@ -1,6 +1,6 @@
 /**
- * The following test cases are directly taken from OM
- * with minor changes (such as using a different http client)
+ * The following test cases are taken from OM.
+ * https://github.corp.ebay.com/SDS/om_cpp/blob/master/src/tests/unit/Middleware/AuthTest.cpp
  **/
 
 #include "http_server.hpp"

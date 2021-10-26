@@ -109,7 +109,6 @@ struct _handler_info {
 
 template < void (*Handler)(HttpCallData) >
 static void _request_handler(evhtp_request_t* req, void* arg) {
-
     HttpCallData cd(new _http_calldata(req, arg));
     Handler(cd);
 }
