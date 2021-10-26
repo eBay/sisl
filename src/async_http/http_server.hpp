@@ -30,7 +30,16 @@
 #include "utility/thread_factory.hpp"
 #include "utility/obj_life_counter.hpp"
 #include <sds_options/options.h>
+
+// maybe-uninitialized variable in one of the included headers from jwt.h
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 #include <jwt-cpp/jwt.h>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 SDS_LOGGING_DECL(httpserver_lmod)
 
