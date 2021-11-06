@@ -221,6 +221,7 @@ struct bit_filter {
     bit_filter(bit_filter&&) noexcept = default;
     bit_filter& operator=(const bit_filter&) = delete;
     bit_filter& operator=(bit_filter&&) noexcept = delete;
+    ~bit_filter() = default;
 
     std::string to_string() const {
         return fmt::format("n_lsb_reqd={} n_mid_reqd={} n_msb_reqd={} ", n_lsb_reqd, n_mid_reqd, n_msb_reqd);
@@ -239,6 +240,7 @@ struct bit_match_result {
     bit_match_result(bit_match_result&&) noexcept = default;
     bit_match_result& operator=(const bit_match_result&) = delete;
     bit_match_result& operator=(bit_match_result&&) noexcept = delete;
+    ~bit_match_result() = default;
 
     std::string to_string() const {
 
@@ -253,18 +255,24 @@ struct bit_match_result {
 template < typename Word >
 class Bitword {
 public:
-    static constexpr uint8_t bits() { return (sizeof(Word) * 8); }
-    typedef typename Word::word_t word_t;
-    static_assert(std::is_unsigned_v< word_t > && (sizeof(word_t) <= sizeof(uint64_t)),
-                  "Underlying type must be unsigned of 64 bits or less.");
+    typedef typename std::decay_t< Word > word_type;
+    static constexpr uint8_t bits() { return (sizeof(word_type) * 8); }
+    typedef typename word_type::word_t word_t;
+    static_assert(std::is_unsigned_v< word_t > && (sizeof(word_t) <= 16),
+                  "Underlying type must be unsigned of 128 bits or less.");
+    typedef typename word_type::value_type value_type;
 
     Bitword() { m_bits.set(0); }
-    explicit Bitword(const Word& b) { m_bits.set(b); }
+    explicit Bitword(const word_type& b) { m_bits.set(b.get()); }
     explicit Bitword(const word_t& val) { m_bits.set(val); }
-    Bitword(const Bitword&) = delete;
+    Bitword(const Bitword& other) : m_bits{other.to_integer()} {}
     Bitword(Bitword&&) noexcept = delete;
-    Bitword& operator=(const Bitword&) = delete;
+    Bitword& operator=(const Bitword& rhs) {
+        if (this != &rhs) { m_bits.set(rhs.to_integer()); }
+        return *this;
+    }
     Bitword& operator=(Bitword&&) noexcept = delete;
+    ~Bitword() = default;
 
     void set(const word_t& value) { m_bits.set(value); }
 
@@ -522,6 +530,10 @@ public:
 
     void print() const { std::cout << to_string() << std::endl; }
 
+    bool operator==(const Bitword& rhs) const { return m_bits == rhs.m_bits; }
+
+    bool operator!=(const Bitword& rhs) const { return m_bits != rhs.m_bits; }
+
 private:
     word_t extract(const uint8_t start, const uint8_t nbits) const {
         const uint8_t wanted_bits{std::min< uint8_t >(bits() - start, nbits)};
@@ -555,12 +567,14 @@ class unsafe_bits {
 public:
     typedef std::decay_t< WType > word_t;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
+    typedef word_t value_type;
 
-    unsafe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value(t) {}
+    unsafe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     unsafe_bits(const unsafe_bits&) = delete;
     unsafe_bits(unsafe_bits&&) noexcept = delete;
     unsafe_bits& operator=(const unsafe_bits&) = delete;
     unsafe_bits& operator=(unsafe_bits&&) noexcept = delete;
+    ~unsafe_bits() = default;
 
     void set(const word_t& value) { m_Value = value; }
     bool set_if(const word_t& old_value, const word_t& new_value) {
@@ -588,8 +602,12 @@ public:
 
     word_t get() const { return m_Value; }
 
+    bool operator==(const unsafe_bits& rhs) const { return get() == rhs.get(); }
+
+    bool operator!=(const unsafe_bits& rhs) const { return get() != rhs.get(); }
+
 private:
-    word_t m_Value;
+    value_type m_Value;
 };
 
 template < typename WType >
@@ -597,12 +615,14 @@ class safe_bits {
 public:
     typedef std::decay_t< WType > word_t;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
+    typedef std::atomic< word_t > value_type;
 
     safe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     safe_bits(const safe_bits&) = delete;
     safe_bits(safe_bits&&) noexcept = delete;
     safe_bits& operator=(const safe_bits&) = delete;
     safe_bits& operator=(safe_bits&&) noexcept = delete;
+    ~safe_bits() = default;
 
     void set(const word_t& bits) { m_Value.store(bits, std::memory_order_relaxed); }
     void set_if(const word_t& old_value, const word_t& new_value) {
@@ -632,7 +652,11 @@ public:
     }
     word_t get() const { return m_Value.load(std::memory_order_relaxed); }
 
+    bool operator==(const safe_bits& rhs) const { return get() == rhs.get(); }
+
+    bool operator!=(const safe_bits& rhs) const { return get() != rhs.get(); }
+
 private:
-    std::atomic< word_t > m_Value;
+    value_type m_Value;
 };
 } // namespace sisl

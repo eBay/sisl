@@ -99,7 +99,9 @@ void test_atomic_gets(benchmark::State& state) {
 }
 
 void test_urcu_gets(benchmark::State& state) {
+    rcu_register_thread();
     auto t = std::thread([]() {
+        rcu_register_thread();
         for (auto i = 0U; i < NENTRIES_PER_THREAD; i++) {
             glob_urcu_status.update([](MyStatus* s) {
                 s->is_shutdown = true;
@@ -107,6 +109,7 @@ void test_urcu_gets(benchmark::State& state) {
             });
         }
         std::cout << "Updated all status\n";
+        rcu_unregister_thread();
     });
 
     for (auto _ : state) {
@@ -121,6 +124,7 @@ void test_urcu_gets(benchmark::State& state) {
         }
     }
     t.join();
+    rcu_unregister_thread();
 }
 
 void test_raw_gets(benchmark::State& state) {

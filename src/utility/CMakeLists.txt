@@ -3,6 +3,13 @@ add_flags("-Wno-unused-parameter")
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
+set(TEST_ATOMIC_COUNTER_SOURCES
+    tests/test_atomic_counter.cpp
+   )
+add_executable(test_atomic_counter ${TEST_ATOMIC_COUNTER_SOURCES})
+target_link_libraries(test_atomic_counter sisl ${CONAN_LIBS})
+add_test(NAME atomic_counter COMMAND test_atomic_counter)
+
 set(TEST_THREAD_BUFFER
     tests/test_thread_buffer.cpp
    )
@@ -20,6 +27,13 @@ add_test(NAME StatusFactoryTest COMMAND test_status_factory)
 set(TEST_ENUM
     tests/test_enum.cpp
    )
-add_executable(test_enum  ${TEST_ENUM})
+add_executable(test_enum ${TEST_ENUM})
 target_link_libraries(test_enum  ${CONAN_LIBS})
 add_test(NAME EnumTest COMMAND test_enum)
+
+set(TEST_OBJLIFE
+    tests/test_objlife_counter.cpp
+   )
+add_executable(test_objlife ${TEST_OBJLIFE})
+target_link_libraries(test_objlife sisl ${CONAN_LIBS})
+add_test(NAME ObjLifeTest COMMAND test_objlife)

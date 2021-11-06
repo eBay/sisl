@@ -37,9 +37,7 @@ public:
 
     // Initialize the stream vector with start index
     StreamTracker(const char* name = "StreamTracker", int64_t start_idx = -1) :
-            m_comp_slot_bits(alloc_blk_size),
-            m_active_slot_bits(alloc_blk_size),
-            m_metrics(name) {
+            m_comp_slot_bits(alloc_blk_size), m_active_slot_bits(alloc_blk_size), m_metrics(name) {
         m_slot_ref_idx = start_idx + 1;
 
         // Allocate the data for that size.
@@ -169,14 +167,32 @@ public:
 
     void foreach_active(int64_t start_idx, const auto& cb) { _foreach(start_idx, false /* completed */, cb); }
 
-    int64_t completed_upto(int64_t search_hint_idx = 0) {
+    int64_t completed_upto(int64_t search_hint_idx = 0) const {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
         return _upto(true /* completed */, search_hint_idx);
     }
 
-    int64_t active_upto(int64_t search_hint_idx = 0) {
+    int64_t active_upto(int64_t search_hint_idx = 0) const {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
         return _upto(false /* completed */, search_hint_idx);
+    }
+
+    nlohmann::json get_status(const int verbosity) const {
+        nlohmann::json js;
+        js["start"] = m_slot_ref_idx;
+        js["completed_upto"] = completed_upto();
+        js["active_upto"] = active_upto();
+
+        if (verbosity == 2) {
+            js["alloced_count"] = m_alloced_slots;
+            if (AutoTruncate) {
+                js["completed_since_last_truncate"] =
+                    m_cmpltd_count_since_last_truncate.load(std::memory_order_relaxed);
+            }
+            js["truncate_frequency"] = m_truncate_on_count;
+            js["garbage_count"] = m_data_skip_count;
+        }
+        return js;
     }
 
 private:
@@ -254,7 +270,7 @@ private:
         GAUGE_UPDATE(m_metrics, stream_tracker_mem_size, (m_alloced_slots * sizeof(T)));
     }
 
-    int64_t _upto(bool completed, int64_t search_hint_idx) {
+    int64_t _upto(bool completed, int64_t search_hint_idx) const {
         auto search_start_bit = std::max(0l, (search_hint_idx - m_slot_ref_idx));
         auto first_incomplete_bit = completed ? m_comp_slot_bits.get_next_reset_bit(search_start_bit)
                                               : m_active_slot_bits.get_next_reset_bit(search_start_bit);
@@ -279,7 +295,7 @@ private:
 
 private:
     // Mutex to protect the completion of last commit info
-    folly::SharedMutexWritePriority m_lock;
+    mutable folly::SharedMutexWritePriority m_lock;
 
     // A bitset that covers the completion and truncation
     sisl::AtomicBitset m_comp_slot_bits;
@@ -290,23 +306,23 @@ private:
     // The array of cursors which are being processed right now. We purposefully didn't want to use std::vector
     // because, completion bits truncates everything at one shot and we don't want iterating one after other under
     // lock.
-    T* m_slot_data = nullptr;
+    T* m_slot_data{nullptr};
 
     // Amount of data to skip before m_slot_data[0] index starts. This is done to avoid memmove entire data set
     // everytime it is truncated. Instead it leaves the buffer as is and then shrinks fewer a between
-    size_t m_data_skip_count = 0;
+    size_t m_data_skip_count{0};
 
     // Total number of slots allocated
-    size_t m_alloced_slots = 0;
+    size_t m_alloced_slots{0};
 
     // Total number of entries completely acked (for all txns) since last truncate
-    std::atomic< size_t > m_cmpltd_count_since_last_truncate = 0;
+    std::atomic< size_t > m_cmpltd_count_since_last_truncate{0};
 
     // Reference idx of the stream. This is the cursor idx which it is tracking
-    int64_t m_slot_ref_idx = 0;
+    int64_t m_slot_ref_idx{0};
 
     // How frequent (on count) truncate needs to happen
-    uint32_t m_truncate_on_count = 1000;
+    uint32_t m_truncate_on_count{1000};
 
     StreamTrackerMetrics m_metrics;
 };

@@ -9,14 +9,13 @@
 #include <condition_variable>
 
 SDS_LOGGING_INIT(httpserver_lmod)
-
 SDS_OPTIONS_ENABLE(logging)
 
-sisl::HttpServer*       server;
-std::mutex              m;
+sisl::HttpServer* server;
+std::mutex m;
 std::condition_variable cv;
-bool                    is_shutdown = false;
-std::thread*            m_timer_thread = nullptr;
+bool is_shutdown = false;
+std::thread* m_timer_thread = nullptr;
 
 static void sleep_and_return(sisl::HttpCallData cd, int64_t secs) {
     sleep(secs);

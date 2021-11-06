@@ -1,25 +1,27 @@
+#include <cstdint>
+#include <iostream>
+
+#include <nlohmann/json.hpp>
+#include <sds_logging/logging.h>
+#include <sds_options/options.h>
+
 #include "generated/test_app_schema_generated.h"
 //#include "generated/test_app_schema_bindump.hpp"
 #include "settings/settings.hpp"
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
-#include <iostream>
-#include <nlohmann/json.hpp>
 
 #define MY_SETTINGS_FACTORY SETTINGS_FACTORY(test_app_schema)
 
-SDS_OPTIONS_ENABLE(logging, test_settings)
+SDS_OPTIONS_ENABLE(logging, test_settings, config)
 
 SDS_OPTION_GROUP(test_settings,
                  (num_threads, "", "num_threads", "number of threads",
                   ::cxxopts::value< uint32_t >()->default_value("1"), "number"))
 
-
 SDS_LOGGING_INIT(test_settings, settings)
-SETTINGS_INIT(testapp::TestAppSettings, test_app_schema, "/tmp")
+SETTINGS_INIT(testapp::TestAppSettings, test_app_schema)
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_settings);
+    SDS_OPTIONS_LOAD(argc, argv, logging, test_settings, config);
     sds_logging::SetLogger("test_settings");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
@@ -30,6 +32,7 @@ int main(int argc, char* argv[]) {
             SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
     MY_SETTINGS_FACTORY.save("/tmp/settings_out");
     SETTINGS(test_app_schema, s, {
+        LOGINFO("databaseHost = {}", s.config.database.databaseHost);
         LOGINFO("databasePort = {}", s.config.database.databasePort);
         LOGINFO("numThreads = {}", s.config.database.numThreads);
     });

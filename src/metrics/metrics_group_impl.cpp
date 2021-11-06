@@ -5,12 +5,12 @@
 #include <algorithm>
 
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-    #include <folly/Synchronized.h>
+#include <folly/Synchronized.h>
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif
 
 #include <fmt/format.h>
@@ -38,6 +38,17 @@ MetricsGroupImplPtr MetricsGroup::make_group(const std::string& grp_name, const 
     } else {
         return nullptr;
     }
+}
+
+MetricsGroup::MetricsGroup(const std::string& grp_name, const std::string& inst_name, group_impl_type_t type) {
+    m_impl_ptr = make_group(grp_name, inst_name, type);
+    m_farm_ptr = MetricsFarm::get_instance_ptr();
+}
+
+MetricsGroup::~MetricsGroup() {
+    deregister_me_from_farm();
+    m_impl_ptr.reset();
+    m_farm_ptr.reset();
 }
 
 void MetricsGroup::register_me_to_farm() {
@@ -108,6 +119,20 @@ MetricsGroupImpl::MetricsGroupImpl(const std::string& grp_name, const std::strin
     m_static_info = MetricsGroupStaticInfo::create_or_get_info(grp_name);
     m_static_info->m_mutex.lock();
     // The metrics group info is locked and exclusive till all registrations are completed by this instance
+}
+
+MetricsGroupImpl::~MetricsGroupImpl() {
+    for (size_t idx{0}; idx < m_counters_dinfo.size(); ++idx) {
+        m_counters_dinfo[idx].unregister(m_static_info->m_counters[idx]);
+    }
+
+    for (size_t idx{0}; idx < m_gauges_dinfo.size(); ++idx) {
+        m_gauges_dinfo[idx].unregister(m_static_info->m_gauges[idx]);
+    }
+
+    for (size_t idx{0}; idx < m_histograms_dinfo.size(); ++idx) {
+        m_histograms_dinfo[idx].unregister(m_static_info->m_histograms[idx]);
+    }
 }
 
 void MetricsGroupImpl::registration_completed() {
@@ -203,7 +228,7 @@ nlohmann::json MetricsGroupImpl::get_result_in_json(bool need_latest) {
             HistogramDynamicInfo& h = hist_dynamic_info(idx);
             if (h.is_histogram_reporter()) {
                 hist_entries[hist_static_info(idx).desc()] =
-                    fmt::format("{} / {} / {} / {}", h.average(result),
+                    fmt::format("{:#} / {:#} / {:#} / {:#}", h.average(result),
                                 h.percentile(result, hist_static_info(idx).get_boundaries(), 50),
                                 h.percentile(result, hist_static_info(idx).get_boundaries(), 95),
                                 h.percentile(result, hist_static_info(idx).get_boundaries(), 99));
@@ -257,8 +282,7 @@ const std::string& MetricsGroupImpl::get_instance_name() const { return m_inst_n
 /***************************** CounterStaticInfo **************************/
 CounterStaticInfo::CounterStaticInfo(const std::string& name, const std::string& desc, const std::string& report_name,
                                      const metric_label& label_pair) :
-        m_name(report_name.empty() ? name : report_name),
-        m_desc(desc) {
+        m_name(report_name.empty() ? name : report_name), m_desc(desc) {
     if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
@@ -281,11 +305,18 @@ void CounterDynamicInfo::publish(const CounterValue& value) {
     }
 }
 
+void CounterDynamicInfo::unregister(const CounterStaticInfo& static_info) {
+    if (is_counter_reporter()) {
+        MetricsFarm::get_reporter().remove_counter(static_info.m_name, as_counter());
+    } else {
+        MetricsFarm::get_reporter().remove_gauge(static_info.m_name, as_gauge());
+    }
+}
+
 /***************************** GaugeStaticInfo **************************/
 GaugeStaticInfo::GaugeStaticInfo(const std::string& name, const std::string& desc, const std::string& report_name,
                                  const metric_label& label_pair) :
-        m_name(report_name.empty() ? name : report_name),
-        m_desc(desc) {
+        m_name(report_name.empty() ? name : report_name), m_desc(desc) {
     if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
@@ -296,13 +327,15 @@ GaugeDynamicInfo::GaugeDynamicInfo(const GaugeStaticInfo& static_info, const std
 
 void GaugeDynamicInfo::publish(const GaugeValue& value) { m_report_gauge->set_value((double)value.get()); }
 
+void GaugeDynamicInfo::unregister(const GaugeStaticInfo& static_info) {
+    MetricsFarm::get_reporter().remove_gauge(static_info.m_name, m_report_gauge);
+}
+
 /***************************** HistogramStaticInfo **************************/
 HistogramStaticInfo::HistogramStaticInfo(const std::string& name, const std::string& desc,
                                          const std::string& report_name, const metric_label& label_pair,
                                          const hist_bucket_boundaries_t& bkt_boundaries) :
-        m_name(report_name.empty() ? name : report_name),
-        m_desc(desc),
-        m_bkt_boundaries(bkt_boundaries) {
+        m_name(report_name.empty() ? name : report_name), m_desc(desc), m_bkt_boundaries(bkt_boundaries) {
     if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 
@@ -364,5 +397,13 @@ int64_t HistogramDynamicInfo::count(const HistogramValue& hvalue) const {
 double HistogramDynamicInfo::average(const HistogramValue& hvalue) const {
     const auto cnt = count(hvalue);
     return (cnt ? static_cast< double >(hvalue.get_sum()) / static_cast< double >(cnt) : 0.0);
+}
+
+void HistogramDynamicInfo::unregister(const HistogramStaticInfo& static_info) {
+    if (is_histogram_reporter()) {
+        MetricsFarm::get_reporter().remove_histogram(static_info.m_name, as_histogram());
+    } else {
+        MetricsFarm::get_reporter().remove_gauge(static_info.m_name, as_gauge());
+    }
 }
 } // namespace sisl

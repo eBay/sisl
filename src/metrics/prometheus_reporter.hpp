@@ -22,6 +22,8 @@
 #include <prometheus/text_serializer.h>
 #pragma GCC diagnostic pop
 
+#include <sds_logging/logging.h>
+
 namespace sisl {
 
 class PrometheusReportCounter : public ReportCounter {
@@ -39,7 +41,6 @@ public:
         m_counter.Increment(diff);
     };
 
-private:
     prometheus::Counter& m_counter;
 };
 
@@ -51,7 +52,6 @@ public:
 
     virtual void set_value(double value) override { m_gauge.Set(value); };
 
-private:
     prometheus::Gauge& m_gauge;
 };
 
@@ -67,7 +67,6 @@ public:
         m_histogram.TransferBucketCounters(bucket_values, sum);
     }
 
-private:
     prometheus::Histogram& m_histogram;
 };
 
@@ -84,17 +83,16 @@ public:
     std::shared_ptr< ReportCounter > add_counter(const std::string& name, const std::string& desc,
                                                  const std::string& instance_name,
                                                  const metric_label& label_pair = {"", ""}) {
-        std::shared_ptr< PrometheusReportCounter > ret;
-        std::pair< std::string, prometheus::Family< prometheus::Counter >* > family_pair;
+        prometheus::Family< prometheus::Counter >* family_ptr;
 
         std::unique_lock lk(m_mutex);
         auto it = m_counter_families.find(name);
         if (it == m_counter_families.end()) {
             auto& family = prometheus::BuildCounter().Name(name).Help(desc).Register(*m_registry);
-            family_pair = std::make_pair<>(name, &family);
-            m_counter_families.insert(family_pair);
+            family_ptr = &family;
+            m_counter_families.insert({name, family_ptr});
         } else {
-            family_pair = *it;
+            family_ptr = it->second;
         }
 
         std::map< std::string, std::string > label_pairs;
@@ -104,23 +102,22 @@ public:
             label_pairs = {{"entity", instance_name}};
         }
 
-        return std::make_shared< PrometheusReportCounter >(*family_pair.second, label_pairs);
+        return std::make_shared< PrometheusReportCounter >(*family_ptr, label_pairs);
     }
 
     std::shared_ptr< ReportGauge > add_gauge(const std::string& name, const std::string& desc,
                                              const std::string& instance_name,
                                              const metric_label& label_pair = {"", ""}) {
-        std::shared_ptr< ReportGauge > ret;
-        std::pair< std::string, prometheus::Family< prometheus::Gauge >* > family_pair;
+        prometheus::Family< prometheus::Gauge >* family_ptr;
 
         std::unique_lock lk(m_mutex);
         auto it = m_gauge_families.find(name);
         if (it == m_gauge_families.end()) {
             auto& family = prometheus::BuildGauge().Name(name).Help(desc).Register(*m_registry);
-            family_pair = std::make_pair<>(name, &family);
-            m_gauge_families.insert(family_pair);
+            family_ptr = &family;
+            m_gauge_families.insert({name, family_ptr});
         } else {
-            family_pair = *it;
+            family_ptr = it->second;
         }
 
         std::map< std::string, std::string > label_pairs;
@@ -130,24 +127,23 @@ public:
             label_pairs = {{"entity", instance_name}};
         }
 
-        return std::make_shared< PrometheusReportGauge >(*family_pair.second, label_pairs);
+        return std::make_shared< PrometheusReportGauge >(*family_ptr, label_pairs);
     }
 
     std::shared_ptr< ReportHistogram > add_histogram(const std::string& name, const std::string& desc,
                                                      const std::string& instance_name,
                                                      const hist_bucket_boundaries_t& bkt_boundaries,
                                                      const metric_label& label_pair = {"", ""}) {
-        std::shared_ptr< ReportHistogram > ret;
-        std::pair< std::string, prometheus::Family< prometheus::Histogram >* > family_pair;
+        prometheus::Family< prometheus::Histogram >* family_ptr = nullptr;
 
         std::unique_lock lk(m_mutex);
         auto it = m_histogram_families.find(name);
         if (it == m_histogram_families.end()) {
             auto& family = prometheus::BuildHistogram().Name(name).Help(desc).Register(*m_registry);
-            family_pair = std::make_pair<>(name, &family);
-            m_histogram_families.insert(family_pair);
+            family_ptr = &family;
+            m_histogram_families.insert({name, family_ptr});
         } else {
-            family_pair = *it;
+            family_ptr = it->second;
         }
 
         std::map< std::string, std::string > label_pairs;
@@ -157,7 +153,46 @@ public:
             label_pairs = {{"entity", instance_name}};
         }
 
-        return std::make_shared< PrometheusReportHistogram >(*family_pair.second, label_pairs, bkt_boundaries);
+        return std::make_shared< PrometheusReportHistogram >(*family_ptr, label_pairs, bkt_boundaries);
+    }
+
+    void remove_counter(const std::string& name, const std::shared_ptr< ReportCounter >& rc) override {
+        std::unique_lock lk(m_mutex);
+        auto it = m_counter_families.find(name);
+        if (it == m_counter_families.end()) {
+            LOGERROR("Unable to locate the counter of name {} to remove", name);
+            return;
+        }
+
+        auto family_ptr = it->second;
+        auto prc = std::static_pointer_cast< PrometheusReportCounter >(rc);
+        family_ptr->Remove(&prc->m_counter);
+    }
+
+    virtual void remove_gauge(const std::string& name, const std::shared_ptr< ReportGauge >& rg) {
+        std::unique_lock lk(m_mutex);
+        auto it = m_gauge_families.find(name);
+        if (it == m_gauge_families.end()) {
+            LOGERROR("Unable to locate the gauge of name {} to remove", name);
+            return;
+        }
+
+        auto family_ptr = it->second;
+        auto prg = std::static_pointer_cast< PrometheusReportGauge >(rg);
+        family_ptr->Remove(&prg->m_gauge);
+    }
+
+    virtual void remove_histogram(const std::string& name, const std::shared_ptr< ReportHistogram >& rh) {
+        std::unique_lock lk(m_mutex);
+        auto it = m_histogram_families.find(name);
+        if (it == m_histogram_families.end()) {
+            LOGERROR("Unable to locate the histogram of name {} to remove", name);
+            return;
+        }
+
+        auto family_ptr = it->second;
+        auto prh = std::static_pointer_cast< PrometheusReportHistogram >(rh);
+        family_ptr->Remove(&prh->m_histogram);
     }
 
     std::string serialize(ReportFormat format) {

@@ -33,17 +33,22 @@ public:
 class Reporter {
 public:
     virtual ~Reporter() = default;
-    virtual std::shared_ptr< ReportCounter >   add_counter(const std::string& name, const std::string& desc,
-                                                           const std::string&  instance_name,
-                                                           const metric_label& label_pair = {"", ""}) = 0;
-    virtual std::shared_ptr< ReportGauge >     add_gauge(const std::string& name, const std::string& desc,
-                                                         const std::string&  instance_name,
+    virtual std::shared_ptr< ReportCounter > add_counter(const std::string& name, const std::string& desc,
+                                                         const std::string& instance_name,
                                                          const metric_label& label_pair = {"", ""}) = 0;
+    virtual std::shared_ptr< ReportGauge > add_gauge(const std::string& name, const std::string& desc,
+                                                     const std::string& instance_name,
+                                                     const metric_label& label_pair = {"", ""}) = 0;
     virtual std::shared_ptr< ReportHistogram > add_histogram(const std::string& name, const std::string& desc,
                                                              const std::string& instance_name,
                                                              const hist_bucket_boundaries_t& bkt_boundaries,
-                                                             const metric_label&  label_pair = {"", ""}) = 0;
-    virtual std::string                        serialize(ReportFormat format) = 0;
+                                                             const metric_label& label_pair = {"", ""}) = 0;
+
+    virtual void remove_counter(const std::string& name, const std::shared_ptr< ReportCounter >& hist) = 0;
+    virtual void remove_gauge(const std::string& name, const std::shared_ptr< ReportGauge >& hist) = 0;
+    virtual void remove_histogram(const std::string& name, const std::shared_ptr< ReportHistogram >& hist) = 0;
+
+    virtual std::string serialize(ReportFormat format) = 0;
 };
 } // namespace sisl
 #endif // ASYNC_HTTP_REPORTER_HPP

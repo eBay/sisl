@@ -13,7 +13,6 @@
 
 constexpr size_t ITERATIONS{3};
 
-THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
 SDS_LOGGING_INIT(vmod_metrics_framework)
 
@@ -101,7 +100,7 @@ nlohmann::json expected[ITERATIONS] = {
 };
 // clang-format on
 
-std::array<uint64_t, ITERATIONS> delay{2, 3, 4};
+std::array< uint64_t, ITERATIONS > delay{2, 3, 4};
 
 void gather() {
     for (size_t i{0}; i < ITERATIONS; ++i) {
