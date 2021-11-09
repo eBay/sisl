@@ -5,6 +5,7 @@
  */
 
 #include <grpc_helper/rpc_server.hpp>
+#include "utils.hpp"
 
 #ifdef _POSIX_THREADS
 #ifndef __APPLE__
@@ -23,14 +24,16 @@ GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const s
         m_num_threads{threads} {
     if (listen_addr.empty() || threads == 0) { throw std::invalid_argument("Invalid parameter to start grpc server"); }
 
-#if 0
     if (!ssl_cert.empty() && !ssl_key.empty()) {
         std::string key_contents;
         std::string cert_contents;
-        get_file_contents(ssl_cert, cert_contents);
-        get_file_contents(ssl_key, key_contents);
 
-        if (cert_contents.empty() || key_contents.empty()) { return false; }
+        if (!get_file_contents(ssl_cert, cert_contents)) {
+            throw std::runtime_error("Unable to load ssl certification for grpc server");
+        }
+        if (!get_file_contents(ssl_key, key_contents)) {
+            throw std::runtime_error("Unable to load ssl key for grpc server");
+        }
 
         ::grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {key_contents, cert_contents};
         ::grpc::SslServerCredentialsOptions ssl_opts;
@@ -41,9 +44,6 @@ GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const s
     } else {
         m_builder.AddListeningPort(listen_addr, ::grpc::InsecureServerCredentials());
     }
-#else
-    m_builder.AddListeningPort(listen_addr, ::grpc::InsecureServerCredentials());
-#endif
 
     // Create one cq per thread
     for (auto i = 0u; i < threads; ++i) {

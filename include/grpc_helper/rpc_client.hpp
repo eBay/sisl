@@ -123,7 +123,7 @@ public:
     virtual void init();
 
 private:
-    // virtual bool load_ssl_cert(const std::string& ssl_cert, std::string& content);
+    virtual bool load_ssl_cert(const std::string& ssl_cert, std::string& content);
 };
 
 class GrpcSyncClient : public GrpcBaseClient {

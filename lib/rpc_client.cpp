@@ -1,4 +1,5 @@
 #include "grpc_helper/rpc_client.hpp"
+#include "utils.hpp"
 
 namespace grpc_helper {
 
@@ -9,25 +10,26 @@ GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string
 void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
     if (!m_ssl_cert.empty()) {
-#if 0
-        if (load_ssl_cert(ssl_cert_, ssl_opts.pem_root_certs)) {
-            ::grpc::ChannelArguments channel_args;
-            channel_args.SetSslTargetNameOverride(m_target_domain);
-            m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts), channel_args);
+        if (load_ssl_cert(m_ssl_cert, ssl_opts.pem_root_certs)) {
+            if (!m_target_domain.empty()) {
+                ::grpc::ChannelArguments channel_args;
+                channel_args.SetSslTargetNameOverride(m_target_domain);
+                m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts), channel_args);
+            } else {
+                m_channel = ::grpc::CreateChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts));
+            }
+
         } else {
             throw std::runtime_error("Unable to load ssl certification for grpc client");
         }
-#endif
     } else {
         m_channel = ::grpc::CreateChannel(m_server_addr, ::grpc::InsecureChannelCredentials());
     }
 }
 
-#if 0
 bool GrpcBaseClient::load_ssl_cert(const std::string& ssl_cert, std::string& content) {
-    return ::sds::grpc::get_file_contents(ssl_cert, content);
+    return get_file_contents(ssl_cert, content);
 }
-#endif
 
 bool GrpcBaseClient::is_connection_ready() const {
     return (m_channel->GetState(true) == grpc_connectivity_state::GRPC_CHANNEL_READY);
