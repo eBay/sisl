@@ -13,190 +13,6 @@
 #include <buffer.hpp>
 #include <folly/small_vector.h>
 
-#if 0
-#define DECLARE_RELOCATABLE(T)                                                                                         \
-    namespace folly {                                                                                                  \
-    template <>                                                                                                        \
-    FOLLY_ASSUME_RELOCATABLE(T);                                                                                       \
-    }
-
-//////////////////////////////////// SFINAE Hash Selection /////////////////////////////////
-namespace {
-template < typename T, typename = std::void_t<> >
-struct is_std_hashable : std::false_type {};
-
-template < typename T >
-struct is_std_hashable< T, std::void_t< decltype(std::declval< std::hash< T > >()(std::declval< T >())) > >
-        : std::true_type {};
-
-template < typename T >
-constexpr bool is_std_hashable_v{is_std_hashable< T >::value};
-
-template < typename K >
-uint64_t compute_hash_imp(const K& key, std::true_type) {
-    return static_cast< uint64_t >(std::hash< K >()(key));
-}
-
-template < typename K >
-uint64_t compute_hash_imp(const K& key, std::false_type) {
-    const auto b{K::get_blob(key)};
-    const uint64_t hash_code{util::Hash64(reinterpret_cast< const char* >(b.bytes), static_cast< size_t >(b.size))};
-    return hash_code;
-}
-
-// range by data helper templates that does tag dispatching based on multivalued
-template < typename K >
-uint64_t compute_hash(const K& key) {
-    return compute_hash_imp< K >(key, is_std_hashable< K >{});
-}
-} // namespace
-
-namespace sisl {
-
-typedef uint8_t koffset_t;
-typedef uint16_t kcount_t;
-typedef std::pair< koffset_t, koffset_t > koffset_range_t;
-
-ENUM(match_type_t, uint8_t, no_match_pre, no_match_post, exact, superset, subset, pre_partial, post_partial)
-
-template < typename K >
-struct KeyView {
-    K m_base_key;
-    uint32_t m_size;
-    koffset_t m_offset;
-
-    KeyView(const K& base, const koffset_t o, const uint32_t s) : m_base_key{base}, m_offset{o}, m_size{s} {}
-
-    koffset_range_t range() const { return std::make_pair<>(m_offset, m_offset + m_size - 1); }
-};
-
-template < typename K, typename K >
-struct ValueView {
-    KeyView m_kview;
-    V m_val;
-};
-
-template < typename K, typename V >
-class MultiEntryHashNode : public boost::intrusive::slist_base_hook<> {
-    static_assert(
-        folly::IsRelocatable< V >::value == 1,
-        "Expect Value type to be relocatable, if it is indeed relocatable, define it as DECLARE_RELOCATABLE(type)");
-
-    static constexpr uint32_t min_alloc_nentries = 4u;
-    static constexpr uint32_t max_alloc_nentries = (1u << (sizeof(koffset_t) * 8));
-
-public:
-    struct val_entry_info {
-        koffset_range_t range;
-        bool is_valid{false};
-        uint8_t val_buf[1];
-
-        int compare_range(const koffset_t offset) const {
-            if ((offset >= range.first) && (offset <= range.second)) {
-                return 0;
-            } else if (offset < range.first) {
-                return -1;
-            } else {
-                return 1;
-            }
-        }
-
-        std::string to_string() const {
-            return fmt::format("offset={}-{} is_valid={} value={}", range.first, range.second, is_valid,
-                               V::to_string(*get_value_const()));
-        }
-
-        static size_t size() { return sizeof(val_entry_info) - sizeof(uint8_t) + sizeof(V); }
-        V* get_value() { return r_cast< V* >(&val_buf[0]); }
-        const V* get_value_const() const { return r_cast< const V* >(&val_buf[0]); }
-        uint8_t* get_raw_value() { return (&val_buf[0]); }
-        inline koffset_t low() const { return range.first; }
-        inline koffset_t high() const { return range.second; }
-    };
-
-public:
-    static MultiEntryHashNode< K, V >* alloc_node(const K& key, const uint32_t nentries = min_alloc_nentries) {
-        assert((nentries > 0) && (nentries <= max_alloc_nentries));
-        uint8_t* buf{new uint8_t[size(nentries)]};
-        auto n = new (buf) MultiEntryHashNode< K, V >();
-        n->m_key = key;
-        n->m_max_alloc_idx = s_cast< koffset_t >(nentries - 1);
-        return n;
-    }
-
-    static std::pair< MultiEntryHashNode< K, V >*, bool > resize_if_needed(MultiEntryHashNode< K, V >* cur_node,
-                                                                           const koffset_t addln_entries) {
-        if (cur_node->num_entries() == max_alloc_nentries) { return std::make_pair<>(cur_node, false); }
-
-        const uint32_t needed_nentries{std::max((cur_node->num_entries() + addln_entries), min_alloc_nentries)};
-        assert(needed_nentries < cur_node->alloced_entries() * 2u);
-
-        if (needed_nentries > cur_node->alloced_entries()) {
-            return std::make_pair<>(
-                realloc_node(cur_node, std::max(needed_nentries, (cur_node->alloced_entries() * 2u))), true);
-        } else if (cur_node->alloced_entries() > (needed_nentries * 2)) {
-            // Need to shrink if we have double
-            // cur_node->compact();
-            return std::make_pair<>(realloc_node(cur_node, needed_nentries * 2), true);
-        } else {
-            return std::make_pair<>(cur_node, false);
-        }
-    }
-
-    static MultiEntryHashNode< K, V >* realloc_node(MultiEntryHashNode< K, V >* cur_node, const uint32_t new_nentries) {
-        const auto cur_size{size(cur_node->num_entries())};
-        const auto new_alloc_size{size(new_nentries)};
-        assert(new_alloc_size > cur_size);
-
-        uint8_t* buf{new uint8_t[new_alloc_size]};
-        memcpy(buf, r_cast< uint8_t* >(cur_node), cur_size);
-
-        LOGDEBUG("Realloc node={} with cur_entries={} cur_size={} cur_alloc_entries={} to new_node={} new_size={} "
-                 "new_alloc_entries={}",
-                 r_cast< void* >(cur_node), cur_node->num_entries(), cur_size, cur_node->alloced_entries(),
-                 r_cast< void* >(buf), new_alloc_size, new_nentries);
-        delete cur_node;
-
-        auto n = r_cast< MultiEntryHashNode< K, V >* >(buf);
-        n->m_max_alloc_idx = s_cast< koffset_t >(new_nentries - 1);
-        return n;
-    }
-
-    uint32_t find(const koffset_range_t range, std::vector< const val_entry_info* >& out_values) const {
-        uint32_t count{0};
-        // First binary_search for the location, if there is a valid
-        auto [idx, found] = binary_search(-1, s_cast< int >(num_entries()), range.first);
-        while (found) {
-            if (get_nth_const(idx)->is_valid) {
-                out_values.push_back(get_nth_const(idx));
-                ++count;
-            }
-            if (idx == m_max_entry_idx) break;
-
-            // Check if upper bound of the input_range is within bounds of next entry.
-            found = (get_nth_const(++idx)->compare_range(range.second) >= 0);
-        }
-        return count;
-    }
-
-    uint32_t get(const koffset_range_t range, std::vector< ValueView< K, V > >& out_values) const {
-        uint32_t count{0};
-        // First binary_search for the location, if there is a valid
-        auto [idx, found] = binary_search(-1, s_cast< int >(num_entries()), range.first);
-        while (found) {
-            if (get_nth_const(idx)->is_valid) {
-                out_values.push_back(to_value_view(get_nth_const(idx)));
-                ++count;
-            }
-            if (idx == m_max_entry_idx) break;
-
-            // Check if upper bound of the input_range is within bounds of next entry.
-            found = (get_nth_const(++idx)->compare_range(range.second) >= 0);
-        }
-        return count;
-    }
-#endif
-
 namespace sisl {
 
 typedef uint8_t small_offset_t;
@@ -207,7 +23,8 @@ typedef uint32_t big_offset_t;
 typedef uint32_t big_count_t;
 typedef std::pair< big_offset_t, big_offset_t > big_range_t;
 
-static constexpr big_count_t max_n_per_node = (static_cast< uint64_t >(1) << (sizeof(small_offset_t) * 8));
+static constexpr big_count_t max_n_per_node = (s_cast< uint64_t >(1) << (sizeof(small_offset_t) * 8));
+static constexpr small_offset_t max_offset_in_node = std::numeric_limits< small_offset_t >::max();
 
 template < typename K >
 struct RangeKey {
@@ -223,7 +40,7 @@ struct RangeKey {
 template < typename K >
 class HashBucket;
 
-ENUM(hash_op_t, uint8_t, CREATE, ACCESS, DELETE)
+ENUM(hash_op_t, uint8_t, CREATE, ACCESS, DELETE, RESIZE)
 
 typedef std::function< sisl::byte_view(const sisl::byte_view&, big_offset_t, big_count_t) > value_extractor_cb_t;
 
@@ -251,7 +68,7 @@ public:
     RangeHashMap(uint32_t nBuckets, value_extractor_cb_t value_extractor, key_access_cb_t< K > access_cb = nullptr);
     ~RangeHashMap();
 
-    big_count_t insert(const RangeKey< K >& key, const sisl::io_blob& value);
+    void insert(const RangeKey< K >& key, const sisl::io_blob& value);
     std::vector< std::pair< RangeKey< K >, sisl::byte_view > > get(const RangeKey< K >& input_key);
     void erase(const RangeKey< K >& key);
 
@@ -309,7 +126,66 @@ private:
                 m_range{range}, m_val{val}, m_context{context} {}
 
         small_count_t count() const { return m_range.second - m_range.first + 1; }
-        small_offset_t offset_within(const small_offset_t off) const { return off - m_range.first; }
+        small_offset_t offset_within(const small_offset_t key_off) const {
+            DEBUG_ASSERT_GE(key_off, m_range.first);
+            return key_off - m_range.first;
+        }
+
+        std::string to_string() const {
+            return fmt::format("m_range={}-{} val_size={}", m_range.first, m_range.second, m_val.size());
+        }
+
+        void shrink_to_left(const small_offset_t count) {
+            m_range.second -= count;
+            m_val = RangeHashMap< K >::extract_value(m_val, 0, m_range.second - m_range.first + 1);
+        }
+
+        void shrink_to_right(const small_offset_t count) {
+            m_range.first += count;
+            m_val = RangeHashMap< K >::extract_value(m_val, count, m_range.second - m_range.first + 1);
+        }
+
+        value_info extract_left(const MultiEntryHashNode< K >* node, const small_offset_t right_upto) {
+            DEBUG_ASSERT_GE(right_upto, m_range.first);
+            const auto new_range = std::make_pair(m_range.first, right_upto);
+            RangeHashMap< K >::call_access_cb(node->to_big_key(new_range), hash_op_t::CREATE, m_context);
+            return value_info{new_range, RangeHashMap< K >::extract_value(m_val, 0, offset_within(right_upto) + 1)};
+        }
+
+        value_info extract_right(const MultiEntryHashNode< K >* node, const small_offset_t left_from) {
+            DEBUG_ASSERT_LE(left_from, m_range.second);
+            const auto new_range = std::make_pair(left_from, m_range.second);
+            RangeHashMap< K >::call_access_cb(node->to_big_key(new_range), hash_op_t::CREATE, m_context);
+            return value_info{
+                new_range,
+                RangeHashMap< K >::extract_value(m_val, offset_within(left_from), m_range.second - left_from + 1)};
+        }
+
+        void move_left_to(const MultiEntryHashNode< K >* node, const small_offset_t new_right) {
+            DEBUG_ASSERT_LE(new_right, m_range.second, "Can't move left with higher offset");
+            if (new_right < m_range.second) {
+                m_val = RangeHashMap< K >::extract_value(m_val, 0, new_right - m_range.first + 1);
+                m_range.second = new_right;
+
+                // TODO: Expand the callback to allow old values to pass
+                RangeHashMap< K >::call_access_cb(node->to_big_key(m_range), hash_op_t::RESIZE, m_context);
+            }
+        }
+
+        void move_right_to(const MultiEntryHashNode< K >* node, const small_offset_t new_left) {
+            DEBUG_ASSERT_GE(new_left, m_range.first, "Can't move right with lower offset");
+            if (new_left > m_range.first) {
+                m_val = RangeHashMap< K >::extract_value(m_val, offset_within(new_left), m_range.second - new_left + 1);
+                m_range.first = new_left;
+
+                // TODO: Expand the callback to allow old values to pass
+                RangeHashMap< K >::call_access_cb(node->to_big_key(m_range), hash_op_t::RESIZE, m_context);
+            }
+        }
+
+        void access_cb(const MultiEntryHashNode< K >* node, const hash_op_t op) const {
+            RangeHashMap< K >::call_access_cb(node->to_big_key(m_range), op, m_context);
+        }
     };
 
     K m_base_key;
@@ -319,95 +195,150 @@ private:
 public:
     MultiEntryHashNode(const K& base_key, big_offset_t nth) : m_base_key{base_key}, m_base_nth{nth} {}
 
-    big_count_t get(const RangeKey< K >& input_key,
-                    std::vector< std::pair< RangeKey< K >, sisl::byte_view > >& out_values) const {
-        big_count_t count{0};
-        const small_range_t input_range = to_relative_range(input_key);
+    small_count_t get(const RangeKey< K >& input_key,
+                      std::vector< std::pair< RangeKey< K >, sisl::byte_view > >& out_values) const {
+        small_count_t count{0};
+        small_range_t input_range = to_relative_range(input_key);
 
         // First binary_search for the location, if there is a valid
-        auto [idx, found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.first);
-        while (found) {
-            out_values.emplace_back(extract_matched_kv(m_values[idx], input_range));
-            RangeHashMap< K >::call_access_cb(out_values.back().first, hash_op_t::ACCESS, m_values[idx].m_context);
+        auto [idx, found] = binary_search(-1, int_cast(m_values.size()), input_range.first);
+        while (idx < int_cast(m_values.size())) {
+            if (input_range.second >= m_values[idx].m_range.first) {
+                out_values.emplace_back(extract_matched_kv(m_values[idx], input_range));
+                LOGINFO("Node({}) Getting entry at idx={}, key_range=[{}-{}], val_size={}", to_string(), idx,
+                        to_relative_range(out_values.back().first).first,
+                        to_relative_range(out_values.back().first).second, out_values.back().second.size());
+            } else {
+                break;
+            }
+            input_range.first = m_values[idx].m_range.second + 1;
+            ++idx;
             ++count;
-
-            if (++idx == static_cast< int >(m_values.size())) break;
-
-            // Check if upper bound of the input_range is within bounds of next entry.
-            found = (m_values[idx].compare_range(input_range.second) >= 0);
         }
+
         return count;
     }
 
-    big_count_t insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
+    void insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
         const small_range_t input_range = to_relative_range(input_key);
 
-        auto [l_idx, l_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.first);
-        auto [r_idx, r_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.second);
-        if (!l_found && !r_found) {
-            // New entry
-            DEBUG_ASSERT_EQ(l_idx, r_idx);
-            m_values.insert(m_values.begin() + l_idx, value_info{input_range, std::move(value)});
-            RangeHashMap< K >::call_access_cb(input_key, hash_op_t::CREATE, m_values[l_idx].m_context);
-            return input_range.second - input_range.first;
-        }
+        auto [l_idx, l_found] = binary_search(-1, int_cast(m_values.size()), input_range.first);
+        auto [r_idx, r_found] = binary_search(-1, int_cast(m_values.size()), input_range.second);
+
+        bool is_move_to_left = l_found && (input_range.first > m_values[l_idx].m_range.first);
+        bool is_move_to_right = r_found && (input_range.second < m_values[r_idx].m_range.second);
 
         if (l_found && r_found) {
-            // Completely overlapped existing entry, nothing to be added.
-            return 0;
+            if (l_idx == r_idx) {
+                if (is_move_to_left && is_move_to_right) {
+                    // Need to add an additional entry, for shrinking the value of left entry.
+                    m_values.insert(m_values.begin() + l_idx,
+                                    m_values[l_idx].extract_left(this, input_range.first - 1));
+                    LOGINFO("Node({}) Splitting entries and added 1 entries at idx={} with first value=[{}]",
+                            to_string(), l_idx, m_values[l_idx].to_string());
+                    ++l_idx;
+                    ++r_idx;
+                    is_move_to_left = false;
+                }
+            }
         }
 
-        if (l_found) {
-            // Insert missing tail contents by extracting value
-            const auto lbound = m_values[r_idx - 1].m_range.second + 1;
-            const auto count = input_range.second - lbound + 1;
-            const auto new_krange = small_range_t{lbound, input_range.second};
-            m_values.insert(
-                m_values.begin() + r_idx,
-                value_info{new_krange,
-                           RangeHashMap< K >::extract_value(std::move(value), lbound - input_range.first, count)});
-            RangeHashMap< K >::call_access_cb(to_big_key(new_krange), hash_op_t::CREATE, m_values[r_idx].m_context);
-            return count;
-        } else {
-            // Insert missing head contents by extracting value
-            const auto ubound = m_values[l_idx].m_range.first - 1;
-            const auto count = ubound - input_range.first + 1;
-            const auto new_krange = small_range_t{input_range.first, ubound};
-            m_values.insert(m_values.begin() + l_idx,
-                            value_info{new_krange, RangeHashMap< K >::extract_value(std::move(value), 0, count)});
-            RangeHashMap< K >::call_access_cb(to_big_key(new_krange), hash_op_t::CREATE, m_values[l_idx].m_context);
-            return count;
+        if (is_move_to_left) {
+            m_values[l_idx].move_left_to(this, input_range.first - 1);
+            LOGINFO("Node({}) To insert: shrinking entry by moving left at idx={}, new value=[{}]", to_string(), l_idx,
+                    m_values[l_idx].to_string());
+            ++l_idx;
         }
+
+        if (is_move_to_right) {
+            m_values[r_idx].move_right_to(this, input_range.second + 1);
+            LOGINFO("Node({}) To insert: shrinking entry by moving right at idx={}, new value=[{}]", to_string(), r_idx,
+                    m_values[r_idx].to_string());
+        } else {
+            r_idx = std::min(r_idx + 1, int_cast(m_values.size()));
+        }
+
+        // Erase all intermediate entries
+        if (r_idx > l_idx) {
+            if (RangeHashMap< K >::get_access_cb()) {
+                for (auto idx{l_idx}; idx < r_idx; ++idx) {
+                    m_values[idx].access_cb(this, hash_op_t::DELETE);
+                }
+            }
+            LOGINFO("Node({}) To insert: Erase all entries between idx={} to {} values=[{}] to [{}]", to_string(),
+                    l_idx, r_idx - 1, m_values[l_idx].to_string(), m_values[r_idx - 1].to_string());
+            m_values.erase(m_values.begin() + l_idx, m_values.begin() + r_idx);
+        }
+
+        // Finally insert the entry
+        m_values.insert(m_values.begin() + l_idx, value_info{input_range, std::move(value)});
+        m_values[l_idx].access_cb(this, hash_op_t::CREATE);
+        LOGINFO("Node({}) To insert: Inserting entry at idx={} value=[{}]", to_string(), l_idx,
+                m_values[l_idx].to_string());
     }
 
-    void erase(const RangeKey< K >& input_key) {
+    small_count_t erase(const RangeKey< K >& input_key) {
         const small_range_t input_range = to_relative_range(input_key);
-        auto [l_idx, l_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.first);
-        auto [r_idx, r_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.second);
+        auto [l_idx, l_found] = binary_search(-1, int_cast(m_values.size()), input_range.first);
+        auto [r_idx, r_found] = binary_search(-1, int_cast(m_values.size()), input_range.second);
 
-        if (l_found) {
-            auto& l_vinfo = m_values[l_idx];
-            if (input_range.first > l_vinfo.m_range.first) {
-                l_vinfo.m_val =
-                    RangeHashMap< K >::extract_value(l_vinfo.m_val, 0u, input_range.first - l_vinfo.m_range.first);
-                l_vinfo.m_range.second = input_range.first - 1;
-                ++l_idx;
+        bool is_move_to_left = l_found && (input_range.first > m_values[l_idx].m_range.first);
+        bool is_move_to_right = r_found && (input_range.second < m_values[r_idx].m_range.second);
+
+        if (l_found && r_found) {
+            if (l_idx == r_idx) {
+                // The input range is fully inside the current entry
+                if (is_move_to_right && is_move_to_left) {
+                    // Need to add an additional entry, for shrinking the value of left entry.
+                    m_values.insert(m_values.begin() + l_idx,
+                                    m_values[l_idx].extract_left(this, input_range.first - 1));
+                    LOGINFO("Node({}) To erase: Splitting entries and added 1 entries at idx={} with first value=[{}]",
+                            to_string(), l_idx, m_values[l_idx].to_string());
+                    ++r_idx;
+                    ++l_idx;
+                    is_move_to_left = false;
+                }
             }
         }
 
-        if (r_found) {
-            auto& r_vinfo = m_values[r_idx];
-            if (input_range.second < r_vinfo.m_range.second) {
-                auto erase_count = input_range.second - r_vinfo.m_range.first;
-                r_vinfo.m_val =
-                    RangeHashMap< K >::extract_value(r_vinfo.m_val, erase_count + 1, r_vinfo.count() - erase_count);
-                r_vinfo.m_range.first = input_range.second + 1;
-                --r_idx;
-            }
+        if (is_move_to_left) {
+            m_values[l_idx].move_left_to(this, input_range.first - 1);
+            LOGINFO("Node({}) To erase: shrinking entry by moving left at idx={}, new value=[{}]", to_string(), l_idx,
+                    m_values[l_idx].to_string());
+            ++l_idx;
         }
 
-        // Delete everything in between
-        if (r_idx > l_idx) { m_values.erase(m_values.begin() + l_idx, m_values.begin() + r_idx - l_idx); }
+        if (is_move_to_right) {
+            m_values[r_idx].move_right_to(this, input_range.second + 1);
+            LOGINFO("Node({}) To erase: shrinking entry by moving right at idx={}, new value=[{}]", to_string(), r_idx,
+                    m_values[r_idx].to_string());
+        } else {
+            r_idx = std::min(r_idx + 1, int_cast(m_values.size()));
+        }
+
+        if (r_idx > l_idx) {
+            if (RangeHashMap< K >::get_access_cb()) {
+                for (auto idx{l_idx}; idx < r_idx; ++idx) {
+                    m_values[idx].access_cb(this, hash_op_t::DELETE);
+                }
+            }
+            LOGINFO("Node({}) Erase all entries between idx={} to {} values=[{}] to [{}]", to_string(), l_idx,
+                    r_idx - 1, m_values[l_idx].to_string(), m_values[r_idx - 1].to_string());
+            m_values.erase(m_values.begin() + l_idx, m_values.begin() + r_idx);
+        }
+
+        return s_cast< small_count_t >(m_values.size());
+    }
+
+    std::string to_string() const { return fmt::format("BaseKey={} Nth_Offset={}", m_base_key, m_base_nth); }
+
+    std::string verbose_to_string() const {
+        auto str = fmt::format("BaseKey={} Nth_Offset={} Values=", m_base_key, m_base_nth);
+        uint32_t i{0};
+        for (auto& v : m_values) {
+            fmt::format_to(std::back_inserter(str), "\n[{}]: {}", i++, v.to_string());
+        }
+        return str;
     }
 
 private:
@@ -435,8 +366,7 @@ private:
     }
 
     RangeKey< K > to_big_key(const small_range_t range) const {
-        return RangeKey< K >{m_base_key, m_base_nth + range.first,
-                             static_cast< uint32_t >(range.second) - range.first + 1};
+        return RangeKey< K >{m_base_key, m_base_nth + range.first, uint32_cast(range.second) - range.first + 1};
     }
 
     std::pair< big_offset_t, big_offset_t > to_big_range(const small_range_t range) const {
@@ -447,8 +377,9 @@ private:
                                                                    const small_range_t& input_range) const {
         small_range_t key_range{std::max(vinfo.m_range.first, input_range.first),
                                 std::min(vinfo.m_range.second, input_range.second)};
-        auto val_start = key_range.first - vinfo.m_range.first;
-        auto val_count = key_range.second - vinfo.m_range.first + 1;
+
+        const small_offset_t val_start = vinfo.offset_within(key_range.first);
+        const small_count_t val_count = vinfo.offset_within(key_range.second) - val_start + 1;
         return std::make_pair<>(to_big_key(key_range),
                                 RangeHashMap< K >::extract_value(vinfo.m_val, val_start, val_count));
     }
@@ -456,8 +387,8 @@ private:
     sisl::byte_view extract_matched_value(const value_info& vinfo, const small_range_t& input_range) const {
         small_range_t key_range{std::max(vinfo.m_range.first, input_range.first),
                                 std::min(vinfo.m_range.second, input_range.second)};
-        auto val_start = key_range.first - vinfo.m_range.first;
-        auto val_count = key_range.second - vinfo.m_range.first + 1;
+        auto val_start = vinfo.offset_within(key_range.first);
+        auto val_count = vinfo.offset_within(key_range.second) - val_start + 1;
         return RangeHashMap< K >::extract_value(vinfo.m_val, val_start, val_count);
     }
 };
@@ -486,26 +417,31 @@ public:
         }
     }
 
-    big_count_t insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
+    void insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
 #ifndef GLOBAL_HASHSET_LOCK
         folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
 #endif
+        const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;
         auto it = m_list.begin();
         for (auto itend{m_list.end()}; it != itend; ++it) {
-            if (input_key.m_base_key < it->m_base_key) {
-                continue;
+            if (input_key.m_base_key > it->m_base_key) {
+                break;
             } else if (input_key.m_base_key == it->m_base_key) {
-                n = &*it;
+                if (input_nth_rounded > it->m_base_nth) {
+                    break;
+                } else if (input_nth_rounded == it->m_base_nth) {
+                    n = &*it;
+                    break;
+                }
             }
-            break;
         }
 
         if (n == nullptr) {
-            n = new MultiEntryHashNode< K >(input_key.m_base_key, input_key.rounded_nth());
+            n = new MultiEntryHashNode< K >(input_key.m_base_key, input_nth_rounded);
             m_list.insert(it, *n);
         }
-        return n->insert(input_key, std::move(value));
+        n->insert(input_key, std::move(value));
     }
 
     big_count_t get(const RangeKey< K >& input_key,
@@ -513,11 +449,20 @@ public:
 #ifndef GLOBAL_HASHSET_LOCK
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
 #endif
-        big_count_t ret = 0;
+        big_count_t ret{0};
+        const auto input_nth_rounded = input_key.rounded_nth();
+
         for (const auto& n : m_list) {
-            if (input_key.m_base_key < n.m_base_key) { continue; }
-            ret = (input_key.m_base_key == n.m_base_key) ? n.get(input_key, out_values) : 0;
-            break;
+            if (input_key.m_base_key > n.m_base_key) {
+                break;
+            } else if (input_key.m_base_key == n.m_base_key) {
+                if (input_nth_rounded > n.m_base_nth) {
+                    break;
+                } else if (input_nth_rounded == n.m_base_nth) {
+                    ret = n.get(input_key, out_values);
+                    break;
+                }
+            }
         }
         return ret;
     }
@@ -526,17 +471,33 @@ public:
 #ifndef GLOBAL_HASHSET_LOCK
         folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
 #endif
+        const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;
         auto it = m_list.begin();
+
         for (auto itend{m_list.end()}; it != itend; ++it) {
-            if (input_key.m_base_key < it->m_base_key) {
-                continue;
+            if (input_key.m_base_key > it->m_base_key) {
+                break;
             } else if (input_key.m_base_key == it->m_base_key) {
-                n = &*it;
+                if (input_nth_rounded > it->m_base_nth) {
+                    break;
+                } else if (input_nth_rounded == it->m_base_nth) {
+                    n = &*it;
+                    break;
+                }
             }
-            break;
         }
-        if (n) { n->erase(input_key); }
+
+        if (n) {
+            const auto node_size = n->erase(input_key);
+            // If entire node is erased, free up the node
+            if (node_size == 0) {
+                m_list.erase(it);
+                delete n;
+            }
+        } else {
+            LOGINFO("Node(BaseKey={} Nth_Offset={}) NOT found", input_key.m_base_key, input_nth_rounded);
+        }
     }
 
     static int compare(const RangeKey< K >& a, const RangeKey< K >& b) {
@@ -567,30 +528,30 @@ RangeHashMap< K >::~RangeHashMap() {
 }
 
 template < typename K >
-big_count_t RangeHashMap< K >::insert(const RangeKey< K >& input_key, const sisl::io_blob& value) {
+void RangeHashMap< K >::insert(const RangeKey< K >& input_key, const sisl::io_blob& value) {
 #ifdef GLOBAL_HASHSET_LOCK
     std::lock_guard< std::mutex > lk(m);
 #endif
     set_current_instance(this);
-    big_count_t ret{0};
     auto cur_key_nth = input_key.m_nth;
     auto cur_val_nth = 0;
+    auto max_this_node = max_n_per_node - (input_key.m_nth - input_key.rounded_nth());
     RangeKey< K > node_key = input_key; // TODO: Can optimize this by avoiding base_key copy by doing some sort of view
     const sisl::byte_view base_val{value};
 
     while (cur_key_nth <= input_key.end_nth()) {
-        const auto count = std::min(max_n_per_node, input_key.end_nth() - cur_key_nth + 1);
+        const auto count = std::min(max_this_node, input_key.end_nth() - cur_key_nth + 1);
         node_key.m_nth = cur_key_nth;
         node_key.m_count = count;
         auto& hb = get_bucket(node_key);
 
         sisl::byte_view node_val = m_value_extractor(base_val, cur_val_nth, count);
-        ret += hb.insert(node_key, std::move(node_val));
+        hb.insert(node_key, std::move(node_val));
 
         cur_key_nth += count;
         cur_val_nth += count;
+        max_this_node = max_n_per_node;
     }
-    return ret;
 }
 
 template < typename K >
@@ -603,10 +564,11 @@ std::vector< std::pair< RangeKey< K >, sisl::byte_view > > RangeHashMap< K >::ge
     std::vector< std::pair< RangeKey< K >, sisl::byte_view > > out_vals;
     auto cur_key_nth = input_key.m_nth;
     auto cur_val_nth = 0;
+    auto max_this_node = max_n_per_node - (input_key.m_nth - input_key.rounded_nth());
     RangeKey< K > node_key = input_key; // TODO: Can optimize this by avoiding base_key copy by doing some sort of view
 
     while (cur_key_nth <= input_key.end_nth()) {
-        const auto count = std::min(max_n_per_node, input_key.end_nth() - cur_key_nth + 1);
+        const auto count = std::min(max_this_node, input_key.end_nth() - cur_key_nth + 1);
         node_key.m_nth = cur_key_nth;
         node_key.m_count = count;
 
@@ -615,6 +577,7 @@ std::vector< std::pair< RangeKey< K >, sisl::byte_view > > RangeHashMap< K >::ge
 
         cur_key_nth += count;
         cur_val_nth += count;
+        max_this_node = max_n_per_node;
     }
     return out_vals;
 }
@@ -626,15 +589,17 @@ void RangeHashMap< K >::erase(const RangeKey< K >& input_key) {
 #endif
     set_current_instance(this);
     auto cur_key_nth = input_key.m_nth;
+    auto max_this_node = max_n_per_node - (input_key.m_nth - input_key.rounded_nth());
     RangeKey< K > node_key = input_key; // TODO: Can optimize this by avoiding base_key copy by doing some sort of view
 
     while (cur_key_nth <= input_key.end_nth()) {
-        const auto count = std::min(max_n_per_node, input_key.end_nth() - cur_key_nth + 1);
+        const auto count = std::min(max_this_node, input_key.end_nth() - cur_key_nth + 1);
         node_key.m_nth = cur_key_nth;
         node_key.m_count = count;
         auto& hb = get_bucket(node_key);
         hb.erase(node_key);
         cur_key_nth += count;
+        max_this_node = max_n_per_node;
     }
 }
 

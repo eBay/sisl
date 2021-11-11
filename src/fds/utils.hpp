@@ -197,5 +197,13 @@ static int spaceship_oper(const T& left, const T& right) {
 
 #define r_cast reinterpret_cast
 #define s_cast static_cast
+#define d_cast dynamic_cast
+#define dp_cast std::dynamic_pointer_cast
+#define sp_cast std::static_pointer_cast
+
+#define uintptr_cast reinterpret_cast< uint8_t* >
+#define voidptr_cast reinterpret_cast< void* >
+#define int_cast static_cast< int >
+#define uint32_cast static_cast< uint32_t >
 
 } // namespace sisl

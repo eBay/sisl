@@ -7,6 +7,7 @@
 
 #include "bitset.hpp"
 #include "range_hashmap.hpp"
+#include "utility/enum.hpp"
 
 using namespace sisl;
 SDS_LOGGING_INIT(test_hashmap)
@@ -103,12 +104,11 @@ static constexpr uint32_t per_val_size = 128;
 static thread_local std::random_device g_rd{};
 static thread_local std::default_random_engine g_re{g_rd()};
 static std::uniform_int_distribution< uint64_t > g_rand_generator{1000, 10000};
-// static std::uniform_int_distribution< koffset_t > g_offset_generator{0, g_max_offset};
-// static std::uniform_int_distribution< koffset_t > g_size_generator{1, 2048};
-// static std::uniform_int_distribution< uint8_t > g_op_generator{0, 2};
+static std::uniform_int_distribution< big_count_t > g_size_generator{1, 2048};
+static std::uniform_int_distribution< uint8_t > g_op_generator{0, 2};
 
 struct RangeHashMapTest : public testing::Test {
-private:
+protected:
     std::unique_ptr< RangeHashMap< uint32_t > > m_map;
     std::unordered_map< uint32_t, sisl::blob > m_shadow_map;
     sisl::Bitset m_inserted_slots{g_max_offset};
@@ -191,7 +191,69 @@ TEST_F(RangeHashMapTest, SequentialTest) {
         validate_range(k, k + 3);
     }
 
+    LOGINFO("INFO: Erase the last in the range of 4");
+    for (uint32_t k{0}; k < g_max_offset; k += 4) {
+        erase_range(k + 3, k + 3);
+        validate_range(k, k + 3);
+    }
+
+    LOGINFO("INFO: ReInsert 2nd in the range");
+    for (uint32_t k{0}; k < g_max_offset; k += 4) {
+        insert_range(k + 1, k + 1);
+        validate_range(k, k + 3);
+    }
+
+    LOGINFO("INFO: ReInsert 3rd in the range");
+    for (uint32_t k{0}; k < g_max_offset; k += 4) {
+        insert_range(k + 2, k + 2);
+        validate_range(k, k + 3);
+    }
+
     validate_all();
+}
+
+VENUM(op_t, uint8_t, GET = 0, INSERT = 1, ERASE = 2)
+
+TEST_F(RangeHashMapTest, RandomEverythingTest) {
+    uint32_t nread_ops{0}, ninsert_ops{0}, nerase_ops{0};
+    uint32_t nblks_read{0}, nblks_inserted{0}, nblks_erased{0};
+
+    static std::uniform_int_distribution< big_offset_t > offset_generator{0, g_max_offset - 1};
+
+    auto num_iters = SDS_OPTIONS["num_iters"].as< uint32_t >();
+    LOGINFO("INFO: Do completely random read/insert/erase operations for {} entries for {} iters", g_max_offset,
+            num_iters);
+    for (uint32_t i{0}; i < num_iters; ++i) {
+        const op_t op = s_cast< op_t >(g_op_generator(g_re));
+        const big_offset_t offset = offset_generator(g_re);
+        big_count_t size = g_size_generator(g_re);
+        if (size + offset >= g_max_offset) { size = g_max_offset - offset - 1; }
+
+        LOGINFO("INFO: Doing op={} offset_range={}-{}", enum_name(op), offset, offset + size - 1);
+
+        switch (op) {
+        case op_t::GET:
+            validate_range(offset, offset + size - 1);
+            nblks_read += m_inserted_slots.get_set_count(offset, offset + size - 1);
+            ++nread_ops;
+            break;
+        case op_t::INSERT: {
+            auto expected_inserts = size - m_inserted_slots.get_set_count(offset, offset + size - 1);
+            insert_range(offset, offset + size - 1);
+            nblks_inserted += expected_inserts;
+            ++ninsert_ops;
+            break;
+        }
+        case op_t::ERASE:
+            erase_range(offset, offset + size - 1);
+            nblks_erased += m_inserted_slots.get_set_count(offset, offset + size - 1);
+            ++nerase_ops;
+            break;
+        }
+    }
+    validate_all();
+    LOGINFO("Executed read_ops={}, blks_read={} insert_ops={} blks_inserted={} erase_ops={} blks_erased={}", nread_ops,
+            nblks_read, ninsert_ops, nblks_inserted, nerase_ops, nblks_erased);
 }
 
 #if 0
@@ -419,6 +481,8 @@ TEST_F(HashNodeTest, RandomEverythingTest) {
 SDS_OPTIONS_ENABLE(logging, test_hashmap)
 SDS_OPTION_GROUP(test_hashmap,
                  (max_offset, "", "max_offset", "max number of offset",
+                  ::cxxopts::value< uint32_t >()->default_value("65536"), "number"),
+                 (num_iters, "", "num_iters", "number of iterations for rand ops",
                   ::cxxopts::value< uint32_t >()->default_value("65536"), "number"))
 
 int main(int argc, char* argv[]) {

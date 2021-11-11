@@ -241,7 +241,12 @@ public:
         m_view.size = sz;
     }
 
-    byte_view(byte_view v, const uint32_t offset, const uint32_t sz) : byte_view(v.m_base_buf, offset, sz) {}
+    byte_view(const byte_view& v, const uint32_t offset, const uint32_t sz) { 
+        DEBUG_ASSERT_GE(v.m_view.size, sz + offset);
+        m_base_buf = v.m_base_buf;
+        m_view.bytes = v.m_view.bytes + offset;
+        m_view.size = sz;
+    }
     byte_view(const sisl::io_blob& blob) :
             byte_view(std::make_shared< byte_array_impl >(blob.bytes, blob.size, blob.aligned)) {}
 
