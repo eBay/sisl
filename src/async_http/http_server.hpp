@@ -17,7 +17,6 @@
 #include <evhtp/sslutils.h>
 #include <boost/intrusive_ptr.hpp>
 #include <nlohmann/json.hpp>
-#include "auth_manager.hpp"
 #include <sys/stat.h>
 #include <random>
 #include <signal.h>
@@ -111,14 +110,18 @@ static void _request_handler(evhtp_request_t* req, void* arg) {
 ////////////////////// Server Implementation //////////////////////
 class HttpServer {
 public:
-    HttpServer(const HttpServerConfig& cfg, const AuthMgrConfig& auth_cfg,
+    HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers) :
+            m_cfg(cfg), m_handlers(handlers), m_ev_base(nullptr), m_htp(nullptr), m_internal_event(nullptr) {}
+
+    // only for testing
+    HttpServer(const HttpServerConfig& cfg, const std::shared_ptr< AuthManager > auth_mgr,
                const std::vector< _handler_info >& handlers) :
             m_cfg(cfg),
-            m_auth_mgr{auth_cfg},
             m_handlers(handlers),
             m_ev_base(nullptr),
             m_htp(nullptr),
-            m_internal_event(nullptr) {}
+            m_internal_event(nullptr),
+            m_auth_mgr(auth_mgr) {}
 
     HttpServer(const HttpServerConfig& cfg) : HttpServer(cfg, {}) {}
 
@@ -225,7 +228,7 @@ public:
             ret = EVHTP_RES_FORBIDDEN;
             break;
         default:
-            ret = EVHTP_RES_UNKNOWN;
+            ret = EVHTP_RES_BADREQ;
             break;
         }
         return ret;
@@ -261,10 +264,10 @@ public:
         }
         auto raw_token = token_str.substr(bearer.length());
         // verify method is expected to not throw
-        return to_evhtp_res(m_auth_mgr.verify(raw_token));
+        return to_evhtp_res(m_auth_mgr->verify(raw_token, msg));
     }
     // for testing
-    void set_allowed_to_all() { m_auth_mgr.set_allowed_to_all(); }
+    void set_allowed_to_all() { m_auth_mgr->set_allowed_to_all(); }
 
 #define request_callback(cb)                                                                                           \
     (evhtp_callback_cb) std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)
@@ -538,7 +541,7 @@ private:
     bool m_is_running = false;
     std::condition_variable m_ready_cv;
 
-    AuthManager m_auth_mgr;
+    std::shared_ptr< AuthManager > m_auth_mgr;
 };
 
 } // namespace sisl

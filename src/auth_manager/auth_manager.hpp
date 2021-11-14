@@ -24,16 +24,17 @@ struct AuthMgrConfig {
     std::string auth_allowed_apps;
 };
 
-ENUM(AuthVerifyStatus, uint8_t, OK, UNAUTH, FORBIDDEN);
+ENUM(AuthVerifyStatus, uint8_t, OK, UNAUTH, FORBIDDEN)
 
 class AuthManager {
 public:
     AuthManager() = default;
     AuthManager(const AuthMgrConfig& cfg) : m_cfg(cfg) {}
+    ~AuthManager() = default;
     void set_config(const AuthMgrConfig& cfg) { m_cfg = cfg; }
-    AuthVerifyStatus verify(const std::string& token);
+    AuthVerifyStatus verify(const std::string& token, std::string& msg);
     // for testing
-    void set_allowed_to_all() { m_cfg.set_allowed_to_all = "all"; }
+    void set_allowed_to_all() { m_cfg.auth_allowed_apps = "all"; }
 
 private:
     void verify_decoded(const jwt::decoded_jwt& decoded);

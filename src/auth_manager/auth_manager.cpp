@@ -1,8 +1,9 @@
 
 #include "auth_manager.hpp"
+#include <fmt/format.h>
 
 namespace sisl {
-AuthVerifyStatus verify(const std::string& token) {
+AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) {
     std::string app_name;
     // TODO: cache tokens for better performance
     try {
@@ -15,7 +16,6 @@ AuthVerifyStatus verify(const std::string& token) {
         app_name = get_app(decoded);
     } catch (const std::exception& e) {
         msg = e.what();
-        LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, e.what());
         return AuthVerifyStatus::UNAUTH;
     }
 
@@ -24,14 +24,13 @@ AuthVerifyStatus verify(const std::string& token) {
     if (m_cfg.auth_allowed_apps != "all") {
         if (m_cfg.auth_allowed_apps.find(app_name) == std::string::npos) {
             msg = fmt::format("application '{}' is not allowed to perform the request", app_name);
-            LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, msg);
             return AuthVerifyStatus::FORBIDDEN;
         }
     }
 
     return AuthVerifyStatus::OK;
 }
-void verify_decoded(const jwt::decoded_jwt& decoded) {
+void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) {
     auto alg = decoded.get_algorithm();
     if (alg != "RS256") throw std::runtime_error(fmt::format("unsupported algorithm: {}", alg));
 
@@ -53,7 +52,7 @@ void verify_decoded(const jwt::decoded_jwt& decoded) {
     verifier.verify(decoded);
 }
 
-virtual std::string download_key(const std::string& key_url) {
+std::string AuthManager::download_key(const std::string& key_url) {
     auto ca_file = m_cfg.ssl_ca_file;
     auto cert_file = m_cfg.ssl_cert_file;
     auto key_file = m_cfg.ssl_key_file;
@@ -75,7 +74,7 @@ virtual std::string download_key(const std::string& key_url) {
     return resp.text;
 }
 
-std::string get_app(const jwt::decoded_jwt& decoded) {
+std::string AuthManager::get_app(const jwt::decoded_jwt& decoded) {
     // get app name from client_id, which is the "sub" field in the decoded token
     // body
     // https://pages.github.corp.ebay.com/security-platform/documents/tf-documentation/tessintegration/#environment-variables

@@ -90,9 +90,9 @@ private:
     token_t token;
 };
 
-class MockHttpServer : public HttpServer {
+class MockAuthManager : public AuthManager {
 public:
-    using HttpServer::HttpServer;
+    using AuthManager::AuthManager;
     MOCK_METHOD(std::string, download_key, (const std::string&));
 };
 
@@ -119,7 +119,7 @@ public:
 
 protected:
     HttpServerConfig cfg;
-    std::unique_ptr< MockHttpServer > mock_server;
+    std::unique_ptr< HttpServer > mock_server;
     static AuthBaseTest* pThis(HttpCallData cd) { return (AuthBaseTest*)cd->cookie(); }
 };
 
@@ -128,17 +128,23 @@ public:
     virtual void SetUp() {
         AuthBaseTest::SetUp();
         cfg.is_auth_enabled = true;
-        cfg.tf_token_url = "http://127.0.0.1";
-        cfg.auth_allowed_apps = "app1, testapp, app2";
-        cfg.auth_exp_leeway = 0;
-        mock_server = std::unique_ptr< MockHttpServer >(
-            new MockHttpServer(cfg, {handler_info("/api/v1/sayHello", AuthBaseTest::say_hello, (void*)this)}));
+        AuthMgrConfig auth_cfg;
+        auth_cfg.tf_token_url = "http://127.0.0.1";
+        auth_cfg.auth_allowed_apps = "app1, testapp, app2";
+        auth_cfg.auth_exp_leeway = 0;
+        mock_auth_mgr = std::unique_ptr< MockAuthManager >(new MockAuthManager());
+        mock_auth_mgr->set_config(auth_cfg);
+        mock_server = std::unique_ptr< HttpServer >(new HttpServer(
+            cfg, mock_auth_mgr, {handler_info("/api/v1/sayHello", AuthBaseTest::say_hello, (void*)this)}));
         mock_server->start();
     }
 
     virtual void TearDown() { AuthBaseTest::TearDown(); }
 
     void set_allowed_to_all() { mock_server->set_allowed_to_all(); }
+
+protected:
+    std::shared_ptr< MockAuthManager > mock_auth_mgr;
 };
 
 class AuthDisableTest : public AuthBaseTest {
@@ -146,8 +152,8 @@ public:
     virtual void SetUp() {
         AuthBaseTest::SetUp();
         cfg.is_auth_enabled = false;
-        mock_server = std::unique_ptr< MockHttpServer >(
-            new MockHttpServer(cfg, {handler_info("/api/v1/sayHello", AuthBaseTest::say_hello, (void*)this)}));
+        mock_server = std::unique_ptr< HttpServer >(
+            new HttpServer(cfg, {handler_info("/api/v1/sayHello", AuthBaseTest::say_hello, (void*)this)}));
         mock_server->start();
     }
 
@@ -167,7 +173,6 @@ TEST_F(AuthDisableTest, allow_all_on_disabled_mode) {
     auto resp = cpr::Post(url);
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(200, resp.status_code);
-    EXPECT_CALL(*mock_server, download_key(_)).Times(0);
 }
 
 TEST_F(AuthEnableTest, reject_all_on_enabled_mode) {
@@ -175,12 +180,12 @@ TEST_F(AuthEnableTest, reject_all_on_enabled_mode) {
     auto resp = cpr::Post(url);
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(401, resp.status_code);
-    EXPECT_CALL(*mock_server, download_key(_)).Times(0);
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
 }
 
 TEST_F(AuthEnableTest, allow_vaid_token) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", TestToken().sign_rs256())}});
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(200, resp.status_code);
@@ -188,7 +193,7 @@ TEST_F(AuthEnableTest, allow_vaid_token) {
 
 TEST_F(AuthEnableTest, reject_basic_auth) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(0);
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
     // has basic auth in requester header, we require bearer token
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Basic {}", TestToken().sign_rs256())}});
     EXPECT_FALSE(resp.error);
@@ -197,7 +202,7 @@ TEST_F(AuthEnableTest, reject_basic_auth) {
 
 TEST_F(AuthEnableTest, reject_garbage_auth) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(0);
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", "Bearer abcdefgh"}});
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(401, resp.status_code);
@@ -205,7 +210,7 @@ TEST_F(AuthEnableTest, reject_garbage_auth) {
 
 TEST_F(AuthEnableTest, reject_wrong_algorithm) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
     // we currently only support rs256
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", TestToken().sign_rs512())}});
     EXPECT_FALSE(resp.error);
@@ -214,7 +219,7 @@ TEST_F(AuthEnableTest, reject_wrong_algorithm) {
 
 TEST_F(AuthEnableTest, reject_untrusted_issuer) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
     // token is issued by an untrusted issuer, we only trust "trustfabric"
     auto token = TestToken();
     token.get_token().set_issuer("do_not_trust_me");
@@ -225,7 +230,7 @@ TEST_F(AuthEnableTest, reject_untrusted_issuer) {
 
 TEST_F(AuthEnableTest, reject_untrusted_keyurl) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(0);
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
     // the key url is an untrusted address, we only trust "http://127.0.0.1"
     auto token = TestToken();
     token.get_token().set_header_claim("x5u", jwt::claim(std::string{"http://untrusted.addr/keys/abc123"}));
@@ -236,7 +241,7 @@ TEST_F(AuthEnableTest, reject_untrusted_keyurl) {
 
 TEST_F(AuthEnableTest, reject_expired_token) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
     // token expired 1 second ago
     auto token = TestToken();
     token.get_token().set_expires_at(std::chrono::system_clock::now() - std::chrono::seconds(1));
@@ -247,16 +252,16 @@ TEST_F(AuthEnableTest, reject_expired_token) {
 
 TEST_F(AuthEnableTest, reject_download_key_fail) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Throw(std::runtime_error("download key failed")));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Throw(std::runtime_error("download key failed")));
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", TestToken().sign_rs256())}});
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(401, resp.status_code);
-    EXPECT_CALL(*mock_server, download_key(_)).Times(0);
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
 }
 
 TEST_F(AuthEnableTest, reject_wrong_key) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Return(rsa_pub1_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub1_key));
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", TestToken().sign_rs256())}});
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(401, resp.status_code);
@@ -265,7 +270,7 @@ TEST_F(AuthEnableTest, reject_wrong_key) {
 TEST_F(AuthEnableTest, allow_all_apps) {
     set_allowed_to_all();
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
     auto token = TestToken();
     token.get_token().set_subject("any-prefix,o=dummy_app,dc=tess,dc=ebay,dc=com");
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", token.sign_rs256())}});
@@ -275,7 +280,7 @@ TEST_F(AuthEnableTest, allow_all_apps) {
 
 TEST_F(AuthEnableTest, reject_unauthorized_app) {
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
-    EXPECT_CALL(*mock_server, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
     // the client application is "myapp", which is not in the allowed list
     auto token = TestToken();
     token.get_token().set_subject("any-prefix,o=myapp,dc=tess,dc=ebay,dc=com");
