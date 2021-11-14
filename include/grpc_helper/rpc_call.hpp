@@ -13,6 +13,7 @@
 #include <sisl/utility/obj_life_counter.hpp>
 #include <sisl/utility/atomic_counter.hpp>
 #include <sisl/utility/enum.hpp>
+#include <sisl/auth_manager/auth_manager.hpp>
 #include "rpc_common.hpp"
 
 SISL_LOGGING_DECL(grpc_server)
@@ -116,14 +117,15 @@ class RpcStaticInfo : public RpcStaticInfoBase {
 public:
     RpcStaticInfo(GrpcServer* server, typename ServiceT::AsyncService& svc, const request_call_cb_t& call_cb,
                   const rpc_handler_cb_t& rpc_cb, const rpc_completed_cb_t& comp_cb, size_t idx,
-                  const std::string& name) :
+                  const std::string& name, sisl::AuthManager* auth_mgr) :
             m_server{server},
             m_svc{svc},
             m_req_call_cb{call_cb},
             m_handler_cb{rpc_cb},
             m_comp_cb{comp_cb},
             m_rpc_idx{idx},
-            m_rpc_name{name} {}
+            m_rpc_name{name},
+            m_auth_mgr{auth_mgr} {}
 
     GrpcServer* m_server;
     typename ServiceT::AsyncService& m_svc;
@@ -132,6 +134,7 @@ public:
     rpc_completed_cb_t m_comp_cb;
     size_t m_rpc_idx;
     std::string m_rpc_name;
+    sisl::AuthManager* m_auth_mgr;
 };
 
 /**
@@ -221,6 +224,39 @@ public:
             m_streaming_responder(&m_ctx) {}
 
 private:
+    bool do_autherization() {
+        bool ret{true};
+        // Auth is enabled if auth mgr is not null
+        if (m_rpc_info->m_auth_mgr) {
+            auto& client_headers = m_ctx.client_metadata();
+            if (auto it = client_headers.find("authorization"); it != client_headers.end()) {
+                const std::string bearer{"Bearer "};
+                if (it->second.starts_with(bearer)) {
+                    auto token_ref = it->second.substr(bearer.size());
+                    std::string raw_token{token_ref.begin(), token_ref.end()};
+                    std::string msg;
+                    m_retstatus = grpc::Status(
+                        RPCHelper::to_grpc_statuscode(m_rpc_info->m_auth_mgr->verify(raw_token, msg)), msg);
+                    ret = m_retstatus.error_code() == grpc::StatusCode::OK;
+                } else {
+                    m_retstatus =
+                        grpc::Status(grpc::StatusCode::UNAUTHENTICATED,
+                                     grpc::string("authorization header value does not start with 'Bearer '"));
+                    RPC_SERVER_LOG(ERROR,
+                                   "authorization header value does not start with Bearer, client_req_context={}, "
+                                   "from peer={}",
+                                   get_client_req_context(), get_peer_info());
+                }
+            } else {
+                m_retstatus =
+                    grpc::Status(grpc::StatusCode::UNAUTHENTICATED, grpc::string("missing header authorization"));
+                ret = false;
+                RPC_SERVER_LOG(ERROR, "missing header authorization, client_req_context={}, from peer={}",
+                               get_client_req_context(), get_peer_info());
+            }
+        }
+        return ret;
+    }
     // The implementation of this method should dispatch the request for processing by calling
     // do_start_request_processing One reference on `this` is transferred to the callee, and the
     // callee is responsible for releasing it (typically via `RpcData::send_response(..)`).
@@ -238,21 +274,31 @@ private:
                            get_peer_info());
             RPC_SERVER_LOG(TRACE, "req. payload={}", request().DebugString());
 
-            if constexpr (streaming) {
-                // In no-streaming mode, we call ref() to inc the ref count for keep the RpcData live
-                // before users finish their work and send responses in RequestReceived.
-                // But in streaming mode, The time user finishes their work may be different to
-                // the time grpc finsihes the grpc call. E.g.:
-                // 1) The user queues the last streaming resposne. At that time. We can't unref the RpcData and
-                // must do it after it sends all responses.
-                // 2) The user queues a no-last streaming response, then RpcData find the call was canceled.
-                // We can't unref the call, because users don't know it, they will send next responses.
-                // So instead of using only one ref in no-streaming mode. We use two ref to make lifecyle clear:
-                // 1) first one in RequestReceived and unref after grpc call finished.
-                // 2) second one in here and unref after called send_response with is_last = true;
-                ref();
+            // Autherization
+            if (auto auth_success = do_autherization(); !auth_success) {
+                if constexpr (streaming) {
+                    std::lock_guard< std::mutex > lock{m_streaming_mutex};
+                    do_streaming_send_if_needed();
+                } else {
+                    send_response();
+                }
+            } else {
+                if constexpr (streaming) {
+                    // In no-streaming mode, we call ref() to inc the ref count for keep the RpcData live
+                    // before users finish their work and send responses in RequestReceived.
+                    // But in streaming mode, The time user finishes their work may be different to
+                    // the time grpc finsihes the grpc call. E.g.:
+                    // 1) The user queues the last streaming resposne. At that time. We can't unref the RpcData and
+                    // must do it after it sends all responses.
+                    // 2) The user queues a no-last streaming response, then RpcData find the call was canceled.
+                    // We can't unref the call, because users don't know it, they will send next responses.
+                    // So instead of using only one ref in no-streaming mode. We use two ref to make lifecyle clear:
+                    // 1) first one in RequestReceived and unref after grpc call finished.
+                    // 2) second one in here and unref after called send_response with is_last = true;
+                    ref();
+                }
+                if (m_rpc_info->m_handler_cb(RPC_DATA_PTR_SPEC{this})) { send_response(); }
             }
-            if (m_rpc_info->m_handler_cb(RPC_DATA_PTR_SPEC{this})) { send_response(); }
         }
 
         return in_shutdown ? nullptr : create_new();

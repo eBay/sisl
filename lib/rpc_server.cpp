@@ -20,8 +20,8 @@ extern "C" {
 namespace grpc_helper {
 
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-                       const std::string& ssl_cert) :
-        m_num_threads{threads} {
+                       const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager > auth_mgr) :
+        m_num_threads{threads}, m_auth_mgr{auth_mgr} {
     if (listen_addr.empty() || threads == 0) { throw std::invalid_argument("Invalid parameter to start grpc server"); }
 
     if (!ssl_cert.empty() && !ssl_key.empty()) {
@@ -62,8 +62,8 @@ GrpcServer::~GrpcServer() {
 }
 
 GrpcServer* GrpcServer::make(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-                             const std::string& ssl_cert) {
-    return new GrpcServer(listen_addr, threads, ssl_key, ssl_cert);
+                             const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager > auth_mgr) {
+    return new GrpcServer(listen_addr, threads, ssl_key, ssl_cert, auth_mgr);
 }
 
 void GrpcServer::run(const rpc_thread_start_cb_t& thread_start_cb) {

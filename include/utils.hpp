@@ -10,7 +10,7 @@ static bool get_file_contents(const std::string& file_name, std::string& content
         std::ifstream f(file_name);
         std::string buffer(std::istreambuf_iterator< char >{f}, std::istreambuf_iterator< char >{});
         contents = buffer;
-        return !content.empty();
+        return !contents.empty();
     } catch (...) {}
     return false;
 }

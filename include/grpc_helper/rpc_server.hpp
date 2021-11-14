@@ -8,6 +8,7 @@
 #include <grpcpp/completion_queue.h>
 #include <sisl/logging/logging.h>
 #include <sisl/utility/enum.hpp>
+#include <sisl/auth_manager/auth_manager.hpp>
 #include "rpc_call.hpp"
 
 namespace grpc_helper {
@@ -21,14 +22,15 @@ class GrpcServer : private boost::noncopyable {
 
 public:
     GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-               const std::string& ssl_cert);
+               const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager > auth_mgr = nullptr);
     virtual ~GrpcServer();
 
     /**
      * Create a new GrpcServer instance and initialize it.
      */
     static GrpcServer* make(const std::string& listen_addr, uint32_t threads = 1, const std::string& ssl_key = "",
-                            const std::string& ssl_cert = "");
+                            const std::string& ssl_cert = "",
+                            const std::shared_ptr< sisl::AuthManager > auth_mgr = nullptr);
 
     void run(const rpc_thread_start_cb_t& thread_start_cb = nullptr);
     void shutdown();
@@ -69,7 +71,7 @@ public:
             std::unique_lock lg(m_rpc_registry_mtx);
             rpc_idx = m_rpc_registry.size();
             m_rpc_registry.emplace_back(new RpcStaticInfo< ServiceT, ReqT, RespT, false >(
-                this, *svc, request_call_cb, rpc_handler, done_handler, rpc_idx, name));
+                this, *svc, request_call_cb, rpc_handler, done_handler, rpc_idx, name, m_auth_mgr.get()));
 
             // Register one call per cq.
             for (auto i = 0u; i < m_cqs.size(); ++i) {
@@ -106,5 +108,6 @@ private:
     std::unordered_map< const char*, ::grpc::Service* > m_services;
     std::mutex m_rpc_registry_mtx;
     std::vector< std::unique_ptr< RpcStaticInfoBase > > m_rpc_registry;
+    std::shared_ptr< sisl::AuthManager > m_auth_mgr;
 };
 } // namespace grpc_helper

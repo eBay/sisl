@@ -1,25 +1,15 @@
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../proto)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/../proto)
 
-#enable_testing()
+set(UNIT_TEST_LIBS grpc_helper test_proto sisl
+    ${CONAN_LIBS})
 
-file(GLOB TEST_SRC_FILES **/*.cpp)
+enable_testing()
 
-MESSAGE( STATUS "TEST_SRC_FILES = " ${TEST_SRC_FILES} )
-MESSAGE( STATUS "CMAKE_RUNTIME_OUTPUT_DIRECTORY = " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} )
-
-
-# from list of files we'll create tests  
-foreach(_test_file ${TEST_SRC_FILES})
-    get_filename_component(_test_name ${_test_file} NAME_WE)
-    add_executable(${_test_name} ${_test_file})
-    
-    add_dependencies(${_test_name} grpc_helper )
-    target_link_libraries (${_test_name} grpc_helper ${CONAN_LIBS} )
-    add_test(NAME ${_test_name} COMMAND ${_test_name} WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-    set_tests_properties(${_test_name} PROPERTIES TIMEOUT 5)
-endforeach()
-
+add_executable(auth_test auth_test.cpp)
+#add_dependencies(auth_test grpc_helper test_proto)
+target_link_libraries(auth_test ${UNIT_TEST_LIBS} )
+add_test(NAME Auth_Test COMMAND auth_test)
 
 
 

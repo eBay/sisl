@@ -16,6 +16,7 @@
 #include <sisl/logging/logging.h>
 #include <sisl/utility/obj_life_counter.hpp>
 #include <sisl/utility/enum.hpp>
+#include <sisl/auth_manager/trf_client.hpp>
 
 namespace grpc_helper {
 
@@ -76,6 +77,10 @@ public:
         m_cb(m_reply, m_status);
     }
 
+    void add_metadata(const std::string& meta_key, const std::string& meta_value) {
+        m_context.AddMetadata(meta_key, meta_value);
+    }
+
     unary_callback_t< RespT > m_cb;
     RespT m_reply;
     ::grpc::ClientContext m_context;
@@ -114,10 +119,11 @@ protected:
     const std::string m_ssl_cert;
 
     std::shared_ptr< ::grpc::ChannelInterface > m_channel;
+    std::shared_ptr< sisl::TrfClient > m_trf_client;
 
 public:
     GrpcBaseClient(const std::string& server_addr, const std::string& target_domain = "",
-                   const std::string& ssl_cert = "");
+                   const std::string& ssl_cert = "", const std::shared_ptr< sisl::TrfClient > trf_client = nullptr);
     virtual ~GrpcBaseClient() = default;
     virtual bool is_connection_ready() const;
     virtual void init();
@@ -192,8 +198,8 @@ public:
     using StubPtr = std::unique_ptr< typename ServiceT::StubInterface >;
 
     GrpcAsyncClient(const std::string& server_addr, const std::string& target_domain = "",
-                    const std::string& ssl_cert = "") :
-            GrpcBaseClient(server_addr, target_domain, ssl_cert) {}
+                    const std::string& ssl_cert = "", const std::shared_ptr< sisl::TrfClient > trf_client = nullptr) :
+            GrpcBaseClient(server_addr, target_domain, ssl_cert, trf_client) {}
 
     virtual ~GrpcAsyncClient() {}
 
@@ -211,8 +217,8 @@ public:
     struct AsyncStub {
         using UPtr = std::unique_ptr< AsyncStub >;
 
-        AsyncStub(StubPtr< ServiceT > stub, GrpcAsyncClientWorker* worker) :
-                m_stub(std::move(stub)), m_worker(worker) {}
+        AsyncStub(StubPtr< ServiceT > stub, GrpcAsyncClientWorker* worker, sisl::TrfClient* trf_client) :
+                m_stub(std::move(stub)), m_worker(worker), m_trf_client(trf_client) {}
 
         using stub_t = typename ServiceT::StubInterface;
 
@@ -251,6 +257,7 @@ public:
                         const unary_callback_t< RespT >& callback, uint32_t deadline) {
             auto data = new ClientRpcDataInternal< ReqT, RespT >(callback);
             data->set_deadline(deadline);
+            if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
             // Note that async unary RPCs don't post a CQ tag in call
             data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
             // CQ tag posted here
@@ -264,12 +271,14 @@ public:
             auto cd = new ClientRpcData< ReqT, RespT >(done_cb);
             builder_cb(cd->m_req);
             cd->set_deadline(deadline);
+            if (m_trf_client) { cd->add_metadata("authorization", m_trf_client->get_typed_token()); }
             cd->m_resp_reader_ptr = (m_stub.get()->*method)(&cd->context(), cd->m_req, cq());
             cd->m_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
         }
 
         StubPtr< ServiceT > m_stub;
         GrpcAsyncClientWorker* m_worker;
+        sisl::TrfClient* m_trf_client;
 
         const StubPtr< ServiceT >& stub() { return m_stub; }
 
@@ -286,7 +295,7 @@ public:
         auto w = GrpcAsyncClientWorker::get_worker(worker);
         if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
 
-        return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w);
+        return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w, m_trf_client.get());
     }
 };
 

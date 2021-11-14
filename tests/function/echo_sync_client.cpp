@@ -15,7 +15,7 @@
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
 
-#include "sds_grpc/client.h"
+#include "grpc_helper/rpc_client.hpp"
 #include "sds_grpc_test.grpc.pb.h"
 
 using namespace ::grpc;
@@ -28,13 +28,11 @@ class EchoAndPingClient : public GrpcSyncClient {
 public:
     using GrpcSyncClient::GrpcSyncClient;
 
-    virtual bool init() {
-        if (!GrpcSyncClient::init()) { return false; }
+    virtual void init() {
+        GrpcSyncClient::init();
 
         echo_stub_ = MakeStub< EchoService >();
         ping_stub_ = MakeStub< PingService >();
-
-        return true;
     }
 
     const std::unique_ptr< EchoService::StubInterface >& echo_stub() { return echo_stub_; }
@@ -51,10 +49,11 @@ private:
 int RunClient(const std::string& server_address) {
 
     auto client = std::make_unique< EchoAndPingClient >(server_address, "", "");
-    if (!client || !client->init()) {
+    if (!client) {
         LOGERROR("Create grpc sync client failed.");
         return -1;
     }
+    client->init();
 
     int ret = 0;
     for (int i = 0; i < GRPC_CALL_COUNT; i++) {
