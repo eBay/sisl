@@ -5,7 +5,7 @@
 #include <string>
 #include <random>
 
-#include "bitset.hpp"
+#include "fds/bitset.hpp"
 #include "range_hashmap.hpp"
 #include "utility/enum.hpp"
 
@@ -238,15 +238,14 @@ TEST_F(RangeHashMapTest, RandomEverythingTest) {
             ++nread_ops;
             break;
         case op_t::INSERT: {
-            auto expected_inserts = size - m_inserted_slots.get_set_count(offset, offset + size - 1);
             insert_range(offset, offset + size - 1);
-            nblks_inserted += expected_inserts;
+            nblks_inserted += m_inserted_slots.get_set_count(offset, offset + size - 1);
             ++ninsert_ops;
             break;
         }
         case op_t::ERASE:
-            erase_range(offset, offset + size - 1);
             nblks_erased += m_inserted_slots.get_set_count(offset, offset + size - 1);
+            erase_range(offset, offset + size - 1);
             ++nerase_ops;
             break;
         }

@@ -8,10 +8,21 @@
 #include <vector>
 #include <string>
 #include <folly/Traits.h>
-#include <fds/utils.hpp>
-#include <utility/enum.hpp>
-#include <buffer.hpp>
 #include <folly/small_vector.h>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
+#include <folly/SharedMutex.h>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
+#include "fds/buffer.hpp"
+#include "hash_entry_base.hpp"
+#include "fds/utils.hpp"
+#include "utility/enum.hpp"
 
 namespace sisl {
 
@@ -25,6 +36,9 @@ typedef std::pair< big_offset_t, big_offset_t > big_range_t;
 
 static constexpr big_count_t max_n_per_node = (s_cast< uint64_t >(1) << (sizeof(small_offset_t) * 8));
 static constexpr small_offset_t max_offset_in_node = std::numeric_limits< small_offset_t >::max();
+static constexpr size_t s_start_seed = 0; // TODO: Pickup a better seed
+
+// static uint32_t range_count(const small_range_t& range) { return range.second - range.first + 1; }
 
 template < typename K >
 struct RangeKey {
@@ -35,6 +49,29 @@ struct RangeKey {
     RangeKey(const K& k, const big_offset_t nth, const big_count_t count) : m_base_key{k}, m_nth{nth}, m_count{count} {}
     big_offset_t rounded_nth() const { return sisl::round_down(m_nth, max_n_per_node); }
     big_offset_t end_nth() const { return m_nth + m_count - 1; }
+
+    std::size_t compute_hash() const {
+        size_t seed = s_start_seed;
+        boost::hash_combine(seed, m_base_key);
+        boost::hash_combine(seed, m_nth);
+        return seed;
+    }
+
+    bool operator==(const RangeKey& other) const {
+        return ((m_base_key == other.m_base_key) && (m_nth == other.m_nth) && (m_count == other.m_count));
+    }
+
+    bool operator<(const RangeKey& other) const {
+        if (m_base_key == other.m_base_key) {
+            if (m_nth == other.m_nth) {
+                return m_count < other.m_count;
+            } else {
+                return m_nth < other.m_nth;
+            }
+        } else {
+            return m_base_key < other.m_base_key;
+        }
+    }
 };
 
 template < typename K >
@@ -44,14 +81,20 @@ ENUM(hash_op_t, uint8_t, CREATE, ACCESS, DELETE, RESIZE)
 
 typedef std::function< sisl::byte_view(const sisl::byte_view&, big_offset_t, big_count_t) > value_extractor_cb_t;
 
-template < typename K >
-using key_access_cb_t = std::function< void(const RangeKey< K >&, const hash_op_t, void*) >;
+class ValueEntryRange;
 
+template < typename K >
+class MultiEntryHashNode;
+
+template < typename K >
+using key_access_cb_t =
+    std::function< void(const ValueEntryBase& base, const RangeKey< K >&, const hash_op_t, int64_t new_size) >;
+
+///////////////////////////////////////////// RangeHashMap Declaration ///////////////////////////////////
 template < typename K >
 class RangeHashMap {
 private:
     static thread_local std::vector< RangeKey< K > > s_kviews;
-    static constexpr size_t s_start_seed = 0; // TODO: Pickup a better seed
 
     uint32_t m_nbuckets;
     HashBucket< K >* m_buckets;
@@ -102,15 +145,24 @@ private:
     }
 };
 
+///////////////////////////////////////////// MultiEntryHashNode Definitions ///////////////////////////////////
 template < typename K >
 class MultiEntryHashNode : public boost::intrusive::slist_base_hook<> {
     friend class HashBucket< K >;
+    friend class ValueEntryRange;
 
 private:
-    struct value_info {
+    /////////////////////////////////////////////// ValueEntryRange Declaration ///////////////////////////////////
+    struct ValueEntryRange : public ValueEntryBase {
         small_range_t m_range;
         sisl::byte_view m_val;
-        void* m_context;
+
+        ValueEntryRange(const small_range_t& range, const sisl::byte_view& val) :
+                ValueEntryBase{}, m_range{range}, m_val{val} {}
+        ValueEntryRange(const ValueEntryRange&) = default;
+        ValueEntryRange& operator=(const ValueEntryRange&) = default;
+        ValueEntryRange(ValueEntryRange&&) = default;
+        ValueEntryRange& operator=(ValueEntryRange&&) = default;
 
         int compare_range(const small_offset_t offset) const {
             if ((offset >= m_range.first) && (offset <= m_range.second)) {
@@ -122,9 +174,6 @@ private:
             }
         }
 
-        value_info(const small_range_t& range, const sisl::byte_view& val, void* context = nullptr) :
-                m_range{range}, m_val{val}, m_context{context} {}
-
         small_count_t count() const { return m_range.second - m_range.first + 1; }
         small_offset_t offset_within(const small_offset_t key_off) const {
             DEBUG_ASSERT_GE(key_off, m_range.first);
@@ -135,30 +184,33 @@ private:
             return fmt::format("m_range={}-{} val_size={}", m_range.first, m_range.second, m_val.size());
         }
 
-        void shrink_to_left(const small_offset_t count) {
-            m_range.second -= count;
-            m_val = RangeHashMap< K >::extract_value(m_val, 0, m_range.second - m_range.first + 1);
+        void shrink_to_left(const small_offset_t by) {
+            m_range.second -= by;
+            m_val = RangeHashMap< K >::extract_value(m_val, 0, count());
         }
 
-        void shrink_to_right(const small_offset_t count) {
-            m_range.first += count;
-            m_val = RangeHashMap< K >::extract_value(m_val, count, m_range.second - m_range.first + 1);
+        void shrink_to_right(const small_offset_t by) {
+            m_range.first += by;
+            m_val = RangeHashMap< K >::extract_value(m_val, by, count());
         }
 
-        value_info extract_left(const MultiEntryHashNode< K >* node, const small_offset_t right_upto) {
+        ValueEntryRange extract_left(const MultiEntryHashNode< K >* node, const small_offset_t right_upto) const {
             DEBUG_ASSERT_GE(right_upto, m_range.first);
             const auto new_range = std::make_pair(m_range.first, right_upto);
-            RangeHashMap< K >::call_access_cb(node->to_big_key(new_range), hash_op_t::CREATE, m_context);
-            return value_info{new_range, RangeHashMap< K >::extract_value(m_val, 0, offset_within(right_upto) + 1)};
+            auto e =
+                ValueEntryRange{new_range, RangeHashMap< K >::extract_value(m_val, 0, offset_within(right_upto) + 1)};
+            e.access_cb(node, hash_op_t::CREATE);
+            return e;
         }
 
-        value_info extract_right(const MultiEntryHashNode< K >* node, const small_offset_t left_from) {
+        ValueEntryRange extract_right(const MultiEntryHashNode< K >* node, const small_offset_t left_from) const {
             DEBUG_ASSERT_LE(left_from, m_range.second);
             const auto new_range = std::make_pair(left_from, m_range.second);
-            RangeHashMap< K >::call_access_cb(node->to_big_key(new_range), hash_op_t::CREATE, m_context);
-            return value_info{
+            auto e = ValueEntryRange{
                 new_range,
                 RangeHashMap< K >::extract_value(m_val, offset_within(left_from), m_range.second - left_from + 1)};
+            e.access_cb(node, hash_op_t::CREATE);
+            return e;
         }
 
         void move_left_to(const MultiEntryHashNode< K >* node, const small_offset_t new_right) {
@@ -166,9 +218,7 @@ private:
             if (new_right < m_range.second) {
                 m_val = RangeHashMap< K >::extract_value(m_val, 0, new_right - m_range.first + 1);
                 m_range.second = new_right;
-
-                // TODO: Expand the callback to allow old values to pass
-                RangeHashMap< K >::call_access_cb(node->to_big_key(m_range), hash_op_t::RESIZE, m_context);
+                access_cb(node, hash_op_t::RESIZE);
             }
         }
 
@@ -177,20 +227,18 @@ private:
             if (new_left > m_range.first) {
                 m_val = RangeHashMap< K >::extract_value(m_val, offset_within(new_left), m_range.second - new_left + 1);
                 m_range.first = new_left;
-
-                // TODO: Expand the callback to allow old values to pass
-                RangeHashMap< K >::call_access_cb(node->to_big_key(m_range), hash_op_t::RESIZE, m_context);
+                access_cb(node, hash_op_t::RESIZE);
             }
         }
 
         void access_cb(const MultiEntryHashNode< K >* node, const hash_op_t op) const {
-            RangeHashMap< K >::call_access_cb(node->to_big_key(m_range), op, m_context);
+            RangeHashMap< K >::call_access_cb(*this, node->to_big_key(m_range), op, m_val.size());
         }
     };
 
     K m_base_key;
     big_offset_t m_base_nth;
-    folly::small_vector< value_info, 8, small_count_t > m_values;
+    folly::small_vector< ValueEntryRange, 8, small_count_t > m_values;
 
 public:
     MultiEntryHashNode(const K& base_key, big_offset_t nth) : m_base_key{base_key}, m_base_nth{nth} {}
@@ -205,9 +253,10 @@ public:
         while (idx < int_cast(m_values.size())) {
             if (input_range.second >= m_values[idx].m_range.first) {
                 out_values.emplace_back(extract_matched_kv(m_values[idx], input_range));
-                LOGINFO("Node({}) Getting entry at idx={}, key_range=[{}-{}], val_size={}", to_string(), idx,
-                        to_relative_range(out_values.back().first).first,
-                        to_relative_range(out_values.back().first).second, out_values.back().second.size());
+                m_values[idx].access_cb(this, hash_op_t::ACCESS);
+                LOGDEBUG("Node({}) Getting entry at idx={}, key_range=[{}-{}], val_size={}", to_string(), idx,
+                         to_relative_range(out_values.back().first).first,
+                         to_relative_range(out_values.back().first).second, out_values.back().second.size());
             } else {
                 break;
             }
@@ -234,8 +283,8 @@ public:
                     // Need to add an additional entry, for shrinking the value of left entry.
                     m_values.insert(m_values.begin() + l_idx,
                                     m_values[l_idx].extract_left(this, input_range.first - 1));
-                    LOGINFO("Node({}) Splitting entries and added 1 entries at idx={} with first value=[{}]",
-                            to_string(), l_idx, m_values[l_idx].to_string());
+                    LOGDEBUG("Node({}) Splitting entries and added 1 entries at idx={} with first value=[{}]",
+                             to_string(), l_idx, m_values[l_idx].to_string());
                     ++l_idx;
                     ++r_idx;
                     is_move_to_left = false;
@@ -245,15 +294,15 @@ public:
 
         if (is_move_to_left) {
             m_values[l_idx].move_left_to(this, input_range.first - 1);
-            LOGINFO("Node({}) To insert: shrinking entry by moving left at idx={}, new value=[{}]", to_string(), l_idx,
-                    m_values[l_idx].to_string());
+            LOGDEBUG("Node({}) To insert: shrinking entry by moving left at idx={}, new value=[{}]", to_string(), l_idx,
+                     m_values[l_idx].to_string());
             ++l_idx;
         }
 
         if (is_move_to_right) {
             m_values[r_idx].move_right_to(this, input_range.second + 1);
-            LOGINFO("Node({}) To insert: shrinking entry by moving right at idx={}, new value=[{}]", to_string(), r_idx,
-                    m_values[r_idx].to_string());
+            LOGDEBUG("Node({}) To insert: shrinking entry by moving right at idx={}, new value=[{}]", to_string(),
+                     r_idx, m_values[r_idx].to_string());
         } else {
             r_idx = std::min(r_idx + 1, int_cast(m_values.size()));
         }
@@ -265,16 +314,16 @@ public:
                     m_values[idx].access_cb(this, hash_op_t::DELETE);
                 }
             }
-            LOGINFO("Node({}) To insert: Erase all entries between idx={} to {} values=[{}] to [{}]", to_string(),
-                    l_idx, r_idx - 1, m_values[l_idx].to_string(), m_values[r_idx - 1].to_string());
+            LOGDEBUG("Node({}) To insert: Erase all entries between idx={} to {} values=[{}] to [{}]", to_string(),
+                     l_idx, r_idx - 1, m_values[l_idx].to_string(), m_values[r_idx - 1].to_string());
             m_values.erase(m_values.begin() + l_idx, m_values.begin() + r_idx);
         }
 
         // Finally insert the entry
-        m_values.insert(m_values.begin() + l_idx, value_info{input_range, std::move(value)});
+        m_values.insert(m_values.begin() + l_idx, ValueEntryRange{input_range, std::move(value)});
         m_values[l_idx].access_cb(this, hash_op_t::CREATE);
-        LOGINFO("Node({}) To insert: Inserting entry at idx={} value=[{}]", to_string(), l_idx,
-                m_values[l_idx].to_string());
+        LOGDEBUG("Node({}) To insert: Inserting entry at idx={} value=[{}]", to_string(), l_idx,
+                 m_values[l_idx].to_string());
     }
 
     small_count_t erase(const RangeKey< K >& input_key) {
@@ -292,8 +341,8 @@ public:
                     // Need to add an additional entry, for shrinking the value of left entry.
                     m_values.insert(m_values.begin() + l_idx,
                                     m_values[l_idx].extract_left(this, input_range.first - 1));
-                    LOGINFO("Node({}) To erase: Splitting entries and added 1 entries at idx={} with first value=[{}]",
-                            to_string(), l_idx, m_values[l_idx].to_string());
+                    LOGDEBUG("Node({}) To erase: Splitting entries and added 1 entries at idx={} with first value=[{}]",
+                             to_string(), l_idx, m_values[l_idx].to_string());
                     ++r_idx;
                     ++l_idx;
                     is_move_to_left = false;
@@ -303,15 +352,15 @@ public:
 
         if (is_move_to_left) {
             m_values[l_idx].move_left_to(this, input_range.first - 1);
-            LOGINFO("Node({}) To erase: shrinking entry by moving left at idx={}, new value=[{}]", to_string(), l_idx,
-                    m_values[l_idx].to_string());
+            LOGDEBUG("Node({}) To erase: shrinking entry by moving left at idx={}, new value=[{}]", to_string(), l_idx,
+                     m_values[l_idx].to_string());
             ++l_idx;
         }
 
         if (is_move_to_right) {
             m_values[r_idx].move_right_to(this, input_range.second + 1);
-            LOGINFO("Node({}) To erase: shrinking entry by moving right at idx={}, new value=[{}]", to_string(), r_idx,
-                    m_values[r_idx].to_string());
+            LOGDEBUG("Node({}) To erase: shrinking entry by moving right at idx={}, new value=[{}]", to_string(), r_idx,
+                     m_values[r_idx].to_string());
         } else {
             r_idx = std::min(r_idx + 1, int_cast(m_values.size()));
         }
@@ -322,8 +371,8 @@ public:
                     m_values[idx].access_cb(this, hash_op_t::DELETE);
                 }
             }
-            LOGINFO("Node({}) Erase all entries between idx={} to {} values=[{}] to [{}]", to_string(), l_idx,
-                    r_idx - 1, m_values[l_idx].to_string(), m_values[r_idx - 1].to_string());
+            LOGDEBUG("Node({}) Erase all entries between idx={} to {} values=[{}] to [{}]", to_string(), l_idx,
+                     r_idx - 1, m_values[l_idx].to_string(), m_values[r_idx - 1].to_string());
             m_values.erase(m_values.begin() + l_idx, m_values.begin() + r_idx);
         }
 
@@ -373,29 +422,32 @@ private:
         return std::make_pair<>(m_base_nth + range.first, m_base_nth + range.second);
     }
 
-    std::pair< RangeKey< K >, sisl::byte_view > extract_matched_kv(const value_info& vinfo,
+    std::pair< RangeKey< K >, sisl::byte_view > extract_matched_kv(const ValueEntryRange& ventry,
                                                                    const small_range_t& input_range) const {
-        small_range_t key_range{std::max(vinfo.m_range.first, input_range.first),
-                                std::min(vinfo.m_range.second, input_range.second)};
+        small_range_t key_range{std::max(ventry.m_range.first, input_range.first),
+                                std::min(ventry.m_range.second, input_range.second)};
 
-        const small_offset_t val_start = vinfo.offset_within(key_range.first);
-        const small_count_t val_count = vinfo.offset_within(key_range.second) - val_start + 1;
+        const small_offset_t val_start = ventry.offset_within(key_range.first);
+        const small_count_t val_count = ventry.offset_within(key_range.second) - val_start + 1;
         return std::make_pair<>(to_big_key(key_range),
-                                RangeHashMap< K >::extract_value(vinfo.m_val, val_start, val_count));
+                                RangeHashMap< K >::extract_value(ventry.m_val, val_start, val_count));
     }
 
-    sisl::byte_view extract_matched_value(const value_info& vinfo, const small_range_t& input_range) const {
-        small_range_t key_range{std::max(vinfo.m_range.first, input_range.first),
-                                std::min(vinfo.m_range.second, input_range.second)};
-        auto val_start = vinfo.offset_within(key_range.first);
-        auto val_count = vinfo.offset_within(key_range.second) - val_start + 1;
-        return RangeHashMap< K >::extract_value(vinfo.m_val, val_start, val_count);
+    sisl::byte_view extract_matched_value(const ValueEntryRange& ventry, const small_range_t& input_range) const {
+        small_range_t key_range{std::max(ventry.m_range.first, input_range.first),
+                                std::min(ventry.m_range.second, input_range.second)};
+        auto val_start = ventry.offset_within(key_range.first);
+        auto val_count = ventry.offset_within(key_range.second) - val_start + 1;
+        return RangeHashMap< K >::extract_value(ventry.m_val, val_start, val_count);
     }
 };
+
+///////////////////////////////////////////// ValueEntryRange Definitions ///////////////////////////////////
 
 template < typename K >
 thread_local sisl::RangeHashMap< K >* sisl::RangeHashMap< K >::s_cur_hash_map{nullptr};
 
+///////////////////////////////////////////// HashBucket Definitions ///////////////////////////////////
 template < typename K >
 class HashBucket {
 private:
@@ -496,7 +548,7 @@ public:
                 delete n;
             }
         } else {
-            LOGINFO("Node(BaseKey={} Nth_Offset={}) NOT found", input_key.m_base_key, input_nth_rounded);
+            LOGDEBUG("Node(BaseKey={} Nth_Offset={}) NOT found", input_key.m_base_key, input_nth_rounded);
         }
     }
 
@@ -514,7 +566,7 @@ public:
     }
 };
 
-////////////// Range HashMap implementation /////////////////
+///////////////////////////////////////////// RangeHashMap Definitions ///////////////////////////////////
 template < typename K >
 RangeHashMap< K >::RangeHashMap(uint32_t nBuckets, value_extractor_cb_t value_extractor,
                                 key_access_cb_t< K > access_cb) :

@@ -205,5 +205,7 @@ static int spaceship_oper(const T& left, const T& right) {
 #define voidptr_cast reinterpret_cast< void* >
 #define int_cast static_cast< int >
 #define uint32_cast static_cast< uint32_t >
+#define int64_cast static_cast< int64_t >
+#define uint64_cast static_cast< uint64_t >
 
 } // namespace sisl

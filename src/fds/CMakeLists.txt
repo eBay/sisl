@@ -68,12 +68,6 @@ add_executable(test_cb_mutex ${TEST_CBMUTEX_SOURCE_FILES})
 target_link_libraries(test_cb_mutex sisl ${CONAN_LIBS})
 add_test(NAME TestCBMutex COMMAND test_cb_mutex)
 
-set(TEST_RANGEHASH_SOURCE_FILES
-    tests/test_range_hashmap.cpp
-   )
-add_executable(test_range_hashmap ${TEST_RANGEHASH_SOURCE_FILES})
-target_link_libraries(test_range_hashmap sisl ${CONAN_LIBS})
-
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "jemalloc")
         set(TEST_JEMALLOC_SOURCE_FILES
