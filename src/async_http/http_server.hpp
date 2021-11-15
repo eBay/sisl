@@ -113,9 +113,8 @@ public:
     HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers) :
             m_cfg(cfg), m_handlers(handlers), m_ev_base(nullptr), m_htp(nullptr), m_internal_event(nullptr) {}
 
-    // only for testing
-    HttpServer(const HttpServerConfig& cfg, const std::shared_ptr< AuthManager > auth_mgr,
-               const std::vector< _handler_info >& handlers) :
+    HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers,
+               const std::shared_ptr< AuthManager > auth_mgr) :
             m_cfg(cfg),
             m_handlers(handlers),
             m_ev_base(nullptr),

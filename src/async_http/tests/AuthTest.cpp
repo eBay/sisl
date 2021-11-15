@@ -132,10 +132,10 @@ public:
         auth_cfg.tf_token_url = "http://127.0.0.1";
         auth_cfg.auth_allowed_apps = "app1, testapp, app2";
         auth_cfg.auth_exp_leeway = 0;
-        mock_auth_mgr = std::unique_ptr< MockAuthManager >(new MockAuthManager());
+        mock_auth_mgr = std::shared_ptr< MockAuthManager >(new MockAuthManager());
         mock_auth_mgr->set_config(auth_cfg);
         mock_server = std::unique_ptr< HttpServer >(new HttpServer(
-            cfg, mock_auth_mgr, {handler_info("/api/v1/sayHello", AuthBaseTest::say_hello, (void*)this)}));
+            cfg, {handler_info("/api/v1/sayHello", AuthBaseTest::say_hello, (void*)this)}, mock_auth_mgr));
         mock_server->start();
     }
 
