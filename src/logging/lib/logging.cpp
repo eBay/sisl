@@ -52,12 +52,12 @@ extern "C" {
 spdlog::level::level_enum module_level_base{spdlog::level::level_enum::info};
 }
 
-namespace sds_logging {
+namespace sisl_logging {
 
 constexpr uint64_t Ki{1024};
 constexpr uint64_t Mi{Ki * Ki};
 
-// SDS_LOGGING_INIT declared global variables
+// SISL_LOGGING_INIT declared global variables
 static std::shared_ptr< spdlog::logger > glob_spdlog_logger;
 static std::shared_ptr< spdlog::logger > glob_critical_logger;
 // NOTE: glob_enabled_mods should be a vector but sanitizer reports a leak so changed to array of pointers
@@ -288,7 +288,7 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
 
     if (0 < SDS_OPTIONS["version"].count()) {
         spdlog::set_pattern("%v");
-        sds_logging::GetLogger()->info("{} - {}", pkg, ver);
+        sisl_logging::GetLogger()->info("{} - {}", pkg, ver);
         std::exit(0);
     }
 
@@ -309,9 +309,7 @@ std::shared_ptr< logger_t > CreateCustomLogger(const std::string& name, const st
     std::vector< spdlog::sink_ptr > sinks{};
     std::shared_ptr< spdlog::logger > custom_logger;
 
-    if (!SDS_OPTIONS.count("stdout")) {
-        create_append_sink(name, sinks, extn, false /* is_stdout_sink */);
-    }
+    if (!SDS_OPTIONS.count("stdout")) { create_append_sink(name, sinks, extn, false /* is_stdout_sink */); }
     if ((SDS_OPTIONS.count("stdout") && !tee_to_stderr) || tee_to_stdout) {
         create_append_sink(name, sinks, "", true /* is_stdout_sink */);
     }
@@ -365,4 +363,4 @@ void SetAllModuleLogLevel(const spdlog::level::level_enum level) {
 
 std::string format_log_msg() { return std::string{}; }
 
-} // namespace sds_logging
+} // namespace sisl_logging

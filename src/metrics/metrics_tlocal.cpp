@@ -6,16 +6,17 @@
 #include <iostream>
 #include <mutex>
 
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 
 #include "metrics_tlocal.hpp"
 
 namespace sisl {
 
-PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, const uint32_t ncntrs, const uint32_t nhists) :
+PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, const uint32_t ncntrs,
+                                   const uint32_t nhists) :
         m_histogram_info{hinfo}, m_ncntrs{ncntrs}, m_nhists{nhists} {
-    m_counters = std::make_unique<CounterValue[]>(ncntrs);
-    m_histograms = std::make_unique<HistogramValue[]>(nhists);
+    m_counters = std::make_unique< CounterValue[] >(ncntrs);
+    m_histograms = std::make_unique< HistogramValue[] >(nhists);
     std::uninitialized_default_construct(m_counters.get(), m_counters.get() + ncntrs);
     std::uninitialized_default_construct(m_histograms.get(), m_histograms.get() + nhists);
 
@@ -26,8 +27,7 @@ PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramStaticInfo >& hin
 #endif
 }
 
-PerThreadMetrics::~PerThreadMetrics() {
-}
+PerThreadMetrics::~PerThreadMetrics() {}
 
 void PerThreadMetrics::merge(PerThreadMetrics* const a, PerThreadMetrics* const b) {
 #if 0
@@ -58,7 +58,7 @@ HistogramValue& PerThreadMetrics::get_histogram(const uint64_t index) {
 static int outstanding_flush{0};
 static std::mutex flush_cv_mtx;
 static std::condition_variable flush_cv;
-static void flush_cache_handler([[maybe_unused]] sds_logging::SignalType signal_number) {
+static void flush_cache_handler([[maybe_unused]] sisl_logging::SignalType signal_number) {
     assert(signal_number == SIGUSR4);
 
     std::atomic_thread_fence(std::memory_order_release);
@@ -83,7 +83,7 @@ void ThreadBufferMetricsGroup::flush_core_cache() {
             ++outstanding_flush;
         }
         // std::cout << "Sending thread signal to thread_num " << thread_num << "\n";
-        sds_logging::send_thread_signal(pt, SIGUSR4);
+        sisl_logging::send_thread_signal(pt, SIGUSR4);
     });
 
     {
@@ -95,7 +95,7 @@ void ThreadBufferMetricsGroup::flush_core_cache() {
 
 void ThreadBufferMetricsGroup::on_register() {
     static std::once_flag flag1;
-    std::call_once(flag1, [&]() { sds_logging::add_signal_handler(SIGUSR4, "SIGUSR4", &flush_cache_handler); });
+    std::call_once(flag1, [&]() { sisl_logging::add_signal_handler(SIGUSR4, "SIGUSR4", &flush_cache_handler); });
 
     m_metrics_buf =
         std::make_unique< PerThreadMetricsBuffer >(m_static_info->m_histograms, num_counters(), num_histograms());

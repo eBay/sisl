@@ -14,7 +14,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_stream_tracker)
+SISL_LOGGING_INIT(test_stream_tracker)
 
 namespace {
 struct TestData {

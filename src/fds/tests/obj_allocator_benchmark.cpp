@@ -10,13 +10,13 @@
 #include <string>
 
 #include <benchmark/benchmark.h>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 
 #include "metrics/metrics.hpp"
 #include "obj_allocator.hpp"
 
-SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
+SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 RCU_REGISTER_INIT
 
 namespace {

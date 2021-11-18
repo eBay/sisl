@@ -27,7 +27,7 @@
 #include <sys/resource.h>
 #endif
 
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <nlohmann/json.hpp>
 
 #include "metrics/histogram_buckets.hpp"

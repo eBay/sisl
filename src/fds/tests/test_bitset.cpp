@@ -9,7 +9,7 @@
 #include <vector>
 
 #include <boost/dynamic_bitset.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 
 #include <gtest/gtest.h>
@@ -18,7 +18,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_bitset)
+SISL_LOGGING_INIT(test_bitset)
 
 namespace {
 uint64_t g_total_bits;
@@ -916,7 +916,7 @@ int main(int argc, char* argv[]) {
     int parsed_argc{argc};
     ::testing::InitGoogleTest(&parsed_argc, argv);
     SDS_OPTIONS_LOAD(parsed_argc, argv, logging, test_bitset);
-    sds_logging::SetLogger("test_bitset");
+    sisl_logging::SetLogger("test_bitset");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     g_total_bits = SDS_OPTIONS["num_bits"].as< uint32_t >();

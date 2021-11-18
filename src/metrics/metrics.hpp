@@ -20,7 +20,7 @@
 #include <boost/preprocessor/facilities/expand.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <nlohmann/json.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 
 #include "metrics_atomic.hpp"
@@ -28,8 +28,8 @@
 #include "metrics_rcu.hpp"
 #include "metrics_tlocal.hpp"
 
-// TODO: Commenting out this tempoarily till the SDS_OPTIONS and SDS_LOGGING issue is resolved
-// SDS_LOGGING_DECL(vmod_metrics_framework)
+// TODO: Commenting out this tempoarily till the SDS_OPTIONS and SISL_LOGGING issue is resolved
+// SISL_LOGGING_DECL(vmod_metrics_framework)
 
 namespace sisl {
 

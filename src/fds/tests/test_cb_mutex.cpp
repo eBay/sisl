@@ -2,7 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 #include <gtest/gtest.h>
 
@@ -14,7 +14,7 @@
 #include "callback_mutex.hpp"
 #include "utils.hpp"
 
-SDS_LOGGING_INIT(test_cb_mutex)
+SISL_LOGGING_INIT(test_cb_mutex)
 
 static uint64_t g_prev_val{0};
 static uint64_t g_cur_val{1};
@@ -101,7 +101,7 @@ SDS_OPTION_GROUP(test_cb_mutex,
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     SDS_OPTIONS_LOAD(argc, argv, logging, test_cb_mutex)
-    sds_logging::SetLogger("test_cb_mutex");
+    sisl_logging::SetLogger("test_cb_mutex");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
     auto ret = RUN_ALL_TESTS();

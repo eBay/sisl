@@ -1,5 +1,5 @@
 #include <version.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -7,7 +7,7 @@
 using namespace sisl;
 
 SDS_OPTIONS_ENABLE(logging)
-SDS_LOGGING_INIT(test_version)
+SISL_LOGGING_INIT(test_version)
 
 void entry() {
     auto ver{version::Semver200_version(PACKAGE_VERSION)};
@@ -32,7 +32,7 @@ TEST(entryTest, entry) {
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     SDS_OPTIONS_LOAD(argc, argv, logging);
-    sds_logging::SetLogger("test_version");
+    sisl_logging::SetLogger("test_version");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
     return RUN_ALL_TESTS();
 }

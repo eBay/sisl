@@ -1,5 +1,4 @@
 #include <iostream>
-#include <sds_logging/logging.h>
 #include <sds_options/options.h>
 #include <gtest/gtest.h>
 #include <string>
@@ -12,12 +11,13 @@
 #include <unistd.h>
 #endif
 
+#include "logging/logging.h"
 #include "range_cache.hpp"
 #include "lru_evictor.hpp"
 #include "utility/enum.hpp"
 
 using namespace sisl;
-SDS_LOGGING_INIT(test_rangecache)
+SISL_LOGGING_INIT(test_rangecache)
 
 static uint32_t g_num_chunks;
 static int64_t g_chunk_size;
@@ -229,7 +229,7 @@ SDS_OPTION_GROUP(test_rangecache,
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     SDS_OPTIONS_LOAD(argc, argv, logging, test_rangecache)
-    sds_logging::SetLogger("test_rangecache");
+    sisl_logging::SetLogger("test_rangecache");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
     auto ret = RUN_ALL_TESTS();

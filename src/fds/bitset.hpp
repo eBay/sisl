@@ -29,8 +29,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include <sds_logging/logging.h>
-
+#include "logging/logging.h"
 #include "bitword.hpp"
 #include "buffer.hpp"
 
@@ -549,8 +548,7 @@ public:
                         } else {
                             if (old_words_cap > new_words_cap) {
                                 // destroy extra bitwords
-                                std::destroy(std::next(word_ptr, new_words_cap),
-                                             std::next(word_ptr, old_words_cap));
+                                std::destroy(std::next(word_ptr, new_words_cap), std::next(word_ptr, old_words_cap));
                             }
                             std::copy(rhs_word_ptr, other.m_s->end_words_const(), word_ptr);
                         }
@@ -651,7 +649,8 @@ public:
 
             // create buffer that only destroys bit_serialized and not underlying words since they are POD
             auto buf{std::shared_ptr< byte_array_impl >{
-                new byte_array_impl{static_cast<uint32_t>(size), alignment_size, buftag::bitset}, [](byte_array_impl* const ptr) {
+                new byte_array_impl{static_cast< uint32_t >(size), alignment_size, buftag::bitset},
+                [](byte_array_impl* const ptr) {
                     if (ptr) {
                         // beginning of buffer is bitset_serialized
                         bitset_serialized* const bitset_serialized_ptr{reinterpret_cast< bitset_serialized* >(ptr)};
@@ -694,7 +693,7 @@ public:
             (sizeof(value_type) == sizeof(bitword_type)) && (alignment_size == m_s->m_alignment_size) && !force_copy) {
             // underlying BitWord class is standard layout and same alignment
             // so return the underlying byte_array
-            return static_cast<uint64_t>(m_buf->size());
+            return static_cast< uint64_t >(m_buf->size());
         } else {
             // underlying BitWord is not standard layout or different alignment or copy
             const uint64_t num_bits{total_bits()};
@@ -1137,8 +1136,7 @@ private:
         const uint64_t new_skip_bits{m_s->m_skip_bits & m_word_mask};
 
         const uint64_t new_nbits{nbits + new_skip_bits};
-        auto new_buf{
-            make_byte_array_with_deleter(bitset_serialized::nbytes(new_nbits), m_s->m_alignment_size)};
+        auto new_buf{make_byte_array_with_deleter(bitset_serialized::nbytes(new_nbits), m_s->m_alignment_size)};
         auto new_s{new (new_buf->bytes)
                        bitset_serialized{m_s->m_id, new_nbits, new_skip_bits, m_s->m_alignment_size, false}};
         const auto new_cap{new_s->m_words_cap};

@@ -1,4 +1,4 @@
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 
 #include <gtest/gtest.h>
@@ -7,7 +7,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_atomic_status_counter)
+SISL_LOGGING_INIT(test_atomic_status_counter)
 SDS_OPTIONS_ENABLE(logging)
 
 namespace {
@@ -26,7 +26,6 @@ protected:
 };
 } // namespace
 
-
 TEST_F(AtomicStatusCounterTest, BasicStatusCounter) {
     _status_counter< uint8_t, 0 > sc1{1};
     EXPECT_EQ(sc1.to_integer(), static_cast< uint64_t >(1));
@@ -44,7 +43,7 @@ TEST_F(AtomicStatusCounterTest, BasicTest) {
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging)
     ::testing::InitGoogleTest(&argc, argv);
-    sds_logging::SetLogger("test_atomic_status_counter");
+    sisl_logging::SetLogger("test_atomic_status_counter");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     const auto result{RUN_ALL_TESTS()};

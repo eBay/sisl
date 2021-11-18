@@ -1,5 +1,5 @@
 #include <iostream>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 #include <gtest/gtest.h>
 #include <string>
@@ -9,7 +9,7 @@
 #include "range_hashmap.hpp"
 
 using namespace sisl;
-SDS_LOGGING_INIT(test_hashnode)
+SISL_LOGGING_INIT(test_hashnode)
 
 struct TestRangeKey {
     uint64_t num{0};
@@ -277,7 +277,7 @@ SDS_OPTION_GROUP(test_hashnode,
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     SDS_OPTIONS_LOAD(argc, argv, logging, test_hashnode)
-    sds_logging::SetLogger("test_hashnode");
+    sisl_logging::SetLogger("test_hashnode");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
     auto ret = RUN_ALL_TESTS();

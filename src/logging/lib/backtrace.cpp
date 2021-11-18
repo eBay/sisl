@@ -39,24 +39,21 @@ namespace {
 [[maybe_unused]] std::string get_exec_path() {
     std::array< char, 1024 > path;
     uint32_t size{static_cast< uint32_t >(path.size())};
-    if (::_NSGetExecutablePath(path.data(), &size) != 0)
-        return std::string{};
+    if (::_NSGetExecutablePath(path.data(), &size) != 0) return std::string{};
 
     return std::string{path.data()};
 }
 
 [[maybe_unused]] std::string get_file_part(const std::string& full_path) {
     const size_t pos{full_path.rfind("/")};
-    if (pos == std::string::npos)
-        return full_path;
+    if (pos == std::string::npos) return full_path;
 
     return full_path.substr(pos + 1, full_path.size() - pos - 1);
 }
 
 [[maybe_unused]] intptr_t image_slide(void) {
     const std::string exec_path{get_exec_path()};
-    if (exec_path.empty())
-        return -1;
+    if (exec_path.empty()) return -1;
 
     const auto image_count{::_dyld_image_count()};
     for (std::remove_const_t< decltype(image_count) > i{0}; i < image_count; ++i) {
@@ -82,8 +79,7 @@ template < typename... Args >
 
     // Convert hex string -> integer address.
     const char* pos{std::strpbrk(input_str, "xX")};
-    if (!pos)
-        return actual_addr;
+    if (!pos) return actual_addr;
 
     while (++pos && (*pos != 0x00)) {
         const char c{*pos};
@@ -106,8 +102,7 @@ template < typename... Args >
 // trim whitespace of the given null terminated string of length input_length not including null terminator
 [[maybe_unused]] size_t trim_whitespace(char* const input, const size_t input_length) {
     size_t length{input_length};
-    if (length == 0)
-        return length;
+    if (length == 0) return length;
 
     // trim beginning
     size_t trim{0};
@@ -145,15 +140,11 @@ template < typename... Args >
 
 template < typename... Args >
 [[maybe_unused]] void log_message(const char* const format, Args&&... args) {
-    auto& logger{sds_logging::GetLogger()};
-    auto& critical_logger{sds_logging::GetCriticalLogger()};
+    auto& logger{sisl_logging::GetLogger()};
+    auto& critical_logger{sisl_logging::GetCriticalLogger()};
 
-    if (logger) {
-        logger->critical(format, std::forward< Args >(args)...);
-    }
-    if (critical_logger) {
-        critical_logger->critical(format, std::forward< Args >(args)...);
-    }
+    if (logger) { logger->critical(format, std::forward< Args >(args)...); }
+    if (critical_logger) { critical_logger->critical(format, std::forward< Args >(args)...); }
 }
 
 #ifdef __linux__
@@ -167,23 +158,16 @@ std::pair< bool, uintptr_t > offset_symbol_address(const char* const file_name, 
     {
         const std::unique_ptr< void, std::function< void(void* const) > > obj_file{::dlopen(file_name, RTLD_LAZY),
                                                                                    [](void* const ptr) {
-                                                                                       if (ptr)
-                                                                                           ::dlclose(ptr);
+                                                                                       if (ptr) ::dlclose(ptr);
                                                                                    }};
-        if (!obj_file) {
-            return {status, offset_address};
-        }
+        if (!obj_file) { return {status, offset_address}; }
 
         addr = ::dlsym(obj_file.get(), symbol_str);
-        if (!addr) {
-            return {status, offset_address};
-        }
+        if (!addr) { return {status, offset_address}; }
     }
 
     // extract the symbolic information pointed by address
-    if (!::dladdr(addr, &symbol_info)) {
-        return {status, offset_address};
-    }
+    if (!::dladdr(addr, &symbol_info)) { return {status, offset_address}; }
     offset_address +=
         (reinterpret_cast< uintptr_t >(symbol_info.dli_saddr) - reinterpret_cast< uintptr_t >(symbol_info.dli_fbase)) -
         1;
@@ -192,9 +176,8 @@ std::pair< bool, uintptr_t > offset_symbol_address(const char* const file_name, 
     return {status, offset_address};
 }
 
-std::pair< const char*, const char* > convert_symbol_line(const char* const file_name,
-                                                          const size_t file_name_length, const uintptr_t address,
-                                                          const char* const symbol_name) {
+std::pair< const char*, const char* > convert_symbol_line(const char* const file_name, const size_t file_name_length,
+                                                          const uintptr_t address, const char* const symbol_name) {
     static constexpr size_t line_number_length{24};
     static constexpr std::array< char, 10 > s_pipe_unknown{"??\0??:?\0"};
     const char* mangled_name{s_pipe_unknown.data()};
@@ -202,8 +185,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
     const char* file_line{s_pipe_unknown.data() + 3};
     size_t file_line_length{4};
 
-    if (file_name_length == 0)
-        return {mangled_name, file_line};
+    if (file_name_length == 0) return {mangled_name, file_line};
 
     // form the command
     static constexpr size_t extra_length{
@@ -225,8 +207,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
     {
         const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(s_command.data(), "re"),
                                                                              [](FILE* const ptr) {
-                                                                                 if (ptr)
-                                                                                     ::pclose(ptr);
+                                                                                 if (ptr) ::pclose(ptr);
                                                                              }};
         if (fp) {
             // wait on pipe
@@ -249,9 +230,8 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
             std::array< const char*, newlines_expected > newline_positions;
             size_t total_bytes_read{0};
             size_t total_newlines{0};
-            static std::array< char,
-                               backtrace_detail::symbol_name_length + backtrace_detail::file_name_length +
-                                   line_number_length >
+            static std::array<
+                char, backtrace_detail::symbol_name_length + backtrace_detail::file_name_length + line_number_length >
                 s_pipe_data;
             bool address_found{false};
             for (size_t read_try{0}; (read_try < read_tries) && (total_newlines < newlines_expected); ++read_try) {
@@ -336,8 +316,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
         const std::unique_ptr< const char, std::function< void(const char* const) > > cxa_demangled_name{
             std::strstr(mangled_name, "??") ? nullptr : abi::__cxa_demangle(mangled_name, 0, 0, &status),
             [](const char* const ptr) {
-                if (ptr)
-                    std::free(static_cast< void* >(const_cast< char* >(ptr)));
+                if (ptr) std::free(static_cast< void* >(const_cast< char* >(ptr)));
             }};
         if (!cxa_demangled_name) {
             if (status != -2) { // check that not a mangled name
@@ -423,7 +402,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
     const char* const slash_pos{std::strrchr(absolute_process_name, '/')};
     const char* const process_name{slash_pos ? slash_pos + 1 : absolute_process_name};
     const size_t process_name_length{std::strlen(process_name)};
-    
+
     static std::array< size_t, backtrace_detail::max_backtrace > s_output_line_start;
     size_t cur_len{0};
     size_t chars_read{0};
@@ -458,8 +437,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
             c = static_cast< char >(std::fgetc(stack_file));
             if (!std::feof(stack_file)) {
                 ++chars_read;
-                if (c == '\n')
-                    return;
+                if (c == '\n') return;
             }
         }
         return;
@@ -485,8 +463,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
             trim_whitespace(s_file_name.data(), extractName(s_file_name, std::array< char, 2 >{'(', '\n'}))};
 
         if (file_name_length == 0) {
-            if (c != '\n')
-                readTillEOL();
+            if (c != '\n') readTillEOL();
             continue;
         }
 
@@ -514,9 +491,10 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
                     const bool main_program{
                         file_name_length < process_name_length
                             ? false
-                            : std::strcmp(process_name, s_file_name.data() + file_name_length - process_name_length) == 0};
-                    const auto [offset_result,
-                                offset_addr]{offset_symbol_address(main_program ? nullptr : s_file_name.data(), s_symbol.data(), symbol_address)};
+                            : std::strcmp(process_name, s_file_name.data() + file_name_length - process_name_length) ==
+                                0};
+                    const auto [offset_result, offset_addr]{offset_symbol_address(
+                        main_program ? nullptr : s_file_name.data(), s_symbol.data(), symbol_address)};
                     if (offset_result) {
                         actual_addr = offset_addr;
                     } else {
@@ -528,17 +506,16 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
             }
         }
 
-        const auto [demangled_name, file_line]{
-            convert_symbol_line(s_file_name.data(), file_name_length, actual_addr, s_symbol.data())};
+        const auto [demangled_name,
+                    file_line]{convert_symbol_line(s_file_name.data(), file_name_length, actual_addr, s_symbol.data())};
         if (!demangled_name || !file_line) {
-            if (c != '\n')
-                readTillEOL();
+            if (c != '\n') readTillEOL();
             continue;
         }
 
         if (trim_internal) {
-            if (std::strstr(demangled_name, "sds_logging::bt_dumper") ||
-                std::strstr(demangled_name, "sds_logging::crash_handler")) {
+            if (std::strstr(demangled_name, "sisl_logging::bt_dumper") ||
+                std::strstr(demangled_name, "sisl_logging::crash_handler")) {
                 trim_line = line_num;
             }
         }
@@ -547,8 +524,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
                    actual_addr, demangled_name, file_line);
         ++line_num;
 
-        if (c != '\n')
-            readTillEOL();
+        if (c != '\n') readTillEOL();
     }
 
     if (trim_line > 0) {
@@ -585,8 +561,7 @@ size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr
     for (size_t i{1}; i < stack_size; ++i) {
         // `stack_msg[x]` format:
         //   8   foobar    0x000000010fd490da main + 1322
-        if (!stack_msg[i] || (stack_msg[i][0] == 0x0))
-            continue;
+        if (!stack_msg[i] || (stack_msg[i][0] == 0x0)) continue;
 
         const std::string base_str{stack_msg[i]};
 
@@ -612,8 +587,7 @@ size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr
         skip_glyph(base_str, cursor);
         len = cursor - s_pos;
         const std::string address{base_str.substr(s_pos, len)};
-        if (!address.empty() && address[0] == '?')
-            continue;
+        if (!address.empty() && address[0] == '?') continue;
 
         // Skip whitespace.
         skip_whitespace(base_str, cursor);
@@ -633,8 +607,7 @@ size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr
             int status;
             const std::unique_ptr< const char, std::function< void(const char* const) > > cc{
                 abi::__cxa_demangle(func_mangled.c_str(), 0, 0, &status), [](const char* const ptr) {
-                    if (ptr)
-                        std::free(static_cast< void* >(const_cast< char* >(ptr)));
+                    if (ptr) std::free(static_cast< void* >(const_cast< char* >(ptr)));
                 }};
             if (cc) {
                 t_snprintf(output_buf, avail_len, cur_len, msg_len, "%s at %s\n", cc.get(), filename.c_str());
@@ -652,24 +625,20 @@ size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr
             ss << " " << address;
             const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(ss.str().c_str() "r"),
                                                                                  [](FILE* const ptr) {
-                                                                                     if (ptr)
-                                                                                         ::pclose(ptr);
+                                                                                     if (ptr) ::pclose(ptr);
                                                                                  }};
-            if (!fp)
-                continue;
+            if (!fp) continue;
 
             std::array< char, 4096 > atos_cstr;
             std::fgets(atos_cstr.data(), atos_cstr.size() - 1, fp);
 
             const std::string atos_str{atos_cstr.data()};
             size_t d_pos{atos_str.find(" (in ")};
-            if (d_pos == std::string::npos)
-                continue;
+            if (d_pos == std::string::npos) continue;
             const std::string function_part{atos_str.substr(0, d_pos)};
 
             d_pos = atos_str.find(") (", d_pos);
-            if (d_pos == std::string::npos)
-                continue;
+            if (d_pos == std::string::npos) continue;
             std::string source_part{atos_str.substr(d_pos + 3)};
             source_part = source_part.substr(0, source_part.size() - 2);
 

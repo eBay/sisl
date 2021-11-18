@@ -4,7 +4,7 @@
 
 #pragma once
 #include <utility/urcu_helper.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 
 namespace sisl {
 template < typename StatusT >

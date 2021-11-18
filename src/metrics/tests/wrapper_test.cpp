@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 #include <sds_options/options.h>
 
-SDS_LOGGING_INIT(vmod_metrics_framework)
+SISL_LOGGING_INIT(vmod_metrics_framework)
 
 RCU_REGISTER_INIT
 
@@ -239,7 +239,7 @@ TEST(counterTest, wrapperTest) {
 // SDS_OPTIONS_ENABLE(logging)
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    // sds_logging::SetLogger("metrics_wrapper_test");
+    // sisl_logging::SetLogger("metrics_wrapper_test");
     // spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
     return RUN_ALL_TESTS();
 }

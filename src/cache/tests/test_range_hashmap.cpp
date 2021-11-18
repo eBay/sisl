@@ -1,16 +1,16 @@
 #include <iostream>
-#include <sds_logging/logging.h>
 #include <sds_options/options.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
 
+#include "logging/logging.h"
 #include "fds/bitset.hpp"
 #include "range_hashmap.hpp"
 #include "utility/enum.hpp"
 
 using namespace sisl;
-SDS_LOGGING_INIT(test_hashmap)
+SISL_LOGGING_INIT(test_hashmap)
 
 #if 0
 struct TestRangeKey {
@@ -487,7 +487,7 @@ SDS_OPTION_GROUP(test_hashmap,
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     SDS_OPTIONS_LOAD(argc, argv, logging, test_hashmap)
-    sds_logging::SetLogger("test_hashmap");
+    sisl_logging::SetLogger("test_hashmap");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
     g_max_offset = SDS_OPTIONS["max_offset"].as< uint32_t >();

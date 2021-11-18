@@ -6,7 +6,7 @@
 #include <thread>
 #include <vector>
 
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 
 #include <gtest/gtest.h>
@@ -17,7 +17,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_jemalloc)
+SISL_LOGGING_INIT(test_jemalloc)
 
 namespace {
 uint32_t g_num_threads;
@@ -125,7 +125,7 @@ SDS_OPTION_GROUP(test_jemalloc,
 int main(int argc, char* argv[]) {
     SDS_OPTIONS_LOAD(argc, argv, logging, test_jemalloc);
     ::testing::InitGoogleTest(&argc, argv);
-    sds_logging::SetLogger("test_bitset");
+    sisl_logging::SetLogger("test_bitset");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();

@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-SDS_LOGGING_INIT(httpserver_lmod)
+SISL_LOGGING_INIT(httpserver_lmod)
 SDS_OPTIONS_ENABLE(logging)
 
 namespace sisl::testing {

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <thread>
 
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 
 #include <gtest/gtest.h>
@@ -14,7 +14,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_atomic_counter)
+SISL_LOGGING_INIT(test_atomic_counter)
 
 namespace {
 size_t g_num_threads;
@@ -392,7 +392,7 @@ int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&parsed_argc, argv);
     testing::FLAGS_gtest_death_test_style = "threadsafe";
     SDS_OPTIONS_LOAD(parsed_argc, argv, logging, test_atomic_counter);
-    sds_logging::SetLogger("test_atomic_counter");
+    sisl_logging::SetLogger("test_atomic_counter");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     g_num_threads = SDS_OPTIONS["num_threads"].as< size_t >();

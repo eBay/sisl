@@ -7,14 +7,14 @@
 #include <thread>
 
 #include <gtest/gtest.h>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 
 #include "metrics.hpp"
 
 constexpr size_t ITERATIONS{3};
 
 RCU_REGISTER_INIT
-SDS_LOGGING_INIT(vmod_metrics_framework)
+SISL_LOGGING_INIT(vmod_metrics_framework)
 
 using namespace sisl;
 

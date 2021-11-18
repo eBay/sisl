@@ -8,7 +8,7 @@
 
 #include "logging.h"
 
-SDS_LOGGING_INIT(my_module)
+SISL_LOGGING_INIT(my_module)
 
 void func() {
     LOGINFO("Thread func started");
@@ -31,11 +31,11 @@ SDS_OPTIONS_ENABLE(ENABLED_OPTIONS)
 
 int main(int argc, char** argv) {
     SDS_OPTIONS_LOAD(argc, argv, ENABLED_OPTIONS)
-    sds_logging::SetLogger(std::string{argv[0]});
+    sisl_logging::SetLogger(std::string{argv[0]});
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     SDS_LOG_LEVEL(my_module, spdlog::level::level_enum::trace);
-    sds_logging::install_crash_handler();
+    sisl_logging::install_crash_handler();
 
     std::thread t{func};
     std::this_thread::sleep_for(std::chrono::seconds{1});
@@ -53,9 +53,9 @@ int main(int argc, char** argv) {
 
     // RELEASE_ASSERT_EQ(0, 1, "test");
 
-    // sds_logging::log_stack_trace(true);
+    // sisl_logging::log_stack_trace(true);
 #if 0
-    sds_logging::log_stack_trace();
+    sisl_logging::log_stack_trace();
 #else
     /*
     // NOTE: Some reason signal not being recognized as option
@@ -91,7 +91,6 @@ int main(int argc, char** argv) {
 
 #endif
 
-    if (t.joinable())
-        t.join();
+    if (t.joinable()) t.join();
     return 0;
 }

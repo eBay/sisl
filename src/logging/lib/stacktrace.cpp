@@ -39,7 +39,7 @@ namespace {
 constexpr uint64_t backtrace_timeout_ms{4 * backtrace_detail::pipe_timeout_ms};
 }
 
-namespace sds_logging {
+namespace sisl_logging {
 static bool g_custom_signal_handler_installed{false};
 static size_t g_custom_signal_handlers{0};
 static bool g_crash_handle_all_threads{true};
@@ -63,12 +63,8 @@ static bool exit_in_progress() {
     pthread_t current_id{tracing_thread_id.load()};
     pthread_t new_id{pthread_self()};
 
-    if (logger) {
-        logger->critical("Thread num: {} entered exit handler\n", new_id);
-    }
-    if (critical_logger) {
-        critical_logger->critical("Thread num: {} entered exit handler\n", new_id);
-    }
+    if (logger) { logger->critical("Thread num: {} entered exit handler\n", new_id); }
+    if (critical_logger) { critical_logger->critical("Thread num: {} entered exit handler\n", new_id); }
 
     if (current_id == new_id) {
         // we are already marked in exit handler
@@ -103,12 +99,24 @@ static void exit_with_default_sighandler(const SignalType fatal_signal_id) {
  *  or for Windows exception name */
 static const char* exit_reason_name(const SignalType fatal_id) {
     switch (fatal_id) {
-    case SIGABRT: return "SIGABRT"; break;
-    case SIGFPE: return "SIGFPE"; break;
-    case SIGSEGV: return "SIGSEGV"; break;
-    case SIGILL: return "SIGILL"; break;
-    case SIGTERM: return "SIGTERM"; break;
-    case SIGINT: return "SIGINT"; break;
+    case SIGABRT:
+        return "SIGABRT";
+        break;
+    case SIGFPE:
+        return "SIGFPE";
+        break;
+    case SIGSEGV:
+        return "SIGSEGV";
+        break;
+    case SIGILL:
+        return "SIGILL";
+        break;
+    case SIGTERM:
+        return "SIGTERM";
+        break;
+    case SIGINT:
+        return "SIGINT";
+        break;
     default:
         static std::array< char, 30 > unknown;
         std::snprintf(unknown.data(), unknown.size(), "UNKNOWN SIGNAL(%i)", fatal_id);
@@ -119,8 +127,7 @@ static const char* exit_reason_name(const SignalType fatal_id) {
 static void crash_handler(const SignalType signal_number) {
     const auto flush_logs{[]() { // flush all logs
         spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
-            if (l)
-                l->flush();
+            if (l) l->flush();
         });
         std::this_thread::sleep_for(std::chrono::milliseconds{250});
     }};
@@ -152,8 +159,7 @@ static void crash_handler(const SignalType signal_number) {
 static void sigint_handler(const SignalType signal_number) {
     // flush all logs and shutdown
     spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
-        if (l)
-            l->flush();
+        if (l) l->flush();
     });
     std::this_thread::sleep_for(std::chrono::milliseconds{250});
     spdlog::shutdown();
@@ -172,8 +178,7 @@ static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
             notify = true;
         }
     }
-    if (notify)
-        g_stack_dump_cv.notify_all();
+    if (notify) g_stack_dump_cv.notify_all();
 }
 
 static void log_stack_trace_all_threads() {
@@ -244,9 +249,7 @@ static void log_stack_trace_all_threads() {
 
     // dump other threads
     for (auto* const ctx : LoggerThreadContext::s_logger_thread_set) {
-        if (ctx == &logger_thread_ctx) {
-            continue;
-        }
+        if (ctx == &logger_thread_ctx) { continue; }
         dump_thread(true, ctx->m_thread_id);
         ++thread_count;
     }
@@ -279,9 +282,7 @@ bool restore_signal_handler(const SignalType signal_number) {
         if (itr != std::end(g_sighandler_map)) {
             g_custom_signal_handlers -= itr->second.num_installed;
             itr->second.num_installed = 0;
-            if (g_custom_signal_handlers == 0) {
-                g_custom_signal_handler_installed = false;
-            }
+            if (g_custom_signal_handlers == 0) { g_custom_signal_handler_installed = false; }
         }
         return true;
     }
@@ -292,9 +293,6 @@ bool restore_signal_handler(const SignalType signal_number) {
 
 // restore all custom signal handlers to default
 bool restore_signal_handlers() {
-    auto& logger{GetLogger()};
-    auto& critical_logger{GetCriticalLogger()};
-
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     std::lock_guard< std::mutex > lock{g_hdlr_mutex};
 
@@ -306,26 +304,13 @@ bool restore_signal_handlers() {
             std::snprintf(error.data(), error.size(), "default sigaction - %i", sig_pair.first);
             std::perror(error.data());
             failed = true;
-
-            if (logger) {
-                logger->critical("Failed to restore custom signal handler for signal {}", sig_pair.second.name.data());
-            }
-            if (critical_logger) {
-                critical_logger->critical("Failed to restore signal handler {}", sig_pair.second.name.data());
-            }
         } else {
             // restoring custom handler so decrease number of custom handlers
             auto itr{g_sighandler_map.find(sig_pair.first)};
             if (itr != std::end(g_sighandler_map)) {
                 g_custom_signal_handlers -= itr->second.num_installed;
                 itr->second.num_installed = 0;
-                if (g_custom_signal_handlers == 0) {
-                    g_custom_signal_handler_installed = false;
-                }
-            }
-
-            if (logger) {
-                logger->info("Restored custom signal handler for signal {}", sig_pair.second.name.data());
+                if (g_custom_signal_handlers == 0) { g_custom_signal_handler_installed = false; }
             }
         }
     }
@@ -336,9 +321,6 @@ bool restore_signal_handlers() {
 }
 
 bool install_signal_handler(const bool all_threads) {
-    auto& logger{GetLogger()};
-    auto& critical_logger{GetCriticalLogger()};
-
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     static std::array< char, 30 > error;
     std::lock_guard< std::mutex > lock{g_hdlr_mutex};
@@ -352,22 +334,11 @@ bool install_signal_handler(const bool all_threads) {
             std::snprintf(error.data(), error.size(), "sigaction - %s", sig_pair.second.name.c_str());
             std::perror(error.data());
             failed = true;
-
-            if (logger) {
-                logger->critical("Failed to install custom signal handler for signal {}", sig_pair.second.name.data());
-            }
-            if (critical_logger) {
-                critical_logger->critical("Failed to install signal handler {}", sig_pair.second.name.data());
-            }
             break;
         } else if (old_signal != sig_pair.second.handler) {
             // installed new custom signal handler
             ++g_custom_signal_handlers;
             ++(sig_pair.second.num_installed);
-
-            if (logger) {
-                logger->info("Installed custom signal handler for signal {}", sig_pair.second.name.data());
-            }
         }
         ++num_installed;
     }
@@ -386,33 +357,13 @@ bool install_signal_handler(const bool all_threads) {
                 if (old_signal == SIG_ERR) {
                     std::snprintf(error.data(), error.size(), "default sigaction - %s", sig_pair.second.name.c_str());
                     std::perror(error.data());
-
-                    if (logger) {
-                        logger->critical("Failed to roll back custom signal handler for signal {}",
-                                         sig_pair.second.name.data());
-                    }
-                    if (critical_logger) {
-                        critical_logger->critical("Failed to roll back custom signal handler {}",
-                                                  sig_pair.second.name.data());
-                    }
                 } else if (old_signal == sig_pair.second.handler) {
                     // restoring custom handler so decrease number of custom
                     g_custom_signal_handlers -= sig_pair.second.num_installed;
                     sig_pair.second.num_installed = 0;
-                    if (g_custom_signal_handlers == 0) {
-                        g_custom_signal_handler_installed = false;
-                    }
-
-                    if (logger) {
-                        logger->critical("Rolled back custom signal handler for signal {}",
-                                         sig_pair.second.name.data());
-                    }
-                    if (critical_logger) {
-                        critical_logger->critical("Rolled back custom signal handler {}", sig_pair.second.name.data());
-                    }
+                    if (g_custom_signal_handlers == 0) { g_custom_signal_handler_installed = false; }
                 }
-                if (++rolled_back == num_installed)
-                    break;
+                if (++rolled_back == num_installed) break;
             }
         }
     }
@@ -424,9 +375,6 @@ bool install_signal_handler(const bool all_threads) {
 
 bool add_signal_handler([[maybe_unused]] const SignalType sig_num, [[maybe_unused]] const std::string_view& sig_name,
                         [[maybe_unused]] const sig_handler_t hdlr) {
-    auto& logger{GetLogger()};
-    auto& critical_logger{GetCriticalLogger()};
-
 #if !(defined(DISABLE_FATAL_SIGNALHANDLING))
     std::lock_guard< std::mutex > lock{g_hdlr_mutex};
     auto* const old_signal{std::signal(sig_num, hdlr)};
@@ -435,13 +383,6 @@ bool add_signal_handler([[maybe_unused]] const SignalType sig_num, [[maybe_unuse
         std::snprintf(error.data(), error.size(), "sigaction - %.*s", static_cast< int >(sig_name.size()),
                       sig_name.data());
         std::perror(error.data());
-        
-        if (logger) {
-            logger->critical("Failed to install custom signal handler for signal {}", sig_name.data());
-        }
-        if (critical_logger) {
-            critical_logger->critical("Failed to install signal handler {}", sig_name.data());
-        }
         return false;
     } else if (old_signal != hdlr) {
         // installed new custom handler for signal
@@ -452,10 +393,6 @@ bool add_signal_handler([[maybe_unused]] const SignalType sig_num, [[maybe_unuse
         const auto itr_pair{g_sighandler_map.emplace(sig_num, signame_handler_data_t{sig_name.data(), hdlr})};
         itr_pair.first->second.handler = hdlr;
         ++(itr_pair.first->second.num_installed);
-
-        if (logger) {
-            logger->info("Installed custom signal handler for signal {}", sig_name.data());
-        }
     }
     return true;
 #else
@@ -496,4 +433,4 @@ bool is_crash_handler_installed() {
     return g_custom_signal_handler_installed;
 }
 
-} // namespace sds_logging
+} // namespace sisl_logging

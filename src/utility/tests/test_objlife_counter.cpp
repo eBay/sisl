@@ -7,13 +7,13 @@
 #include <cstdlib>
 
 #include <gtest/gtest.h>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <sds_options/options.h>
 
 #include "fds/buffer.hpp"
 #include "obj_life_counter.hpp"
 
-SDS_LOGGING_INIT(test_objlife)
+SISL_LOGGING_INIT(test_objlife)
 
 template < typename T1, typename T2 >
 struct TestClass : sisl::ObjLifeCounter< TestClass< T1, T2 > > {
@@ -89,7 +89,7 @@ SDS_OPTION_GROUP(test_objlife,
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     SDS_OPTIONS_LOAD(argc, argv, logging, test_objlife);
-    sds_logging::SetLogger("test_objlife");
+    sisl_logging::SetLogger("test_objlife");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();

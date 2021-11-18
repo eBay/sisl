@@ -24,7 +24,7 @@
 #include <optional>
 #include <set>
 #include <boost/filesystem.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <boost/intrusive/slist.hpp>
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include "utility/thread_factory.hpp"
@@ -41,7 +41,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-SDS_LOGGING_DECL(httpserver_lmod)
+SISL_LOGGING_DECL(httpserver_lmod)
 
 namespace sisl {
 
