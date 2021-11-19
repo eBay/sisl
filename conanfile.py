@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "5.0.11"
+    version = "6.0.1"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -35,7 +35,7 @@ class MetricsConan(ConanFile):
                     "gtest/1.10.0",
                 )
     requires = (
-                    "sds_logging/[~=11, include_prerelease=True]@sds/develop",
+                    "sds_logging/[~=11, include_prerelease=True]@sds/master",
                     "sds_options/[~=1, include_prerelease=True]@sds/master",
 
                     "boost/1.73.0",
