@@ -1,6 +1,6 @@
 #include <iostream>
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
@@ -207,7 +207,7 @@ TEST_F(HashNodeTest, RandomValidWriteTest) {
     validate_all();
     LOGINFO("Node details after all insert: {}", m_node->to_string());
 
-    auto num_iters{SDS_OPTIONS["num_iters"].as< uint64_t >()};
+    auto num_iters{SISL_OPTIONS["num_iters"].as< uint64_t >()};
     LOGINFO("INFO: Insert/Erase valid entries randomly for {} iterations", num_iters);
     for (uint64_t i{0}; i < num_iters; ++i) {
         if (m_shadow_map.size() < g_max_offset + 1) {
@@ -233,7 +233,7 @@ TEST_F(HashNodeTest, RandomEverythingTest) {
     uint32_t nread_ops{0}, ninsert_ops{0}, nerase_ops{0};
     uint32_t nblks_read{0}, nblks_inserted{0}, nblks_erased{0};
 
-    auto num_iters{SDS_OPTIONS["num_iters"].as< uint64_t >()};
+    auto num_iters{SISL_OPTIONS["num_iters"].as< uint64_t >()};
     LOGINFO("INFO: Do completely random read/insert/erase operations with both valid and invalid entries for {} iters",
             num_iters);
     for (uint64_t i{0}; i < num_iters; ++i) {
@@ -269,15 +269,15 @@ TEST_F(HashNodeTest, RandomEverythingTest) {
             nblks_read, ninsert_ops, nblks_inserted, nerase_ops, nblks_erased);
 }
 
-SDS_OPTIONS_ENABLE(logging, test_hashnode)
-SDS_OPTION_GROUP(test_hashnode,
-                 (num_iters, "", "num_iters", "number of iterations",
-                  ::cxxopts::value< uint64_t >()->default_value("10000"), "number"))
+SISL_OPTIONS_ENABLE(logging, test_hashnode)
+SISL_OPTION_GROUP(test_hashnode,
+                  (num_iters, "", "num_iters", "number of iterations",
+                   ::cxxopts::value< uint64_t >()->default_value("10000"), "number"))
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_hashnode)
-    sisl_logging::SetLogger("test_hashnode");
+    SISL_OPTIONS_LOAD(argc, argv, logging, test_hashnode)
+    sisl::logging::SetLogger("test_hashnode");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
     auto ret = RUN_ALL_TESTS();

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <thread>
 
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include "logging.h"
 
@@ -21,21 +21,21 @@ void func() {
 }
 
 // clang-format off
-SDS_OPTION_GROUP(test_logging,
+SISL_OPTION_GROUP(test_logging,
     (signal, "si", "signal option", "signal option", ::cxxopts::value<uint32_t>(), "1-6"))
 // clang-format on
 
 #define ENABLED_OPTIONS test_logging, logging
 
-SDS_OPTIONS_ENABLE(ENABLED_OPTIONS)
+SISL_OPTIONS_ENABLE(ENABLED_OPTIONS)
 
 int main(int argc, char** argv) {
-    SDS_OPTIONS_LOAD(argc, argv, ENABLED_OPTIONS)
-    sisl_logging::SetLogger(std::string{argv[0]});
+    SISL_OPTIONS_LOAD(argc, argv, ENABLED_OPTIONS)
+    sisl::logging::SetLogger(std::string{argv[0]});
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
-    SDS_LOG_LEVEL(my_module, spdlog::level::level_enum::trace);
-    sisl_logging::install_crash_handler();
+    SISL_LOG_LEVEL(my_module, spdlog::level::level_enum::trace);
+    sisl::logging::install_crash_handler();
 
     std::thread t{func};
     std::this_thread::sleep_for(std::chrono::seconds{1});
@@ -47,19 +47,19 @@ int main(int argc, char** argv) {
     LOGERROR("Error");
     LOGCRITICAL("Critical");
 
-    SDS_LOG_LEVEL(my_module, spdlog::level::level_enum::info);
+    SISL_LOG_LEVEL(my_module, spdlog::level::level_enum::info);
     LOGINFOMOD(my_module, "Enabled Module Logger");
     LOGTRACEMOD(my_module, "Trace Module");
 
     // RELEASE_ASSERT_EQ(0, 1, "test");
 
-    // sisl_logging::log_stack_trace(true);
+    // sisl::logging::log_stack_trace(true);
 #if 0
-    sisl_logging::log_stack_trace();
+    sisl::logging::log_stack_trace();
 #else
     /*
     // NOTE: Some reason signal not being recognized as option
-    switch (SDS_OPTIONS["signal"].as< uint32_t >()) {
+    switch (SISL_OPTIONS["signal"].as< uint32_t >()) {
     case 1:
         std::raise(SIGABRT);
     case 2:

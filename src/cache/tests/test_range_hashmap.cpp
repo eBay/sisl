@@ -1,5 +1,5 @@
 #include <iostream>
-#include <sds_options/options.h>
+#include "options/options.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
@@ -220,7 +220,7 @@ TEST_F(RangeHashMapTest, RandomEverythingTest) {
 
     static std::uniform_int_distribution< big_offset_t > offset_generator{0, g_max_offset - 1};
 
-    auto num_iters = SDS_OPTIONS["num_iters"].as< uint32_t >();
+    auto num_iters = SISL_OPTIONS["num_iters"].as< uint32_t >();
     LOGINFO("INFO: Do completely random read/insert/erase operations for {} entries for {} iters", g_max_offset,
             num_iters);
     for (uint32_t i{0}; i < num_iters; ++i) {
@@ -414,7 +414,7 @@ TEST_F(HashNodeTest, RandomValidWriteTest) {
     validate_all();
     LOGINFO("Node details after all insert: {}", m_node->to_string());
 
-    auto num_iters{SDS_OPTIONS["num_iters"].as< uint64_t >()};
+    auto num_iters{SISL_OPTIONS["num_iters"].as< uint64_t >()};
     LOGINFO("INFO: Insert/Erase valid entries randomly for {} iterations", num_iters);
     for (uint64_t i{0}; i < num_iters; ++i) {
         if (m_shadow_map.size() < g_max_offset + 1) {
@@ -440,7 +440,7 @@ TEST_F(HashNodeTest, RandomEverythingTest) {
     uint32_t nread_ops{0}, ninsert_ops{0}, nerase_ops{0};
     uint32_t nblks_read{0}, nblks_inserted{0}, nblks_erased{0};
 
-    auto num_iters{SDS_OPTIONS["num_iters"].as< uint64_t >()};
+    auto num_iters{SISL_OPTIONS["num_iters"].as< uint64_t >()};
     LOGINFO("INFO: Do completely random read/insert/erase operations with both valid and invalid entries for {} iters",
             num_iters);
     for (uint64_t i{0}; i < num_iters; ++i) {
@@ -477,20 +477,20 @@ TEST_F(HashNodeTest, RandomEverythingTest) {
 }
 #endif
 
-SDS_OPTIONS_ENABLE(logging, test_hashmap)
-SDS_OPTION_GROUP(test_hashmap,
-                 (max_offset, "", "max_offset", "max number of offset",
-                  ::cxxopts::value< uint32_t >()->default_value("65536"), "number"),
-                 (num_iters, "", "num_iters", "number of iterations for rand ops",
-                  ::cxxopts::value< uint32_t >()->default_value("65536"), "number"))
+SISL_OPTIONS_ENABLE(logging, test_hashmap)
+SISL_OPTION_GROUP(test_hashmap,
+                  (max_offset, "", "max_offset", "max number of offset",
+                   ::cxxopts::value< uint32_t >()->default_value("65536"), "number"),
+                  (num_iters, "", "num_iters", "number of iterations for rand ops",
+                   ::cxxopts::value< uint32_t >()->default_value("65536"), "number"))
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_hashmap)
-    sisl_logging::SetLogger("test_hashmap");
+    SISL_OPTIONS_LOAD(argc, argv, logging, test_hashmap)
+    sisl::logging::SetLogger("test_hashmap");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
-    g_max_offset = SDS_OPTIONS["max_offset"].as< uint32_t >();
+    g_max_offset = SISL_OPTIONS["max_offset"].as< uint32_t >();
     auto ret = RUN_ALL_TESTS();
     return ret;
 }

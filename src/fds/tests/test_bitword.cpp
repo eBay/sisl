@@ -6,7 +6,7 @@
 #include <type_traits>
 
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include <gtest/gtest.h>
 
@@ -15,7 +15,7 @@
 using namespace sisl;
 
 SISL_LOGGING_INIT(test_bitword)
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 
 namespace {
 bool validate(const uint64_t val, const uint8_t offset, bit_filter filter, const uint8_t exp_start,
@@ -344,9 +344,9 @@ TEST_F(BitwordTest, GetMaxContiguousResetBits) {
 }
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     ::testing::InitGoogleTest(&argc, argv);
-    sisl_logging::SetLogger("test_bitword");
+    sisl::logging::SetLogger("test_bitword");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     return RUN_ALL_TESTS();

@@ -1,12 +1,12 @@
 #include <version.hpp>
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 #include <gtest/gtest.h>
 #include <iostream>
 
 using namespace sisl;
 
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 SISL_LOGGING_INIT(test_version)
 
 void entry() {
@@ -31,8 +31,8 @@ TEST(entryTest, entry) {
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging);
-    sisl_logging::SetLogger("test_version");
+    SISL_OPTIONS_LOAD(argc, argv, logging);
+    sisl::logging::SetLogger("test_version");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
     return RUN_ALL_TESTS();
 }

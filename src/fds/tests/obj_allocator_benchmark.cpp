@@ -11,7 +11,7 @@
 
 #include <benchmark/benchmark.h>
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include "metrics/metrics.hpp"
 #include "obj_allocator.hpp"
@@ -77,9 +77,9 @@ void test_obj_alloc(benchmark::State& state) {
 BENCHMARK(test_malloc)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_obj_alloc)->Iterations(ITERATIONS)->Threads(THREADS);
 
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 int main(int argc, char** argv) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     setup();
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();

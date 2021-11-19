@@ -1,5 +1,5 @@
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include <gtest/gtest.h>
 
@@ -8,7 +8,7 @@
 using namespace sisl;
 
 SISL_LOGGING_INIT(test_atomic_status_counter)
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 
 namespace {
 class AtomicStatusCounterTest : public testing::Test {
@@ -41,9 +41,9 @@ TEST_F(AtomicStatusCounterTest, BasicTest) {
 }
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     ::testing::InitGoogleTest(&argc, argv);
-    sisl_logging::SetLogger("test_atomic_status_counter");
+    sisl::logging::SetLogger("test_atomic_status_counter");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     const auto result{RUN_ALL_TESTS()};

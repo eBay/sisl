@@ -35,8 +35,6 @@ class MetricsConan(ConanFile):
                     "gtest/1.10.0",
                 )
     requires = (
-                    "sds_options/[~=1, include_prerelease=True]@sds/master",
-
                     "boost/1.73.0",
                     "spdlog/1.9.2",
                     "evhtp/1.2.18.2",
@@ -52,6 +50,7 @@ class MetricsConan(ConanFile):
                     "jwt-cpp/0.4.0",
                     "cpr/1.5.2",
                     "libcurl/7.70.0",
+                    "cxxopts/2.2.1",
                 )
 
     generators = "cmake"

@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include "id_reserver.hpp"
 
@@ -13,9 +13,9 @@ using namespace sisl;
 
 SISL_LOGGING_INIT(test_bitset);
 
-SDS_OPTIONS_ENABLE(logging, test_id_reserver)
+SISL_OPTIONS_ENABLE(logging, test_id_reserver)
 
-SDS_OPTION_GROUP(test_id_reserver,
+SISL_OPTION_GROUP(test_id_reserver,
                  (num_threads, "", "num_threads", "number of threads",
                   ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
                  (max_ids, "", "max_ids", "maximum number of ids",
@@ -65,13 +65,13 @@ TEST_F(IDReserverTest, RandomIDSet) {
 }
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_id_reserver);
+    SISL_OPTIONS_LOAD(argc, argv, logging, test_id_reserver);
     ::testing::InitGoogleTest(&argc, argv);
-    sisl_logging::SetLogger("test_id_reserver");
+    sisl::logging::SetLogger("test_id_reserver");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
-    g_max_ids = SDS_OPTIONS["max_ids"].as< uint32_t >();
-    g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();
+    g_max_ids = SISL_OPTIONS["max_ids"].as< uint32_t >();
+    g_num_threads = SISL_OPTIONS["num_threads"].as< uint32_t >();
 
     auto ret = RUN_ALL_TESTS();
     return ret;

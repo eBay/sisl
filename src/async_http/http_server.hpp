@@ -29,7 +29,7 @@
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include "utility/thread_factory.hpp"
 #include "utility/obj_life_counter.hpp"
-#include <sds_options/options.h>
+#include "options/options.h"
 
 // maybe-uninitialized variable in one of the included headers from jwt.h
 #if defined __clang__ or defined __GNUC__

@@ -39,7 +39,8 @@ namespace {
 constexpr uint64_t backtrace_timeout_ms{4 * backtrace_detail::pipe_timeout_ms};
 }
 
-namespace sisl_logging {
+namespace sisl {
+namespace logging {
 static bool g_custom_signal_handler_installed{false};
 static size_t g_custom_signal_handlers{0};
 static bool g_crash_handle_all_threads{true};
@@ -432,5 +433,5 @@ bool is_crash_handler_installed() {
     std::lock_guard< std::mutex > lock{g_hdlr_mutex};
     return g_custom_signal_handler_installed;
 }
-
-} // namespace sisl_logging
+} // namespace logging
+} // namespace sisl

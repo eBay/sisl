@@ -140,8 +140,8 @@ template < typename... Args >
 
 template < typename... Args >
 [[maybe_unused]] void log_message(const char* const format, Args&&... args) {
-    auto& logger{sisl_logging::GetLogger()};
-    auto& critical_logger{sisl_logging::GetCriticalLogger()};
+    auto& logger{sisl::logging::GetLogger()};
+    auto& critical_logger{sisl::logging::GetCriticalLogger()};
 
     if (logger) { logger->critical(format, std::forward< Args >(args)...); }
     if (critical_logger) { critical_logger->critical(format, std::forward< Args >(args)...); }
@@ -201,7 +201,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
     static std::array< char, backtrace_detail::address_length + 1 > s_address;
     std::snprintf(s_address.data(), s_address.size(), "%" PRIxPTR, address);
     std::snprintf(s_command.data() + command_length, s_command.size() - command_length, "\' -a 0x%s", s_address.data());
-    // log_message("SDS Logging - symbol_line with command {}", s_command.data());
+    // log_message("SISL Logging - symbol_line with command {}", s_command.data());
 
     // execute command and read data from pipe
     {
@@ -289,23 +289,23 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
                     mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
                     mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
                 } else if (total_newlines == 2) {
-                    log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
+                    log_message("SISL Logging - Pipe did not return expected number of newlines {}", total_newlines);
                     mangled_name = newline_positions[0] + 1;
                     mangled_name_length = static_cast< size_t >(newline_positions[1] - mangled_name);
                     mangled_name_length = trim_whitespace(const_cast< char* >(mangled_name), mangled_name_length);
                 } else {
-                    log_message("SDS Logging - Pipe did not return expected number of newlines {}", total_newlines);
+                    log_message("SISL Logging - Pipe did not return expected number of newlines {}", total_newlines);
                 }
             } else {
                 // no pipe data just continue
-                log_message("SDS Logging - No pipe data");
+                log_message("SISL Logging - No pipe data");
             }
         } else {
             // no pipe just continue
-            log_message("SDS Logging - Could not open pipe to resolve symbol_line with command {}", s_command.data());
+            log_message("SISL Logging - Could not open pipe to resolve symbol_line with command {}", s_command.data());
         }
         if (std::strstr(mangled_name, "??")) {
-            log_message("SDS Logging - Could not resolve symbol_line with command {}", s_command.data());
+            log_message("SISL Logging - Could not resolve symbol_line with command {}", s_command.data());
         }
     }
 
@@ -320,7 +320,7 @@ std::pair< const char*, const char* > convert_symbol_line(const char* const file
             }};
         if (!cxa_demangled_name) {
             if (status != -2) { // check that not a mangled name
-                log_message("SDS Logging - Could not demangle name {} error {}", mangled_name, status);
+                log_message("SISL Logging - Could not demangle name {} error {}", mangled_name, status);
             }
             if (!symbol_name || (symbol_name[0] == '+') || (symbol_name[0] == 0x00)) {
                 // no symbol name so use mangled name
@@ -499,7 +499,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
                         actual_addr = offset_addr;
                     } else {
                         log_message(
-                            "SDS Logging - Could not resolve offset_symbol_address for symbol {} with address {}",
+                            "SISL Logging - Could not resolve offset_symbol_address for symbol {} with address {}",
                             s_symbol.data(), symbol_address);
                     }
                 }
@@ -514,8 +514,8 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
         }
 
         if (trim_internal) {
-            if (std::strstr(demangled_name, "sisl_logging::bt_dumper") ||
-                std::strstr(demangled_name, "sisl_logging::crash_handler")) {
+            if (std::strstr(demangled_name, "sisl::logging::bt_dumper") ||
+                std::strstr(demangled_name, "sisl::logging::crash_handler")) {
                 trim_line = line_num;
             }
         }

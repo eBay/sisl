@@ -8,7 +8,7 @@
 
 #include <gtest/gtest.h>
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include "fds/buffer.hpp"
 #include "obj_life_counter.hpp"
@@ -81,18 +81,18 @@ TEST_F(ObjLifeTest, BasicCount) {
 }
 
 uint32_t g_num_threads;
-SDS_OPTIONS_ENABLE(logging, test_objlife)
-SDS_OPTION_GROUP(test_objlife,
-                 (num_threads, "", "num_threads", "number of threads",
-                  ::cxxopts::value< uint32_t >()->default_value("8"), "number"))
+SISL_OPTIONS_ENABLE(logging, test_objlife)
+SISL_OPTION_GROUP(test_objlife,
+                  (num_threads, "", "num_threads", "number of threads",
+                   ::cxxopts::value< uint32_t >()->default_value("8"), "number"))
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_objlife);
-    sisl_logging::SetLogger("test_objlife");
+    SISL_OPTIONS_LOAD(argc, argv, logging, test_objlife);
+    sisl::logging::SetLogger("test_objlife");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
-    g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();
+    g_num_threads = SISL_OPTIONS["num_threads"].as< uint32_t >();
 
 #ifdef _PRERELEASE
     const auto ret{RUN_ALL_TESTS()};

@@ -1,5 +1,5 @@
 #include <iostream>
-#include <sds_options/options.h>
+#include "options/options.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
@@ -37,15 +37,15 @@ protected:
 
 protected:
     void SetUp() override {
-        int64_t cache_size = SDS_OPTIONS["cache_size_mb"].as< uint32_t >() * 1024 * 1024;
+        int64_t cache_size = SISL_OPTIONS["cache_size_mb"].as< uint32_t >() * 1024 * 1024;
         m_evictor = std::make_unique< LRUEvictor >(cache_size, 8);
         m_cache = std::make_unique< RangeCache< uint32_t > >(m_evictor, cache_size / 4096, 4096 /* blk_size */);
 
-        g_num_chunks = SDS_OPTIONS["num_chunks"].as< uint32_t >();
-        auto cache_pct = SDS_OPTIONS["cache_pct"].as< uint32_t >();
+        g_num_chunks = SISL_OPTIONS["num_chunks"].as< uint32_t >();
+        auto cache_pct = SISL_OPTIONS["cache_pct"].as< uint32_t >();
         g_chunk_size = (cache_size * (100 / cache_pct)) / g_num_chunks;
         LOGINFO("Initializing cache_size={} MB, num_chunks={} each_chunk_size={}",
-                SDS_OPTIONS["cache_size_mb"].as< uint32_t >(), g_num_chunks, g_chunk_size);
+                SISL_OPTIONS["cache_size_mb"].as< uint32_t >(), g_num_chunks, g_chunk_size);
         file_init(g_num_chunks, g_chunk_size);
     }
 
@@ -107,7 +107,8 @@ private:
             LOGINFO("File {} being filled with random bytes for size={}", fname, chunk_size);
             while (filled_size < chunk_size) {
                 uint32_t this_size = std::min(uint32_cast(chunk_size - filled_size), max_blk_size);
-                ::write(fd, generate_data(this_size), this_size);
+                auto size = ::write(fd, generate_data(this_size), this_size);
+                ASSERT_EQ(size, this_size);
                 filled_size += this_size;
             }
         }
@@ -184,7 +185,7 @@ TEST_F(RangeCacheTest, RandomData) {
     uint32_t nread_ops{0};
     uint32_t nwrite_ops{0};
 
-    auto num_iters = SDS_OPTIONS["num_iters"].as< uint32_t >();
+    auto num_iters = SISL_OPTIONS["num_iters"].as< uint32_t >();
     LOGINFO("INFO: Do random read/write operations on all chunks for {} iters", num_iters);
     for (uint32_t i{0}; i < num_iters; ++i) {
         const op_t op = s_cast< op_t >(op_generator(g_re));
@@ -215,21 +216,21 @@ TEST_F(RangeCacheTest, RandomData) {
             m_cache_hit_nblks / m_cache_pieces);
 }
 
-SDS_OPTIONS_ENABLE(logging, test_rangecache)
-SDS_OPTION_GROUP(test_rangecache,
-                 (cache_size_mb, "", "cache_size_mb", "cache size in mb",
-                  ::cxxopts::value< uint32_t >()->default_value("100"), "number"),
-                 (cache_pct, "", "cache_pct", "percentage of cache",
-                  ::cxxopts::value< uint32_t >()->default_value("50"), "number"),
-                 (num_chunks, "", "num_chunks", "Total number of chunks",
-                  ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
-                 (num_iters, "", "num_iters", "number of iterations for rand ops",
-                  ::cxxopts::value< uint32_t >()->default_value("65536"), "number"))
+SISL_OPTIONS_ENABLE(logging, test_rangecache)
+SISL_OPTION_GROUP(test_rangecache,
+                  (cache_size_mb, "", "cache_size_mb", "cache size in mb",
+                   ::cxxopts::value< uint32_t >()->default_value("100"), "number"),
+                  (cache_pct, "", "cache_pct", "percentage of cache",
+                   ::cxxopts::value< uint32_t >()->default_value("50"), "number"),
+                  (num_chunks, "", "num_chunks", "Total number of chunks",
+                   ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
+                  (num_iters, "", "num_iters", "number of iterations for rand ops",
+                   ::cxxopts::value< uint32_t >()->default_value("65536"), "number"))
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_rangecache)
-    sisl_logging::SetLogger("test_rangecache");
+    SISL_OPTIONS_LOAD(argc, argv, logging, test_rangecache)
+    sisl::logging::SetLogger("test_rangecache");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
     auto ret = RUN_ALL_TESTS();

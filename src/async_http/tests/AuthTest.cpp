@@ -11,7 +11,7 @@
 #include <gmock/gmock.h>
 
 SISL_LOGGING_INIT(httpserver_lmod)
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 
 namespace sisl::testing {
 using namespace ::testing;
@@ -291,6 +291,6 @@ using namespace sisl::testing;
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleMock(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     return RUN_ALL_TESTS();
 }

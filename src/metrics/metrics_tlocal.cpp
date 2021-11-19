@@ -58,7 +58,7 @@ HistogramValue& PerThreadMetrics::get_histogram(const uint64_t index) {
 static int outstanding_flush{0};
 static std::mutex flush_cv_mtx;
 static std::condition_variable flush_cv;
-static void flush_cache_handler([[maybe_unused]] sisl_logging::SignalType signal_number) {
+static void flush_cache_handler([[maybe_unused]] sisl::logging::SignalType signal_number) {
     assert(signal_number == SIGUSR4);
 
     std::atomic_thread_fence(std::memory_order_release);
@@ -83,7 +83,7 @@ void ThreadBufferMetricsGroup::flush_core_cache() {
             ++outstanding_flush;
         }
         // std::cout << "Sending thread signal to thread_num " << thread_num << "\n";
-        sisl_logging::send_thread_signal(pt, SIGUSR4);
+        sisl::logging::send_thread_signal(pt, SIGUSR4);
     });
 
     {
@@ -95,7 +95,7 @@ void ThreadBufferMetricsGroup::flush_core_cache() {
 
 void ThreadBufferMetricsGroup::on_register() {
     static std::once_flag flag1;
-    std::call_once(flag1, [&]() { sisl_logging::add_signal_handler(SIGUSR4, "SIGUSR4", &flush_cache_handler); });
+    std::call_once(flag1, [&]() { sisl::logging::add_signal_handler(SIGUSR4, "SIGUSR4", &flush_cache_handler); });
 
     m_metrics_buf =
         std::make_unique< PerThreadMetricsBuffer >(m_static_info->m_histograms, num_counters(), num_histograms());

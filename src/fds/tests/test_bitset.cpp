@@ -10,7 +10,7 @@
 
 #include <boost/dynamic_bitset.hpp>
 #include "logging/logging.h"
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include <gtest/gtest.h>
 
@@ -900,29 +900,29 @@ TEST_F(BitsetTest, SerializeDeserializeAtomicBitset) {
     EXPECT_EQ(bset1, bset2);
 }
 
-SDS_OPTIONS_ENABLE(logging, test_bitset)
+SISL_OPTIONS_ENABLE(logging, test_bitset)
 
-SDS_OPTION_GROUP(test_bitset,
-                 (num_threads, "", "num_threads", "number of threads",
-                  ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
-                 (num_bits, "", "num_bits", "number of bits to start",
-                  ::cxxopts::value< uint32_t >()->default_value("1000"), "number"),
-                 (set_pct, "", "set_pct", "set percentage for randome test",
-                  ::cxxopts::value< uint32_t >()->default_value("25"), "number"),
-                 (max_bits_in_grp, "", "max_bits_in_grp", "max bits to be set/reset at a time",
-                  ::cxxopts::value< uint32_t >()->default_value("72"), "number"))
+SISL_OPTION_GROUP(test_bitset,
+                  (num_threads, "", "num_threads", "number of threads",
+                   ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
+                  (num_bits, "", "num_bits", "number of bits to start",
+                   ::cxxopts::value< uint32_t >()->default_value("1000"), "number"),
+                  (set_pct, "", "set_pct", "set percentage for randome test",
+                   ::cxxopts::value< uint32_t >()->default_value("25"), "number"),
+                  (max_bits_in_grp, "", "max_bits_in_grp", "max bits to be set/reset at a time",
+                   ::cxxopts::value< uint32_t >()->default_value("72"), "number"))
 
 int main(int argc, char* argv[]) {
     int parsed_argc{argc};
     ::testing::InitGoogleTest(&parsed_argc, argv);
-    SDS_OPTIONS_LOAD(parsed_argc, argv, logging, test_bitset);
-    sisl_logging::SetLogger("test_bitset");
+    SISL_OPTIONS_LOAD(parsed_argc, argv, logging, test_bitset);
+    sisl::logging::SetLogger("test_bitset");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
-    g_total_bits = SDS_OPTIONS["num_bits"].as< uint32_t >();
-    g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();
-    g_set_pct = SDS_OPTIONS["set_pct"].as< uint32_t >();
-    g_max_bits_in_group = SDS_OPTIONS["set_pct"].as< uint32_t >();
+    g_total_bits = SISL_OPTIONS["num_bits"].as< uint32_t >();
+    g_num_threads = SISL_OPTIONS["num_threads"].as< uint32_t >();
+    g_set_pct = SISL_OPTIONS["set_pct"].as< uint32_t >();
+    g_max_bits_in_group = SISL_OPTIONS["set_pct"].as< uint32_t >();
 
     const auto ret{RUN_ALL_TESTS()};
     return ret;
