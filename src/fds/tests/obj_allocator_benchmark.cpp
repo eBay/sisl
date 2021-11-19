@@ -10,13 +10,13 @@
 #include <string>
 
 #include <benchmark/benchmark.h>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "metrics/metrics.hpp"
 #include "obj_allocator.hpp"
 
-SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
+SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 RCU_REGISTER_INIT
 
 namespace {
@@ -77,9 +77,9 @@ void test_obj_alloc(benchmark::State& state) {
 BENCHMARK(test_malloc)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_obj_alloc)->Iterations(ITERATIONS)->Threads(THREADS);
 
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 int main(int argc, char** argv) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     setup();
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();

@@ -16,7 +16,7 @@
 #endif
 
 #include <boost/intrusive/slist.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <spdlog/fmt/fmt.h>
 
 #include "memvector.hpp"
@@ -25,7 +25,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(group_commit)
+SISL_LOGGING_INIT(group_commit)
 
 #pragma pack(1)
 struct log_group_header {

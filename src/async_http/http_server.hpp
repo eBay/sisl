@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <thread>
 #include <string>
+#include <cpr/cpr.h>
 #include <evhtp.h>
 #include <event2/event.h>
 #include <event2/http.h>
@@ -23,14 +24,24 @@
 #include <optional>
 #include <set>
 #include <boost/filesystem.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <boost/intrusive/slist.hpp>
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include "utility/thread_factory.hpp"
 #include "utility/obj_life_counter.hpp"
-#include <sds_options/options.h>
+#include "options/options.h"
 
-SDS_LOGGING_DECL(httpserver_lmod)
+// maybe-uninitialized variable in one of the included headers from jwt.h
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#include <jwt-cpp/jwt.h>
+#if defined __clang__ or defined __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
+SISL_LOGGING_DECL(httpserver_lmod)
 
 namespace sisl {
 
@@ -42,6 +53,13 @@ struct HttpServerConfig {
     std::string bind_address;
     uint32_t server_port;
     uint32_t read_write_timeout_secs;
+    bool is_auth_enabled;
+    std::string tf_token_url;
+    std::string ssl_cert_file;
+    std::string ssl_key_file;
+    std::string ssl_ca_file;
+    uint32_t auth_exp_leeway;
+    std::string auth_allowed_apps;
 };
 
 ////////////////////// Internal Event Definitions //////////////////////
@@ -204,6 +222,66 @@ public:
         }
     }
 
+    /*
+     * The user of the http_server must add a line to call http_auth_verify at the beginning of all the apis defined.
+     * The ideal way would be for the server to intercept all incoming api calls and do verification before sending it
+     * down to the url callback function. No proper way could be found to do this.
+     * One potential way is to use the hooks (per connection hooks/ per request hooks or per cb hooks) which can be set
+     * at different points in the life cycle of a req. (like on_headers etc) These hooks from evhtp library do not seem
+     * to work properly when the hook cb functions return anything other than EVHTP_RES_OK For a perfect implementation
+     * that avoids users to add http_auth_verify before all the apis they define, we need to either explore evhtp lib
+     * more or switch to a different server like Pistache.
+     */
+
+    evhtp_res http_auth_verify(evhtp_request_t* req, std::string& msg) {
+        if (!m_cfg.is_auth_enabled) { return EVHTP_RES_OK; }
+
+        const std::string bearer{"Bearer "};
+        auto* token = evhtp_header_find(req->headers_in, "Authorization");
+        std::string token_str;
+        if (!token) {
+            msg = "missing auth token in request header";
+            LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, msg);
+            return EVHTP_RES_UNAUTH;
+        }
+        token_str = token;
+        if (token_str.rfind(bearer, 0) != 0) {
+            msg = "require bearer token in request header";
+            LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, msg);
+            return EVHTP_RES_UNAUTH;
+        }
+        auto raw_token = token_str.substr(bearer.length());
+        std::string app_name;
+        // TODO: cache tokens for better performance
+        try {
+            // this may throw if token is ill formed
+            auto decoded = jwt::decode(raw_token);
+
+            // for any reason that causes the verification failure, an
+            // exception is thrown.
+            verify_decoded(decoded);
+            app_name = get_app(decoded);
+        } catch (const std::exception& e) {
+            msg = e.what();
+            LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, e.what());
+            return EVHTP_RES_UNAUTH;
+        }
+
+        // check client application
+
+        if (m_cfg.auth_allowed_apps != "all") {
+            if (m_cfg.auth_allowed_apps.find(app_name) == std::string::npos) {
+                msg = fmt::format("application '{}' is not allowed to perform the request", app_name);
+                LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, msg);
+                return EVHTP_RES_FORBIDDEN;
+            }
+        }
+
+        return EVHTP_RES_OK;
+    }
+    // for testing
+    void set_allowed_to_all() { m_cfg.auth_allowed_apps = "all"; }
+
 #define request_callback(cb)                                                                                           \
     (evhtp_callback_cb) std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)
 #define error_callback(cb)                                                                                             \
@@ -225,77 +303,6 @@ protected:
         HttpCallData cd = new _http_calldata(req, arg);
         server->respond_NOTOK(cd, EVHTP_RES_BADREQ, "Request can't be matched with any handlers\n");
     }
-
-#if 0
-    bool http_auth_verify(evhtp_request_t* req) {
-        bool flag = false;
-        int error;
-        jwt_t* context;
-        const char bearer[] = "Bearer ";
-        const char cookiePrefix[] = "MONSTOR_ACCESS_TOKEN=";
-
-        auto* token = evhtp_header_find(req->headers_in, "Authorization");
-        if (token) {
-            if (strncmp(token, bearer, sizeof(bearer) - 1) == 0) {
-                token = token + sizeof(bearer) - 1;
-            } else {
-                LOG(ERROR) << "Invalid token prefix: " << token;
-                return false;
-            }
-        } else if ((token = evhtp_header_find(req->headers_in, "Cookie"))) {
-            if (strncmp(token, cookiePrefix, sizeof(cookiePrefix) - 1) == 0) {
-                token = token + sizeof(cookiePrefix) - 1;
-            } else {
-                LOG(ERROR) << "Invalid cookie prefix: " << token;
-                return false;
-            }
-        } else {
-            LOG(ERROR) << "Missing token in request http header";
-            return false;
-        }
-
-        // read the secrets file
-        std::ifstream ifs(monstordb_settings_safe()->config->httpServer->httpAuth->httpAuthorizationCert);
-        std::stringstream cert;
-        if (!ifs) {
-            LOG(ERROR) << "cannot open http auth file: "
-                       << monstordb_settings_safe()->config->httpServer->httpAuth->httpAuthorizationCert;
-            return false;
-        }
-        cert << ifs.rdbuf();
-
-        error = jwt_decode(&context, token, (const unsigned char*)cert.str().c_str(), (int)cert.str().length());
-        if (error != 0) {
-            LOGERROR("jwt_decode failed, error = {}", error);
-        } else {
-            // verifying that role contains AGENT or WATCHER
-            auto* roles = jwt_get_grants_json(context, "$int_roles");
-            if (roles) {
-                try {
-                    nlohmann::json array = nlohmann::json::parse(roles);
-                    for (auto&& jobject : array) {
-                        std::string str = jobject.dump();
-                        if (strcasecmp(str.c_str(), "\"AGENT\"") == 0 || strcasecmp(str.c_str(), "\"WATCHER\"") == 0) {
-                            flag = true;
-                            break;
-                        }
-                    }
-                } catch (nlohmann::json::exception& ex) {
-                    LOGERROR("roles parse error: {}", roles);
-                }
-
-                if (!flag) {
-                    LOGERROR("Invalid roles = {}", roles);
-                }
-            } else {
-                LOGERROR("no roles in jwt token");
-            }
-        }
-
-        jwt_free(context);
-        return flag;
-    }
-#endif
 
     static evhtp_res request_on_path_handler(evhtp_request_t* req, void* arg) {
         __attribute__((unused)) HttpServer* server = (HttpServer*)arg;
@@ -528,6 +535,62 @@ private:
         }
 
         return ssl_config;
+    }
+
+    void verify_decoded(const jwt::decoded_jwt& decoded) {
+        auto alg = decoded.get_algorithm();
+        if (alg != "RS256") throw std::runtime_error(fmt::format("unsupported algorithm: {}", alg));
+
+        std::string signing_key;
+        if (!decoded.has_header_claim("x5u")) throw std::runtime_error("no indication of verification key");
+
+        auto key_url = decoded.get_header_claim("x5u").as_string();
+
+        if (key_url.rfind(m_cfg.tf_token_url, 0) != 0) {
+            throw std::runtime_error(fmt::format("key url {} is not trusted", key_url));
+        }
+        signing_key = download_key(key_url);
+        auto verifier = jwt::verify()
+                            .with_issuer("trustfabric")
+                            .allow_algorithm(jwt::algorithm::rs256(signing_key))
+                            .expires_at_leeway(m_cfg.auth_exp_leeway);
+
+        // if verification fails, an instance of std::system_error subclass is thrown.
+        verifier.verify(decoded);
+    }
+
+    virtual std::string download_key(const std::string& key_url) {
+        auto ca_file = m_cfg.ssl_ca_file;
+        auto cert_file = m_cfg.ssl_cert_file;
+        auto key_file = m_cfg.ssl_key_file;
+
+        // constructor for CaInfo does std::move(filename)
+        auto sslOpts = cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)});
+        sslOpts.SetOption(cpr::ssl::CertFile{std::move(cert_file)});
+        sslOpts.SetOption(cpr::ssl::KeyFile{std::move(key_file)});
+
+        cpr::Session session;
+        session.SetUrl(cpr::Url{key_url});
+        session.SetOption(sslOpts);
+
+        auto resp = session.Get();
+
+        if (resp.error) { throw std::runtime_error(fmt::format("download key failed: {}", resp.error.message)); }
+        if (resp.status_code != 200) { throw std::runtime_error(fmt::format("download key failed: {}", resp.text)); }
+
+        return resp.text;
+    }
+
+    std::string get_app(const jwt::decoded_jwt& decoded) {
+        // get app name from client_id, which is the "sub" field in the decoded token
+        // body
+        // https://pages.github.corp.ebay.com/security-platform/documents/tf-documentation/tessintegration/#environment-variables
+        if (!decoded.has_payload_claim("sub")) return "";
+
+        auto client_id = decoded.get_payload_claim("sub").as_string();
+        auto start = client_id.find(",o=") + 3;
+        auto end = client_id.find_first_of(",", start);
+        return client_id.substr(start, end - start);
     }
 
 private:

@@ -1,12 +1,12 @@
 #include <cstdint>
 #include <iostream>
 
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "obj_allocator.hpp"
 
-SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
+SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 
 using namespace sisl;
 using namespace std;

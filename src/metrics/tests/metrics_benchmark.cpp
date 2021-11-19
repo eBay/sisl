@@ -4,7 +4,7 @@
 #include <string>
 #include <boost/preprocessor/repetition/repeat.hpp>
 
-SDS_LOGGING_INIT(vmod_metrics_framework)
+SISL_LOGGING_INIT(vmod_metrics_framework)
 RCU_REGISTER_INIT
 
 #define ITERATIONS 1000

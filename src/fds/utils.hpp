@@ -194,6 +194,20 @@ static int spaceship_oper(const T& left, const T& right) {
 #define _PLACEHOLDER_PARAM(z, n, text) , text##n
 #define bind_this(method, nparams)                                                                                     \
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
+
+#define r_cast reinterpret_cast
+#define s_cast static_cast
+#define d_cast dynamic_cast
+#define dp_cast std::dynamic_pointer_cast
+#define sp_cast std::static_pointer_cast
+
+#define uintptr_cast reinterpret_cast< uint8_t* >
+#define voidptr_cast reinterpret_cast< void* >
+#define int_cast static_cast< int >
+#define uint32_cast static_cast< uint32_t >
+#define int64_cast static_cast< int64_t >
+#define uint64_cast static_cast< uint64_t >
+
 } // namespace sisl
 
 #if 0

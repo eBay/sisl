@@ -5,8 +5,8 @@
 #include <limits>
 #include <type_traits>
 
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include <gtest/gtest.h>
 
@@ -14,8 +14,8 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_bitword)
-SDS_OPTIONS_ENABLE(logging)
+SISL_LOGGING_INIT(test_bitword)
+SISL_OPTIONS_ENABLE(logging)
 
 namespace {
 bool validate(const uint64_t val, const uint8_t offset, bit_filter filter, const uint8_t exp_start,
@@ -25,12 +25,12 @@ bool validate(const uint64_t val, const uint8_t offset, bit_filter filter, const
     const auto result{bword.get_next_reset_bits_filtered(offset, filter)};
     if (result.match_type != exp_match) {
         LOGINFO("Val={} offset={} filter[{}] Expected type={} but got {}, result[{}]: FAILED", val,
-                static_cast<uint16_t>(offset), filter.to_string(), static_cast<uint16_t>(exp_match),
-                static_cast<uint16_t>(result.match_type), result.to_string());
+                static_cast< uint16_t >(offset), filter.to_string(), static_cast< uint16_t >(exp_match),
+                static_cast< uint16_t >(result.match_type), result.to_string());
         return false;
     }
 
-    if ((result.match_type != bit_match_type::no_match) && 
+    if ((result.match_type != bit_match_type::no_match) &&
         ((result.start_bit != exp_start) || (result.count != exp_count))) {
         LOGINFO("Val={} offset={} filter[{}] Expected start bit={} & count={} but got {} & {}, result[{}] : FAILED",
                 val, static_cast< uint16_t >(offset), filter.to_string(), static_cast< uint16_t >(exp_start),
@@ -55,27 +55,22 @@ protected:
     void TearDown() override {}
 };
 
-
-template< typename DataType >
-void testLog2Base()
-{
+template < typename DataType >
+void testLog2Base() {
     static_assert(std::is_unsigned_v< DataType >, "DataType must be unsigned.");
-    ASSERT_EQ(logBase2(static_cast< DataType >(0)), static_cast<uint8_t>(255));
+    ASSERT_EQ(logBase2(static_cast< DataType >(0)), static_cast< uint8_t >(255));
     DataType v{1};
-    for (uint8_t bit{0}; bit<std::numeric_limits<DataType>::digits; ++bit, v <<= 1)
-    {
+    for (uint8_t bit{0}; bit < std::numeric_limits< DataType >::digits; ++bit, v <<= 1) {
         ASSERT_EQ(logBase2(v), bit);
     }
 }
 } // namespace
 
-TEST_F(BitwordTest, TestLog2Base)
-{
-    for (uint8_t x{0}; x<255; ++x)
-    {
-        const uint8_t val{static_cast<uint8_t>(x + 1)};
-        ASSERT_EQ(logBase2(val), 
-                  static_cast<uint8_t>(std::trunc(std::log2(val) + val * std::numeric_limits<double>::epsilon())));
+TEST_F(BitwordTest, TestLog2Base) {
+    for (uint8_t x{0}; x < 255; ++x) {
+        const uint8_t val{static_cast< uint8_t >(x + 1)};
+        ASSERT_EQ(logBase2(val),
+                  static_cast< uint8_t >(std::trunc(std::log2(val) + val * std::numeric_limits< double >::epsilon())));
     }
 
     testLog2Base< uint8_t >();
@@ -111,8 +106,8 @@ TEST_F(BitwordTest, TestTrailingZeros) {
 }
 
 TEST_F(BitwordTest, TestLeadingZeros) {
-    ASSERT_EQ(get_leading_zeros(static_cast<uint64_t>(0x01)), static_cast< uint8_t >(63));
-    ASSERT_EQ(get_leading_zeros(static_cast<uint64_t>(0x00)), static_cast< uint8_t >(64));
+    ASSERT_EQ(get_leading_zeros(static_cast< uint64_t >(0x01)), static_cast< uint8_t >(63));
+    ASSERT_EQ(get_leading_zeros(static_cast< uint64_t >(0x00)), static_cast< uint8_t >(64));
 #if __cplusplus > 201703L
     ASSERT_EQ(get_leading_zeros(static_cast< uint32_t >(0x01)), static_cast< uint8_t >(31));
     ASSERT_EQ(get_leading_zeros(static_cast< uint32_t >(0x00)), static_cast< uint8_t >(32));
@@ -287,7 +282,6 @@ TEST_F(BitwordTest, GetNextResetBitsFiltered) {
     ASSERT_TRUE(validate(0xfff0, 0, {5, 5, 1}, 16, bit_match_type::msb_match, 48));
     ASSERT_TRUE(validate(0xfff0, 0, {4, 5, 1}, 0, bit_match_type::lsb_match, 4));
 
-
     ASSERT_TRUE(validate(0x0, 0, {5, 5, 1}, 0, bit_match_type::full_match, 64));
     ASSERT_TRUE(validate(0x0, 0, {64, 70, 1}, 0, bit_match_type::full_match, 64));
     ASSERT_TRUE(validate(0xffffffffffffffff, 0, {5, 5, 1}, 0, bit_match_type::no_match, 0));
@@ -307,7 +301,7 @@ TEST_F(BitwordTest, GetNextResetBitsFiltered) {
     ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 0, {11, 11, 1}, 40, bit_match_type::mid_match, 12));
     ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {2, 2, 1}, 5, bit_match_type::mid_match, 3));
     ASSERT_TRUE(validate(0x7ff000ffff00ff0f, 5, {8, 8, 1}, 16, bit_match_type::mid_match, 8));
-  
+
     ASSERT_TRUE(validate(0x0ff000ffff00ff0f, 5, {8, 64, 4}, 60, bit_match_type::msb_match, 4));
 
     ASSERT_TRUE(validate(0x8fffff0f0f0f00f4, 0, {3, 9, 1}, 0, bit_match_type::no_match, 0));
@@ -350,9 +344,9 @@ TEST_F(BitwordTest, GetMaxContiguousResetBits) {
 }
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     ::testing::InitGoogleTest(&argc, argv);
-    sds_logging::SetLogger("test_bitword");
+    sisl::logging::SetLogger("test_bitword");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     return RUN_ALL_TESTS();

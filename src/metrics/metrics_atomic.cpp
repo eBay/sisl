@@ -6,7 +6,7 @@
 #include <iostream>
 #include <memory>
 
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 
 #include "metrics_atomic.hpp"
 

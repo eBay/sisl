@@ -2,8 +2,8 @@
 #include <iostream>
 
 #include <nlohmann/json.hpp>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "generated/test_app_schema_generated.h"
 //#include "generated/test_app_schema_bindump.hpp"
@@ -11,18 +11,18 @@
 
 #define MY_SETTINGS_FACTORY SETTINGS_FACTORY(test_app_schema)
 
-SDS_OPTIONS_ENABLE(logging, test_settings, config)
+SISL_OPTIONS_ENABLE(logging, test_settings, config)
 
-SDS_OPTION_GROUP(test_settings,
-                 (num_threads, "", "num_threads", "number of threads",
-                  ::cxxopts::value< uint32_t >()->default_value("1"), "number"))
+SISL_OPTION_GROUP(test_settings,
+                  (num_threads, "", "num_threads", "number of threads",
+                   ::cxxopts::value< uint32_t >()->default_value("1"), "number"))
 
-SDS_LOGGING_INIT(test_settings, settings)
+SISL_LOGGING_INIT(test_settings, settings)
 SETTINGS_INIT(testapp::TestAppSettings, test_app_schema)
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_settings, config);
-    sds_logging::SetLogger("test_settings");
+    SISL_OPTIONS_LOAD(argc, argv, logging, test_settings, config);
+    sisl::logging::SetLogger("test_settings");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     // MY_SETTINGS_FACTORY.load_file("/tmp/settings_in.json");

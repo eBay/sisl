@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "6.0.1"
+    version = "7.0.1"
 
     license = "Proprietary"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -35,10 +35,8 @@ class MetricsConan(ConanFile):
                     "gtest/1.10.0",
                 )
     requires = (
-                    "sds_logging/[~=11, include_prerelease=True]@sds/master",
-                    "sds_options/[~=1, include_prerelease=True]@sds/master",
-
                     "boost/1.73.0",
+                    "spdlog/1.9.2",
                     "evhtp/1.2.18.2",
                     "snappy/1.1.8",
                     "flatbuffers/1.11.0",
@@ -49,13 +47,16 @@ class MetricsConan(ConanFile):
                     "prometheus_cpp/0.7.2",
                     "userspace-rcu/0.11.2",
                     "semver/1.1.0",
+                    "jwt-cpp/0.4.0",
+                    "cpr/1.5.2",
+                    "libcurl/7.70.0",
+                    "cxxopts/2.2.1",
                 )
 
     generators = "cmake"
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
     def config_options(self):
-        self.options['sds_logging'].prerelease = self.options.prerelease
         self.options['sds_options'].prerelease = self.options.prerelease
         if self.settings.build_type != "Debug":
             del self.options.sanitize
@@ -64,7 +65,6 @@ class MetricsConan(ConanFile):
             self.options.sanitize = True
 
     def configure(self):
-        self.options['sds_logging'].prerelease = self.options.prerelease
         if self.settings.build_type == "Debug":
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")

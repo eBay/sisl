@@ -13,8 +13,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "utility/urcu_helper.hpp"
 

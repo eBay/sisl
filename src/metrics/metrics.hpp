@@ -20,16 +20,16 @@
 #include <boost/preprocessor/facilities/expand.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <nlohmann/json.hpp>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "metrics_atomic.hpp"
 #include "metrics_group_impl.hpp"
 #include "metrics_rcu.hpp"
 #include "metrics_tlocal.hpp"
 
-// TODO: Commenting out this tempoarily till the SDS_OPTIONS and SDS_LOGGING issue is resolved
-// SDS_LOGGING_DECL(vmod_metrics_framework)
+// TODO: Commenting out this tempoarily till the SISL_OPTIONS and SISL_LOGGING issue is resolved
+// SISL_LOGGING_DECL(vmod_metrics_framework)
 
 namespace sisl {
 
@@ -241,7 +241,7 @@ private:
 #define METRIC_NAME_TO_INDEX(type, name)                                                                               \
     (sisl::type< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().get_index())
 
-// TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SDS_LOGGING and SDS_OPTIONS are resolved
+// TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SISL_LOGGING and SISL_OPTIONS are resolved
 
 #ifndef NDEBUG
 #define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \

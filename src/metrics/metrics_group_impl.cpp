@@ -14,7 +14,7 @@
 #endif
 
 #include <fmt/format.h>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 
 #include "metrics_group_impl.hpp"
 #include "metrics.hpp"

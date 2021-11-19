@@ -8,8 +8,8 @@
 #include <fstream>
 #include <condition_variable>
 
-SDS_LOGGING_INIT(httpserver_lmod)
-SDS_OPTIONS_ENABLE(logging)
+SISL_LOGGING_INIT(httpserver_lmod)
+SISL_OPTIONS_ENABLE(logging)
 
 sisl::HttpServer* server;
 std::mutex m;
@@ -65,7 +65,7 @@ static void shutdown(sisl::HttpCallData cd) {
 }
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
 
     sisl::HttpServerConfig cfg;
     cfg.is_tls_enabled = false;

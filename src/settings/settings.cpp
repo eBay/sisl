@@ -6,14 +6,15 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include <sds_options/options.h>
+#include "options/options.h"
 
 #include "settings.hpp"
 
-SDS_OPTION_GROUP(config,
-                 (config_path, "", "config_path", "Path to dynamic config of app", cxxopts::value< std::string >(), ""),
-                 (override_config, "", "override_config", "Config option to override after load",
-                  ::cxxopts::value< std::vector< std::string > >(), "configs [...]"))
+SISL_OPTION_GROUP(config,
+                  (config_path, "", "config_path", "Path to dynamic config of app", cxxopts::value< std::string >(),
+                   ""),
+                  (override_config, "", "override_config", "Config option to override after load",
+                   ::cxxopts::value< std::vector< std::string > >(), "configs [...]"))
 
 namespace sisl {
 static nlohmann::json kv_path_to_json(const std::vector< std::string >& paths, const std::string& val) {
@@ -22,8 +23,8 @@ static nlohmann::json kv_path_to_json(const std::vector< std::string >& paths, c
         json_str += "{\"" + p + "\":";
     }
 
-    if (std::find_if(std::cbegin(val), std::cend(val), [](const char c){
-        return !std::isdigit(c);}) == std::cend(val)) {
+    if (std::find_if(std::cbegin(val), std::cend(val), [](const char c) { return !std::isdigit(c); }) ==
+        std::cend(val)) {
         json_str += val;
     } else {
         json_str += fmt::format("\"{}\"", val);
@@ -34,8 +35,8 @@ static nlohmann::json kv_path_to_json(const std::vector< std::string >& paths, c
 }
 
 SettingsFactoryRegistry::SettingsFactoryRegistry() {
-    if (SDS_OPTIONS.count("override_config") != 0) {
-        const auto cfgs{SDS_OPTIONS["override_config"].as< std::vector< std::string > >()};
+    if (SISL_OPTIONS.count("override_config") != 0) {
+        const auto cfgs{SISL_OPTIONS["override_config"].as< std::vector< std::string > >()};
         for (const auto& cfg : cfgs) {
             // Get the entire path along with module name and its value
             std::vector< std::string > kv;
@@ -62,9 +63,9 @@ SettingsFactoryRegistry::SettingsFactoryRegistry() {
 }
 
 void SettingsFactoryRegistry::register_factory(const std::string& name, SettingsFactoryBase* const f) {
-    if (SDS_OPTIONS.count("config_path") == 0) { return; }
+    if (SISL_OPTIONS.count("config_path") == 0) { return; }
 
-    const auto config_file{fmt::format("{}/{}.json", SDS_OPTIONS["config_path"].as< std::string >(), name)};
+    const auto config_file{fmt::format("{}/{}.json", SISL_OPTIONS["config_path"].as< std::string >(), name)};
     {
         std::unique_lock lg{m_mtx};
         f->set_config_file(config_file);

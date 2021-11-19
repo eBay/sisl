@@ -223,6 +223,10 @@ inline byte_array make_byte_array(const uint32_t sz, const uint32_t alignment = 
     return std::make_shared< byte_array_impl >(sz, alignment, tag);
 }
 
+inline byte_array to_byte_array(const sisl::io_blob& blob) {
+    return std::make_shared< byte_array_impl >(blob.bytes, blob.size, blob.aligned);
+}
+
 struct byte_view {
 public:
     byte_view() = default;
@@ -237,7 +241,29 @@ public:
         m_view.size = sz;
     }
 
-    byte_view(byte_view v, const uint32_t offset, const uint32_t sz) : byte_view(v.m_base_buf, offset, sz) {}
+    byte_view(const byte_view& v, const uint32_t offset, const uint32_t sz) { 
+        DEBUG_ASSERT_GE(v.m_view.size, sz + offset);
+        m_base_buf = v.m_base_buf;
+        m_view.bytes = v.m_view.bytes + offset;
+        m_view.size = sz;
+    }
+    byte_view(const sisl::io_blob& blob) :
+            byte_view(std::make_shared< byte_array_impl >(blob.bytes, blob.size, blob.aligned)) {}
+
+    ~byte_view() = default;
+    byte_view(const byte_view& other) = default;
+    byte_view& operator=(const byte_view& other) = default;
+
+    byte_view(byte_view&& other) {
+        m_base_buf = std::move(other.m_base_buf);
+        m_view = std::move(other.m_view);
+    }
+
+    byte_view& operator=(byte_view&& other) {
+        m_base_buf = std::move(other.m_base_buf);
+        m_view = std::move(other.m_view);
+        return *this;
+    }
 
     blob get_blob() const { return m_view; }
     uint8_t* bytes() const { return m_view.bytes; }
