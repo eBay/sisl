@@ -1,7 +1,19 @@
-//
-// Created by Finkelstein, Yuri on 1/19/18.
-//
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Yuri Finkelstein, Harihara Kadayam, Bryan Zimmerman
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on  * an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #ifndef SISL_ENUM_HPP
 #define SISL_ENUM_HPP
 
@@ -33,8 +45,7 @@ public:
         }};
         auto evaluate{[&trim](const std::string& str) {
             const size_t lshift_pos{str.find("<<", 0)};
-            if (lshift_pos != std::string::npos)
-            {
+            if (lshift_pos != std::string::npos) {
                 // evaluate left shift
                 size_t idx1{}, idx2{};
                 const auto lhs{std::stoull(trim(str.substr(0, lshift_pos)), &idx1, 0)};
@@ -63,7 +74,7 @@ public:
                 if (m_value_to_tokens.size() != 0) ++last_value;
                 current_pos = ((delim != std::string::npos) ? delim + 1 : delim);
             }
-            //std::cout << token << ' ' << last_value << std::endl;
+            // std::cout << token << ' ' << last_value << std::endl;
             m_value_to_tokens[last_value] = token;
             m_token_to_value[token] = last_value;
         }
@@ -87,9 +98,9 @@ public:
     [[nodiscard]] enum_type get_enum(const std::string& name) const {
         const auto itr{m_token_to_value.find(name)};
         if (itr == std::cend(m_token_to_value))
-            return static_cast<enum_type>(0);
+            return static_cast< enum_type >(0);
         else
-            return static_cast<enum_type>(itr->second);
+            return static_cast< enum_type >(itr->second);
     }
 
 private:
@@ -97,21 +108,20 @@ private:
     std::unordered_map< std::string, underlying_type > m_token_to_value;
 };
 
-#define VENUM(EnumName, Underlying, ...) ENUM(EnumName, Underlying, __VA_ARGS__) 
+#define VENUM(EnumName, Underlying, ...) ENUM(EnumName, Underlying, __VA_ARGS__)
 
 #define ENUM(EnumName, Underlying, ...)                                                                                \
     enum class EnumName : Underlying { __VA_ARGS__ };                                                                  \
                                                                                                                        \
-    struct EnumName##Support : EnumSupportBase<EnumName> {                                                             \
+    struct EnumName##Support : EnumSupportBase< EnumName > {                                                           \
         typedef EnumName enum_type;                                                                                    \
         typedef std::underlying_type_t< enum_type > underlying_type;                                                   \
-        EnumName##Support(const std::string tokens) :                                                                  \
-            EnumSupportBase< enum_type >{tokens} {};                                                                   \
+        EnumName##Support(const std::string tokens) : EnumSupportBase< enum_type >{tokens} {};                         \
         EnumName##Support(const EnumName##Support&) = delete;                                                          \
         EnumName##Support(EnumName##Support&&) noexcept = delete;                                                      \
         EnumName##Support& operator=(const EnumName##Support&) = delete;                                               \
         EnumName##Support& operator=(EnumName##Support&&) noexcept = delete;                                           \
-       ~EnumName##Support() = default;                                                                                 \
+        ~EnumName##Support() = default;                                                                                \
         static EnumName##Support& instance() {                                                                         \
             static EnumName##Support s_instance{#__VA_ARGS__};                                                         \
             return s_instance;                                                                                         \
@@ -123,17 +133,17 @@ private:
                                                            static_cast< EnumName##Support::underlying_type >(b));      \
     }                                                                                                                  \
     [[nodiscard]] inline EnumName##Support::enum_type operator&(const EnumName##Support::enum_type a,                  \
-                                                            const EnumName##Support::enum_type b) {                    \
+                                                                const EnumName##Support::enum_type b) {                \
         return static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &      \
                                                            static_cast< EnumName##Support::underlying_type >(b));      \
     }                                                                                                                  \
     [[maybe_unused]] inline EnumName##Support::enum_type operator|=(EnumName##Support::enum_type& a,                   \
-                                                             const EnumName##Support::enum_type b) {                   \
+                                                                    const EnumName##Support::enum_type b) {            \
         return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) |  \
                                                                static_cast< EnumName##Support::underlying_type >(b));  \
     }                                                                                                                  \
     [[maybe_unused]] inline EnumName##Support::enum_type operator&=(EnumName##Support::enum_type& a,                   \
-                                                             const EnumName##Support::enum_type b) {                   \
+                                                                    const EnumName##Support::enum_type b) {            \
         return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &  \
                                                                static_cast< EnumName##Support::underlying_type >(b));  \
     }                                                                                                                  \

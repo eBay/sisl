@@ -57,7 +57,6 @@ class MetricsConan(ConanFile):
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
     def config_options(self):
-        self.options['sds_options'].prerelease = self.options.prerelease
         if self.settings.build_type != "Debug":
             del self.options.sanitize
             del self.options.coverage

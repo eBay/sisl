@@ -91,6 +91,7 @@ if(UNIX)
 endif()
 
 add_subdirectory (src/async_http)
+#add_subdirectory (src/btree)
 add_subdirectory (src/cache)
 add_subdirectory (src/logging)
 add_subdirectory (src/options)

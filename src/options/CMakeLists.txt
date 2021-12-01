@@ -7,7 +7,7 @@ file(GLOB LIB_SOURCES lib/*.cpp)
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
-add_library(sisl_options
+add_library(sisl_options OBJECT
             ${API_HEADERS}
             ${LIB_HEADERS}
             ${LIB_SOURCES}
@@ -15,7 +15,7 @@ add_library(sisl_options
 
 set(BASIC_TEST_SOURCES tests/basic.cpp)
 add_executable(basic_test ${BASIC_TEST_SOURCES})
-target_link_libraries(basic_test sisl_options ${CONAN_LIBS})
+target_link_libraries(basic_test sisl ${CONAN_LIBS})
 set(extra_args "")
 if (${CONAN_BUILD_COVERAGE})
     set(extra_args "--gtest_output=xml:/output/test_basic.xml")

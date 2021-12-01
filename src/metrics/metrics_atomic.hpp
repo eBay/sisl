@@ -1,3 +1,19 @@
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on  * an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <algorithm>
@@ -44,8 +60,7 @@ public:
     AtomicHistogramValue& operator=(AtomicHistogramValue&&) noexcept = delete;
 
     void observe(const int64_t value, const hist_bucket_boundaries_t& boundaries, const uint64_t count = 1) {
-        const auto lower{std::lower_bound(std::cbegin(boundaries), std::cend(boundaries),
-                                          value)};
+        const auto lower{std::lower_bound(std::cbegin(boundaries), std::cend(boundaries), value)};
         if (lower != std::cend(boundaries)) {
             const auto bkt_idx{std::distance(std::cbegin(boundaries), lower)};
             m_freqs[bkt_idx].fetch_add(count, std::memory_order_relaxed);
@@ -54,8 +69,7 @@ public:
     }
 
     [[nodiscard]] auto& get_freqs() const { return m_freqs; }
-    [[nodiscard]] int64_t get_sum() const {
-        return m_sum.load(std::memory_order_relaxed); }
+    [[nodiscard]] int64_t get_sum() const { return m_sum.load(std::memory_order_relaxed); }
 
     [[nodiscard]] HistogramValue to_histogram_value() const {
         HistogramValue h{};
@@ -71,7 +85,8 @@ private:
 
 class AtomicMetricsGroup : public MetricsGroupImpl {
 public:
-    AtomicMetricsGroup(const char* const grp_name, const char* const inst_name) : MetricsGroupImpl(grp_name, inst_name) {}
+    AtomicMetricsGroup(const char* const grp_name, const char* const inst_name) :
+            MetricsGroupImpl(grp_name, inst_name) {}
     AtomicMetricsGroup(const std::string& grp_name, const std::string& inst_name) :
             MetricsGroupImpl(grp_name, inst_name) {}
     virtual ~AtomicMetricsGroup() = default;
