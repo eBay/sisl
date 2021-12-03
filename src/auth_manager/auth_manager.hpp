@@ -22,6 +22,7 @@ struct AuthMgrConfig {
     std::string ssl_ca_file;
     uint32_t auth_exp_leeway;
     std::string auth_allowed_apps;
+    std::string issuer;
 };
 
 ENUM(AuthVerifyStatus, uint8_t, OK, UNAUTH, FORBIDDEN)
@@ -32,16 +33,16 @@ public:
     AuthManager(const AuthMgrConfig& cfg) : m_cfg(cfg) {}
     ~AuthManager() = default;
     void set_config(const AuthMgrConfig& cfg) { m_cfg = cfg; }
-    AuthVerifyStatus verify(const std::string& token, std::string& msg);
+    AuthVerifyStatus verify(const std::string& token, std::string& msg) const;
     // for testing
     void set_allowed_to_all() { m_cfg.auth_allowed_apps = "all"; }
 
 private:
-    void verify_decoded(const jwt::decoded_jwt& decoded);
-    virtual std::string download_key(const std::string& key_url);
+    void verify_decoded(const jwt::decoded_jwt& decoded) const;
+    virtual std::string download_key(const std::string& key_url) const;
+    std::string get_app(const jwt::decoded_jwt& decoded) const;
 
 private:
     AuthMgrConfig m_cfg;
-    std::string get_app(const jwt::decoded_jwt& decoded);
 };
 } // namespace sisl

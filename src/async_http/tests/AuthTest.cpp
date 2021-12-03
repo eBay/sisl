@@ -93,7 +93,7 @@ private:
 class MockAuthManager : public AuthManager {
 public:
     using AuthManager::AuthManager;
-    MOCK_METHOD(std::string, download_key, (const std::string&));
+    MOCK_METHOD(std::string, download_key, (const std::string&), (const));
 };
 
 class AuthBaseTest : public ::testing::Test {
@@ -132,6 +132,7 @@ public:
         auth_cfg.tf_token_url = "http://127.0.0.1";
         auth_cfg.auth_allowed_apps = "app1, testapp, app2";
         auth_cfg.auth_exp_leeway = 0;
+        auth_cfg.issuer = "trustfabric";
         mock_auth_mgr = std::shared_ptr< MockAuthManager >(new MockAuthManager());
         mock_auth_mgr->set_config(auth_cfg);
         mock_server = std::unique_ptr< HttpServer >(new HttpServer(

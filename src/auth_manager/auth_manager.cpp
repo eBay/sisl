@@ -3,7 +3,7 @@
 #include <fmt/format.h>
 
 namespace sisl {
-AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) {
+AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) const {
     std::string app_name;
     // TODO: cache tokens for better performance
     try {
@@ -30,7 +30,7 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
 
     return AuthVerifyStatus::OK;
 }
-void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) {
+void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
     auto alg = decoded.get_algorithm();
     if (alg != "RS256") throw std::runtime_error(fmt::format("unsupported algorithm: {}", alg));
 
@@ -44,7 +44,7 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) {
     }
     signing_key = download_key(key_url);
     auto verifier = jwt::verify()
-                        .with_issuer("trustfabric")
+                        .with_issuer(m_cfg.issuer)
                         .allow_algorithm(jwt::algorithm::rs256(signing_key))
                         .expires_at_leeway(m_cfg.auth_exp_leeway);
 
@@ -52,7 +52,7 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) {
     verifier.verify(decoded);
 }
 
-std::string AuthManager::download_key(const std::string& key_url) {
+std::string AuthManager::download_key(const std::string& key_url) const {
     auto ca_file = m_cfg.ssl_ca_file;
     auto cert_file = m_cfg.ssl_cert_file;
     auto key_file = m_cfg.ssl_key_file;
@@ -74,7 +74,7 @@ std::string AuthManager::download_key(const std::string& key_url) {
     return resp.text;
 }
 
-std::string AuthManager::get_app(const jwt::decoded_jwt& decoded) {
+std::string AuthManager::get_app(const jwt::decoded_jwt& decoded) const {
     // get app name from client_id, which is the "sub" field in the decoded token
     // body
     // https://pages.github.corp.ebay.com/security-platform/documents/tf-documentation/tessintegration/#environment-variables
