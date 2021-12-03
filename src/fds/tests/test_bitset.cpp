@@ -1,7 +1,19 @@
-//
-// Created by Kadayam, Hari on Sept 25 2019
-//
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam, Bryan Zimmerman
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #include <cstdint>
 #include <memory>
 #include <random>
@@ -9,8 +21,8 @@
 #include <vector>
 
 #include <boost/dynamic_bitset.hpp>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include <gtest/gtest.h>
 
@@ -18,7 +30,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(test_bitset)
+SISL_LOGGING_INIT(test_bitset)
 
 namespace {
 uint64_t g_total_bits;
@@ -900,29 +912,29 @@ TEST_F(BitsetTest, SerializeDeserializeAtomicBitset) {
     EXPECT_EQ(bset1, bset2);
 }
 
-SDS_OPTIONS_ENABLE(logging, test_bitset)
+SISL_OPTIONS_ENABLE(logging, test_bitset)
 
-SDS_OPTION_GROUP(test_bitset,
-                 (num_threads, "", "num_threads", "number of threads",
-                  ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
-                 (num_bits, "", "num_bits", "number of bits to start",
-                  ::cxxopts::value< uint32_t >()->default_value("1000"), "number"),
-                 (set_pct, "", "set_pct", "set percentage for randome test",
-                  ::cxxopts::value< uint32_t >()->default_value("25"), "number"),
-                 (max_bits_in_grp, "", "max_bits_in_grp", "max bits to be set/reset at a time",
-                  ::cxxopts::value< uint32_t >()->default_value("72"), "number"))
+SISL_OPTION_GROUP(test_bitset,
+                  (num_threads, "", "num_threads", "number of threads",
+                   ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
+                  (num_bits, "", "num_bits", "number of bits to start",
+                   ::cxxopts::value< uint32_t >()->default_value("1000"), "number"),
+                  (set_pct, "", "set_pct", "set percentage for randome test",
+                   ::cxxopts::value< uint32_t >()->default_value("25"), "number"),
+                  (max_bits_in_grp, "", "max_bits_in_grp", "max bits to be set/reset at a time",
+                   ::cxxopts::value< uint32_t >()->default_value("72"), "number"))
 
 int main(int argc, char* argv[]) {
     int parsed_argc{argc};
     ::testing::InitGoogleTest(&parsed_argc, argv);
-    SDS_OPTIONS_LOAD(parsed_argc, argv, logging, test_bitset);
-    sds_logging::SetLogger("test_bitset");
+    SISL_OPTIONS_LOAD(parsed_argc, argv, logging, test_bitset);
+    sisl::logging::SetLogger("test_bitset");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
-    g_total_bits = SDS_OPTIONS["num_bits"].as< uint32_t >();
-    g_num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();
-    g_set_pct = SDS_OPTIONS["set_pct"].as< uint32_t >();
-    g_max_bits_in_group = SDS_OPTIONS["set_pct"].as< uint32_t >();
+    g_total_bits = SISL_OPTIONS["num_bits"].as< uint32_t >();
+    g_num_threads = SISL_OPTIONS["num_threads"].as< uint32_t >();
+    g_set_pct = SISL_OPTIONS["set_pct"].as< uint32_t >();
+    g_max_bits_in_group = SISL_OPTIONS["set_pct"].as< uint32_t >();
 
     const auto ret{RUN_ALL_TESTS()};
     return ret;

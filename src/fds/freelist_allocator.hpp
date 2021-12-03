@@ -1,6 +1,19 @@
-//
-// Created by Kadayam, Hari on 30/10/17.
-//
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <algorithm>
@@ -11,12 +24,12 @@
 #include <utility>
 
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wpedantic"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #endif
-    #include <folly/ThreadLocal.h>
+#include <folly/ThreadLocal.h>
 #if defined __clang__ or defined __GNUC__
-    #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 #endif
 
 #include "metrics/metrics.hpp"
@@ -87,7 +100,7 @@ public:
         free_list_header* hdr{m_head};
         while (hdr) {
             free_list_header* const next{hdr->next};
-            std::free(static_cast<void*>(hdr));
+            std::free(static_cast< void* >(hdr));
             hdr = next;
         }
     }
@@ -97,10 +110,10 @@ public:
         INIT_METRICS;
 
         if (m_head == nullptr) {
-            ptr = static_cast<uint8_t*>(std::malloc(size_needed));
+            ptr = static_cast< uint8_t* >(std::malloc(size_needed));
             COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_miss, 1);
         } else {
-            ptr = reinterpret_cast<uint8_t*>(m_head);
+            ptr = reinterpret_cast< uint8_t* >(m_head);
             COUNTER_INCREMENT_IF_ENABLED(freelist_alloc_hit, 1);
             m_head = m_head->next;
             --m_list_count;
@@ -111,7 +124,7 @@ public:
 
     bool deallocate(uint8_t* const mem, const uint32_t size_alloced) {
         if ((size_alloced != Size) || (m_list_count == MaxListCount)) {
-            std::free(static_cast<void*>(mem));
+            std::free(static_cast< void* >(mem));
             return true;
         }
         auto* const hdr{reinterpret_cast< free_list_header* >(mem)};
@@ -146,7 +159,7 @@ public:
 
     bool deallocate(uint8_t* const mem, const uint32_t size_alloced) {
         if (sisl_unlikely(m_impl.get() == nullptr)) {
-            std::free(static_cast<void*>(mem));
+            std::free(static_cast< void* >(mem));
             return true;
         } else {
             return m_impl->deallocate(mem, size_alloced);

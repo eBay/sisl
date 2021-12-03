@@ -91,6 +91,10 @@ if(UNIX)
 endif()
 
 add_subdirectory (src/async_http)
+#add_subdirectory (src/btree)
+add_subdirectory (src/cache)
+add_subdirectory (src/logging)
+add_subdirectory (src/options)
 add_subdirectory (src/wisr)
 add_subdirectory (src/metrics)
 add_subdirectory (src/fds)
@@ -100,6 +104,9 @@ add_subdirectory (src/sisl_version)
 
 add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
+            $<TARGET_OBJECTS:sisl_cache>
+            $<TARGET_OBJECTS:sisl_logging>
+            $<TARGET_OBJECTS:sisl_options>
             $<TARGET_OBJECTS:sisl_version>
             $<TARGET_OBJECTS:sisl_settings>
             $<TARGET_OBJECTS:sisl_buffer>
