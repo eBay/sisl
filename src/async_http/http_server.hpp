@@ -6,7 +6,7 @@
 #include <condition_variable>
 #include <thread>
 #include <string>
-#include <cpr/cpr.h>
+#include "auth_manager/auth_manager.hpp"
 #include <evhtp.h>
 #include <event2/event.h>
 #include <event2/http.h>
@@ -17,7 +17,6 @@
 #include <evhtp/sslutils.h>
 #include <boost/intrusive_ptr.hpp>
 #include <nlohmann/json.hpp>
-
 #include <sys/stat.h>
 #include <random>
 #include <signal.h>
@@ -30,16 +29,6 @@
 #include "utility/thread_factory.hpp"
 #include "utility/obj_life_counter.hpp"
 #include <sds_options/options.h>
-
-// maybe-uninitialized variable in one of the included headers from jwt.h
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
-#include <jwt-cpp/jwt.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
 
 SDS_LOGGING_DECL(httpserver_lmod)
 
@@ -54,12 +43,6 @@ struct HttpServerConfig {
     uint32_t server_port;
     uint32_t read_write_timeout_secs;
     bool is_auth_enabled;
-    std::string tf_token_url;
-    std::string ssl_cert_file;
-    std::string ssl_key_file;
-    std::string ssl_ca_file;
-    uint32_t auth_exp_leeway;
-    std::string auth_allowed_apps;
 };
 
 ////////////////////// Internal Event Definitions //////////////////////
@@ -129,6 +112,15 @@ class HttpServer {
 public:
     HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers) :
             m_cfg(cfg), m_handlers(handlers), m_ev_base(nullptr), m_htp(nullptr), m_internal_event(nullptr) {}
+
+    HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers,
+               const std::shared_ptr< AuthManager > auth_mgr) :
+            m_cfg(cfg),
+            m_handlers(handlers),
+            m_ev_base(nullptr),
+            m_htp(nullptr),
+            m_internal_event(nullptr),
+            m_auth_mgr(auth_mgr) {}
 
     HttpServer(const HttpServerConfig& cfg) : HttpServer(cfg, {}) {}
 
@@ -222,6 +214,25 @@ public:
         }
     }
 
+    static evhtp_res to_evhtp_res(const AuthVerifyStatus status) {
+        evhtp_res ret;
+        switch (status) {
+        case AuthVerifyStatus::OK:
+            ret = EVHTP_RES_OK;
+            break;
+        case AuthVerifyStatus::UNAUTH:
+            ret = EVHTP_RES_UNAUTH;
+            break;
+        case AuthVerifyStatus::FORBIDDEN:
+            ret = EVHTP_RES_FORBIDDEN;
+            break;
+        default:
+            ret = EVHTP_RES_BADREQ;
+            break;
+        }
+        return ret;
+    }
+
     /*
      * The user of the http_server must add a line to call http_auth_verify at the beginning of all the apis defined.
      * The ideal way would be for the server to intercept all incoming api calls and do verification before sending it
@@ -251,36 +262,11 @@ public:
             return EVHTP_RES_UNAUTH;
         }
         auto raw_token = token_str.substr(bearer.length());
-        std::string app_name;
-        // TODO: cache tokens for better performance
-        try {
-            // this may throw if token is ill formed
-            auto decoded = jwt::decode(raw_token);
-
-            // for any reason that causes the verification failure, an
-            // exception is thrown.
-            verify_decoded(decoded);
-            app_name = get_app(decoded);
-        } catch (const std::exception& e) {
-            msg = e.what();
-            LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, e.what());
-            return EVHTP_RES_UNAUTH;
-        }
-
-        // check client application
-
-        if (m_cfg.auth_allowed_apps != "all") {
-            if (m_cfg.auth_allowed_apps.find(app_name) == std::string::npos) {
-                msg = fmt::format("application '{}' is not allowed to perform the request", app_name);
-                LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, msg);
-                return EVHTP_RES_FORBIDDEN;
-            }
-        }
-
-        return EVHTP_RES_OK;
+        // verify method is expected to not throw
+        return to_evhtp_res(m_auth_mgr->verify(raw_token, msg));
     }
     // for testing
-    void set_allowed_to_all() { m_cfg.auth_allowed_apps = "all"; }
+    void set_allowed_to_all() { m_auth_mgr->set_allowed_to_all(); }
 
 #define request_callback(cb)                                                                                           \
     (evhtp_callback_cb) std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)
@@ -537,62 +523,6 @@ private:
         return ssl_config;
     }
 
-    void verify_decoded(const jwt::decoded_jwt& decoded) {
-        auto alg = decoded.get_algorithm();
-        if (alg != "RS256") throw std::runtime_error(fmt::format("unsupported algorithm: {}", alg));
-
-        std::string signing_key;
-        if (!decoded.has_header_claim("x5u")) throw std::runtime_error("no indication of verification key");
-
-        auto key_url = decoded.get_header_claim("x5u").as_string();
-
-        if (key_url.rfind(m_cfg.tf_token_url, 0) != 0) {
-            throw std::runtime_error(fmt::format("key url {} is not trusted", key_url));
-        }
-        signing_key = download_key(key_url);
-        auto verifier = jwt::verify()
-                            .with_issuer("trustfabric")
-                            .allow_algorithm(jwt::algorithm::rs256(signing_key))
-                            .expires_at_leeway(m_cfg.auth_exp_leeway);
-
-        // if verification fails, an instance of std::system_error subclass is thrown.
-        verifier.verify(decoded);
-    }
-
-    virtual std::string download_key(const std::string& key_url) {
-        auto ca_file = m_cfg.ssl_ca_file;
-        auto cert_file = m_cfg.ssl_cert_file;
-        auto key_file = m_cfg.ssl_key_file;
-
-        // constructor for CaInfo does std::move(filename)
-        auto sslOpts = cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)});
-        sslOpts.SetOption(cpr::ssl::CertFile{std::move(cert_file)});
-        sslOpts.SetOption(cpr::ssl::KeyFile{std::move(key_file)});
-
-        cpr::Session session;
-        session.SetUrl(cpr::Url{key_url});
-        session.SetOption(sslOpts);
-
-        auto resp = session.Get();
-
-        if (resp.error) { throw std::runtime_error(fmt::format("download key failed: {}", resp.error.message)); }
-        if (resp.status_code != 200) { throw std::runtime_error(fmt::format("download key failed: {}", resp.text)); }
-
-        return resp.text;
-    }
-
-    std::string get_app(const jwt::decoded_jwt& decoded) {
-        // get app name from client_id, which is the "sub" field in the decoded token
-        // body
-        // https://pages.github.corp.ebay.com/security-platform/documents/tf-documentation/tessintegration/#environment-variables
-        if (!decoded.has_payload_claim("sub")) return "";
-
-        auto client_id = decoded.get_payload_claim("sub").as_string();
-        auto start = client_id.find(",o=") + 3;
-        auto end = client_id.find_first_of(",", start);
-        return client_id.substr(start, end - start);
-    }
-
 private:
     HttpServerConfig m_cfg;
     std::unique_ptr< std::thread > m_http_thread;
@@ -609,6 +539,8 @@ private:
 
     bool m_is_running = false;
     std::condition_variable m_ready_cv;
+
+    std::shared_ptr< AuthManager > m_auth_mgr;
 };
 
 } // namespace sisl
