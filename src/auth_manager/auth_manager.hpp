@@ -23,6 +23,7 @@ struct AuthMgrConfig {
     uint32_t auth_exp_leeway;
     std::string auth_allowed_apps;
     std::string issuer;
+    bool verify;
 };
 
 ENUM(AuthVerifyStatus, uint8_t, OK, UNAUTH, FORBIDDEN)
