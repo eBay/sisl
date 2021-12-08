@@ -302,8 +302,9 @@ class MockTrfClient : public TrfClient {
 public:
     using TrfClient::TrfClient;
     MOCK_METHOD(void, request_with_grant_token, ());
-    void set_token(const std::string& raw_token) {
+    void set_token(const std::string& raw_token, const std::string token_type) {
         m_access_token = raw_token;
+        m_token_type = token_type;
         m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(2000);
     }
     // deligate to parent class (run the real method)
@@ -312,6 +313,7 @@ public:
 
     void set_expiry(std::chrono::system_clock::time_point tp) { m_expiry = tp; }
     std::string get_access_token() { return m_access_token; }
+    std::string get_token_type() { return m_token_type; }
 };
 
 // this test will take 10 seconds to run
@@ -343,7 +345,8 @@ TEST_F(AuthEnableTest, trf_allow_valid_token) {
     // 2. When token is set to be expired
     EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(2);
     ON_CALL(mock_trf_client, request_with_grant_token())
-        .WillByDefault(testing::Invoke([&mock_trf_client, &raw_token]() { mock_trf_client.set_token(raw_token); }));
+        .WillByDefault(
+            testing::Invoke([&mock_trf_client, &raw_token]() { mock_trf_client.set_token(raw_token, "Bearer"); }));
 
     cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
     EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
@@ -353,14 +356,14 @@ TEST_F(AuthEnableTest, trf_allow_valid_token) {
 
     // use the acces_token saved from the previous call
     EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
-    resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", mock_trf_client.get_token())}});
+    resp = cpr::Post(url, cpr::Header{{"Authorization", mock_trf_client.get_typed_token()}});
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(200, resp.status_code);
 
     // set token to be expired invoking request_with_grant_token
     mock_trf_client.set_expiry(std::chrono::system_clock::now() - std::chrono::seconds(100));
     EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
-    resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", mock_trf_client.get_token())}});
+    resp = cpr::Post(url, cpr::Header{{"Authorization", mock_trf_client.get_typed_token()}});
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(200, resp.status_code);
 }
@@ -449,6 +452,7 @@ TEST_F(TrfClientTest, request_with_grant_token) {
     }));
     mock_trf_client.get_token();
     EXPECT_EQ(raw_token, mock_trf_client.get_access_token());
+    EXPECT_EQ("Bearer", mock_trf_client.get_token_type());
 }
 
 } // namespace sisl::testing

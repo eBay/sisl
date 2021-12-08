@@ -31,7 +31,7 @@ class AuthManager {
 public:
     AuthManager() = default;
     AuthManager(const AuthMgrConfig& cfg) : m_cfg(cfg) {}
-    ~AuthManager() = default;
+    virtual ~AuthManager() = default;
     void set_config(const AuthMgrConfig& cfg) { m_cfg = cfg; }
     AuthVerifyStatus verify(const std::string& token, std::string& msg) const;
     // for testing

@@ -24,7 +24,10 @@ class TrfClient {
 public:
     TrfClient(const TrfClientConfig& cfg);
     std::string get_token();
-    std::string get_bearer_token() { return fmt::format("Bearer {}", get_token()); }
+    std::string get_typed_token() {
+        const auto token_str{get_token()};
+        return fmt::format("{} {}", m_token_type, token_str);
+    }
 
 private:
     bool grant_path_exists() { return std::filesystem::exists(m_cfg.grant_path); }
@@ -38,6 +41,7 @@ protected:
 
 protected:
     std::string m_access_token;
+    std::string m_token_type;
     std::chrono::system_clock::time_point m_expiry;
     TrfClientConfig m_cfg;
 };

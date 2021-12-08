@@ -59,14 +59,14 @@ void TrfClient::request_with_grant_token() {
     nlohmann::json resp_json;
     try {
         resp_json = nlohmann::json::parse(resp.text);
+        std::string expires_in{resp_json["expires_in"]};
+        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(std::stoi(expires_in));
+        m_access_token = resp_json["access_token"];
+        m_token_type = resp_json["token_type"];
     } catch (nlohmann::detail::exception& e) {
         // TODO: log error, parsing failed
         return;
     }
-
-    std::string expires_in{resp_json["expires_in"]};
-    m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(std::stoi(expires_in));
-    m_access_token = resp_json["access_token"];
 }
 
 std::string TrfClient::get_token() {
