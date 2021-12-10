@@ -67,6 +67,7 @@ std::string AuthManager::download_key(const std::string& key_url) const {
         session.SetOption(sslOpts);
     }
 
+    session.SetTimeout(std::chrono::milliseconds{5000});
     auto resp = session.Get();
 
     if (resp.error) { throw std::runtime_error(fmt::format("download key failed: {}", resp.error.message)); }

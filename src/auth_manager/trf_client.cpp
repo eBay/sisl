@@ -51,6 +51,7 @@ void TrfClient::request_with_grant_token() {
     payload_data.emplace_back("code", grant_token);
     payload_data.emplace_back("client_id", client_id);
     session.SetPayload(cpr::Payload(payload_data.begin(), payload_data.end()));
+    session.SetTimeout(std::chrono::milliseconds{5000});
     auto resp = session.Post();
     if (resp.error || resp.status_code != 200) {
         // TODO: log error, rest call failed
