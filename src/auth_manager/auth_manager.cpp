@@ -53,19 +53,21 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
 }
 
 std::string AuthManager::download_key(const std::string& key_url) const {
-    auto ca_file = m_cfg.ssl_ca_file;
-    auto cert_file = m_cfg.ssl_cert_file;
-    auto key_file = m_cfg.ssl_key_file;
-
-    // constructor for CaInfo does std::move(filename)
-    auto sslOpts = cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)});
-    sslOpts.SetOption(cpr::ssl::CertFile{std::move(cert_file)});
-    sslOpts.SetOption(cpr::ssl::KeyFile{std::move(key_file)});
-
     cpr::Session session;
     session.SetUrl(cpr::Url{key_url});
-    session.SetOption(sslOpts);
+    if (m_cfg.verify) {
+        auto ca_file = m_cfg.ssl_ca_file;
+        auto cert_file = m_cfg.ssl_cert_file;
+        auto key_file = m_cfg.ssl_key_file;
 
+        // constructor for CaInfo does std::move(filename)
+        auto sslOpts = cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)});
+        sslOpts.SetOption(cpr::ssl::CertFile{std::move(cert_file)});
+        sslOpts.SetOption(cpr::ssl::KeyFile{std::move(key_file)});
+        session.SetOption(sslOpts);
+    }
+
+    session.SetTimeout(std::chrono::milliseconds{5000});
     auto resp = session.Get();
 
     if (resp.error) { throw std::runtime_error(fmt::format("download key failed: {}", resp.error.message)); }

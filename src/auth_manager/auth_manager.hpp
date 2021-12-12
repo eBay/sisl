@@ -23,6 +23,7 @@ struct AuthMgrConfig {
     uint32_t auth_exp_leeway;
     std::string auth_allowed_apps;
     std::string issuer;
+    bool verify;
 };
 
 ENUM(AuthVerifyStatus, uint8_t, OK, UNAUTH, FORBIDDEN)
@@ -31,7 +32,7 @@ class AuthManager {
 public:
     AuthManager() = default;
     AuthManager(const AuthMgrConfig& cfg) : m_cfg(cfg) {}
-    ~AuthManager() = default;
+    virtual ~AuthManager() = default;
     void set_config(const AuthMgrConfig& cfg) { m_cfg = cfg; }
     AuthVerifyStatus verify(const std::string& token, std::string& msg) const;
     // for testing

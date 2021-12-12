@@ -9,6 +9,7 @@
 #include <condition_variable>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include "auth_manager/trf_client.hpp"
 
 SDS_LOGGING_INIT(httpserver_lmod)
 SDS_OPTIONS_ENABLE(logging)
@@ -20,12 +21,18 @@ using namespace ::testing;
  * Load public and private keys.
  * Assume the keys(id_rsa.pub and id_rsa) are in the same directory as this file
  */
-static const std::string cur_file_dir{__FILE__};
-static const std::string load_test_data(const std::string& file_name) {
-    auto last_slash_pos = cur_file_dir.rfind('/');
+
+static std::string get_cur_file_dir() {
+    const std::string cur_file_path{__FILE__};
+    auto last_slash_pos = cur_file_path.rfind('/');
     if (last_slash_pos == std::string::npos) { return ""; }
-    const std::string key_base{cur_file_dir.substr(0, last_slash_pos + 1)};
-    std::ifstream f(fmt::format("{}/{}", key_base, file_name));
+    return std::string{cur_file_path.substr(0, last_slash_pos + 1)};
+}
+
+static const std::string cur_file_dir{get_cur_file_dir()};
+
+static const std::string load_test_data(const std::string& file_name) {
+    std::ifstream f(fmt::format("{}/{}", cur_file_dir, file_name));
     std::string buffer(std::istreambuf_iterator< char >{f}, std::istreambuf_iterator< char >{});
     if (!buffer.empty() && std::isspace(buffer.back())) buffer.pop_back();
     return buffer;
@@ -288,6 +295,164 @@ TEST_F(AuthEnableTest, reject_unauthorized_app) {
     auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", token.sign_rs256())}});
     EXPECT_FALSE(resp.error);
     EXPECT_EQ(403, resp.status_code);
+}
+
+// Testing trf client
+class MockTrfClient : public TrfClient {
+public:
+    using TrfClient::TrfClient;
+    MOCK_METHOD(void, request_with_grant_token, ());
+    void set_token(const std::string& raw_token, const std::string token_type) {
+        m_access_token = raw_token;
+        m_token_type = token_type;
+        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(2000);
+    }
+    // deligate to parent class (run the real method)
+
+    void __request_with_grant_token() { TrfClient::request_with_grant_token(); }
+
+    void set_expiry(std::chrono::system_clock::time_point tp) { m_expiry = tp; }
+    std::string get_access_token() { return m_access_token; }
+    std::string get_token_type() { return m_token_type; }
+};
+
+// this test will take 10 seconds to run
+TEST_F(AuthEnableTest, trf_grant_path_failure) {
+    EXPECT_THROW(
+        {
+            try {
+                TrfClientConfig cfg;
+                cfg.grant_path = "dummy_path";
+                TrfClient trf_client(cfg);
+            } catch (const std::runtime_error& e) {
+                EXPECT_STREQ(e.what(), "trustfabric client grant path dummy_path does not exist");
+                throw e;
+            }
+        },
+        std::runtime_error);
+}
+
+TEST_F(AuthEnableTest, trf_allow_valid_token) {
+    TrfClientConfig cfg;
+    cfg.grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
+    cfg.leeway = 30;
+    std::ofstream outfile(cfg.grant_path);
+    outfile.close();
+    MockTrfClient mock_trf_client(cfg);
+    auto raw_token = TestToken().sign_rs256();
+    // mock_trf_client is expected to be called twice
+    // 1. First time when access_token is empty
+    // 2. When token is set to be expired
+    EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(2);
+    ON_CALL(mock_trf_client, request_with_grant_token())
+        .WillByDefault(
+            testing::Invoke([&mock_trf_client, &raw_token]() { mock_trf_client.set_token(raw_token, "Bearer"); }));
+
+    cpr::Url url{"http://127.0.0.1:12345/api/v1/sayHello"};
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    auto resp = cpr::Post(url, cpr::Header{{"Authorization", fmt::format("Bearer {}", mock_trf_client.get_token())}});
+    EXPECT_FALSE(resp.error);
+    EXPECT_EQ(200, resp.status_code);
+
+    // use the acces_token saved from the previous call
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    resp = cpr::Post(url, cpr::Header{{"Authorization", mock_trf_client.get_typed_token()}});
+    EXPECT_FALSE(resp.error);
+    EXPECT_EQ(200, resp.status_code);
+
+    // set token to be expired invoking request_with_grant_token
+    mock_trf_client.set_expiry(std::chrono::system_clock::now() - std::chrono::seconds(100));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    resp = cpr::Post(url, cpr::Header{{"Authorization", mock_trf_client.get_typed_token()}});
+    EXPECT_FALSE(resp.error);
+    EXPECT_EQ(200, resp.status_code);
+}
+
+// Test request_with_grant_token. Setup http server with path /token to return token json
+class TrfClientTest : public ::testing::Test {
+public:
+    virtual void SetUp() {
+        cfg.is_tls_enabled = false;
+        cfg.bind_address = "127.0.0.1";
+        cfg.server_port = 12345;
+        cfg.read_write_timeout_secs = 10;
+        cfg.is_auth_enabled = false;
+        mock_server = std::unique_ptr< HttpServer >(
+            new HttpServer(cfg, {handler_info("/token", TrfClientTest::get_token, (void*)this)}));
+        mock_server->start();
+    }
+
+    virtual void TearDown() { mock_server->stop(); }
+
+    static void get_token(HttpCallData cd) {
+        std::string msg;
+        if (auto r = pThis(cd)->mock_server->http_auth_verify(cd->request(), msg); r != EVHTP_RES_OK) {
+            pThis(cd)->mock_server->respond_NOTOK(cd, r, msg);
+            return;
+        }
+        std::cout << "sending token to client" << std::endl;
+        pThis(cd)->mock_server->respond_OK(cd, EVHTP_RES_OK, m_token_response);
+    }
+
+    static void set_token_response(const std::string& raw_token) {
+        m_token_response = "{\n"
+                           "  \"access_token\": \"" +
+            raw_token +
+            "\",\n"
+            "  \"token_type\": \"Bearer\",\n"
+            "  \"expires_in\": \"2000\",\n"
+            "  \"refresh_token\": \"dummy_refresh_token\"\n"
+            "}";
+        }
+
+protected:
+    HttpServerConfig cfg;
+    std::unique_ptr< HttpServer > mock_server;
+    static TrfClientTest* pThis(HttpCallData cd) { return (TrfClientTest*)cd->cookie(); }
+    static std::string m_token_response;
+};
+std::string TrfClientTest::m_token_response;
+
+TEST_F(TrfClientTest, trf_grant_path_load_failure) {
+    TrfClientConfig cfg;
+    cfg.grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
+    std::ofstream outfile(cfg.grant_path);
+    outfile.close();
+    MockTrfClient mock_trf_client(cfg);
+    EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(1);
+    ON_CALL(mock_trf_client, request_with_grant_token()).WillByDefault(testing::Invoke([&mock_trf_client]() {
+        mock_trf_client.__request_with_grant_token();
+    }));
+    EXPECT_THROW(
+        {
+            try {
+                mock_trf_client.get_token();
+            } catch (const std::runtime_error& e) {
+                EXPECT_EQ(e.what(), fmt::format("could not load grant from path {}", cfg.grant_path));
+                throw e;
+            }
+        },
+        std::runtime_error);
+}
+
+TEST_F(TrfClientTest, request_with_grant_token) {
+    TrfClientConfig cfg;
+    cfg.grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
+    cfg.verify = false;
+    cfg.server = "127.0.0.1:12345/token";
+    std::ofstream outfile(cfg.grant_path);
+    outfile << "dummy cg contents\n";
+    outfile.close();
+    MockTrfClient mock_trf_client(cfg);
+    auto raw_token = TestToken().sign_rs256();
+    TrfClientTest::set_token_response(raw_token);
+    EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(1);
+    ON_CALL(mock_trf_client, request_with_grant_token()).WillByDefault(testing::Invoke([&mock_trf_client]() {
+        mock_trf_client.__request_with_grant_token();
+    }));
+    mock_trf_client.get_token();
+    EXPECT_EQ(raw_token, mock_trf_client.get_access_token());
+    EXPECT_EQ("Bearer", mock_trf_client.get_token_type());
 }
 
 } // namespace sisl::testing

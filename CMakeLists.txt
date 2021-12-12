@@ -105,6 +105,7 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_settings>
             $<TARGET_OBJECTS:sisl_buffer>
             $<TARGET_OBJECTS:sisl_auth_manager>
+            $<TARGET_OBJECTS:sisl_trf_client>
            )
 target_link_libraries(sisl ${COMMON_LIB_DEPS})
 
