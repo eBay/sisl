@@ -3,8 +3,8 @@
 #include <gmock/gmock.h>
 #include <mutex>
 
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include <sisl/auth_manager/trf_client.hpp>
 
 #if defined __clang__ or defined __GNUC__
@@ -21,8 +21,8 @@
 #include "grpc_helper_test.grpc.pb.h"
 #include "test_token.hpp"
 
-SDS_LOGGING_INIT(logging, grpc_server, httpserver_lmod)
-SDS_OPTIONS_ENABLE(logging)
+SISL_LOGGING_INIT(logging, grpc_server, httpserver_lmod)
+SISL_OPTIONS_ENABLE(logging)
 
 namespace grpc_helper::testing {
 using namespace sisl;
@@ -305,6 +305,6 @@ TEST_F(AuthEnableTest, allow_sync_client_with_auth) {
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleMock(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     return RUN_ALL_TESTS();
 }
