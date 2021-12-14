@@ -293,7 +293,10 @@ public:
     template < typename ServiceT >
     auto make_stub(const std::string& worker) {
         auto w = GrpcAsyncClientWorker::get_worker(worker);
-        if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
+        if (w == nullptr) {
+            std::cout << "Hello there !" << std::endl;
+            throw std::runtime_error("worker thread not available");
+        }
 
         return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w, m_trf_client.get());
     }

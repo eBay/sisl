@@ -69,7 +69,13 @@ class AuthBaseTest : public ::testing::Test {
 public:
     virtual void SetUp() {}
 
-    virtual void TearDown() {}
+    virtual void TearDown() {
+        if (m_grpc_server) {
+            m_grpc_server->shutdown();
+            delete m_grpc_server;
+            delete m_echo_impl;
+        }
+    }
 
     void grpc_server_start(const std::string& server_address, std::shared_ptr< AuthManager > auth_mgr) {
         LOGINFO("Start echo and ping server on {}...", server_address);
@@ -125,7 +131,7 @@ public:
         m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-1");
     }
 
-    virtual void TearDown() { m_grpc_server->shutdown(); }
+    virtual void TearDown() { AuthBaseTest::TearDown(); }
 };
 
 TEST_F(AuthDisableTest, allow_on_disabled_mode) {
@@ -147,6 +153,7 @@ public:
         auth_cfg.tf_token_url = "http://127.0.0.1";
         auth_cfg.auth_allowed_apps = "app1, testapp, app2";
         auth_cfg.auth_exp_leeway = 0;
+        auth_cfg.verify = false;
         m_auth_mgr = std::shared_ptr< AuthManager >(new AuthManager());
         m_auth_mgr->set_config(auth_cfg);
         grpc_server_start(grpc_server_addr, m_auth_mgr);
@@ -154,11 +161,11 @@ public:
         // Client without auth
         m_async_grpc_client = std::make_unique< GrpcAsyncClient >(grpc_server_addr, "", "");
         m_async_grpc_client->init();
-        GrpcAsyncClientWorker::create_worker("worker-1", 4);
-        m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-1");
+        GrpcAsyncClientWorker::create_worker("worker-2", 4);
+        m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-2");
     }
 
-    virtual void TearDown() { m_grpc_server->shutdown(); }
+    virtual void TearDown() { AuthBaseTest::TearDown(); }
 };
 
 TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
@@ -221,13 +228,13 @@ public:
         m_trf_client = std::make_shared< TrfClient >(trf_cfg);
         m_async_grpc_client = std::make_unique< GrpcAsyncClient >(grpc_server_addr, "", "", m_trf_client);
         m_async_grpc_client->init();
-        GrpcAsyncClientWorker::create_worker("worker-1", 4);
-        m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-1");
+        GrpcAsyncClientWorker::create_worker("worker-3", 4);
+        m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-3");
     }
 
     virtual void TearDown() {
+        AuthBaseTest::TearDown();
         m_token_server->stop();
-        m_grpc_server->shutdown();
     }
 
     static void get_token(HttpCallData cd) {
@@ -306,5 +313,7 @@ TEST_F(AuthEnableTest, allow_sync_client_with_auth) {
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleMock(&argc, argv);
     SISL_OPTIONS_LOAD(argc, argv, logging)
-    return RUN_ALL_TESTS();
+    int ret{RUN_ALL_TESTS()};
+    grpc_helper::GrpcAsyncClientWorker::shutdown_all();
+    return ret;
 }
