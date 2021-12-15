@@ -11,7 +11,7 @@
 #include <functional>
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
-#include <sds_logging/logging.h>
+#include <sisl/logging/logging.h>
 #include <shared_mutex>
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -19,7 +19,7 @@
 #include <string>
 #include <regex>
 
-SDS_LOGGING_DECL(flip)
+SISL_LOGGING_DECL(flip)
 
 namespace flip {
 
@@ -46,9 +46,7 @@ struct flip_name_compare {
 
 struct flip_instance {
     flip_instance(const FlipSpec& fspec) :
-            m_fspec(fspec),
-            m_hit_count(0),
-            m_remain_exec_count(fspec.flip_frequency().count()) {}
+            m_fspec(fspec), m_hit_count(0), m_remain_exec_count(fspec.flip_frequency().count()) {}
 
     flip_instance(const flip_instance& other) {
         m_fspec = other.m_fspec;

@@ -4,15 +4,15 @@
 
 #include "flip.hpp"
 
-#include <sds_options/options.h>
+#include <sisl/options/options.h>
 
-SDS_LOGGING_INIT(flip)
+SISL_LOGGING_INIT(flip)
 
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 
-int main(int argc, char *argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
-    sds_logging::SetLogger(std::string(argv[0]));
+int main(int argc, char* argv[]) {
+    SISL_OPTIONS_LOAD(argc, argv, logging)
+    sisl::logging::SetLogger(std::string(argv[0]));
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     flip::Flip f;
