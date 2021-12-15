@@ -1,7 +1,19 @@
-//
-// Created by Kadayam, Hari on Oct 220 2019
-//
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -16,7 +28,7 @@
 #endif
 
 #include <boost/intrusive/slist.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <spdlog/fmt/fmt.h>
 
 #include "memvector.hpp"
@@ -25,7 +37,7 @@
 
 using namespace sisl;
 
-SDS_LOGGING_INIT(group_commit)
+SISL_LOGGING_INIT(group_commit)
 
 #pragma pack(1)
 struct log_group_header {

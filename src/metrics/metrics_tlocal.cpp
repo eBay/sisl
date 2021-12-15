@@ -1,21 +1,34 @@
-//
-// Created by Kadayam, Hari on 2/5/19.
-//
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
 
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 
 #include "metrics_tlocal.hpp"
 
 namespace sisl {
 
-PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, const uint32_t ncntrs, const uint32_t nhists) :
+PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramStaticInfo >& hinfo, const uint32_t ncntrs,
+                                   const uint32_t nhists) :
         m_histogram_info{hinfo}, m_ncntrs{ncntrs}, m_nhists{nhists} {
-    m_counters = std::make_unique<CounterValue[]>(ncntrs);
-    m_histograms = std::make_unique<HistogramValue[]>(nhists);
+    m_counters = std::make_unique< CounterValue[] >(ncntrs);
+    m_histograms = std::make_unique< HistogramValue[] >(nhists);
     std::uninitialized_default_construct(m_counters.get(), m_counters.get() + ncntrs);
     std::uninitialized_default_construct(m_histograms.get(), m_histograms.get() + nhists);
 
@@ -26,8 +39,7 @@ PerThreadMetrics::PerThreadMetrics(const std::vector< HistogramStaticInfo >& hin
 #endif
 }
 
-PerThreadMetrics::~PerThreadMetrics() {
-}
+PerThreadMetrics::~PerThreadMetrics() {}
 
 void PerThreadMetrics::merge(PerThreadMetrics* const a, PerThreadMetrics* const b) {
 #if 0
@@ -58,7 +70,7 @@ HistogramValue& PerThreadMetrics::get_histogram(const uint64_t index) {
 static int outstanding_flush{0};
 static std::mutex flush_cv_mtx;
 static std::condition_variable flush_cv;
-static void flush_cache_handler([[maybe_unused]] sds_logging::SignalType signal_number) {
+static void flush_cache_handler([[maybe_unused]] sisl::logging::SignalType signal_number) {
     assert(signal_number == SIGUSR4);
 
     std::atomic_thread_fence(std::memory_order_release);
@@ -83,7 +95,7 @@ void ThreadBufferMetricsGroup::flush_core_cache() {
             ++outstanding_flush;
         }
         // std::cout << "Sending thread signal to thread_num " << thread_num << "\n";
-        sds_logging::send_thread_signal(pt, SIGUSR4);
+        sisl::logging::send_thread_signal(pt, SIGUSR4);
     });
 
     {
@@ -95,7 +107,7 @@ void ThreadBufferMetricsGroup::flush_core_cache() {
 
 void ThreadBufferMetricsGroup::on_register() {
     static std::once_flag flag1;
-    std::call_once(flag1, [&]() { sds_logging::add_signal_handler(SIGUSR4, "SIGUSR4", &flush_cache_handler); });
+    std::call_once(flag1, [&]() { sisl::logging::add_signal_handler(SIGUSR4, "SIGUSR4", &flush_cache_handler); });
 
     m_metrics_buf =
         std::make_unique< PerThreadMetricsBuffer >(m_static_info->m_histograms, num_counters(), num_histograms());

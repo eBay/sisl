@@ -1,7 +1,19 @@
-﻿/*
- * Created by Hari Kadayam, Sounak Gupta on Dec-12 2018
+﻿/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
  *
- */
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <atomic>
@@ -20,16 +32,16 @@
 #include <boost/preprocessor/facilities/expand.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <nlohmann/json.hpp>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "metrics_atomic.hpp"
 #include "metrics_group_impl.hpp"
 #include "metrics_rcu.hpp"
 #include "metrics_tlocal.hpp"
 
-// TODO: Commenting out this tempoarily till the SDS_OPTIONS and SDS_LOGGING issue is resolved
-// SDS_LOGGING_DECL(vmod_metrics_framework)
+// TODO: Commenting out this tempoarily till the SISL_OPTIONS and SISL_LOGGING issue is resolved
+// SISL_LOGGING_DECL(vmod_metrics_framework)
 
 namespace sisl {
 
@@ -241,7 +253,7 @@ private:
 #define METRIC_NAME_TO_INDEX(type, name)                                                                               \
     (sisl::type< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().get_index())
 
-// TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SDS_LOGGING and SDS_OPTIONS are resolved
+// TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SISL_LOGGING and SISL_OPTIONS are resolved
 
 #ifndef NDEBUG
 #define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \
