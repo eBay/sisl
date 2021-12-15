@@ -7,9 +7,9 @@ class MetricsConan(ConanFile):
     name = "sisl"
     version = "7.0.2"
 
-    license = "Proprietary"
+    license = "Apache"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
-    description = "Sisl library for fast data structures, utilities"
+    description = "Library for fast data structures, utilities"
     revision_mode = "scm"
 
     settings = "arch", "os", "compiler", "build_type"
