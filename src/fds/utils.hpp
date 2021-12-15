@@ -1,3 +1,19 @@
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <array>
@@ -194,4 +210,38 @@ static int spaceship_oper(const T& left, const T& right) {
 #define _PLACEHOLDER_PARAM(z, n, text) , text##n
 #define bind_this(method, nparams)                                                                                     \
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
+
+#define r_cast reinterpret_cast
+#define s_cast static_cast
+#define d_cast dynamic_cast
+#define dp_cast std::dynamic_pointer_cast
+#define sp_cast std::static_pointer_cast
+
+#define uintptr_cast reinterpret_cast< uint8_t* >
+#define voidptr_cast reinterpret_cast< void* >
+#define int_cast static_cast< int >
+#define uint32_cast static_cast< uint32_t >
+#define int64_cast static_cast< int64_t >
+#define uint64_cast static_cast< uint64_t >
+
 } // namespace sisl
+
+#if 0
+template < typename T >
+using d_cast = dynamic_cast< T >;
+
+template < typename T >
+using s_cast = static_cast< T >;
+
+template < typename T >
+using r_cast = reinterpret_cast< T >;
+
+using void_cast = reinterpret_cast< void* >;
+using uint8p_cast = reinterpret_cast< uint8_t* >;
+
+template < typename T >
+using dp_cast = std::dynamic_pointer_cast< T >;
+
+template < typename T >
+using sp_cast = std::static_pointer_cast< T >;
+#endif
