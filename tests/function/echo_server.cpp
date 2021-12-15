@@ -13,8 +13,8 @@
 #include <thread>
 #include <signal.h>
 
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include "grpc_helper/rpc_server.hpp"
 #include "grpc_helper_test.grpc.pb.h"
@@ -116,12 +116,12 @@ void StartServer() {
     g_ping_impl->register_rpcs(g_grpc_server);
 }
 
-SDS_LOGGING_INIT(logging, grpc_server)
-SDS_OPTIONS_ENABLE(logging)
+SISL_LOGGING_INIT(logging, grpc_server)
+SISL_OPTIONS_ENABLE(logging)
 
 int main(int argc, char* argv[]) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
-    sds_logging::SetLogger("echo_server");
+    SISL_OPTIONS_LOAD(argc, argv, logging)
+    sisl::logging::SetLogger("echo_server");
     LOGINFO("Start echo server ...");
 
     StartServer();

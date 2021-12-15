@@ -13,7 +13,7 @@
 #include <grpcpp/impl/codegen/async_unary_call.h>
 #include <grpc/support/log.h>
 
-#include <sds_logging/logging.h>
+#include <sisl/logging/logging.h>
 #include <sisl/utility/obj_life_counter.hpp>
 #include <sisl/utility/enum.hpp>
 

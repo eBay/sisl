@@ -9,13 +9,13 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
 
-#include <sds_logging/logging.h>
+#include <sisl/logging/logging.h>
 #include <sisl/utility/obj_life_counter.hpp>
 #include <sisl/utility/atomic_counter.hpp>
 #include <sisl/utility/enum.hpp>
 #include "rpc_common.hpp"
 
-SDS_LOGGING_DECL(grpc_server)
+SISL_LOGGING_DECL(grpc_server)
 
 #define RPC_SERVER_LOG(level, msg, ...)                                                                                \
     LOG##level##MOD_FMT(grpc_server, ([&](fmt::memory_buffer& buf, const char* __m, auto&&... args) -> bool {          \

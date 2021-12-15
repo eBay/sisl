@@ -12,8 +12,8 @@
 #include <chrono>
 #include <thread>
 
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include "sds_grpc/client.h"
 #include "sds_grpc_test.grpc.pb.h"
@@ -96,12 +96,12 @@ int RunClient(const std::string& server_address) {
     return ret;
 }
 
-SDS_LOGGING_INIT()
-SDS_OPTIONS_ENABLE(logging)
+SISL_LOGGING_INIT()
+SISL_OPTIONS_ENABLE(logging)
 
 int main(int argc, char** argv) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
-    sds_logging::SetLogger("sync_client");
+    SISL_OPTIONS_LOAD(argc, argv, logging)
+    sisl::logging::SetLogger("sync_client");
 
     std::string server_address("0.0.0.0:50051");
 

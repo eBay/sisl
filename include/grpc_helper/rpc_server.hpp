@@ -6,7 +6,7 @@
 
 #include <boost/core/noncopyable.hpp>
 #include <grpcpp/completion_queue.h>
-#include <sds_logging/logging.h>
+#include <sisl/logging/logging.h>
 #include <sisl/utility/enum.hpp>
 #include "rpc_call.hpp"
 
