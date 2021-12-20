@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "7.0.2"
+    version = "7.0.3"
 
     license = "Apache"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -118,6 +118,8 @@ class MetricsConan(ConanFile):
         self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
         self.cpp_info.cppflags.append("-fconcepts")
         self.cpp_info.includedirs = ["include", "include/sisl/"]
+        if self.options.prerelease:
+            self.cpp_info.cxxflags.append("-D_PRERELEASE=1")
         if self.settings.os == "Linux":
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")
