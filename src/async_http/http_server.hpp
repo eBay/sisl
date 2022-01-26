@@ -1,11 +1,25 @@
-//
-// Created by Kadayam, Hari on 12/14/18.
-//
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <condition_variable>
 #include <thread>
 #include <string>
+#include "auth_manager/auth_manager.hpp"
 #include <evhtp.h>
 #include <event2/event.h>
 #include <event2/http.h>
@@ -16,21 +30,20 @@
 #include <evhtp/sslutils.h>
 #include <boost/intrusive_ptr.hpp>
 #include <nlohmann/json.hpp>
-
 #include <sys/stat.h>
 #include <random>
 #include <signal.h>
 #include <optional>
 #include <set>
 #include <boost/filesystem.hpp>
-#include <sds_logging/logging.h>
+#include "logging/logging.h"
 #include <boost/intrusive/slist.hpp>
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
 #include "utility/thread_factory.hpp"
 #include "utility/obj_life_counter.hpp"
-#include <sds_options/options.h>
+#include "options/options.h"
 
-SDS_LOGGING_DECL(httpserver_lmod)
+SISL_LOGGING_DECL(httpserver_lmod)
 
 namespace sisl {
 
@@ -42,6 +55,7 @@ struct HttpServerConfig {
     std::string bind_address;
     uint32_t server_port;
     uint32_t read_write_timeout_secs;
+    bool is_auth_enabled;
 };
 
 ////////////////////// Internal Event Definitions //////////////////////
@@ -111,6 +125,15 @@ class HttpServer {
 public:
     HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers) :
             m_cfg(cfg), m_handlers(handlers), m_ev_base(nullptr), m_htp(nullptr), m_internal_event(nullptr) {}
+
+    HttpServer(const HttpServerConfig& cfg, const std::vector< _handler_info >& handlers,
+               const std::shared_ptr< AuthManager > auth_mgr) :
+            m_cfg(cfg),
+            m_handlers(handlers),
+            m_ev_base(nullptr),
+            m_htp(nullptr),
+            m_internal_event(nullptr),
+            m_auth_mgr(auth_mgr) {}
 
     HttpServer(const HttpServerConfig& cfg) : HttpServer(cfg, {}) {}
 
@@ -204,6 +227,60 @@ public:
         }
     }
 
+    static evhtp_res to_evhtp_res(const AuthVerifyStatus status) {
+        evhtp_res ret;
+        switch (status) {
+        case AuthVerifyStatus::OK:
+            ret = EVHTP_RES_OK;
+            break;
+        case AuthVerifyStatus::UNAUTH:
+            ret = EVHTP_RES_UNAUTH;
+            break;
+        case AuthVerifyStatus::FORBIDDEN:
+            ret = EVHTP_RES_FORBIDDEN;
+            break;
+        default:
+            ret = EVHTP_RES_BADREQ;
+            break;
+        }
+        return ret;
+    }
+
+    /*
+     * The user of the http_server must add a line to call http_auth_verify at the beginning of all the apis defined.
+     * The ideal way would be for the server to intercept all incoming api calls and do verification before sending it
+     * down to the url callback function. No proper way could be found to do this.
+     * One potential way is to use the hooks (per connection hooks/ per request hooks or per cb hooks) which can be set
+     * at different points in the life cycle of a req. (like on_headers etc) These hooks from evhtp library do not seem
+     * to work properly when the hook cb functions return anything other than EVHTP_RES_OK For a perfect implementation
+     * that avoids users to add http_auth_verify before all the apis they define, we need to either explore evhtp lib
+     * more or switch to a different server like Pistache.
+     */
+
+    evhtp_res http_auth_verify(evhtp_request_t* req, std::string& msg) {
+        if (!m_cfg.is_auth_enabled) { return EVHTP_RES_OK; }
+
+        const std::string bearer{"Bearer "};
+        auto* token = evhtp_header_find(req->headers_in, "Authorization");
+        std::string token_str;
+        if (!token) {
+            msg = "missing auth token in request header";
+            LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, msg);
+            return EVHTP_RES_UNAUTH;
+        }
+        token_str = token;
+        if (token_str.rfind(bearer, 0) != 0) {
+            msg = "require bearer token in request header";
+            LOGDEBUGMOD(httpserver_lmod, "Processing req={}; {}", (void*)req, msg);
+            return EVHTP_RES_UNAUTH;
+        }
+        auto raw_token = token_str.substr(bearer.length());
+        // verify method is expected to not throw
+        return to_evhtp_res(m_auth_mgr->verify(raw_token, msg));
+    }
+    // for testing
+    void set_allowed_to_all() { m_auth_mgr->set_allowed_to_all(); }
+
 #define request_callback(cb)                                                                                           \
     (evhtp_callback_cb) std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)
 #define error_callback(cb)                                                                                             \
@@ -225,77 +302,6 @@ protected:
         HttpCallData cd = new _http_calldata(req, arg);
         server->respond_NOTOK(cd, EVHTP_RES_BADREQ, "Request can't be matched with any handlers\n");
     }
-
-#if 0
-    bool http_auth_verify(evhtp_request_t* req) {
-        bool flag = false;
-        int error;
-        jwt_t* context;
-        const char bearer[] = "Bearer ";
-        const char cookiePrefix[] = "MONSTOR_ACCESS_TOKEN=";
-
-        auto* token = evhtp_header_find(req->headers_in, "Authorization");
-        if (token) {
-            if (strncmp(token, bearer, sizeof(bearer) - 1) == 0) {
-                token = token + sizeof(bearer) - 1;
-            } else {
-                LOG(ERROR) << "Invalid token prefix: " << token;
-                return false;
-            }
-        } else if ((token = evhtp_header_find(req->headers_in, "Cookie"))) {
-            if (strncmp(token, cookiePrefix, sizeof(cookiePrefix) - 1) == 0) {
-                token = token + sizeof(cookiePrefix) - 1;
-            } else {
-                LOG(ERROR) << "Invalid cookie prefix: " << token;
-                return false;
-            }
-        } else {
-            LOG(ERROR) << "Missing token in request http header";
-            return false;
-        }
-
-        // read the secrets file
-        std::ifstream ifs(monstordb_settings_safe()->config->httpServer->httpAuth->httpAuthorizationCert);
-        std::stringstream cert;
-        if (!ifs) {
-            LOG(ERROR) << "cannot open http auth file: "
-                       << monstordb_settings_safe()->config->httpServer->httpAuth->httpAuthorizationCert;
-            return false;
-        }
-        cert << ifs.rdbuf();
-
-        error = jwt_decode(&context, token, (const unsigned char*)cert.str().c_str(), (int)cert.str().length());
-        if (error != 0) {
-            LOGERROR("jwt_decode failed, error = {}", error);
-        } else {
-            // verifying that role contains AGENT or WATCHER
-            auto* roles = jwt_get_grants_json(context, "$int_roles");
-            if (roles) {
-                try {
-                    nlohmann::json array = nlohmann::json::parse(roles);
-                    for (auto&& jobject : array) {
-                        std::string str = jobject.dump();
-                        if (strcasecmp(str.c_str(), "\"AGENT\"") == 0 || strcasecmp(str.c_str(), "\"WATCHER\"") == 0) {
-                            flag = true;
-                            break;
-                        }
-                    }
-                } catch (nlohmann::json::exception& ex) {
-                    LOGERROR("roles parse error: {}", roles);
-                }
-
-                if (!flag) {
-                    LOGERROR("Invalid roles = {}", roles);
-                }
-            } else {
-                LOGERROR("no roles in jwt token");
-            }
-        }
-
-        jwt_free(context);
-        return flag;
-    }
-#endif
 
     static evhtp_res request_on_path_handler(evhtp_request_t* req, void* arg) {
         __attribute__((unused)) HttpServer* server = (HttpServer*)arg;
@@ -546,6 +552,8 @@ private:
 
     bool m_is_running = false;
     std::condition_variable m_ready_cv;
+
+    std::shared_ptr< AuthManager > m_auth_mgr;
 };
 
 } // namespace sisl

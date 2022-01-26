@@ -1,7 +1,19 @@
-﻿/*
- * Created by Hari Kadayam, Sounak Gupta on Dec-12 2018
+﻿/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
  *
- */
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <atomic>
@@ -20,39 +32,38 @@
 #include <boost/preprocessor/facilities/expand.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <nlohmann/json.hpp>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "metrics_atomic.hpp"
 #include "metrics_group_impl.hpp"
 #include "metrics_rcu.hpp"
 #include "metrics_tlocal.hpp"
 
-// TODO: Commenting out this tempoarily till the SDS_OPTIONS and SDS_LOGGING issue is resolved
-// SDS_LOGGING_DECL(vmod_metrics_framework)
+// TODO: Commenting out this tempoarily till the SISL_OPTIONS and SISL_LOGGING issue is resolved
+// SISL_LOGGING_DECL(vmod_metrics_framework)
 
 namespace sisl {
 
 class MetricsGroupStaticInfo;
+class MetricsFarm;
 class MetricsGroup {
 public:
+    MetricsGroup(const std::string& grp_name, const std::string& inst_name = "Instance1",
+                 group_impl_type_t type = group_impl_type_t::rcu);
+    ~MetricsGroup();
+
     MetricsGroup(const MetricsGroup&) = delete;
     MetricsGroup(MetricsGroup&&) noexcept = delete;
     MetricsGroup& operator=(const MetricsGroup&) = delete;
     MetricsGroup& operator=(MetricsGroup&&) noexcept = delete;
 
     MetricsGroupImplPtr m_impl_ptr;
+    std::shared_ptr< MetricsFarm > m_farm_ptr; // Take reference to prevent from singleton destruction before
 
     std::atomic< bool > m_is_registered = false;
     static MetricsGroupImplPtr make_group(const std::string& grp_name, const std::string& inst_name,
                                           group_impl_type_t type = group_impl_type_t::rcu);
-
-    MetricsGroup(const std::string& grp_name, const std::string& inst_name = "Instance1",
-                 group_impl_type_t type = group_impl_type_t::rcu) {
-        m_impl_ptr = make_group(grp_name, inst_name, type);
-    }
-
-    ~MetricsGroup() { deregister_me_from_farm(); }
 
     void register_me_to_farm();
     void deregister_me_from_farm();
@@ -72,7 +83,7 @@ private:
     std::unordered_map< std::string, uint64_t > m_uniq_inst_maintainer;
     mutable std::mutex m_lock;
     std::unique_ptr< Reporter > m_reporter;
-
+    std::shared_ptr< ThreadRegistry > m_treg; // Keep a ref of ThreadRegistry to prevent it from destructing before us.
 private:
     MetricsFarm();
 
@@ -85,7 +96,13 @@ public:
     MetricsFarm& operator=(const MetricsFarm&) = delete;
     MetricsFarm& operator=(MetricsFarm&&) noexcept = delete;
 
-    static MetricsFarm& getInstance();
+    static MetricsFarm& getInstance() { return *get_instance_ptr(); }
+
+    static std::shared_ptr< MetricsFarm > get_instance_ptr() {
+        static std::shared_ptr< MetricsFarm > inst_ptr{new MetricsFarm()};
+        return inst_ptr;
+    }
+
     static Reporter& get_reporter();
     static bool is_initialized();
 
@@ -236,7 +253,7 @@ private:
 #define METRIC_NAME_TO_INDEX(type, name)                                                                               \
     (sisl::type< decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)) >::getInstance().get_index())
 
-// TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SDS_LOGGING and SDS_OPTIONS are resolved
+// TODO: Replace printf and #ifnef DEBUG with DLOGDFATAL_IF once the issue of SISL_LOGGING and SISL_OPTIONS are resolved
 
 #ifndef NDEBUG
 #define __VALIDATE_AND_EXECUTE(group, type, method, name, ...)                                                         \

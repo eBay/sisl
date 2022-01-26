@@ -1,7 +1,19 @@
-//
-// Created by Kadayam, Hari on 31/05/17.
-//
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <array>
@@ -17,7 +29,7 @@
 #include <thread>
 
 #if defined __linux__
-    #include <pthread.h>
+#include <pthread.h>
 #endif
 
 #include <boost/dynamic_bitset.hpp>
@@ -31,7 +43,7 @@
 
 namespace sisl {
 
-VENUM(thread_life_cycle, uint8_t, THREAD_ATTACHED=1u, THREAD_DETACHED=2u)
+VENUM(thread_life_cycle, uint8_t, THREAD_ATTACHED = 1u, THREAD_DETACHED = 2u)
 
 typedef std::function< void(uint32_t, thread_life_cycle) > thread_state_cb_t;
 
@@ -173,8 +185,12 @@ public:
     }
 #endif
 
-    static ThreadRegistry* instance() { return &inst; }
-    static ThreadRegistry inst;
+    static ThreadRegistry* instance() { return get_instance_ptr().get(); }
+
+    static std::shared_ptr< ThreadRegistry > get_instance_ptr() {
+        static std::shared_ptr< ThreadRegistry > inst_ptr{new ThreadRegistry()};
+        return inst_ptr;
+    }
 
 private:
     uint32_t get_next_free_slot() {
@@ -189,7 +205,7 @@ private:
             }
         } while ((m_slot_cursor == INVALID_CURSOR) || (!m_ref_count[m_slot_cursor].testz()));
 
-        return static_cast<uint32_t>(m_slot_cursor);
+        return static_cast< uint32_t >(m_slot_cursor);
     }
 
     void finish_notification() {
@@ -244,13 +260,15 @@ public:
 
     ~ThreadLocalContext() {
         thread_registry->detach(this_thread_num);
-        this_thread_num = std::numeric_limits<uint32_t>::max();
+        this_thread_num = std::numeric_limits< uint32_t >::max();
     }
 
     static ThreadLocalContext* instance() { return &inst; }
 
     static uint32_t my_thread_num() { return instance()->this_thread_num; }
-    static void set_context(const uint32_t context_id, const uint64_t context) { instance()->user_contexts[context_id] = context; }
+    static void set_context(const uint32_t context_id, const uint64_t context) {
+        instance()->user_contexts[context_id] = context;
+    }
     static uint64_t get_context(const uint32_t context_id) { return instance()->user_contexts[context_id]; }
 
     static thread_local ThreadLocalContext inst;
@@ -259,9 +277,7 @@ public:
     std::array< uint64_t, 5 > user_contexts; // To store any user contexts
 };
 
-#define THREAD_BUFFER_INIT                                                                                             \
-    sisl::ThreadRegistry sisl::ThreadRegistry::inst;                                                                   \
-    thread_local sisl::ThreadLocalContext sisl::ThreadLocalContext::inst;
+#define THREAD_BUFFER_INIT thread_local sisl::ThreadLocalContext sisl::ThreadLocalContext::inst;
 
 template < bool IsActiveThreadsOnly, typename T, typename... Args >
 class ThreadBuffer {
@@ -270,8 +286,7 @@ class ThreadBuffer {
 public:
     template < class... Args1 >
     ThreadBuffer(Args1&&... args) :
-            m_args(std::forward< Args1 >(args)...),
-            m_thread_slots(ThreadRegistry::max_tracked_threads()) {
+            m_args(std::forward< Args1 >(args)...), m_thread_slots(ThreadRegistry::max_tracked_threads()) {
         m_buffers.reserve(ThreadRegistry::max_tracked_threads());
         m_notify_idx = thread_registry->register_for_sc_notification(
             std::bind(&ThreadBuffer::on_thread_state_change, this, std::placeholders::_1, std::placeholders::_2));
@@ -386,8 +401,7 @@ public:
             auto it{std::rbegin(m_exited_buffers)};
             while (it != std::rend(m_exited_buffers)) {
                 const auto next_itr{std::next(it)};
-                const bool can_free{cb(it->get(), false /* is_running */,
-                                       (next_itr == std::rend(m_exited_buffers)))};
+                const bool can_free{cb(it->get(), false /* is_running */, (next_itr == std::rend(m_exited_buffers)))};
                 if (can_free) { m_exited_buffers.erase(next_itr.base()); }
                 // iterators remain valid for elements previous to item erased for vectors
                 it = next_itr;
