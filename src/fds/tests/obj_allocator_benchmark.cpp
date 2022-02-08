@@ -1,7 +1,19 @@
-//
-// Created by Kadayam, Hari on 2/1/19.
-//
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
@@ -10,14 +22,13 @@
 #include <string>
 
 #include <benchmark/benchmark.h>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 
 #include "metrics/metrics.hpp"
 #include "obj_allocator.hpp"
 
-SDS_LOGGING_INIT(HOMESTORE_LOG_MODS)
-THREAD_BUFFER_INIT
+SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 RCU_REGISTER_INIT
 
 namespace {
@@ -78,9 +89,9 @@ void test_obj_alloc(benchmark::State& state) {
 BENCHMARK(test_malloc)->Iterations(ITERATIONS)->Threads(THREADS);
 BENCHMARK(test_obj_alloc)->Iterations(ITERATIONS)->Threads(THREADS);
 
-SDS_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 int main(int argc, char** argv) {
-    SDS_OPTIONS_LOAD(argc, argv, logging)
+    SISL_OPTIONS_LOAD(argc, argv, logging)
     setup();
     ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();

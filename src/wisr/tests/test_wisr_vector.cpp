@@ -1,7 +1,19 @@
-//
-// Created by Kadayam, Hari on 12/21/18.
-//
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -18,7 +30,6 @@
 #include "utility/thread_buffer.hpp"
 #include "wisr/wisr_ds.hpp"
 
-
 THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
 
@@ -28,13 +39,13 @@ static constexpr size_t INITIAL_THREADS{8};
 static constexpr size_t ADDLN_THREADS{4};
 static constexpr size_t ENTRIES_PER_THREAD{10000};
 static constexpr size_t TOTAL_THREADS{INITIAL_THREADS + ADDLN_THREADS};
-static constexpr size_t TOTAL_ENTRIES{ENTRIES_PER_THREAD* TOTAL_THREADS};
+static constexpr size_t TOTAL_ENTRIES{ENTRIES_PER_THREAD * TOTAL_THREADS};
 
 struct WaitFreeWriteVectorTest : public testing::Test {
 public:
     WaitFreeWriteVectorTest() : m_vec(1000), m_write_threads_completed(0) {
         for (size_t i{0}; i < INITIAL_THREADS; ++i) {
-            m_threads.emplace_back( write_thread, i, this);
+            m_threads.emplace_back(write_thread, i, this);
         }
         m_scrapper_thread = std::thread(scrapper_thread, this);
         std::this_thread::yield();
@@ -71,7 +82,7 @@ protected:
         }
         {
             std::scoped_lock< std::mutex > lock{test->m_print_mutex};
-            std::cout << "Thread " << thread_index << " done writing" << std::endl;   
+            std::cout << "Thread " << thread_index << " done writing" << std::endl;
         }
         ++(test->m_write_threads_completed);
     }

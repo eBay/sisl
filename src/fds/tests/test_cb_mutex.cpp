@@ -1,9 +1,24 @@
-
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #include <iostream>
 #include <thread>
 #include <vector>
-#include <sds_logging/logging.h>
-#include <sds_options/options.h>
+#include "logging/logging.h"
+#include "options/options.h"
 #include <gtest/gtest.h>
 
 #pragma GCC diagnostic push
@@ -14,7 +29,7 @@
 #include "callback_mutex.hpp"
 #include "utils.hpp"
 
-SDS_LOGGING_INIT(test_cb_mutex)
+SISL_LOGGING_INIT(test_cb_mutex)
 
 static uint64_t g_prev_val{0};
 static uint64_t g_cur_val{1};
@@ -59,8 +74,8 @@ protected:
     }
 
     void run_lock_unlock() {
-        auto num_threads = SDS_OPTIONS["num_threads"].as< uint32_t >();
-        auto num_iters = sisl::round_up(SDS_OPTIONS["num_iters"].as< uint64_t >(), num_threads);
+        auto num_threads = SISL_OPTIONS["num_threads"].as< uint32_t >();
+        auto num_iters = sisl::round_up(SISL_OPTIONS["num_iters"].as< uint64_t >(), num_threads);
 
         uint32_t unique_threads{num_threads};
         uint32_t shared_threads{0};
@@ -91,17 +106,17 @@ TYPED_TEST_SUITE(CBMutexTest, Implementations);
 
 TYPED_TEST(CBMutexTest, LockUnlockTest) { this->run_lock_unlock(); }
 
-SDS_OPTIONS_ENABLE(logging, test_cb_mutex)
-SDS_OPTION_GROUP(test_cb_mutex,
-                 (num_threads, "", "num_threads", "number of threads",
-                  ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
-                 (num_iters, "", "num_iters", "number of iterations",
-                  ::cxxopts::value< uint64_t >()->default_value("10000"), "number"))
+SISL_OPTIONS_ENABLE(logging, test_cb_mutex)
+SISL_OPTION_GROUP(test_cb_mutex,
+                  (num_threads, "", "num_threads", "number of threads",
+                   ::cxxopts::value< uint32_t >()->default_value("8"), "number"),
+                  (num_iters, "", "num_iters", "number of iterations",
+                   ::cxxopts::value< uint64_t >()->default_value("10000"), "number"))
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
-    SDS_OPTIONS_LOAD(argc, argv, logging, test_cb_mutex)
-    sds_logging::SetLogger("test_cb_mutex");
+    SISL_OPTIONS_LOAD(argc, argv, logging, test_cb_mutex)
+    sisl::logging::SetLogger("test_cb_mutex");
     spdlog::set_pattern("[%D %T%z] [%^%L%$] [%t] %v");
 
     auto ret = RUN_ALL_TESTS();
