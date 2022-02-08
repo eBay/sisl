@@ -135,7 +135,7 @@ inline uint64_t round_up(const uint64_t num_to_round, const uint64_t multiple) {
         return (num_to_round + multiple - 1) & (~(multiple - 1));
     } else {
         // multiple is not power of 2
-        return (num_to_round / multiple) * multiple + ((num_to_round % multiple) ? multiple : 0);
+        return (num_to_round % multiple == 0) ? num_to_round : (num_to_round / multiple * multiple + multiple);
     }
 }
 inline uint64_t round_down(const uint64_t num_to_round, const uint64_t multiple) {
