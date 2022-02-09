@@ -128,10 +128,15 @@ static uint64_t constexpr get_mask() {
 }
 
 namespace sisl {
-// NOTE: This round_up version only works for multiples a power of 2
 inline uint64_t round_up(const uint64_t num_to_round, const uint64_t multiple) {
-    assert((multiple > static_cast< uint64_t >(0)) && !(multiple & (multiple - 1)));
-    return (num_to_round + multiple - 1) & (~(multiple - 1));
+    assert(multiple > static_cast< uint64_t >(0));
+    if (!(multiple & (multiple - 1))) {
+        // multiple is power of 2
+        return (num_to_round + multiple - 1) & (~(multiple - 1));
+    } else {
+        // multiple is not power of 2
+        return (num_to_round % multiple == 0) ? num_to_round : ((num_to_round / multiple) * multiple + multiple);
+    }
 }
 inline uint64_t round_down(const uint64_t num_to_round, const uint64_t multiple) {
     return (num_to_round / multiple) * multiple;
