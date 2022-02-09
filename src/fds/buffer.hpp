@@ -101,10 +101,8 @@ public:
         aligned_free(p, tag);
     }
 
-    virtual void* aligned_pool_alloc(const size_t align, const size_t sz, const sisl::buftag tag) {
-        return nullptr;
-    };
-    virtual void aligned_pool_free(uint8_t* const b, const size_t sz, const sisl::buftag tag) {};
+    virtual void* aligned_pool_alloc(const size_t align, const size_t sz, const sisl::buftag tag);
+    virtual void aligned_pool_free(uint8_t* const b, const size_t sz, const sisl::buftag tag);
 
     virtual size_t buf_size(uint8_t* buf) const {
 #ifdef __linux__
