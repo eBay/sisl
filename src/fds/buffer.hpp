@@ -101,6 +101,13 @@ public:
         aligned_free(p, tag);
     }
 
+    virtual uint8_t* aligned_pool_alloc(const size_t align, const size_t sz, const sisl::buftag tag) {
+        return aligned_alloc(align, sz, tag);
+    };
+    virtual void aligned_pool_free(uint8_t* const b, const size_t sz, const sisl::buftag tag) {
+        aligned_free(b, tag);
+    };
+
     virtual size_t buf_size(uint8_t* buf) const {
 #ifdef __linux__
         return ::malloc_usable_size(buf);
