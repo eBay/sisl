@@ -28,7 +28,8 @@
 namespace sisl {
 class IDReserver {
 public:
-    IDReserver(uint32_t estimated_ids = 1024) : m_reserved_bits(estimated_ids) {}
+    IDReserver(uint32_t estimated_ids = 1024) : m_reserved_bits(estimated_ids) { assert(estimated_ids); }
+
     IDReserver(const sisl::byte_array& b) : m_reserved_bits(b) {}
 
     uint32_t reserve() {
