@@ -207,7 +207,6 @@ public:
     explicit BitsetImpl(const uint64_t nbits = 0, const uint64_t m_id = 0, const uint32_t alignment_size = 0) {
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
-        assert(nbits);
         m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
         m_s = new (m_buf->bytes) bitset_serialized{m_id, nbits, 0, alignment_size};
     }
