@@ -38,6 +38,7 @@ public:
         if (nbit == Bitset::npos) {
             // We ran out of room to allocate bits, resize and allocate more
             auto cur_size = m_reserved_bits.size();
+            assert(cur_size);
             m_reserved_bits.resize(cur_size * 2);
             nbit = cur_size;
         }
