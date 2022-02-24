@@ -12,6 +12,9 @@
 #include <string>
 #include <thread>
 
+#include <cpr/cpr.h>
+#include <event2/http.h>
+
 #include <gtest/gtest.h>
 
 #include "http_server.hpp"
@@ -77,22 +80,28 @@ static void shutdown(sisl::HttpCallData cd) {
 
 class HTTPServerTest : public ::testing::Test {
 public:
+    HTTPServerTest() = default;
+    HTTPServerTest(const HTTPServerTest&) = delete;
+    HTTPServerTest& operator=(const HTTPServerTest&) = delete;
+    HTTPServerTest(HTTPServerTest&&) noexcept = delete;
+    HTTPServerTest& operator=(HTTPServerTest&&) noexcept = delete;
+    virtual ~HTTPServerTest() override = default;
+
     virtual void SetUp() override {
         s_server = std::make_unique< sisl::HttpServer >(
             s_cfg,
             std::vector< sisl::_handler_info >{handler_info("/api/v1/sayHello", say_hello, nullptr),
                                                handler_info("/api/v1/shutdown", shutdown, nullptr),
                                                handler_info("/api/v1/sleepFor", delayed_return, nullptr)});
-
+        s_is_shutdown = false;
         s_server->start();
     }
 
     virtual void TearDown() override {
         s_server->stop();
 
-        wait_for_shutdown();
-
         if (s_timer_thread && s_timer_thread->joinable()) { s_timer_thread->join(); }
+        s_timer_thread.reset();
         s_server.reset();
     }
 
@@ -105,6 +114,13 @@ protected:
 
 TEST_F(HTTPServerTest, BasicTest) {
     s_server->register_handler_info(handler_info("/api/v1/yourNamePlease", say_name, nullptr));
+
+    cpr::Url url{"http://127.0.0.1:5051/api/v1/shutdown"};
+    const auto resp{cpr::Post(url)};
+
+    ASSERT_EQ(resp.status_code, cpr::status::HTTP_OK);
+
+    wait_for_shutdown();
 
 #ifdef _PRERELEASE
     std::cout << "ObjectLife Counter:\n";
@@ -119,7 +135,7 @@ int main(int argc, char* argv[]) {
     SISL_OPTIONS_LOAD(argc, argv, logging)
 
     s_cfg.is_tls_enabled = false;
-    s_cfg.bind_address = "0.0.0.0";
+    s_cfg.bind_address = "127.0.0.1";
     s_cfg.server_port = 5051;
     s_cfg.read_write_timeout_secs = 10;
 

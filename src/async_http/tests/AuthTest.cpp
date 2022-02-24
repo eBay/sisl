@@ -110,14 +110,21 @@ public:
 
 class AuthBaseTest : public ::testing::Test {
 public:
-    virtual void SetUp() {
+    AuthBaseTest() = default;
+    AuthBaseTest(const AuthBaseTest&) = delete;
+    AuthBaseTest& operator=(const AuthBaseTest&) = delete;
+    AuthBaseTest(AuthBaseTest&&) noexcept = delete;
+    AuthBaseTest& operator=(AuthBaseTest&&) noexcept = delete;
+    virtual ~AuthBaseTest() override = default;
+
+    virtual void SetUp() override {
         cfg.is_tls_enabled = false;
         cfg.bind_address = "127.0.0.1";
         cfg.server_port = 12345;
         cfg.read_write_timeout_secs = 10;
     }
 
-    virtual void TearDown() { mock_server->stop(); }
+    virtual void TearDown() override { mock_server->stop(); }
 
     static void say_hello(HttpCallData cd) {
         std::string msg;
@@ -137,7 +144,14 @@ protected:
 
 class AuthEnableTest : public AuthBaseTest {
 public:
-    virtual void SetUp() {
+    AuthEnableTest() = default;
+    AuthEnableTest(const AuthEnableTest&) = delete;
+    AuthEnableTest& operator=(const AuthEnableTest&) = delete;
+    AuthEnableTest(AuthEnableTest&&) noexcept = delete;
+    AuthEnableTest& operator=(AuthEnableTest&&) noexcept = delete;
+    virtual ~AuthEnableTest() override = default;
+
+    virtual void SetUp() override {
         AuthBaseTest::SetUp();
         cfg.is_auth_enabled = true;
         AuthMgrConfig auth_cfg;
@@ -152,7 +166,7 @@ public:
         mock_server->start();
     }
 
-    virtual void TearDown() { AuthBaseTest::TearDown(); }
+    virtual void TearDown() override { AuthBaseTest::TearDown(); }
 
     void set_allowed_to_all() { mock_server->set_allowed_to_all(); }
 
@@ -162,6 +176,13 @@ protected:
 
 class AuthDisableTest : public AuthBaseTest {
 public:
+    AuthDisableTest() = default;
+    AuthDisableTest(const AuthDisableTest&) = delete;
+    AuthDisableTest& operator=(const AuthDisableTest&) = delete;
+    AuthDisableTest(AuthDisableTest&&) noexcept = delete;
+    AuthDisableTest& operator=(AuthDisableTest&&) noexcept = delete;
+    virtual ~AuthDisableTest() override = default;
+
     virtual void SetUp() {
         AuthBaseTest::SetUp();
         cfg.is_auth_enabled = false;
