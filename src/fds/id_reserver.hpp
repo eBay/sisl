@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cassert>
 #include <memory>
 #include <mutex>
 
@@ -28,7 +29,8 @@
 namespace sisl {
 class IDReserver {
 public:
-    IDReserver(uint32_t estimated_ids = 1024) : m_reserved_bits(estimated_ids) {}
+    IDReserver(uint32_t estimated_ids = 1024) : m_reserved_bits(estimated_ids) { assert(estimated_ids != 0); }
+
     IDReserver(const sisl::byte_array& b) : m_reserved_bits(b) {}
 
     uint32_t reserve() {
@@ -36,7 +38,8 @@ public:
         size_t nbit = m_reserved_bits.get_next_reset_bit(0);
         if (nbit == Bitset::npos) {
             // We ran out of room to allocate bits, resize and allocate more
-            auto cur_size = m_reserved_bits.size();
+            const auto cur_size = m_reserved_bits.size();
+            assert(cur_size != 0);
             m_reserved_bits.resize(cur_size * 2);
             nbit = cur_size;
         }

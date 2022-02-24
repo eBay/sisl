@@ -75,7 +75,12 @@ static constexpr std::array< uint64_t, 64 > consecutive_bitmask = {
 template < typename DataType >
 static constexpr uint8_t logBase2(const DataType v) {
     static_assert(std::is_unsigned< DataType >::value, "logBase2: DataType must be unsigned.");
-
+#if __cplusplus > 201703L
+    return static_cast< uint8_t >((v == DataType{}) ? 255 : (sizeof(DataType) * 8 - 1) - std::countl_zero(v));
+#else
+#if defined __GNUC__ && defined __x86_64
+    return static_cast< uint8_t >((v == DataType{}) ? 255 : 63 - __builtin_clzll(static_cast< uint64_t >(v)));
+#else
     constexpr std::array< uint8_t, 256 > LogTable256{
         255, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
         5,   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
@@ -142,6 +147,8 @@ static constexpr uint8_t logBase2(const DataType v) {
     }
 
     return r;
+#endif
+#endif
 }
 
 #if __cplusplus > 201703L
