@@ -3,13 +3,18 @@
  * https://github.corp.ebay.com/SDS/om_cpp/blob/master/src/tests/unit/Middleware/AuthTest.cpp
  **/
 
-#include "http_server.hpp"
+#include <fstream>
+#include <iostream>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <thread>
-#include <condition_variable>
+
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+
 #include "auth_manager/trf_client.hpp"
+#include "http_server.hpp"
 
 SISL_LOGGING_INIT(httpserver_lmod)
 SISL_OPTIONS_ENABLE(logging)
@@ -403,7 +408,7 @@ public:
             "  \"expires_in\": \"2000\",\n"
             "  \"refresh_token\": \"dummy_refresh_token\"\n"
             "}";
-        }
+    }
 
 protected:
     HttpServerConfig cfg;

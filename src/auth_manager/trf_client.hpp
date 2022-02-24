@@ -1,8 +1,10 @@
 #pragma once
 
-#include <cpr/cpr.h>
-#include <string>
 #include <filesystem>
+#include <string>
+
+#undef HTTP_OK // nameclash with cpr/cpr.h header
+#include <cpr/cpr.h>
 #include <fmt/format.h>
 
 namespace sisl {

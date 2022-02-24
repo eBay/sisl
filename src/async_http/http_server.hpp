@@ -17,31 +17,39 @@
 #pragma once
 
 #include <condition_variable>
-#include <thread>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <random>
+#include <sstream>
 #include <string>
-#include "auth_manager/auth_manager.hpp"
-#include <evhtp.h>
+#include <system_error>
+#include <thread>
+#include <vector>
+
+#ifdef __linux__
+#include <event2/dns.h>
 #include <event2/event.h>
 #include <event2/http.h>
-#include <event2/dns.h>
-#include <event2/util.h>
 #include <event2/thread.h>
+#include <event2/util.h>
+#include <evhtp.h>
 #include <evhtp/evhtp.h>
 #include <evhtp/sslutils.h>
-#include <boost/intrusive_ptr.hpp>
-#include <nlohmann/json.hpp>
 #include <sys/stat.h>
-#include <random>
-#include <signal.h>
-#include <optional>
-#include <set>
-#include <boost/filesystem.hpp>
-#include "logging/logging.h"
+#endif
+
+#include <boost/intrusive_ptr.hpp>
 #include <boost/intrusive/slist.hpp>
 #include <boost/smart_ptr/intrusive_ref_counter.hpp>
-#include "utility/thread_factory.hpp"
-#include "utility/obj_life_counter.hpp"
+#include <nlohmann/json.hpp>
+
+#include "auth_manager/auth_manager.hpp"
+#include "logging/logging.h"
 #include "options/options.h"
+#include "utility/obj_life_counter.hpp"
+#include "utility/thread_factory.hpp"
 
 SISL_LOGGING_DECL(httpserver_lmod)
 

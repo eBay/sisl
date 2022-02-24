@@ -1,8 +1,11 @@
 #pragma once
 
-#include <cpr/cpr.h>
-#include "utility/enum.hpp"
+#include <cstdint>
 #include <string>
+
+#undef HTTP_OK // nameclash with cpr/cpr.h header
+#include <cpr/cpr.h>
+
 // maybe-uninitialized variable in one of the included headers from jwt.h
 #if defined __clang__ or defined __GNUC__
 #pragma GCC diagnostic push
@@ -12,6 +15,8 @@
 #if defined __clang__ or defined __GNUC__
 #pragma GCC diagnostic pop
 #endif
+
+#include "utility/enum.hpp"
 
 namespace sisl {
 
