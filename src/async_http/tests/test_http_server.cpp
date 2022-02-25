@@ -1,6 +1,8 @@
 //
 // Created by Kadayam, Hari on 12/14/18.
 //
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -115,7 +117,7 @@ protected:
 TEST_F(HTTPServerTest, BasicTest) {
     s_server->register_handler_info(handler_info("/api/v1/yourNamePlease", say_name, nullptr));
 
-    cpr::Url url{"http://127.0.0.1:5051/api/v1/shutdown"};
+    const cpr::Url url{"http://127.0.0.1:5051/api/v1/shutdown"};
     const auto resp{cpr::Post(url)};
 
     ASSERT_EQ(resp.status_code, cpr::status::HTTP_OK);
@@ -128,6 +130,56 @@ TEST_F(HTTPServerTest, BasicTest) {
         std::cout << name << ": " << alive << "/" << created << "\n";
     });
 #endif
+}
+
+TEST_F(HTTPServerTest, ParallelTestWithWait) {
+    s_server->register_handler_info(handler_info("/api/v1/yourNamePlease", say_name, nullptr));
+
+    std::atomic< bool > failed{false};
+    const auto thread_func{[&failed](const size_t iterations) {
+        const cpr::Url url{"http://127.0.0.1:5051/api/v1/yourNamePlease"};
+        for (size_t iteration{0}; (iteration < iterations) && !failed; ++iteration) {
+            const auto resp{cpr::Post(url)};
+            if (resp.status_code != cpr::status::HTTP_OK) failed = true;
+        }
+    }};
+
+    constexpr size_t num_iterations{100};
+    const size_t num_threads{std::max< size_t >(std::thread::hardware_concurrency(), 2)};
+    std::vector< std::thread > workers;
+    for (size_t thread_num{0}; thread_num < num_threads; ++thread_num) {
+        workers.emplace_back(thread_func, num_iterations);
+    }
+
+    for (auto& worker : workers) {
+        if (worker.joinable()) worker.join();
+    }
+
+    ASSERT_FALSE(failed);
+}
+
+TEST_F(HTTPServerTest, ParallelTestWithoutWait) {
+    s_server->register_handler_info(handler_info("/api/v1/yourNamePlease", say_name, nullptr));
+
+    const auto thread_func{[](const size_t iterations) {
+        const cpr::Url url{"http://127.0.0.1:5051/api/v1/yourNamePlease"};
+        for (size_t iteration{0}; iteration < iterations; ++iteration) {
+            [[maybe_unused]] auto response{cpr::PostAsync(url)};
+        }
+    }};
+
+    constexpr size_t num_iterations{100};
+    const size_t num_threads{std::max< size_t >(std::thread::hardware_concurrency(), 2)};
+    std::vector< std::thread > workers;
+    for (size_t thread_num{0}; thread_num < num_threads; ++thread_num) {
+        workers.emplace_back(thread_func, num_iterations);
+    }
+
+    for (auto& worker : workers) {
+        if (worker.joinable()) worker.join();
+    }
+
+    // exit while server processing
 }
 
 int main(int argc, char* argv[]) {
