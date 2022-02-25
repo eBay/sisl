@@ -181,10 +181,12 @@ public:
         });
 
         /* wait for not running indication */
+        LOGINFO("Waiting for http server event loop to be stopped.");
         {
             std::unique_lock< std::mutex > lk{m_running_mutex};
             m_ready_cv.wait(lk, [this] { return !m_is_running; });
         }
+        LOGINFO("HTTP server event loop stopped.");
 
         LOGINFO("Waiting for http server thread to join..");
         if (m_http_thread && m_http_thread->joinable()) {
@@ -192,6 +194,7 @@ public:
                 m_http_thread->join();
             } catch (std::exception& e) { LOGERROR("Http thread join error: {}", e.what()); }
         }
+        LOGINFO("HTTP Server thread joined.");
 
         return 0;
     }
