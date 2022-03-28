@@ -4,7 +4,7 @@
 namespace grpc_helper {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
-                               const std::string& ssl_cert, const std::shared_ptr< sisl::TrfClient > trf_client) :
+                               const std::string& ssl_cert, const std::shared_ptr< sisl::TrfClient >& trf_client) :
         m_server_addr(server_addr), m_target_domain(target_domain), m_ssl_cert(ssl_cert), m_trf_client(trf_client) {}
 
 void GrpcBaseClient::init() {

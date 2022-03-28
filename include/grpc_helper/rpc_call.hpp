@@ -117,7 +117,7 @@ class RpcStaticInfo : public RpcStaticInfoBase {
 public:
     RpcStaticInfo(GrpcServer* server, typename ServiceT::AsyncService& svc, const request_call_cb_t& call_cb,
                   const rpc_handler_cb_t& rpc_cb, const rpc_completed_cb_t& comp_cb, size_t idx,
-                  const std::string& name, sisl::AuthManager* auth_mgr) :
+                  const std::string& name, std::shared_ptr< sisl::AuthManager > auth_mgr) :
             m_server{server},
             m_svc{svc},
             m_req_call_cb{call_cb},
@@ -134,7 +134,7 @@ public:
     rpc_completed_cb_t m_comp_cb;
     size_t m_rpc_idx;
     std::string m_rpc_name;
-    sisl::AuthManager* m_auth_mgr;
+    std::shared_ptr< sisl::AuthManager > m_auth_mgr;
 };
 
 /**
@@ -224,7 +224,7 @@ public:
             m_streaming_responder(&m_ctx) {}
 
 private:
-    bool do_autherization() {
+    bool do_authorization() {
         bool ret{true};
         // Auth is enabled if auth mgr is not null
         if (m_rpc_info->m_auth_mgr) {
@@ -275,7 +275,7 @@ private:
             RPC_SERVER_LOG(TRACE, "req. payload={}", request().DebugString());
 
             // Autherization
-            if (auto auth_success = do_autherization(); !auth_success) {
+            if (!do_authorization()) {
                 if constexpr (streaming) {
                     std::lock_guard< std::mutex > lock{m_streaming_mutex};
                     do_streaming_send_if_needed();

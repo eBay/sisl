@@ -123,7 +123,7 @@ protected:
 
 public:
     GrpcBaseClient(const std::string& server_addr, const std::string& target_domain = "",
-                   const std::string& ssl_cert = "", const std::shared_ptr< sisl::TrfClient > trf_client = nullptr);
+                   const std::string& ssl_cert = "", const std::shared_ptr< sisl::TrfClient >& trf_client = nullptr);
     virtual ~GrpcBaseClient() = default;
     virtual bool is_connection_ready() const;
     virtual void init();
@@ -293,10 +293,7 @@ public:
     template < typename ServiceT >
     auto make_stub(const std::string& worker) {
         auto w = GrpcAsyncClientWorker::get_worker(worker);
-        if (w == nullptr) {
-            std::cout << "Hello there !" << std::endl;
-            throw std::runtime_error("worker thread not available");
-        }
+        if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
 
         return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w, m_trf_client.get());
     }

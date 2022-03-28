@@ -22,7 +22,7 @@ class GrpcServer : private boost::noncopyable {
 
 public:
     GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-               const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager > auth_mgr = nullptr);
+               const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager >& auth_mgr = nullptr);
     virtual ~GrpcServer();
 
     /**
@@ -30,7 +30,7 @@ public:
      */
     static GrpcServer* make(const std::string& listen_addr, uint32_t threads = 1, const std::string& ssl_key = "",
                             const std::string& ssl_cert = "",
-                            const std::shared_ptr< sisl::AuthManager > auth_mgr = nullptr);
+                            const std::shared_ptr< sisl::AuthManager >& auth_mgr = nullptr);
 
     void run(const rpc_thread_start_cb_t& thread_start_cb = nullptr);
     void shutdown();
@@ -71,7 +71,7 @@ public:
             std::unique_lock lg(m_rpc_registry_mtx);
             rpc_idx = m_rpc_registry.size();
             m_rpc_registry.emplace_back(new RpcStaticInfo< ServiceT, ReqT, RespT, false >(
-                this, *svc, request_call_cb, rpc_handler, done_handler, rpc_idx, name, m_auth_mgr.get()));
+                this, *svc, request_call_cb, rpc_handler, done_handler, rpc_idx, name, m_auth_mgr));
 
             // Register one call per cq.
             for (auto i = 0u; i < m_cqs.size(); ++i) {
