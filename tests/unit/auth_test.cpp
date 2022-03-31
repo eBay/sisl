@@ -79,7 +79,7 @@ public:
 
     void grpc_server_start(const std::string& server_address, std::shared_ptr< AuthManager > auth_mgr) {
         LOGINFO("Start echo and ping server on {}...", server_address);
-        m_grpc_server = GrpcServer::make(server_address, 4, "", "", auth_mgr);
+        m_grpc_server = GrpcServer::make(server_address, auth_mgr, 4, "", "");
         m_echo_impl = new EchoServiceImpl();
         m_echo_impl->register_service(m_grpc_server);
         m_grpc_server->run();
@@ -226,7 +226,7 @@ public:
         outfile << "dummy cg contents\n";
         outfile.close();
         m_trf_client = std::make_shared< TrfClient >(trf_cfg);
-        m_async_grpc_client = std::make_unique< GrpcAsyncClient >(grpc_server_addr, "", "", m_trf_client);
+        m_async_grpc_client = std::make_unique< GrpcAsyncClient >(grpc_server_addr, m_trf_client, "", "");
         m_async_grpc_client->init();
         GrpcAsyncClientWorker::create_worker("worker-3", 4);
         m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-3");

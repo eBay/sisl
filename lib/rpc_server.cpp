@@ -18,6 +18,9 @@ extern "C" {
 #include <grpcpp/impl/codegen/service_type.h>
 
 namespace grpc_helper {
+GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
+                       const std::string& ssl_cert) :
+        GrpcServer::GrpcServer(listen_addr, threads, ssl_key, ssl_cert, nullptr) {}
 
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                        const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager >& auth_mgr) :
@@ -62,7 +65,12 @@ GrpcServer::~GrpcServer() {
 }
 
 GrpcServer* GrpcServer::make(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-                             const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager >& auth_mgr) {
+                             const std::string& ssl_cert) {
+    return GrpcServer::make(listen_addr, nullptr, threads, ssl_key, ssl_cert);
+}
+
+GrpcServer* GrpcServer::make(const std::string& listen_addr, const std::shared_ptr< sisl::AuthManager >& auth_mgr,
+                             uint32_t threads, const std::string& ssl_key, const std::string& ssl_cert) {
     return new GrpcServer(listen_addr, threads, ssl_key, ssl_cert, auth_mgr);
 }
 

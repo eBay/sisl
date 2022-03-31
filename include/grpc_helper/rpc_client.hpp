@@ -123,7 +123,9 @@ protected:
 
 public:
     GrpcBaseClient(const std::string& server_addr, const std::string& target_domain = "",
-                   const std::string& ssl_cert = "", const std::shared_ptr< sisl::TrfClient >& trf_client = nullptr);
+                   const std::string& ssl_cert = "");
+    GrpcBaseClient(const std::string& server_addr, const std::shared_ptr< sisl::TrfClient >& trf_client,
+                   const std::string& target_domain = "", const std::string& ssl_cert = "");
     virtual ~GrpcBaseClient() = default;
     virtual bool is_connection_ready() const;
     virtual void init();
@@ -197,9 +199,13 @@ public:
     template < typename ServiceT >
     using StubPtr = std::unique_ptr< typename ServiceT::StubInterface >;
 
+    GrpcAsyncClient(const std::string& server_addr, const std::shared_ptr< sisl::TrfClient > trf_client,
+                    const std::string& target_domain = "", const std::string& ssl_cert = "") :
+            GrpcBaseClient(server_addr, trf_client, target_domain, ssl_cert) {}
+
     GrpcAsyncClient(const std::string& server_addr, const std::string& target_domain = "",
-                    const std::string& ssl_cert = "", const std::shared_ptr< sisl::TrfClient > trf_client = nullptr) :
-            GrpcBaseClient(server_addr, target_domain, ssl_cert, trf_client) {}
+                    const std::string& ssl_cert = "") :
+            GrpcAsyncClient(server_addr, nullptr, target_domain, ssl_cert) {}
 
     virtual ~GrpcAsyncClient() {}
 
@@ -217,7 +223,8 @@ public:
     struct AsyncStub {
         using UPtr = std::unique_ptr< AsyncStub >;
 
-        AsyncStub(StubPtr< ServiceT > stub, GrpcAsyncClientWorker* worker, sisl::TrfClient* trf_client) :
+        AsyncStub(StubPtr< ServiceT > stub, GrpcAsyncClientWorker* worker,
+                  std::shared_ptr< sisl::TrfClient > trf_client) :
                 m_stub(std::move(stub)), m_worker(worker), m_trf_client(trf_client) {}
 
         using stub_t = typename ServiceT::StubInterface;
@@ -278,7 +285,7 @@ public:
 
         StubPtr< ServiceT > m_stub;
         GrpcAsyncClientWorker* m_worker;
-        sisl::TrfClient* m_trf_client;
+        std::shared_ptr< sisl::TrfClient > m_trf_client;
 
         const StubPtr< ServiceT >& stub() { return m_stub; }
 
@@ -295,7 +302,7 @@ public:
         auto w = GrpcAsyncClientWorker::get_worker(worker);
         if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
 
-        return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w, m_trf_client.get());
+        return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w, m_trf_client);
     }
 };
 
