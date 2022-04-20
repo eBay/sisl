@@ -88,38 +88,44 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
 
-#define LOGTRACEMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                                   \
-        _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
-    }
+#define LOGTRACEMOD_USING_LOGGER(mod, logger, msg, ...) do {                                                           \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                               \
+            _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
+        }                                                                                                              \
+    } while(0)
 
-#define LOGDEBUGMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                                   \
-        _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
-    }
+#define LOGDEBUGMOD_USING_LOGGER(mod, logger, msg, ...) do {                                                           \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                               \
+            _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
+        }                                                                                                              \
+    } while(0)
 
-#define LOGINFOMOD_USING_LOGGER(mod, logger, msg, ...)                                                                 \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::info)) {                                    \
-        _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
-    }
+#define LOGINFOMOD_USING_LOGGER(mod, logger, msg, ...) do {                                                            \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::info)) {                                \
+            _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
+        }                                                                                                              \
+    } while(0)
 
-#define LOGWARNMOD_USING_LOGGER(mod, logger, msg, ...)                                                                 \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::warn)) {                                    \
-        _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
-    }
+#define LOGWARNMOD_USING_LOGGER(mod, logger, msg, ...) do {                                                            \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::warn)) {                                \
+            _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
+        }                                                                                                              \
+    } while(0)
 
-#define LOGERRORMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::err)) {                                     \
-        _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
-    }
+#define LOGERRORMOD_USING_LOGGER(mod, logger, msg, ...) do {                                                           \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::err)) {                                 \
+            _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
+        }                                                                                                              \
+    } while(0)
 
-#define LOGCRITICALMOD_USING_LOGGER(mod, logger, msg, ...)                                                             \
-    if (auto& _cl{sisl::logging::GetCriticalLogger()}; _cl && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {  \
-        _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
-    }                                                                                                                  \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {                                \
-        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
-    }
+#define LOGCRITICALMOD_USING_LOGGER(mod, logger, msg, ...) do {                                                        \
+        if (auto& _cl{sisl::logging::GetCriticalLogger()}; _cl && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {\
+            _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                        \
+        }                                                                                                              \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {                            \
+            _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                         \
+        }                                                                                                              \
+    } while(0)
 
 #define LOGTRACEMOD(mod, msg, ...) LOGTRACEMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
 #define LOGDEBUGMOD(mod, msg, ...) LOGDEBUGMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
@@ -130,28 +136,30 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 
 /* Extension macros to support custom formatting of messages */
 #if __cplusplus > 201703L
-#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...)                            \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                     \
-        fmt::memory_buffer _log_buf{};                                                                                 \
-        const auto& cb{formatter};                                                                                     \
-        [[likely]] if (cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__)) {                                                 \
-            fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));             \
-            _l->method(_log_buf.data());                                                                               \
-            if (is_flush) { _l->flush(); }                                                                             \
+#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...) do {                       \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                 \
+            fmt::memory_buffer _log_buf{};                                                                             \
+            const auto& cb{formatter};                                                                                 \
+            [[likely]] if (cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__)) {                                             \
+                fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));         \
+                _l->method(_log_buf.data());                                                                           \
+                if (is_flush) { _l->flush(); }                                                                         \
+            }                                                                                                          \
         }                                                                                                              \
-    }
+    } while(0)
 #else
-#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...)                            \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                     \
-        fmt::memory_buffer _log_buf{};                                                                                 \
-        const auto& cb{formatter};                                                                                     \
-        if (LOGGING_PREDICT_TRUE(cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__))) {                                      \
-            fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));             \
-            _l->method(_log_buf.data());                                                                               \
-            if (is_flush) { _l->flush(); }                                                                             \
+#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...) do {                       \
+        if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                 \
+            fmt::memory_buffer _log_buf{};                                                                             \
+            const auto& cb{formatter};                                                                                 \
+            if (LOGGING_PREDICT_TRUE(cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__))) {                                  \
+                fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));         \
+                _l->method(_log_buf.data());                                                                           \
+                if (is_flush) { _l->flush(); }                                                                         \
+            }                                                                                                          \
         }                                                                                                              \
-    }
-
+    } while(0)
+  
 #endif
 
 // With custom formatter and custom logger
@@ -190,7 +198,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
     LOGERRORMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGCRITICALMOD_FMT(mod, formatter, msg, ...)                                                                   \
-    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetCriticalLogger(), msg, ##__VA_ARGS__)            \
+    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetCriticalLogger(), msg, ##__VA_ARGS__);           \
     LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
 
 #define LOGTRACE(msg, ...) LOGTRACEMOD(base, msg, ##__VA_ARGS__)
@@ -231,7 +239,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #endif
 
 #define LOGCRITICAL_AND_FLUSH(msg, ...)                                                                                \
-    {                                                                                                                  \
+    do {                                                                                                               \
         auto& _cl{sisl::logging::GetCriticalLogger()};                                                                 \
         _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
         _cl->flush();                                                                                                  \
@@ -239,22 +247,23 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
         auto& _l{sisl::logging::GetLogger()};                                                                          \
         _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
         _l->flush();                                                                                                   \
-    }
+    } while(0)
 
-#define _ABORT_OR_DUMP(is_log_assert)                                                                                  \
-    assert(0);                                                                                                         \
-    if (is_log_assert) {                                                                                               \
-        if (sisl::logging::is_crash_handler_installed()) { sisl::logging::log_stack_trace(false); }                    \
-    } else {                                                                                                           \
-        abort();                                                                                                       \
-    }
+#define _ABORT_OR_DUMP(is_log_assert) do {                                                                             \
+        assert(0);                                                                                                     \
+        if (is_log_assert) {                                                                                           \
+            if (sisl::logging::is_crash_handler_installed()) { sisl::logging::log_stack_trace(false); }                \
+        } else {                                                                                                       \
+            abort();                                                                                                   \
+        }                                                                                                              \
+    } while(0)
 
 #define _LOG_AND_ASSERT(is_log_assert, msg, ...)                                                                       \
     LOGCRITICAL_AND_FLUSH(msg, ##__VA_ARGS__);                                                                         \
     _ABORT_OR_DUMP(is_log_assert)
 
 #define _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ...)                                                        \
-    LOGCRITICALMOD_FMT(base, formatter, msg, ##__VA_ARGS__)                                                            \
+    LOGCRITICALMOD_FMT(base, formatter, msg, ##__VA_ARGS__);                                                           \
     _ABORT_OR_DUMP(is_log_assert)
 
 #define LOGDFATAL(msg, ...) _LOG_AND_ASSERT(1, msg, ##__VA_ARGS__)
@@ -267,11 +276,13 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
  */
 //#if __cplusplus > 201703L
 #if 0
-#define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
-    [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }
+#define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...) do {                                                 \
+        [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }               \
+    } while(0)
 #else
-#define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
-    if (LOGGING_PREDICT_FALSE(!(cond))) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }
+#define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...) do {                                                 \
+        if (LOGGING_PREDICT_FALSE(!(cond))) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }     \
+    } while(0)
 #endif
 
 #define _FMT_LOG_MSG(...) sisl::logging::format_log_msg(__VA_ARGS__).c_str()
