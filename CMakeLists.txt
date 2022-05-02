@@ -102,6 +102,7 @@ add_subdirectory (src/settings)
 add_subdirectory (src/utility)
 add_subdirectory (src/sisl_version)
 add_subdirectory (src/auth_manager)
+add_subdirectory (src/file_watcher)
 
 add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
@@ -113,6 +114,7 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_buffer>
             $<TARGET_OBJECTS:sisl_auth_manager>
             $<TARGET_OBJECTS:sisl_trf_client>
+            $<TARGET_OBJECTS:sisl_file_watcher>
            )
 target_link_libraries(sisl ${COMMON_LIB_DEPS})
 
