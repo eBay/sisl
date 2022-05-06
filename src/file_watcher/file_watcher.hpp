@@ -22,8 +22,6 @@ struct FileInfo {
 
 class FileWatcher {
 public:
-    static std::shared_ptr< FileWatcher > getInstance();
-
     FileWatcher() = default;
 
     bool start();
@@ -44,10 +42,9 @@ private:
     int m_inotify_fd;
     std::map< std::string, FileInfo > m_files;
     std::mutex m_files_lock;
-    static std::shared_ptr< FileWatcher > m_instance;
     std::unique_ptr< std::thread > m_fw_thread;
     // This is used to notify poll loop to exit
-    int m_pipefd[2] = {0, 0};
+    int m_pipefd[2] = {-1, -1};
 };
 
 } // namespace sisl

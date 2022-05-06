@@ -22,7 +22,7 @@ class FileWatcherTest : public ::testing::Test {
 public:
     std::shared_ptr< FileWatcher > file_watcher;
     virtual void SetUp() override {
-        file_watcher = FileWatcher::getInstance();
+        file_watcher = std::make_shared< FileWatcher >();
         EXPECT_TRUE(file_watcher->start());
     }
 

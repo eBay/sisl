@@ -12,14 +12,6 @@
 namespace sisl {
 namespace fs = std::filesystem;
 
-std::shared_ptr< FileWatcher > FileWatcher::m_instance;
-
-std::shared_ptr< FileWatcher > FileWatcher::getInstance() {
-    static std::once_flag initialized;
-    std::call_once(initialized, [] { m_instance = std::make_shared< FileWatcher >(); });
-    return m_instance;
-}
-
 bool FileWatcher::start() {
     m_inotify_fd = inotify_init1(IN_NONBLOCK);
     // create an fd for accessing inotify
@@ -53,13 +45,13 @@ void FileWatcher::run() {
         poll_num = poll(fds, nfds, -1);
         if (poll_num == -1) {
             if (errno == EINTR) { continue; }
-            LOGERROR("poll failed!, errno: {}", errno);
+            LOGERROR("file watcher poll command failed!, errno: {}", errno);
             break;
         }
 
         if (poll_num > 0) {
             if (fds[0].revents & POLLIN) {
-                LOGINFO("pipe event, breaking from the file watcher poll loop");
+                LOGINFO("file watcher pipe event, shutdown signalled");
                 break;
             }
             if (fds[1].revents & POLLIN) { handle_events(); }
@@ -79,6 +71,7 @@ bool FileWatcher::register_listener(const std::string& file_path, const std::str
         if (const auto it{m_files.find(file_path)}; it != m_files.end()) {
             auto file_info = it->second;
             file_info.m_handlers.emplace(listener_id, file_event_handler);
+            LOGDEBUG("File path {} exists, adding the handler cb for the listener {}", file_path, listener_id);
             return true;
         }
     }
@@ -137,7 +130,7 @@ bool FileWatcher::stop() {
     } while (ret < 0 && errno == EINTR);
 
     if (ret < 0) {
-        LOGERROR("Write to pipe failed, errno: {}", errno);
+        LOGERROR("Write to pipe during file watcher shutdown failed, errno: {}", errno);
         return false;
     }
 
