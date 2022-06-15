@@ -12,7 +12,7 @@ before_install:
 install:
 # Install conan
   - pip install conan
-
+  - wget "$CONAN_CONFIG_URL"
 
 # Automatic detection of your arch, compiler, etc.
   - conan user
