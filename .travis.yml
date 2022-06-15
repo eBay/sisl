@@ -7,8 +7,47 @@ compiler:
 install:
 # Install conan
   - pip install conan
+
+# Install all build dependencies
+    apt-get update
+    apt-get upgrade -y
+    apt-get install -y --no-install-recommends \
+      binutils \
+      ca-certificates \
+      curl \
+      less \
+      gdb \
+      htop \
+      iperf3 \
+      iputils-ping \
+      iproute2 \
+      jq \
+      libaio1 \
+      libasan5 \
+      libnuma1 \
+      libpython2.7 \
+      libstdc++6 \
+      libubsan1 \
+      libunwind8 \
+      libncurses5 \
+      mdadm \
+      net-tools \
+      netbase \
+      netcat \
+      nvme-cli \
+      pciutils \
+      python3 \
+      python3-distutils \
+      sysstat \
+      tcpdump \
+      tmux \
+      tzdata \
+      vim \
+      wget \
+
 # Automatic detection of your arch, compiler, etc.
   - conan user
+
 script:
 # Download dependencies and build project
   - conan install .
