@@ -4,8 +4,20 @@
 #include <fmt/format.h>
 
 #include "auth_manager.hpp"
+#include "security_config.hpp"
 
 namespace sisl {
+
+AuthManager::AuthManager() :
+        m_cfg{SECURITY_DYNAMIC_CONFIG(auth_manager->tf_token_url),
+              SECURITY_DYNAMIC_CONFIG(ssl_cert_file),
+              SECURITY_DYNAMIC_CONFIG(ssl_key_file),
+              SECURITY_DYNAMIC_CONFIG(ssl_ca_file),
+              SECURITY_DYNAMIC_CONFIG(auth_manager->leeway),
+              SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps),
+              SECURITY_DYNAMIC_CONFIG(auth_manager->issuer),
+              SECURITY_DYNAMIC_CONFIG(auth_manager->verify)} {}
+
 AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) const {
     std::string app_name;
     // TODO: cache tokens for better performance

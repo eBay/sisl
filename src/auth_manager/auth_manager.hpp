@@ -35,7 +35,7 @@ ENUM(AuthVerifyStatus, uint8_t, OK, UNAUTH, FORBIDDEN)
 
 class AuthManager {
 public:
-    AuthManager() = default;
+    AuthManager();
     AuthManager(const AuthMgrConfig& cfg) : m_cfg{cfg} {}
     virtual ~AuthManager() = default;
     void set_config(const AuthMgrConfig& cfg) { m_cfg = cfg; }

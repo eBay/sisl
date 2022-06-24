@@ -8,9 +8,28 @@
 #include <nlohmann/json.hpp>
 
 #include "trf_client.hpp"
+#include "security_config.hpp"
 
 namespace sisl {
-TrfClient::TrfClient(const TrfClientConfig& cfg) : m_cfg{cfg} {
+TrfClient::TrfClient() :
+        m_cfg{SECURITY_DYNAMIC_CONFIG(trf_client->app_name),
+              SECURITY_DYNAMIC_CONFIG(trf_client->app_inst_name),
+              SECURITY_DYNAMIC_CONFIG(trf_client->app_env),
+              SECURITY_DYNAMIC_CONFIG(trf_client->pod_name),
+              SECURITY_DYNAMIC_CONFIG(trf_client->server),
+              SECURITY_DYNAMIC_CONFIG(auth_manager->leeway),
+              SECURITY_DYNAMIC_CONFIG(trf_client->grant_path),
+              SECURITY_DYNAMIC_CONFIG(auth_manager->verify),
+              SECURITY_DYNAMIC_CONFIG(ssl_cert_file),
+              SECURITY_DYNAMIC_CONFIG(ssl_key_file),
+              SECURITY_DYNAMIC_CONFIG(ssl_ca_file)} {
+
+    validate_grant_path();
+}
+
+TrfClient::TrfClient(const TrfClientConfig& cfg) : m_cfg{cfg} { validate_grant_path(); }
+
+void TrfClient::validate_grant_path() {
     uint8_t retry_limit{10};
     // Retry until the grant path is up. Might take few seconds when deployed as tess secret
     while (!grant_path_exists() && retry_limit-- > 0) {

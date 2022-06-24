@@ -26,6 +26,7 @@ struct TrfClientConfig {
 
 class TrfClient {
 public:
+    TrfClient();
     TrfClient(const TrfClientConfig& cfg);
     std::string get_token();
     std::string get_typed_token() {
@@ -34,6 +35,7 @@ public:
     }
 
 private:
+    void validate_grant_path();
     bool grant_path_exists() { return std::filesystem::exists(m_cfg.grant_path); }
     bool access_token_expired() {
         return (std::chrono::system_clock::now() > m_expiry + std::chrono::seconds(m_cfg.leeway));
