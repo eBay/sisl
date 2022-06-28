@@ -75,7 +75,7 @@ public:
 
     virtual void set_value(const std::vector< double >& bucket_values, double sum) {
         // Use modified prometheus method (not part of original repo)
-        m_histogram.ObserveMultiple(bucket_values, sum);
+        m_histogram.TransferBucketCounters(bucket_values, sum);
     }
 
     prometheus::Histogram& m_histogram;
