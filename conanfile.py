@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "7.1.1"
+    version = "8.0.1"
 
     license = "Apache"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -33,7 +33,6 @@ class MetricsConan(ConanFile):
     requires = (
                     # Custom packages
                     "prometheus-cpp/1.0.0",
-                    "semver/1.1.0",
                     "userspace-rcu/0.11.2",
 
                     # Generic packages (conan-center)
@@ -45,6 +44,7 @@ class MetricsConan(ConanFile):
                     "folly/2022.01.31.00",
                     "jwt-cpp/0.4.0",
                     "nlohmann_json/3.8.0",
+                    "semver.c/1.0.0",
                     "spdlog/1.9.2",
                     ("fmt/8.1.1", "override"),
                     ("libevent/2.1.12", "override"),
