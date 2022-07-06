@@ -14,6 +14,7 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
+#ifndef USING_TCMALLOC
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 
 #include <cstdint>
@@ -150,4 +151,5 @@ int main(int argc, char* argv[]) {
     return ret;
 }
 
+#endif
 #endif

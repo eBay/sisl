@@ -5,7 +5,7 @@ import os
 
 class MetricsConan(ConanFile):
     name = "sisl"
-    version = "7.0.8"
+    version = "8.0.1"
 
     license = "Apache"
     url = "https://github.corp.ebay.com/Symbiosis/sisl"
@@ -30,27 +30,33 @@ class MetricsConan(ConanFile):
                         'prerelease=True',
                         )
 
-    build_requires = (
-                    "benchmark/1.5.0",
-                    "gtest/1.10.0",
-                )
     requires = (
-                    "boost/1.73.0",
-                    "spdlog/1.9.2",
-                    "evhtp/1.2.18.2",
-                    "snappy/1.1.8",
-                    "flatbuffers/1.11.0",
-                    ("fmt/8.0.1", "override"),
-                    "folly/2020.05.04.00",
-                    "nlohmann_json/3.8.0",
-                    ("openssl/1.1.1g", "override"),
-                    "prometheus_cpp/0.7.2",
+                    # Custom packages
+                    "prometheus-cpp/1.0.0",
                     "userspace-rcu/0.11.2",
-                    "semver/1.1.0",
-                    "jwt-cpp/0.4.0",
-                    "cpr/1.5.2",
-                    "libcurl/7.70.0",
+
+                    # Generic packages (conan-center)
+                    "boost/1.79.0",
+                    "cpr/1.8.1",
                     "cxxopts/2.2.1",
+                    "evhtp/1.2.18.2",
+                    "flatbuffers/1.12.0",
+                    "folly/2022.01.31.00",
+                    "jwt-cpp/0.4.0",
+                    "nlohmann_json/3.8.0",
+                    "semver.c/1.0.0",
+                    "spdlog/1.9.2",
+                    ("fmt/8.1.1", "override"),
+                    ("libevent/2.1.12", "override"),
+                    ("openssl/1.1.1o", "override"),
+                    ("xz_utils/5.2.5", "override"),
+                    ("zlib/1.2.12", "override"),
+                )
+
+    build_requires = (
+                    # Generic packages (conan-center)
+                    "benchmark/1.6.1",
+                    "gtest/1.11.0",
                 )
 
     generators = "cmake"

@@ -12,7 +12,6 @@ before_install:
 install:
 # Install conan
   - pip install conan
-  - conan remote add ebay-local $CONAN_ARTIFACTORY_URL
 
 # Automatic detection of your arch, compiler, etc.
   - conan user

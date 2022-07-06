@@ -65,10 +65,10 @@ The .fbs need to convert to your source code using the following steps:
 
 ```
 include(${CONAN_SISL_ROOT}/cmake/settings_gen.cmake)
-settings_gen_cpp(${CONAN_BIN_DIRS_FLATBUFFERS} ${CMAKE_CURRENT_SOURCE_DIR}/generated/ <target_to_build> <path to schema file (.fbs)>)
+settings_gen_cpp(${CONAN_BIN_DIRS_FLATBUFFERS} ${CMAKE_CURRENT_BINARY_DIR}/generated/ <target_to_build> <path to schema file (.fbs)>)
 
 # Example:
-# settings_gen_cpp(${CONAN_BIN_DIRS_FLATBUFFERS} ${CMAKE_CURRENT_SOURCE_DIR}/generated/ test_settings tests/test_app_schema.fbs)
+# settings_gen_cpp(${CONAN_BIN_DIRS_FLATBUFFERS} ${CMAKE_CURRENT_BINARY_DIR}/generated/ test_settings tests/test_app_schema.fbs)
 ```
 
 ### Step 3: Initialize in your code to include these files
