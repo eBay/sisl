@@ -90,6 +90,8 @@ if(UNIX)
     add_flags("-D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
 endif()
 
+include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/auth_manager)
+include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/settings)
 add_subdirectory (src/async_http)
 #add_subdirectory (src/btree)
 add_subdirectory (src/cache)
