@@ -145,17 +145,37 @@ TEST_F(AuthDisableTest, allow_on_disabled_mode) {
     EXPECT_EQ(req.message(), reply.message());
 }
 
+static std::string get_cur_file_dir() {
+    const std::string cur_file_path{__FILE__};
+    auto last_slash_pos = cur_file_path.rfind('/');
+    if (last_slash_pos == std::string::npos) { return ""; }
+    return std::string{cur_file_path.substr(0, last_slash_pos + 1)};
+}
+
+static const std::string cur_file_dir{get_cur_file_dir()};
+
+static void load_auth_settings() {
+    static const std::string grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
+    std::ofstream outfile{grant_path};
+    outfile << "dummy cg contents\n";
+    outfile.close();
+    SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) {
+        s.auth_manager->auth_allowed_apps = "app1, testapp, app2";
+        s.auth_manager->tf_token_url = "http://127.0.0.1";
+        s.auth_manager->leeway = 0;
+        s.auth_manager->issuer = "trustfabric";
+        s.trf_client->grant_path = grant_path;
+        s.trf_client->server = fmt::format("{}:{}/token", trf_token_server_ip, trf_token_server_port);
+    });
+    SECURITY_SETTINGS_FACTORY().save();
+}
+
 class AuthServerOnlyTest : public AuthBaseTest {
 public:
     virtual void SetUp() {
         // start grpc server with auth
-        AuthMgrConfig auth_cfg;
-        auth_cfg.tf_token_url = "http://127.0.0.1";
-        auth_cfg.auth_allowed_apps = "app1, testapp, app2";
-        auth_cfg.auth_exp_leeway = 0;
-        auth_cfg.verify = false;
+        load_auth_settings();
         m_auth_mgr = std::shared_ptr< AuthManager >(new AuthManager());
-        m_auth_mgr->set_config(auth_cfg);
         grpc_server_start(grpc_server_addr, m_auth_mgr);
 
         // Client without auth
@@ -180,27 +200,12 @@ TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
     EXPECT_EQ(status.error_message(), "missing header authorization");
 }
 
-static std::string get_cur_file_dir() {
-    const std::string cur_file_path{__FILE__};
-    auto last_slash_pos = cur_file_path.rfind('/');
-    if (last_slash_pos == std::string::npos) { return ""; }
-    return std::string{cur_file_path.substr(0, last_slash_pos + 1)};
-}
-
-static const std::string cur_file_dir{get_cur_file_dir()};
-
 class AuthEnableTest : public AuthBaseTest {
 public:
     virtual void SetUp() {
         // start grpc server with auth
-        AuthMgrConfig auth_cfg;
-        auth_cfg.tf_token_url = "http://127.0.0.1";
-        auth_cfg.auth_allowed_apps = "app1, testapp, app2";
-        auth_cfg.auth_exp_leeway = 0;
-        auth_cfg.issuer = "trustfabric";
-        auth_cfg.verify = false;
+        load_auth_settings();
         m_auth_mgr = std::shared_ptr< AuthManager >(new AuthManager());
-        m_auth_mgr->set_config(auth_cfg);
         grpc_server_start(grpc_server_addr, m_auth_mgr);
 
         // start token server
@@ -217,15 +222,7 @@ public:
         m_token_server->start();
 
         // Client with auth
-        TrfClientConfig trf_cfg;
-        trf_cfg.leeway = 0;
-        trf_cfg.server = fmt::format("{}:{}/token", trf_token_server_ip, trf_token_server_port);
-        trf_cfg.verify = false;
-        trf_cfg.grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
-        std::ofstream outfile(trf_cfg.grant_path);
-        outfile << "dummy cg contents\n";
-        outfile.close();
-        m_trf_client = std::make_shared< TrfClient >(trf_cfg);
+        m_trf_client = std::make_shared< TrfClient >();
         m_async_grpc_client = std::make_unique< GrpcAsyncClient >(grpc_server_addr, m_trf_client, "", "");
         m_async_grpc_client->init();
         GrpcAsyncClientWorker::create_worker("worker-3", 4);
