@@ -32,6 +32,7 @@ class MetricsConan(ConanFile):
 
     requires = (
                     # Custom packages
+                    "evhtp/1.2.18.2",
                     "prometheus-cpp/1.0.0",
                     "userspace-rcu/0.11.2",
 
@@ -39,7 +40,6 @@ class MetricsConan(ConanFile):
                     "boost/1.79.0",
                     "cpr/1.8.1",
                     "cxxopts/2.2.1",
-                    "evhtp/1.2.18.2",
                     "flatbuffers/1.12.0",
                     "folly/2022.01.31.00",
                     "jwt-cpp/0.4.0",
