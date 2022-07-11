@@ -28,8 +28,6 @@
 #else
 #include <urcu.h>
 #endif
-#include <urcu/static/urcu-qsbr.h>
-#include <urcu-call-rcu.h>
 
 #include <memory>
 #include <set>
@@ -185,8 +183,6 @@ public:
     static thread_local bool _rcu_registered_already;
 
     static void register_rcu() { rcu_register_thread(); }
-
-    static void declare_quiscent_state() { rcu_quiescent_state(); }
 
     static void unregister_rcu() { rcu_unregister_thread(); }
 
