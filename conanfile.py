@@ -34,7 +34,7 @@ class MetricsConan(ConanFile):
                     # Custom packages
                     "evhtp/1.2.18.2",
                     "prometheus-cpp/1.0.0",
-                    "userspace-rcu/0.11.2",
+                    "userspace-rcu/0.11.4",
 
                     # Generic packages (conan-center)
                     "boost/1.79.0",
@@ -137,9 +137,9 @@ class MetricsConan(ConanFile):
                 self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
                 self.cpp_info.exelinkflags.append("-fsanitize=undefined")
             elif self.options.coverage == 'True':
-                self.cpp_info.libs.append('gcov')
+                self.cpp_info.system_libs.append('gcov')
         if self.settings.os == "Linux":
-            self.cpp_info.libs.extend(["dl"])
+            self.cpp_info.system_libs.append("dl")
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
 
         if self.options.malloc_impl == 'jemalloc':
