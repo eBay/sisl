@@ -1,13 +1,12 @@
 os: linux
-language: python
-python: "3.6"
+language: cpp
 dist: focal
 compiler:
     - gcc
 before_install:
   - sudo apt-get update
   - sudo apt-get upgrade -y
-  - sudo apt-get install -y --no-install-recommends binutils ca-certificates curl less gdb htop iperf3 iputils-ping iproute2 jq libaio1 libnuma1 libpython2.7 libstdc++6 libunwind8 libncurses5 mdadm net-tools netbase netcat nvme-cli pciutils python3 sysstat tcpdump tmux tzdata vim wget 
+  - sudo apt-get install -y --no-install-recommends binutils ca-certificates libaio1 libpython2.7 libstdc++6 libunwind8 netbase pciutils python3 tzdata
 
 install:
 # Install conan
