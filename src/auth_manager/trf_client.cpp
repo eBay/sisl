@@ -10,14 +10,17 @@
 #include "trf_client.hpp"
 
 namespace sisl {
-TrfClient::TrfClient(const TrfClientConfig& cfg) : m_cfg{cfg} {
+TrfClient::TrfClient() { validate_grant_path(); }
+
+void TrfClient::validate_grant_path() const {
     uint8_t retry_limit{10};
     // Retry until the grant path is up. Might take few seconds when deployed as tess secret
     while (!grant_path_exists() && retry_limit-- > 0) {
         std::this_thread::sleep_for(std::chrono::seconds{1});
     }
     if (!grant_path_exists()) {
-        throw std::runtime_error{fmt::format("trustfabric client grant path {} does not exist", m_cfg.grant_path)};
+        throw std::runtime_error{fmt::format("trustfabric client grant path {} does not exist",
+                                             SECURITY_DYNAMIC_CONFIG(trf_client->grant_path))};
     }
 }
 
@@ -33,25 +36,27 @@ bool TrfClient::get_file_contents(const std::string& file_path, std::string& con
 
 void TrfClient::request_with_grant_token() {
     std::string grant_token;
-    if (!get_file_contents(m_cfg.grant_path, grant_token)) {
-        throw std::runtime_error(fmt::format("could not load grant from path {}", m_cfg.grant_path));
+    if (!get_file_contents(SECURITY_DYNAMIC_CONFIG(trf_client->grant_path), grant_token)) {
+        throw std::runtime_error(
+            fmt::format("could not load grant from path {}", SECURITY_DYNAMIC_CONFIG(trf_client->grant_path)));
     }
 
     const auto client_id{
-        fmt::format("ou={}+l={},o={},dc=tess,dc=ebay,dc=com", m_cfg.app_inst_name, m_cfg.app_env, m_cfg.app_name)};
+        fmt::format("ou={}+l={},o={},dc=tess,dc=ebay,dc=com", SECURITY_DYNAMIC_CONFIG(trf_client->app_inst_name),
+                    SECURITY_DYNAMIC_CONFIG(trf_client->app_env), SECURITY_DYNAMIC_CONFIG(trf_client->app_name))};
 
     cpr::Session session;
-    if (m_cfg.verify) {
-        auto ca_file{m_cfg.ssl_ca_file};
-        auto cert_file{m_cfg.ssl_cert_file};
-        auto key_file{m_cfg.ssl_key_file};
+    if (SECURITY_DYNAMIC_CONFIG(auth_manager->verify)) {
+        auto ca_file{SECURITY_DYNAMIC_CONFIG(ssl_ca_file)};
+        auto cert_file{SECURITY_DYNAMIC_CONFIG(ssl_cert_file)};
+        auto key_file{SECURITY_DYNAMIC_CONFIG(ssl_key_file)};
         auto sslOpts{cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)})};
         sslOpts.SetOption(cpr::ssl::CertFile{std::move(cert_file)});
         sslOpts.SetOption(cpr::ssl::KeyFile{std::move(key_file)});
         session.SetOption(sslOpts);
     }
 
-    session.SetUrl(cpr::Url{m_cfg.server});
+    session.SetUrl(cpr::Url{SECURITY_DYNAMIC_CONFIG(trf_client->server)});
     std::vector< cpr::Pair > payload_data;
     payload_data.emplace_back("grant_type", "authorization_code");
     payload_data.emplace_back("code", grant_token);

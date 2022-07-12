@@ -300,8 +300,6 @@ public:
         // verify method is expected to not throw
         return to_evhtp_res(m_auth_mgr->verify(raw_token, msg));
     }
-    // for testing
-    void set_allowed_to_all() { m_auth_mgr->set_allowed_to_all(); }
 
 #define request_callback(cb)                                                                                           \
     (evhtp_callback_cb) std::bind(&HttpServer::cb, this, std::placeholders::_1, std::placeholders::_2)

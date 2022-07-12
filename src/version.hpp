@@ -15,21 +15,22 @@
  *
  *********************************************************************************/
 #pragma once
-#include <semver/semver200.h>
+#include <semver.h>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
 
 namespace sisl {
 
-typedef std::pair< std::string, version::Semver200_version > modinfo;
+typedef std::pair< std::string, semver_t > modinfo;
 
 class VersionMgr {
 private:
     mutable std::mutex m_mutex;
-    std::unordered_map< std::string, version::Semver200_version > m_version_map;
+    std::unordered_map< std::string, semver_t > m_version_map;
 
     VersionMgr() = default;
+    ~VersionMgr();
 
     static VersionMgr* m_instance;
     static std::once_flag m_init_flag;
@@ -40,9 +41,9 @@ public:
     void operator=(VersionMgr const&) = delete;
 
     static VersionMgr* getInstance();
-    static version::Semver200_version getVersion(const std::string& name);
+    static semver_t* getVersion(const std::string& name);
     static std::vector< modinfo > getVersions();
-    static void addVersion(const std::string& name, const version::Semver200_version& ver);
+    static void addVersion(const std::string& name, const semver_t& ver);
 };
 
 } // namespace sisl

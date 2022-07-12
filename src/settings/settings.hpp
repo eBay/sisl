@@ -123,8 +123,9 @@ static bool diff(const reflection::Schema* schema, const reflection::Object* sch
             break;
         }
 
+        case reflection::BaseType::Array:
         case reflection::BaseType::Union: {
-            // Please do not use unions in settings. It's crazy!
+            // Please do not use unions or arrays in settings. It's crazy!
             // LOG_ASSERT(false) << "reflection::BaseType::Union type in settings is not supported";
             break;
         }
@@ -209,8 +210,9 @@ static bool diff_vector(const reflection::Schema* schema, const reflection::Fiel
         break;
     }
 
+    case reflection::BaseType::Array:
     case reflection::BaseType::Union: {
-        // Please do not use unions in settings. It's crazy!
+        // Please do not use unions or arrays in settings. It's crazy!
         // LOG_ASSERT(false) << "reflection::BaseType::Union type in settings is not supported";
         break;
     }

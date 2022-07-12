@@ -103,3 +103,6 @@ cmake-*/**
 # Visual Studio
 CMakeSettings.json
 .vs/**
+
+# Clangd
+.cache/clangd

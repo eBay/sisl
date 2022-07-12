@@ -59,24 +59,24 @@ void setup() {
 }
 
 void test_locked_list_insert(benchmark::State& state) {
-    auto it = glob_entries[state.thread_index].begin();
+    auto it = glob_entries[state.thread_index()].begin();
     for (auto s : state) { // Loops upto iteration count
         std::lock_guard< std::mutex > lg(glob_list_mutex);
         glob_lock_list->push_front(*it);
         ++it;
     }
 
-    if (state.thread_index == 0) { glob_lock_list->clear(); }
+    if (state.thread_index() == 0) { glob_lock_list->clear(); }
 }
 
 void test_wisr_list_insert(benchmark::State& state) {
-    auto it = glob_entries[state.thread_index].begin();
+    auto it = glob_entries[state.thread_index()].begin();
     for (auto s : state) { // Loops upto iteration count
         glob_wisr_list->push_front(*it);
         ++it;
     }
 
-    if (state.thread_index == 0) {
+    if (state.thread_index() == 0) {
         auto l = glob_wisr_list->get_copy_and_reset();
         l->clear();
     }

@@ -36,6 +36,8 @@ static std::string get_cur_file_dir() {
 
 static const std::string cur_file_dir{get_cur_file_dir()};
 
+static const std::string grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
+
 static const std::string load_test_data(const std::string& file_name) {
     std::ifstream f{fmt::format("{}/{}", cur_file_dir, file_name)};
     std::string buffer{std::istreambuf_iterator< char >{f}, std::istreambuf_iterator< char >{}};
@@ -153,14 +155,9 @@ public:
 
     virtual void SetUp() override {
         AuthBaseTest::SetUp();
+        load_settings();
         cfg.is_auth_enabled = true;
-        AuthMgrConfig auth_cfg;
-        auth_cfg.tf_token_url = "http://127.0.0.1";
-        auth_cfg.auth_allowed_apps = "app1, testapp, app2";
-        auth_cfg.auth_exp_leeway = 0;
-        auth_cfg.issuer = "trustfabric";
         mock_auth_mgr = std::shared_ptr< MockAuthManager >(new MockAuthManager());
-        mock_auth_mgr->set_config(auth_cfg);
         mock_server = std::unique_ptr< HttpServer >(new HttpServer(
             cfg, {handler_info("/api/v1/sayHello", AuthBaseTest::say_hello, (void*)this)}, mock_auth_mgr));
         mock_server->start();
@@ -168,7 +165,20 @@ public:
 
     virtual void TearDown() override { AuthBaseTest::TearDown(); }
 
-    void set_allowed_to_all() { mock_server->set_allowed_to_all(); }
+    void set_allowed_to_all() {
+        SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) { s.auth_manager->auth_allowed_apps = "all"; });
+        SECURITY_SETTINGS_FACTORY().save();
+    }
+
+    static void load_settings() {
+        SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) {
+            s.auth_manager->auth_allowed_apps = "app1, testapp, app2";
+            s.auth_manager->tf_token_url = "http://127.0.0.1";
+            s.auth_manager->leeway = 0;
+            s.auth_manager->issuer = "trustfabric";
+        });
+        SECURITY_SETTINGS_FACTORY().save();
+    }
 
 protected:
     std::shared_ptr< MockAuthManager > mock_auth_mgr;
@@ -342,16 +352,33 @@ public:
     std::string get_token_type() { return m_token_type; }
 };
 
+static void load_trf_settings() {
+    std::ofstream outfile{grant_path};
+    outfile << "dummy cg contents\n";
+    outfile.close();
+    SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) {
+        s.trf_client->grant_path = grant_path;
+        s.trf_client->server = "127.0.0.1:12345/token";
+        s.auth_manager->verify = false;
+        s.auth_manager->leeway = 30;
+    });
+    SECURITY_SETTINGS_FACTORY().save();
+}
+
+static void remove_grant_path() { std::remove(grant_path.c_str()); }
+
 // this test will take 10 seconds to run
 TEST_F(AuthEnableTest, trf_grant_path_failure) {
+    load_trf_settings();
+    remove_grant_path();
     EXPECT_THROW(
         {
             try {
-                TrfClientConfig cfg;
-                cfg.grant_path = "dummy_path";
-                TrfClient trf_client(cfg);
+                TrfClient trf_client;
             } catch (const std::runtime_error& e) {
-                EXPECT_STREQ(e.what(), "trustfabric client grant path dummy_path does not exist");
+                const std::string cmp_string{
+                    fmt::format("trustfabric client grant path {} does not exist", grant_path)};
+                EXPECT_STREQ(e.what(), cmp_string.c_str());
                 throw e;
             }
         },
@@ -359,12 +386,8 @@ TEST_F(AuthEnableTest, trf_grant_path_failure) {
 }
 
 TEST_F(AuthEnableTest, trf_allow_valid_token) {
-    TrfClientConfig cfg;
-    cfg.grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
-    cfg.leeway = 30;
-    std::ofstream outfile(cfg.grant_path);
-    outfile.close();
-    MockTrfClient mock_trf_client(cfg);
+    load_trf_settings();
+    MockTrfClient mock_trf_client;
     const auto raw_token{TestToken().sign_rs256()};
     // mock_trf_client is expected to be called twice
     // 1. First time when access_token is empty
@@ -447,21 +470,21 @@ protected:
 std::string TrfClientTest::m_token_response;
 
 TEST_F(TrfClientTest, trf_grant_path_load_failure) {
-    TrfClientConfig cfg;
-    cfg.grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
-    std::ofstream outfile{cfg.grant_path};
-    outfile.close();
-    MockTrfClient mock_trf_client(cfg);
+    load_trf_settings();
+    MockTrfClient mock_trf_client;
     EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(1);
     ON_CALL(mock_trf_client, request_with_grant_token()).WillByDefault(testing::Invoke([&mock_trf_client]() {
         mock_trf_client.__request_with_grant_token();
     }));
+    remove_grant_path();
     EXPECT_THROW(
         {
             try {
                 mock_trf_client.get_token();
             } catch (const std::runtime_error& e) {
-                EXPECT_EQ(e.what(), fmt::format("could not load grant from path {}", cfg.grant_path));
+                EXPECT_EQ(
+                    e.what(),
+                    fmt::format("could not load grant from path {}", SECURITY_DYNAMIC_CONFIG(trf_client->grant_path)));
                 throw e;
             }
         },
@@ -469,14 +492,8 @@ TEST_F(TrfClientTest, trf_grant_path_load_failure) {
 }
 
 TEST_F(TrfClientTest, request_with_grant_token) {
-    TrfClientConfig cfg;
-    cfg.grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
-    cfg.verify = false;
-    cfg.server = "127.0.0.1:12345/token";
-    std::ofstream outfile(cfg.grant_path);
-    outfile << "dummy cg contents\n";
-    outfile.close();
-    MockTrfClient mock_trf_client{cfg};
+    load_trf_settings();
+    MockTrfClient mock_trf_client;
     const auto raw_token{TestToken().sign_rs256()};
     TrfClientTest::set_token_response(raw_token);
     EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(1);

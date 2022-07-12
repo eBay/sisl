@@ -6,6 +6,7 @@
 #include "auth_manager.hpp"
 
 namespace sisl {
+
 AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) const {
     std::string app_name;
     // TODO: cache tokens for better performance
@@ -24,8 +25,8 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
 
     // check client application
 
-    if (m_cfg.auth_allowed_apps != "all") {
-        if (m_cfg.auth_allowed_apps.find(app_name) == std::string::npos) {
+    if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps) != "all") {
+        if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps).find(app_name) == std::string::npos) {
             msg = fmt::format("application '{}' is not allowed to perform the request", app_name);
             return AuthVerifyStatus::FORBIDDEN;
         }
@@ -41,14 +42,14 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
 
     auto key_url = decoded.get_header_claim("x5u").as_string();
 
-    if (key_url.rfind(m_cfg.tf_token_url, 0) != 0) {
+    if (key_url.rfind(SECURITY_DYNAMIC_CONFIG(auth_manager->tf_token_url), 0) != 0) {
         throw std::runtime_error(fmt::format("key url {} is not trusted", key_url));
     }
     const std::string signing_key{download_key(key_url)};
     const auto verifier{jwt::verify()
-                            .with_issuer(m_cfg.issuer)
+                            .with_issuer(SECURITY_DYNAMIC_CONFIG(auth_manager->issuer))
                             .allow_algorithm(jwt::algorithm::rs256(signing_key))
-                            .expires_at_leeway(m_cfg.auth_exp_leeway)};
+                            .expires_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))};
 
     // if verification fails, an instance of std::system_error subclass is thrown.
     verifier.verify(decoded);
@@ -57,10 +58,10 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
 std::string AuthManager::download_key(const std::string& key_url) const {
     cpr::Session session;
     session.SetUrl(cpr::Url{key_url});
-    if (m_cfg.verify) {
-        auto ca_file{m_cfg.ssl_ca_file};
-        auto cert_file{m_cfg.ssl_cert_file};
-        auto key_file{m_cfg.ssl_key_file};
+    if (SECURITY_DYNAMIC_CONFIG(auth_manager->verify)) {
+        auto ca_file{SECURITY_DYNAMIC_CONFIG(ssl_ca_file)};
+        auto cert_file{SECURITY_DYNAMIC_CONFIG(ssl_cert_file)};
+        auto key_file{SECURITY_DYNAMIC_CONFIG(ssl_key_file)};
 
         // constructor for CaInfo does std::move(filename)
         auto sslOpts{cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)})};
