@@ -1,12 +1,19 @@
-/*
- * btree_kv.hpp
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
  *
- *  Created on: 14-May-2016
- *      Author: Hari Kadayam
+ * Author/Developer(s): Harihara Kadayam, Rishabh Mittal
  *
- *  Copyright © 2016 Kadayam, Hari. All rights reserved.
- */
-
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 #pragma once
 
 #include <string>
@@ -125,11 +132,11 @@ public:
 
 class BtreeValue {
 public:
-    BtreeValue() {}
-    virtual ~BtreeValue() {}
+    BtreeValue() = default;
+    virtual ~BtreeValue() = default;
 
-    // BtreeValue(const BtreeValue& other) = delete; // Deleting copy constructor forces the derived class to define
-    // its own copy constructor
+    // Deleting copy constructor forces the derived class to define its own copy constructor
+    BtreeValue(const BtreeValue& other) = delete;
 
     virtual sisl::blob serialize() const = 0;
     virtual uint32_t serialized_size() const = 0;

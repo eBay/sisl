@@ -1,6 +1,19 @@
-//
-// Created by Kadayam, Hari on 02/02/18.
-//
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam, Rishabh Mittal
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
 
 #pragma once
 #include <iostream>
@@ -117,8 +130,7 @@ public:
     }
     virtual ~BtreeNode() = default;
 
-    node_find_result_t find(const BtreeKeyRange& range, BtreeKey* outkey, BtreeValue* outval, bool copy_key,
-                            bool copy_val) const {
+    node_find_result_t find(const BtreeKeyRange& range, K* outkey, V* outval, bool copy_key, bool copy_val) const {
         LOGMSG_ASSERT_EQ(get_magic(), BTREE_NODE_MAGIC, "Magic mismatch on btree_node {}",
                          get_persistent_header_const()->to_string());
 
@@ -134,11 +146,11 @@ public:
         }
 
         if (outval) { *outval = get(idx, copy_val /* copy */); }
-        if (!range.is_simple_search() && outkey) { *outkey = get_nth_key(idx, copy_key /* copy */); }
+        if (outkey) { *outkey = get_nth_key(idx, copy_key /* copy */); }
         return std::make_pair(found, idx);
     }
 
-    node_find_result_t find(const BtreeKey& find_key, BtreeValue* outval, bool copy_val) const {
+    node_find_result_t find(const BtreeKey& find_key, V* outval, bool copy_val) const {
         return find(BtreeKeyRange(find_key), nullptr, outval, false, copy_val);
     }
 
@@ -207,7 +219,7 @@ public:
         return count;
     }
 
-    bool put(const BtreeKey& key, const BtreeValue& val, btree_put_type put_type, BtreeValue* existing_val) {
+    bool put(const BtreeKey& key, const BtreeValue& val, btree_put_type put_type, V* existing_val) {
         LOGMSG_ASSERT_EQ(get_magic(), BTREE_NODE_MAGIC, "Magic mismatch on btree_node {}",
                          get_persistent_header_const()->to_string());
         bool ret = true;
@@ -237,7 +249,7 @@ public:
         return ret;
     }
 
-    btree_status_t insert(const BtreeKey& key, const BtreeValue& val) {
+    virtual btree_status_t insert(const BtreeKey& key, const BtreeValue& val) {
         const auto [found, idx] = find(key, nullptr, false);
         DEBUG_ASSERT(!is_leaf() || (!found), "Invalid node"); // We do not support duplicate keys yet
         insert(idx, key, val);
@@ -245,7 +257,7 @@ public:
         return btree_status_t::success;
     }
 
-    bool remove_one(const BtreeKeyRange& range, BtreeKey* outkey, BtreeValue* outval) {
+    virtual bool remove_one(const BtreeKeyRange& range, K* outkey, V* outval) {
         const auto [found, idx] = find(range, outkey, outval, true, true);
         if (!found) { return false; }
         remove(idx);
@@ -255,11 +267,12 @@ public:
 
     /* Update the key and value pair and after update if outkey and outval are non-nullptr, it fills them with
      * the key and value it just updated respectively */
-    void update(const BtreeKey& key, const BtreeValue& val, BtreeKey* outkey, BtreeValue* outval) {
+    virtual bool update_one(const BtreeKey& key, const BtreeValue& val, K* outkey, V* outval) {
         const auto [found, idx] = find(key, outkey, outval, true, true);
-        DEBUG_ASSERT_EQ(found, true);
+        if (!found) { return false; }
         update(idx, val);
         LOGMSG_ASSERT((get_magic() == BTREE_NODE_MAGIC), "{}", get_persistent_header_const()->to_string());
+        return true;
     }
 
     void get_adjacent_indicies(uint32_t cur_ind, std::vector< uint32_t >& indices_list, uint32_t max_indices) const {
@@ -334,8 +347,10 @@ public:
         for (auto i = 1u; i < get_total_entries(); ++i) {
             auto prevKey = get_nth_key(i - 1, false);
             auto curKey = get_nth_key(i, false);
-            DEBUG_ASSERT_LT(prevKey.compare(curKey), 0, "Order check failed at entry={}", i);
-            return false;
+            if (prevKey.compare(curKey) >= 0) {
+                DEBUG_ASSERT(false, "Order check failed at entry={}", i);
+                return false;
+            }
         }
         return true;
     }

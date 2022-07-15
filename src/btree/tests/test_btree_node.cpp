@@ -1,3 +1,20 @@
+/*********************************************************************************
+ * Modifications Copyright 2017-2019 eBay Inc.
+ *
+ * Author/Developer(s): Harihara Kadayam
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ *********************************************************************************/
+
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
@@ -26,6 +43,7 @@ public:
     TestSimpleKey(const TestSimpleKey& other) = default;
     TestSimpleKey(const sisl::blob& b, bool copy) { m_key = *(r_cast< const uint32_t* >(b.bytes)); }
     TestSimpleKey& operator=(const TestSimpleKey& other) = default;
+    virtual ~TestSimpleKey() = default;
 
     int compare(const BtreeKey& o) const override {
         const TestSimpleKey& other = s_cast< const TestSimpleKey& >(o);
@@ -80,11 +98,12 @@ public:
 
 class TestSimpleValue : public BtreeValue {
 public:
-    TestSimpleValue(bnodeid_t val) {}
+    TestSimpleValue(bnodeid_t val) { assert(0); }
     TestSimpleValue(uint32_t val) : BtreeValue() { m_val = val; }
     TestSimpleValue() : TestSimpleValue((uint32_t)-1) {}
-    TestSimpleValue(const TestSimpleValue& other) { m_val = other.m_val; }
-    TestSimpleValue(const sisl::blob& b, bool copy) { m_val = *(r_cast< uint32_t* >(b.bytes)); }
+    TestSimpleValue(const TestSimpleValue& other) : BtreeValue() { m_val = other.m_val; };
+    TestSimpleValue(const sisl::blob& b, bool copy) : BtreeValue() { m_val = *(r_cast< uint32_t* >(b.bytes)); }
+    virtual ~TestSimpleValue() = default;
 
     TestSimpleValue& operator=(const TestSimpleValue& other) {
         m_val = other.m_val;
@@ -117,12 +136,13 @@ private:
     uint32_t m_val;
 };
 
+static std::uniform_int_distribution< uint32_t > g_randval_generator{1, 30000};
+
 struct SimpleNodeTest : public testing::Test {
 protected:
     std::unique_ptr< SimpleNode< TestSimpleKey, TestSimpleValue > > m_node1;
     std::unique_ptr< SimpleNode< TestSimpleKey, TestSimpleValue > > m_node2;
     std::map< uint32_t, uint32_t > m_shadow_map;
-    sisl::Bitset m_inserted_slots{g_max_keys};
 
 protected:
     void SetUp() override {
@@ -133,21 +153,19 @@ protected:
     }
 
     void put(uint32_t k, btree_put_type put_type) {
-        static std::uniform_int_distribution< uint32_t > g_randval_generator{1, 30000};
         uint32_t v = g_randval_generator(g_re);
         auto* node = (k < g_max_keys / 2) ? m_node1.get() : m_node2.get();
         TestSimpleValue existing_v;
         bool done = node->put(TestSimpleKey{k}, TestSimpleValue{v}, put_type, &existing_v);
 
         bool expected_done{true};
-        if (m_inserted_slots.is_bits_set(k, 1)) {
+        if (m_shadow_map.find(k) != m_shadow_map.end()) {
             expected_done = (put_type == btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
         }
         ASSERT_EQ(done, expected_done) << "Expected put of key " << k << " of put_type " << enum_name(put_type)
                                        << " to be " << expected_done;
         if (expected_done) {
             m_shadow_map.insert({k, v});
-            m_inserted_slots.set_bit(k);
         } else {
             const auto r = m_shadow_map.find(k);
             ASSERT_NE(r, m_shadow_map.end()) << "Testcase issue, expected inserted slots to be in shadow map";
@@ -156,26 +174,65 @@ protected:
         }
     }
 
-    void print() const {
-        std::cout << "Node1:\n" << m_node1->to_string(true) << "\n";
-        std::cout << "Node2:\n" << m_node2->to_string(true) << "\n";
+    void put_list(const std::vector< uint32_t >& keys) {
+        for (const auto& k : keys) {
+            put(k, btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
+        }
     }
 
-    void remove(uint32_t k) {}
+    void print() const {
+        LOGDEBUG("Node1:\n {}", m_node1->to_string(true));
+        LOGDEBUG("Node2:\n {}", m_node2->to_string(true));
+    }
+
+    void update(uint32_t k, bool validate_update = true) {
+        uint32_t v = g_randval_generator(g_re);
+        auto* node = (k < g_max_keys / 2) ? m_node1.get() : m_node2.get();
+        TestSimpleValue existing_v;
+        const bool done = node->update_one(TestSimpleKey{k}, TestSimpleValue{v}, nullptr, &existing_v);
+        const auto expected_done = (m_shadow_map.find(k) != m_shadow_map.end());
+        ASSERT_EQ(done, expected_done) << "Not updated for key=" << k << " where it is expected to";
+
+        if (done) {
+            validate_data(k, existing_v);
+            m_shadow_map[k] = v;
+        }
+
+        if (validate_update) { validate_specific(k); }
+    }
+
+    void remove(uint32_t k, bool validate_remove = true) {
+        TestSimpleKey key;
+        TestSimpleValue value;
+        const bool shadow_found = (m_shadow_map.find(k) != m_shadow_map.end());
+        auto removed_1 = m_node1->remove_one(BtreeKeyRange{TestSimpleKey{k}}, &key, &value);
+        if (removed_1) {
+            ASSERT_EQ(key.key(), k) << "Whats removed is different than whats asked for";
+            validate_data(k, value);
+            m_shadow_map.erase(k);
+        }
+
+        auto removed_2 = m_node2->remove_one(BtreeKeyRange{TestSimpleKey{k}}, &key, &value);
+        if (removed_2) {
+            ASSERT_EQ(key.key(), k) << "Whats removed is different than whats asked for";
+            validate_data(k, value);
+            m_shadow_map.erase(k);
+        }
+
+        ASSERT_EQ(removed_1 || removed_2, shadow_found) << "To remove key=" << k << " is not present in the nodes";
+
+        if (validate_remove) { validate_specific(k); }
+    }
 
     void validate_get_all() const {
         uint32_t start_ind{0};
         uint32_t end_ind{0};
         std::vector< std::pair< TestSimpleKey, TestSimpleValue > > out_vector;
-        auto ret = m_node1->get_all(BtreeKeyRange{TestSimpleKey{0u}, true, TestSimpleKey{g_max_keys / 2}, false},
-                                    g_max_keys / 2, start_ind, end_ind, &out_vector);
-        ASSERT_EQ(start_ind, 0u) << "Expected the entire range with start = 0";
-        ASSERT_EQ(end_ind, m_node1->get_total_entries() - 1) << "Expected the end index to be the last entry";
+        auto ret = m_node1->get_all(BtreeKeyRange{TestSimpleKey{0u}, true, TestSimpleKey{g_max_keys}, false},
+                                    g_max_keys, start_ind, end_ind, &out_vector);
+        ret += m_node2->get_all(BtreeKeyRange{TestSimpleKey{0u}, true, TestSimpleKey{g_max_keys}, false}, g_max_keys,
+                                start_ind, end_ind, &out_vector);
 
-        ret += m_node2->get_all(BtreeKeyRange{TestSimpleKey{g_max_keys / 2}, true, TestSimpleKey{g_max_keys}, false},
-                                g_max_keys / 2, start_ind, end_ind, &out_vector);
-        ASSERT_EQ(start_ind, 0u) << "Expected the entire range with start = 0";
-        ASSERT_EQ(end_ind, m_node2->get_total_entries() - 1) << "Expected the end index to be the last entry";
         ASSERT_EQ(ret, m_shadow_map.size()) << "Expected number of entries to be same with shadow_map size";
         ASSERT_EQ(out_vector.size(), m_shadow_map.size())
             << "Expected number of entries to be same with shadow_map size";
@@ -209,75 +266,86 @@ protected:
         }
     }
 
+    void validate_specific(uint32_t k) {
+        TestSimpleValue val;
+        auto* node = (k < g_max_keys / 2) ? m_node1.get() : m_node2.get();
+        const auto ret = node->find(TestSimpleKey{k}, &val, true);
+        ASSERT_EQ(ret.first, m_shadow_map.find(k) != m_shadow_map.end())
+            << "Node key " << k << " is incorrect presence compared to shadow map";
+        if (ret.first) { validate_data(k, val); }
+    }
+
+private:
     void validate_data(uint32_t key, const TestSimpleValue& node_val) const {
         const auto r = m_shadow_map.find(key);
         ASSERT_NE(r, m_shadow_map.end()) << "Node key is not present in shadow map";
         ASSERT_EQ(node_val.value(), r->second)
             << "Found value in node doesn't return correct data for key=" << r->first;
     }
-#if 0
-    void validate_range(const uint32_t start, const uint32_t end) const {
-        auto entries = m_map->get(RangeKey{1u, start, end - start + 1});
-
-        for (const auto& [key, val] : entries) {
-            ASSERT_EQ(key.m_base_key, 1u) << "Expected base key is standard value 1";
-            uint8_t* got_bytes = val.bytes();
-            for (auto o{key.m_nth}; o < key.m_nth + key.m_count; ++o) {
-                auto it = m_shadow_map.find(o);
-                ASSERT_EQ(m_inserted_slots.is_bits_set(o, 1), true) << "Found a key " << o << " which was not inserted";
-                compare_data(o, got_bytes, it->second.bytes);
-                got_bytes += per_val_size;
-            }
-        }
-    }
-
-    void validate_all() { validate_range(0, g_max_offset - 1); }
-
-    void erase_range(const uint32_t start, const uint32_t end) {
-        m_map->erase(RangeKey{1u, start, end - start + 1});
-
-        for (auto i{start}; i <= end; ++i) {
-            m_shadow_map.erase(i);
-            m_inserted_slots.reset_bit(i);
-        }
-    }
-
-    sisl::io_blob create_data(const uint32_t start, const uint32_t end) {
-        auto blob = sisl::io_blob{per_val_size * (end - start + 1), 0};
-        uint8_t* bytes = blob.bytes;
-
-        for (auto i = start; i <= end; ++i) {
-            auto arr = (std::array< uint32_t, per_val_size / sizeof(uint32_t) >*)bytes;
-            std::fill(arr->begin(), arr->end(), i);
-            bytes += per_val_size;
-        }
-        return blob;
-    }
-
-    void compare_data(const uint32_t offset, const uint8_t* l_bytes, const uint8_t* r_bytes) const {
-        const auto l_arr = (std::array< uint32_t, per_val_size / sizeof(uint32_t) >*)l_bytes;
-        const auto r_arr = (std::array< uint32_t, per_val_size / sizeof(uint32_t) >*)r_bytes;
-
-        for (size_t i{0}; i < l_arr->size(); ++i) {
-            ASSERT_EQ(l_arr->at(i), r_arr->at(i)) << "Mismatch of bytes at byte=" << i << " on offset=" << offset;
-            ASSERT_EQ(l_arr->at(i), offset) << "Expected data to be same as offset=" << offset;
-        }
-    }
-#endif
 };
 
 TEST_F(SimpleNodeTest, SequentialInsert) {
-    put(0, btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
-    put(1, btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
-    put(2, btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
-    put(g_max_keys / 2, btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
-    put(g_max_keys / 2 + 1, btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
-    put(g_max_keys / 2 - 1, btree_put_type::INSERT_ONLY_IF_NOT_EXISTS);
+    put_list({0, 1, 2, g_max_keys / 2, g_max_keys / 2 + 1, g_max_keys / 2 - 1});
     print();
     validate_get_all();
     validate_get_any(0, 2);
     validate_get_any(3, 3);
     validate_get_any(g_max_keys / 2, g_max_keys - 1);
+}
+
+TEST_F(SimpleNodeTest, Remove) {
+    put_list({0, 1, 2, g_max_keys / 2, g_max_keys / 2 + 1, g_max_keys / 2 - 1});
+    remove(0);
+    remove(0); // Remove non-existing
+    remove(1);
+    remove(2);
+    remove(g_max_keys / 2 - 1);
+    print();
+    validate_get_all();
+    validate_get_any(0, 2);
+    validate_get_any(3, 3);
+    validate_get_any(g_max_keys / 2, g_max_keys - 1);
+}
+
+TEST_F(SimpleNodeTest, Update) {
+    put_list({0, 1, 2, g_max_keys / 2, g_max_keys / 2 + 1, g_max_keys / 2 - 1});
+    update(1);
+    update(g_max_keys / 2);
+    update(2);
+    remove(0);
+    update(0); // Update non-existing
+    print();
+    validate_get_all();
+}
+
+TEST_F(SimpleNodeTest, Move) {
+    std::vector< uint32_t > list{0, 1, 2, g_max_keys / 2 - 1};
+    put_list(list);
+    print();
+    BtreeConfig cfg{1024};
+    cfg.set_node_area_size(1024);
+
+    m_node1->move_out_to_right_by_entries(cfg, *m_node2, list.size());
+    m_node1->move_out_to_right_by_entries(cfg, *m_node2, list.size()); // Empty move
+    ASSERT_EQ(m_node1->get_total_entries(), 0u) << "Move out to right has failed";
+    ASSERT_EQ(m_node2->get_total_entries(), list.size()) << "Move out to right has failed";
+    validate_get_all();
+
+    m_node1->move_in_from_right_by_entries(cfg, *m_node2, list.size());
+    m_node1->move_in_from_right_by_entries(cfg, *m_node2, list.size()); // Empty move
+    ASSERT_EQ(m_node2->get_total_entries(), 0u) << "Move in from right has failed";
+    ASSERT_EQ(m_node1->get_total_entries(), list.size()) << "Move in from right has failed";
+    validate_get_all();
+
+    m_node1->move_out_to_right_by_entries(cfg, *m_node2, list.size() / 2);
+    ASSERT_EQ(m_node1->get_total_entries(), list.size() / 2) << "Move out half entries to right has failed";
+    ASSERT_EQ(m_node2->get_total_entries(), list.size() - list.size() / 2)
+        << "Move out half entries to right has failed";
+    validate_get_all();
+    print();
+
+    ASSERT_EQ(m_node1->validate_key_order(), true) << "Key order validation of node1 has failed";
+    ASSERT_EQ(m_node2->validate_key_order(), true) << "Key order validation of node2 has failed";
 }
 
 SISL_OPTIONS_ENABLE(logging, test_btree_node)
