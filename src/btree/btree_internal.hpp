@@ -122,8 +122,6 @@ struct BtreeConfig {
     uint64_t m_max_objs{0};
     uint32_t m_max_key_size{0};
     uint32_t m_max_value_size{0};
-
-    uint32_t m_node_area_size{0};
     uint32_t m_node_size;
 
     uint8_t m_ideal_fill_pct{90};
@@ -143,13 +141,9 @@ struct BtreeConfig {
     void set_max_objs(uint64_t max_objs) { m_max_objs = max_objs; }
 
     uint32_t max_value_size() const { return m_max_value_size; }
-    uint32_t node_area_size() const { return m_node_area_size; }
 
-    void set_node_area_size(uint32_t size) { m_node_area_size = size; }
     void set_max_value_size(uint32_t max_value_size) { m_max_value_size = max_value_size; }
 
-    uint32_t ideal_fill_size() const { return uint32_cast(node_area_size() * m_ideal_fill_pct) / 100; }
-    uint32_t merge_suggested_size() const { return node_area_size() - ideal_fill_size(); }
     uint32_t split_size(uint32_t filled_size) const { return uint32_cast(filled_size * m_split_pct) / 100; }
     const std::string& name() const { return m_btree_name; }
 };
