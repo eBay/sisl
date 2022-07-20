@@ -21,14 +21,14 @@ namespace btree {
 template < typename K, typename V >
 class SimpleNode : public BtreeNode< K, V > {
 public:
-    SimpleNode(uint8_t* node_buf, bnodeid_t id, bool init, bool is_leaf) :
+    SimpleNode(uint8_t* node_buf, bnodeid_t id, bool init, bool is_leaf, const BtreeConfig& cfg) :
             BtreeNode< K, V >(node_buf, id, init, is_leaf) {
         this->set_node_type(btree_node_type::SIMPLE);
     }
 
     // Insert the key and value in provided index
     // Assumption: Node lock is already taken
-    void insert(uint32_t ind, const BtreeKey& key, const BtreeValue& val) override {
+    btree_status_t insert(uint32_t ind, const BtreeKey& key, const BtreeValue& val) override {
         uint32_t sz = (this->get_total_entries() - (ind + 1) + 1) * get_nth_obj_size(0);
 
         if (sz != 0) { std::memmove(get_nth_obj(ind + 1), get_nth_obj(ind), sz); }
@@ -39,6 +39,7 @@ public:
 #ifndef NDEBUG
         validate_sanity();
 #endif
+        return btree_status_t::success;
     }
 
     V get(uint32_t ind, bool copy) const override { return get_nth_value(ind, copy); }
@@ -159,7 +160,7 @@ public:
     }
 
     uint32_t get_available_size(const BtreeConfig& cfg) const override {
-        return (cfg.node_area_size() - (this->get_total_entries() * get_nth_obj_size(0)));
+        return (BtreeNode< K, V >::node_area_size(cfg) - (this->get_total_entries() * get_nth_obj_size(0)));
     }
 
     K get_nth_key(uint32_t ind, bool copy) const override {

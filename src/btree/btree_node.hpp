@@ -232,17 +232,17 @@ public:
                 LOGDEBUG("Attempt to insert duplicate entry {}", key.to_string());
                 return false;
             }
-            insert(idx, key, val);
+            ret = (insert(idx, key, val) == btree_status_t::success);
         } else if (put_type == btree_put_type::REPLACE_ONLY_IF_EXISTS) {
             if (!found) return false;
             update(idx, key, val);
         } else if (put_type == btree_put_type::REPLACE_IF_EXISTS_ELSE_INSERT) {
-            (found) ? update(idx, key, val) : insert(idx, key, val);
+            (found) ? update(idx, key, val) : (void)insert(idx, key, val);
         } else if (put_type == btree_put_type::APPEND_ONLY_IF_EXISTS) {
             if (!found) return false;
             append(idx, key, val);
         } else if (put_type == btree_put_type::APPEND_IF_EXISTS_ELSE_INSERT) {
-            (found) ? append(idx, key, val) : insert(idx, key, val);
+            (found) ? append(idx, key, val) : (void)insert(idx, key, val);
         } else {
             DEBUG_ASSERT(false, "Wrong put_type {}", put_type);
         }
@@ -373,7 +373,7 @@ public:
     virtual std::string to_string(bool print_friendly = false) const = 0;
 
 protected:
-    virtual void insert(uint32_t ind, const BtreeKey& key, const BtreeValue& val) = 0;
+    virtual btree_status_t insert(uint32_t ind, const BtreeKey& key, const BtreeValue& val) = 0;
     virtual V get(uint32_t ind, bool copy) const = 0;
     virtual void remove(uint32_t ind) { remove(ind, ind); }
     virtual void remove(uint32_t ind_s, uint32_t ind_e) = 0;
@@ -440,19 +440,23 @@ protected:
     void set_valid_node(bool valid) { get_persistent_header()->valid_node = (valid ? 1 : 0); }
     bool is_valid_node() const { return get_persistent_header_const()->valid_node; }
 
-    uint32_t get_occupied_size(const BtreeConfig& cfg) const {
-        return (cfg.node_area_size() - get_available_size(cfg));
-    }
+    uint32_t get_occupied_size(const BtreeConfig& cfg) const { return (node_area_size(cfg) - get_available_size(cfg)); }
     uint32_t get_suggested_min_size(const BtreeConfig& cfg) const { return cfg.max_key_size(); }
+
+    static uint32_t node_area_size(const BtreeConfig& cfg) { return cfg.node_size() - sizeof(persistent_hdr_t); }
+    static uint32_t ideal_fill_size(const BtreeConfig& cfg) {
+        return uint32_cast(node_area_size(cfg) * cfg.m_ideal_fill_pct) / 100;
+    }
+    static uint32_t merge_suggested_size(const BtreeConfig& cfg) { return node_area_size(cfg) - ideal_fill_size(cfg); }
 
     bool is_merge_needed(const BtreeConfig& cfg) const {
 #ifdef _PRERELEASE
-        if (homestore_flip->test_flip("btree_merge_node") && get_occupied_size(cfg) < cfg.node_area_size()) {
+        if (homestore_flip->test_flip("btree_merge_node") && get_occupied_size(cfg) < node_area_size(cfg)) {
             return true;
         }
 
         auto ret = homestore_flip->get_test_flip< uint64_t >("btree_merge_node_pct");
-        if (ret && get_occupied_size(cfg) < (ret.get() * cfg.node_area_size() / 100)) { return true; }
+        if (ret && get_occupied_size(cfg) < (ret.get() * node_area_size(cfg) / 100)) { return true; }
 #endif
         return (get_occupied_size(cfg) < get_suggested_min_size(cfg));
     }
@@ -468,7 +472,11 @@ protected:
         return (get_edge_id() != empty_bnodeid);
     }
     virtual V get_edge_value() const { return V{get_edge_id()}; }
-    virtual void set_edge_value(const V& v) {}
+    virtual void set_edge_value(const BtreeValue& v) {
+        const auto b = v.serialize();
+        ASSERT_EQ(b.size, sizeof(bnodeid_t));
+        set_edge_id(*r_cast< bnodeid_t* >(b.bytes));
+    }
 
     void invalidate_edge() { set_edge_id(empty_bnodeid); }
 
