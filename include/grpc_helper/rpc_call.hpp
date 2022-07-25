@@ -20,9 +20,9 @@ SISL_LOGGING_DECL(grpc_server)
 
 #define RPC_SERVER_LOG(level, msg, ...)                                                                                \
     LOG##level##MOD_FMT(grpc_server, ([&](fmt::memory_buffer& buf, const char* __m, auto&&... args) -> bool {          \
-                            fmt::format_to(buf, "[{}:{}] [RPC={} id={}] ", file_name(__FILE__), __LINE__,              \
-                                           m_rpc_info->m_rpc_name, request_id());                                      \
-                            fmt::format_to(buf, __m, std::forward< decltype(args) >(args)...);                         \
+                            fmt::format_to(fmt::appender(buf), "[{}:{}] [RPC={} id={}] ", file_name(__FILE__),         \
+                                           __LINE__, m_rpc_info->m_rpc_name, request_id());                            \
+                            fmt::format_to(fmt::appender(buf), __m, std::forward< decltype(args) >(args)...);          \
                             return true;                                                                               \
                         }),                                                                                            \
                         msg, ##__VA_ARGS__);
