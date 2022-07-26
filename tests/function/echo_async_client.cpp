@@ -112,17 +112,24 @@ private:
 class TestServer {
 public:
     class EchoServiceImpl final {
+        std::atomic< uint32_t > num_calls = 0ul;
+
     public:
         ~EchoServiceImpl() = default;
 
         bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
-            LOGDEBUGMOD(grpc_server, "receive echo request {}", rpc_data->request().message());
-            auto t = std::thread([rpc = rpc_data] {
-                rpc->response().set_message(rpc->request().message());
-                rpc->send_response();
-            });
-            t.detach();
-            return false;
+            if ((++num_calls % 2) == 0) {
+                LOGDEBUGMOD(grpc_server, "respond async echo request {}", rpc_data->request().message());
+                auto t = std::thread([rpc = rpc_data] {
+                    rpc->response().set_message(rpc->request().message());
+                    rpc->send_response();
+                });
+                t.detach();
+                return false;
+            }
+            LOGDEBUGMOD(grpc_server, "respond sync echo request {}", rpc_data->request().message());
+            rpc_data->response().set_message(rpc_data->request().message());
+            return true;
         }
 
         void register_service(GrpcServer* server) {
@@ -139,17 +146,24 @@ public:
     };
 
     class PingServiceImpl final {
+        std::atomic< uint32_t > num_calls = 0ul;
+
     public:
         ~PingServiceImpl() = default;
 
         bool ping_request(const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
-            LOGDEBUGMOD(grpc_server, "receive ping request {}", rpc_data->request().seqno());
-            auto t = std::thread([rpc = rpc_data] {
-                rpc->response().set_seqno(rpc->request().seqno());
-                rpc->send_response();
-            });
-            t.detach();
-            return false;
+            if ((++num_calls % 2) == 0) {
+                LOGDEBUGMOD(grpc_server, "respond async ping request {}", rpc_data->request().seqno());
+                auto t = std::thread([rpc = rpc_data] {
+                    rpc->response().set_seqno(rpc->request().seqno());
+                    rpc->send_response();
+                });
+                t.detach();
+                return false;
+            }
+            LOGDEBUGMOD(grpc_server, "respond sync ping request {}", rpc_data->request().seqno());
+            rpc_data->response().set_seqno(rpc_data->request().seqno());
+            return true;
         }
 
         void register_service(GrpcServer* server) {
