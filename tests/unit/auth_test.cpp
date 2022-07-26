@@ -33,11 +33,11 @@ static const std::string grpc_server_addr{"0.0.0.0:12345"};
 static const std::string trf_token_server_ip{"127.0.0.1"};
 static const uint32_t trf_token_server_port{12346};
 
-class EchoServiceImpl {
+class EchoServiceImpl final {
 public:
-    virtual ~EchoServiceImpl() = default;
+    ~EchoServiceImpl() = default;
 
-    virtual bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
+    bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
         LOGDEBUG("receive echo request {}", rpc_data->request().message());
         rpc_data->response().set_message(rpc_data->request().message());
         return true;
@@ -67,9 +67,9 @@ public:
 
 class AuthBaseTest : public ::testing::Test {
 public:
-    virtual void SetUp() {}
+    void SetUp() override {}
 
-    virtual void TearDown() {
+    void TearDown() override {
         if (m_grpc_server) {
             m_grpc_server->shutdown();
             delete m_grpc_server;
@@ -120,7 +120,7 @@ protected:
 
 class AuthDisableTest : public AuthBaseTest {
 public:
-    virtual void SetUp() {
+    void SetUp() override {
         // start grpc server without auth
         grpc_server_start(grpc_server_addr, nullptr);
 
@@ -131,7 +131,7 @@ public:
         m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-1");
     }
 
-    virtual void TearDown() { AuthBaseTest::TearDown(); }
+    void TearDown() override { AuthBaseTest::TearDown(); }
 };
 
 TEST_F(AuthDisableTest, allow_on_disabled_mode) {
@@ -145,17 +145,9 @@ TEST_F(AuthDisableTest, allow_on_disabled_mode) {
     EXPECT_EQ(req.message(), reply.message());
 }
 
-static std::string get_cur_file_dir() {
-    const std::string cur_file_path{__FILE__};
-    auto last_slash_pos = cur_file_path.rfind('/');
-    if (last_slash_pos == std::string::npos) { return ""; }
-    return std::string{cur_file_path.substr(0, last_slash_pos + 1)};
-}
-
-static const std::string cur_file_dir{get_cur_file_dir()};
+static auto const grant_path = std::string{"dummy_grant.cg"};
 
 static void load_auth_settings() {
-    static const std::string grant_path = fmt::format("{}/dummy_grant.cg", cur_file_dir);
     std::ofstream outfile{grant_path};
     outfile << "dummy cg contents\n";
     outfile.close();
@@ -170,9 +162,14 @@ static void load_auth_settings() {
     SECURITY_SETTINGS_FACTORY().save();
 }
 
+static void remove_auth_settings() {
+    auto const grant_fs_path = std::filesystem::path{grant_path};
+    EXPECT_TRUE(std::filesystem::remove(grant_fs_path));
+}
+
 class AuthServerOnlyTest : public AuthBaseTest {
 public:
-    virtual void SetUp() {
+    void SetUp() override {
         // start grpc server with auth
         load_auth_settings();
         m_auth_mgr = std::shared_ptr< AuthManager >(new AuthManager());
@@ -185,7 +182,10 @@ public:
         m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-2");
     }
 
-    virtual void TearDown() { AuthBaseTest::TearDown(); }
+    void TearDown() override {
+        AuthBaseTest::TearDown();
+        remove_auth_settings();
+    }
 };
 
 TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
@@ -202,7 +202,7 @@ TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
 
 class AuthEnableTest : public AuthBaseTest {
 public:
-    virtual void SetUp() {
+    void SetUp() override {
         // start grpc server with auth
         load_auth_settings();
         m_auth_mgr = std::shared_ptr< AuthManager >(new AuthManager());
@@ -229,21 +229,18 @@ public:
         m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-3");
     }
 
-    virtual void TearDown() {
+    void TearDown() override {
         AuthBaseTest::TearDown();
         m_token_server->stop();
+        remove_auth_settings();
     }
 
     static void get_token(HttpCallData cd) {
-        std::string msg;
-        std::cout << "sending token to client" << std::endl;
+        LOGINFO("Sending token to client");
         pThis(cd)->m_token_server->respond_OK(cd, EVHTP_RES_OK, m_token_response);
     }
 
-    static void download_key(HttpCallData cd) {
-        std::string msg;
-        pThis(cd)->m_token_server->respond_OK(cd, EVHTP_RES_OK, rsa_pub_key);
-    }
+    static void download_key(HttpCallData cd) { pThis(cd)->m_token_server->respond_OK(cd, EVHTP_RES_OK, rsa_pub_key); }
 
     static void set_token_response(const std::string& raw_token) {
         m_token_response = "{\n"
@@ -281,7 +278,7 @@ class EchoAndPingClient : public GrpcSyncClient {
 
 public:
     using GrpcSyncClient::GrpcSyncClient;
-    virtual void init() {
+    void init() override {
         GrpcSyncClient::init();
         echo_stub_ = MakeStub< EchoService >();
     }
@@ -310,6 +307,7 @@ TEST_F(AuthEnableTest, allow_sync_client_with_auth) {
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleMock(&argc, argv);
     SISL_OPTIONS_LOAD(argc, argv, logging)
+    sisl::logging::SetLogger("auth_test");
     int ret{RUN_ALL_TESTS()};
     grpc_helper::GrpcAsyncClientWorker::shutdown_all();
     return ret;

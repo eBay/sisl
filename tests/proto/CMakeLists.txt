@@ -8,4 +8,4 @@ MESSAGE( STATUS "PROTO_SRCS = " ${PROTO_SRCS} " " ${PROTO_HDRS})
 MESSAGE( STATUS "GRPC_SRCS = " ${GRPC_SRCS} " " ${GRPC_HDRS})
 
 
-add_library(test_proto ${PROTO_SRCS} ${PROTO_HDRS} ${GRPC_SRCS} ${GRPC_HDRS})
+add_library(test_proto OBJECT ${PROTO_SRCS} ${PROTO_HDRS} ${GRPC_SRCS} ${GRPC_HDRS})
