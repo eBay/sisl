@@ -1,6 +1,7 @@
 #include <memory>
 #include <string>
 #include <functional>
+#include <condition_variable>
 #include <chrono>
 #include <thread>
 #include <mutex>
@@ -110,66 +111,57 @@ private:
 
 class TestServer {
 public:
-    class EchoServiceImpl {
+    class EchoServiceImpl final {
     public:
-        virtual ~EchoServiceImpl() = default;
+        ~EchoServiceImpl() = default;
 
-        virtual bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
+        bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
             LOGDEBUGMOD(grpc_server, "receive echo request {}", rpc_data->request().message());
-            rpc_data->response().set_message(rpc_data->request().message());
-            return true;
+            auto t = std::thread([rpc = rpc_data] {
+                rpc->response().set_message(rpc->request().message());
+                rpc->send_response();
+            });
+            t.detach();
+            return false;
         }
 
-        bool register_service(GrpcServer* server) {
-            if (!server->register_async_service< EchoService >()) {
-                LOGERROR("register service failed");
-                return false;
-            }
-
-            return true;
+        void register_service(GrpcServer* server) {
+            auto const res = server->register_async_service< EchoService >();
+            RELEASE_ASSERT(res, "Failed to Register Service");
         }
 
-        bool register_rpcs(GrpcServer* server) {
+        void register_rpcs(GrpcServer* server) {
             LOGINFO("register rpc calls");
-            if (!server->register_rpc< EchoService, EchoRequest, EchoReply, false >(
-                    "Echo", &EchoService::AsyncService::RequestEcho,
-                    std::bind(&EchoServiceImpl::echo_request, this, _1))) {
-                LOGERROR("register rpc failed");
-                return false;
-            }
-
-            return true;
+            auto const res = server->register_rpc< EchoService, EchoRequest, EchoReply, false >(
+                "Echo", &EchoService::AsyncService::RequestEcho, std::bind(&EchoServiceImpl::echo_request, this, _1));
+            RELEASE_ASSERT(res, "register rpc failed");
         }
     };
 
-    class PingServiceImpl {
+    class PingServiceImpl final {
     public:
-        virtual ~PingServiceImpl() = default;
+        ~PingServiceImpl() = default;
 
-        virtual bool ping_request(const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
+        bool ping_request(const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
             LOGDEBUGMOD(grpc_server, "receive ping request {}", rpc_data->request().seqno());
-            rpc_data->response().set_seqno(rpc_data->request().seqno());
-            return true;
+            auto t = std::thread([rpc = rpc_data] {
+                rpc->response().set_seqno(rpc->request().seqno());
+                rpc->send_response();
+            });
+            t.detach();
+            return false;
         }
 
-        bool register_service(GrpcServer* server) {
-            if (!server->register_async_service< PingService >()) {
-                LOGERROR("register ping service failed");
-                return false;
-            }
-            return true;
+        void register_service(GrpcServer* server) {
+            auto const res = server->register_async_service< PingService >();
+            RELEASE_ASSERT(res, "Failed to Register Service");
         }
 
-        bool register_rpcs(GrpcServer* server) {
+        void register_rpcs(GrpcServer* server) {
             LOGINFO("register rpc calls");
-            if (!server->register_rpc< PingService, PingRequest, PingReply, false >(
-                    "Ping", &PingService::AsyncService::RequestPing,
-                    std::bind(&PingServiceImpl::ping_request, this, _1))) {
-                LOGERROR("register ping rpc failed");
-                return false;
-            }
-
-            return true;
+            auto const res = server->register_rpc< PingService, PingRequest, PingReply, false >(
+                "Ping", &PingService::AsyncService::RequestPing, std::bind(&PingServiceImpl::ping_request, this, _1));
+            RELEASE_ASSERT(res, "register ping rpc failed");
         }
     };
 
