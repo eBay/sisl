@@ -6,7 +6,7 @@ add_executable(auth_test
   )
 target_link_libraries(auth_test
     grpc_helper
-    sisl::sisl
+    pistache::pistache
     gRPC::grpc++
     GTest::gmock
   )

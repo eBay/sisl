@@ -7,21 +7,13 @@
 #include <sisl/options/options.h>
 #include <sisl/auth_manager/trf_client.hpp>
 
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-#endif
-#include <sisl/async_http/http_server.hpp>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
-
+#include "basic_http_server.hpp"
 #include "grpc_helper/rpc_client.hpp"
 #include "grpc_helper/rpc_server.hpp"
 #include "grpc_helper_test.grpc.pb.h"
 #include "test_token.hpp"
 
-SISL_LOGGING_INIT(logging, grpc_server, httpserver_lmod)
+SISL_LOGGING_INIT(logging, grpc_server)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace grpc_helper::testing {
@@ -32,6 +24,17 @@ using namespace ::testing;
 static const std::string grpc_server_addr{"0.0.0.0:12345"};
 static const std::string trf_token_server_ip{"127.0.0.1"};
 static const uint32_t trf_token_server_port{12346};
+static std::string token_response;
+static void set_token_response(const std::string& raw_token) {
+    token_response = "{\n"
+                     "  \"access_token\": \"" +
+        raw_token +
+        "\",\n"
+        "  \"token_type\": \"Bearer\",\n"
+        "  \"expires_in\": \"2000\",\n"
+        "  \"refresh_token\": \"dummy_refresh_token\"\n"
+        "}";
+}
 
 class EchoServiceImpl final {
 public:
@@ -200,6 +203,19 @@ TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
     EXPECT_EQ(status.error_message(), "missing header authorization");
 }
 
+class TokenApiImpl : public TokenApi {
+public:
+    void get_token_impl(Pistache::Http::ResponseWriter& response) {
+        LOGINFO("Sending token to client");
+        response.send(Pistache::Http::Code::Ok, token_response);
+    }
+
+    void get_key_impl(Pistache::Http::ResponseWriter& response) {
+        LOGINFO("Download rsa key");
+        response.send(Pistache::Http::Code::Ok, rsa_pub_key);
+    }
+};
+
 class AuthEnableTest : public AuthBaseTest {
 public:
     void SetUp() override {
@@ -209,17 +225,10 @@ public:
         grpc_server_start(grpc_server_addr, m_auth_mgr);
 
         // start token server
-        HttpServerConfig http_cfg;
-        http_cfg.is_tls_enabled = false;
-        http_cfg.bind_address = trf_token_server_ip;
-        http_cfg.server_port = trf_token_server_port;
-        http_cfg.read_write_timeout_secs = 10;
-        http_cfg.is_auth_enabled = false;
-        m_token_server = std::unique_ptr< HttpServer >(
-            new HttpServer(http_cfg,
-                           {handler_info("/token", AuthEnableTest::get_token, (void*)this),
-                            handler_info("/download_key", AuthEnableTest::download_key, (void*)this)}));
-        m_token_server->start();
+        APIBase::init(Pistache::Address(fmt::format("{}:{}", trf_token_server_ip, trf_token_server_port)), 1);
+        m_token_server = std::unique_ptr< TokenApiImpl >(new TokenApiImpl());
+        m_token_server->setupRoutes();
+        APIBase::start();
 
         // Client with auth
         m_trf_client = std::make_shared< TrfClient >();
@@ -231,39 +240,18 @@ public:
 
     void TearDown() override {
         AuthBaseTest::TearDown();
-        m_token_server->stop();
+        APIBase::stop();
         remove_auth_settings();
     }
 
-    static void get_token(HttpCallData cd) {
-        LOGINFO("Sending token to client");
-        pThis(cd)->m_token_server->respond_OK(cd, EVHTP_RES_OK, m_token_response);
-    }
-
-    static void download_key(HttpCallData cd) { pThis(cd)->m_token_server->respond_OK(cd, EVHTP_RES_OK, rsa_pub_key); }
-
-    static void set_token_response(const std::string& raw_token) {
-        m_token_response = "{\n"
-                           "  \"access_token\": \"" +
-            raw_token +
-            "\",\n"
-            "  \"token_type\": \"Bearer\",\n"
-            "  \"expires_in\": \"2000\",\n"
-            "  \"refresh_token\": \"dummy_refresh_token\"\n"
-            "}";
-    }
-
 protected:
-    std::unique_ptr< HttpServer > m_token_server;
+    std::unique_ptr< TokenApiImpl > m_token_server;
     std::shared_ptr< TrfClient > m_trf_client;
-    static AuthEnableTest* pThis(HttpCallData cd) { return (AuthEnableTest*)cd->cookie(); }
-    static std::string m_token_response;
 };
-std::string AuthEnableTest::m_token_response;
 
 TEST_F(AuthEnableTest, allow_with_auth) {
     auto raw_token = TestToken().sign_rs256();
-    AuthEnableTest::set_token_response(raw_token);
+    set_token_response(raw_token);
     EchoRequest req;
     req.set_message("dummy_msg");
     EchoReply reply;
