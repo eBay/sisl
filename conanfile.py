@@ -49,7 +49,7 @@ class MetricsConan(ConanFile):
                     "userspace-rcu/0.11.4",
                     ("fmt/8.1.1", "override"),
                     ("libevent/2.1.12", "override"),
-                    ("openssl/1.1.1o", "override"),
+                    ("openssl/1.1.1q", "override"),
                     ("xz_utils/5.2.5", "override"),
                     ("zlib/1.2.12", "override"),
                 )
