@@ -34,7 +34,6 @@ class MetricsConan(ConanFile):
                     # Custom packages
                     "evhtp/1.2.18.2",
                     "prometheus-cpp/1.0.0",
-                    "userspace-rcu/0.11.4",
 
                     # Generic packages (conan-center)
                     "boost/1.79.0",
@@ -46,6 +45,7 @@ class MetricsConan(ConanFile):
                     "nlohmann_json/3.10.5",
                     "semver.c/1.0.0",
                     "spdlog/1.10.0",
+                    "userspace-rcu/0.11.4",
                     ("fmt/8.1.1", "override"),
                     ("libevent/2.1.12", "override"),
                     ("openssl/1.1.1o", "override"),
