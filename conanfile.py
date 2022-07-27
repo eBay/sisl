@@ -20,6 +20,7 @@ class MetricsConan(ConanFile):
                 "sanitize": ['True', 'False'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
                 'prerelease' : ['True', 'False'],
+                'with_evhtp' : ['True', 'False'],
               }
     default_options = (
                         'shared=False',
@@ -28,11 +29,11 @@ class MetricsConan(ConanFile):
                         'sanitize=False',
                         'malloc_impl=tcmalloc',
                         'prerelease=True',
+                        'with_evhtp=False',
                         )
 
     requires = (
                     # Custom packages
-                    "evhtp/1.2.18.2",
                     "prometheus-cpp/1.0.0",
 
                     # Generic packages (conan-center)
@@ -75,39 +76,41 @@ class MetricsConan(ConanFile):
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if self.options.coverage or self.options.sanitize:
                 self.options.malloc_impl = 'libc'
+        if self.options.shared:
+            del self.options.fPIC
 
     def requirements(self):
         if self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
         elif self.options.malloc_impl == "tcmalloc":
             self.requires("gperftools/2.7.0")
+        if self.options.with_evhtp:
+            self.requires("evhtp/1.2.18.2")
 
     def build(self):
         cmake = CMake(self)
 
         definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
                        'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
-                       'MEMORY_SANITIZER_ON': 'OFF'}
+                       'MEMORY_SANITIZER_ON': 'OFF',
+                       'EVHTP_ON': 'OFF'}
         test_target = None
 
-        run_tests = True
+        if self.options.with_evhtp:
+            definitions['EVHTP_ON'] = 'ON'
+
         if self.settings.build_type == "Debug":
             if self.options.sanitize:
                 definitions['MEMORY_SANITIZER_ON'] = 'ON'
             elif self.options.coverage:
                 definitions['CONAN_BUILD_COVERAGE'] = 'ON'
                 test_target = 'coverage'
-            else:
-                if (None == os.getenv("RUN_TESTS")):
-                    run_tests = False
 
         definitions['MALLOC_IMPL'] = self.options.malloc_impl
 
         cmake.configure(defs=definitions)
         cmake.build()
-        if run_tests:
-            #cmake.test(target=test_target, output_on_failure=True)
-            cmake.test(target=test_target)
+        cmake.test(target=test_target)
 
     def package(self):
         self.copy("*.hpp", src="src/", dst="include/sisl", keep_path=True)
