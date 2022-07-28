@@ -60,7 +60,7 @@ class MetricsConan(ConanFile):
                     "gtest/1.11.0",
                 )
 
-    generators = "cmake"
+    generators = "cmake", "cmake_find_package_multi"
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*")
 
     def config_options(self):

@@ -11,9 +11,10 @@ set(LOGGING_SOURCE_FILES
     lib/stacktrace.cpp
    )
 add_library(sisl_logging OBJECT ${LOGGING_SOURCE_FILES})
+target_link_libraries(sisl_logging ${COMMON_DEPS})
 
 set(TEST_LOGGING_FILES
     test/example.cpp
    )
 add_executable(logging_example ${TEST_LOGGING_FILES})
-target_link_libraries(logging_example sisl dl ${CONAN_LIBS})
+target_link_libraries(logging_example sisl ${COMMON_DEPS})
