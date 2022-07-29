@@ -10,10 +10,10 @@
 #     ``.fbs`` files
 #
 macro(settings_gen_cpp flatbuffer_bin_path gen_out_path _target)
-    if(NOT TARGET ${_target})
-        message(SEND_ERROR "settings_gen_cpp requires target as thrid argument")
-        return()
-    endif()
+#    if(NOT TARGET ${_target})
+#        message(SEND_ERROR "settings_gen_cpp requires target as third argument")
+#        return()
+#    endif()
     if(NOT ${ARGC} GREATER 1)
         message(SEND_ERROR "Error: settings_gen_cpp() called without any files as arguments")
         return()
@@ -57,7 +57,7 @@ macro(settings_gen_cpp flatbuffer_bin_path gen_out_path _target)
 
         add_custom_command(
                 OUTPUT ${_GEN_HEADERS}
-                COMMAND ${flatbuffer_bin_path}/flatc
+                COMMAND ${flatbuffer_bin_path}
                 ARGS -c -s -o ${gen_out_path}
                 --no-prefix
                 --scoped-enums

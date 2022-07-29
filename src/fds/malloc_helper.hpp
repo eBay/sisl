@@ -42,10 +42,10 @@
 #include "metrics/histogram_buckets.hpp"
 #include "metrics/metrics.hpp"
 
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
-#include <jemalloc/jemalloc.h>
-#elif defined(USING_TCMALLOC)
+#if defined(USING_TCMALLOC)
 #include <gperftools/malloc_extension.h>
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+#include <jemalloc/jemalloc.h>
 #endif
 
 namespace sisl {
@@ -117,6 +117,7 @@ public:
     }
 };
 
+#ifndef USING_TCMALLOC
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 class JEMallocStatics {
 public:
@@ -293,11 +294,13 @@ static size_t get_jemalloc_muzzy_page_count() {
     return npages;
 }
 #endif
+#endif
 
 /* Get the application total allocated memory. Relies on jemalloc. Returns 0 for other allocator. */
 [[maybe_unused]] static size_t get_total_memory(const bool refresh = true) {
     size_t allocated{0};
 
+#ifndef USING_TCMALLOC
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     static const auto& jemalloc_statics{JEMallocStatics::get()};
     size_t sz_allocated{sizeof(allocated)};
@@ -312,6 +315,7 @@ static size_t get_jemalloc_muzzy_page_count() {
     }
     if (::mallctlbymib(stats_allocated_mib.first.data(), stats_allocated_mib.second, &allocated, &sz_allocated, nullptr,
                        0) != 0) {}
+#endif
 #endif
     return allocated;
 }
@@ -395,9 +399,7 @@ static void get_parse_tcmalloc_stats(nlohmann::json* const j, MallocMetrics* con
     if (metrics) { MallocExtension::instance()->Ranges(nullptr, update_tcmalloc_range_stats); }
     delete[] stats_buf;
 }
-#endif
-
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics, const bool refresh) {
     static const auto& jemalloc_statics{JEMallocStatics::get()};
 
@@ -491,7 +493,11 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
 [[maybe_unused]] static nlohmann::json get_malloc_stats_detailed() {
     nlohmann::json j;
 
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+#if defined(USING_TCMALLOC)
+    j["Implementation"] = "TCMalloc (possibly)";
+    get_parse_tcmalloc_stats(&j, nullptr);
+    j["Stats"]["Malloc"]["MemoryReleaseRate"] = MallocExtension::instance()->GetMemoryReleaseRate();
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     static std::mutex stats_mutex;
     // get malloc data in JSON format
     std::string detailed;
@@ -502,10 +508,6 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
 
     j["Implementation"] = "JEMalloc";
     if (!detailed.empty()) { j["Stats"] = nlohmann::json::parse(detailed); }
-#elif defined(USING_TCMALLOC)
-    j["Implementation"] = "TCMalloc (possibly)";
-    get_parse_tcmalloc_stats(&j, nullptr);
-    j["Stats"]["Malloc"]["MemoryReleaseRate"] = MallocExtension::instance()->GetMemoryReleaseRate();
 #endif
 
     char* common_stats;
@@ -523,6 +525,7 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
     return j;
 }
 
+#ifndef USING_TCMALLOC
 #if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 [[maybe_unused]] static bool set_jemalloc_decay_times(const ssize_t dirty_decay_ms_in = 0,
                                                       const ssize_t muzzy_decay_ms_in = 0) {
@@ -564,6 +567,7 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
 }
 
 #endif
+#endif
 
 [[maybe_unused]] static bool set_memory_release_rate(const double level) {
 #if defined(USING_TCMALLOC)
@@ -580,17 +584,17 @@ static std::atomic< bool > s_is_aggressive_decommit{false};
 #endif
 
 [[maybe_unused]] static bool set_aggressive_decommit_mem() {
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+#if defined(USING_TCMALLOC)
+    MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 1);
+    MallocExtension::instance()->ReleaseFreeMemory();
+    tcmalloc_helper::s_is_aggressive_decommit.store(true, std::memory_order_release);
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     static thread_local auto arena_purge_mib{JEMallocStatics::get().get_arena_purge_mib()};
     arena_purge_mib.first[1] = static_cast< size_t >(MALLCTL_ARENAS_ALL);
     if (::mallctlbymib(arena_purge_mib.first.data(), arena_purge_mib.second, nullptr, nullptr, nullptr, 0) != 0) {
         LOGWARN("failed to set jemalloc arena purge");
         return false;
     }
-#elif defined(USING_TCMALLOC)
-    MallocExtension::instance()->SetNumericProperty("tcmalloc.aggressive_memory_decommit", 1);
-    MallocExtension::instance()->ReleaseFreeMemory();
-    tcmalloc_helper::s_is_aggressive_decommit.store(true, std::memory_order_release);
 #endif
     return true;
 }
@@ -611,15 +615,15 @@ static std::atomic< bool > s_is_aggressive_decommit{false};
 }
 
 [[maybe_unused]] static bool soft_decommit_mem() {
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+#if defined(USING_TCMALLOC)
+    MallocExtension::instance()->ReleaseFreeMemory();
+#elif defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     static thread_local auto arena_decay_mib{JEMallocStatics::get().get_arena_decay_mib()};
     arena_decay_mib.first[1] = static_cast< size_t >(MALLCTL_ARENAS_ALL);
     if (::mallctlbymib(arena_decay_mib.first.data(), arena_decay_mib.second, nullptr, nullptr, nullptr, 0) != 0) {
         LOGWARN("failed to set jemalloc arena decay");
         return false;
     }
-#elif defined(USING_TCMALLOC)
-    MallocExtension::instance()->ReleaseFreeMemory();
 #endif
     return true;
 }

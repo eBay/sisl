@@ -92,6 +92,8 @@ struct embedded_t : public T {
     T& operator*() noexcept { return *this; }
 
     explicit operator bool() const noexcept { return true; }
+
+    T* release() noexcept { return nullptr; }
 };
 
 template < class T >
