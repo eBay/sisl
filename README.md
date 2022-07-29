@@ -1,4 +1,5 @@
 # SymbiosisLib (sisl)
+[![Build Status](https://app.travis-ci.com/eBay/sisl.svg?branch=master)](https://app.travis-ci.com/eBay/sisl)
 
 This repo provides a symbiosis of libraries (thus named sisl - pronounced like sizzle) mostly for very high performance data 
 structures and utilities. This is mostly on top of folly, boost, STL and other good well known libraries. Thus its not trying 
