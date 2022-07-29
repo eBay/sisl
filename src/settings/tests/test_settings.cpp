@@ -21,7 +21,7 @@
 #include "logging/logging.h"
 #include "options/options.h"
 
-#include "generated/test_app_schema_generated.h"
+#include "test_app_schema_generated.h"
 //#include "generated/test_app_schema_bindump.hpp"
 #include "settings/settings.hpp"
 

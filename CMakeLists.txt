@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.10)
-project (async_http)
+project (sisl)
 
 option(DEBUG_CMAKE "Debug CMake messages option" OFF)
 
@@ -13,15 +13,12 @@ enable_testing()
 
 if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
     include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    conan_basic_setup()
 else ()
-    message(FATAL_ERROR "The file conanbuildinfo.cmake doesn't exist, you have to run conan install first")
+    message("The file conanbuildinfo.cmake doesn't exist, some properties will be unavailable")
 endif ()
 
 if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    if (NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "clang" AND NOT ${CONAN_SETTINGS_COMPILER} STREQUAL "apple-clang")
-        include (cmake/debug_flags.cmake)
-    endif ()
+    include (cmake/debug_flags.cmake)
 endif()
 
 if (DEFINED MALLOC_IMPL)
@@ -50,9 +47,30 @@ include(cmake/settings_gen.cmake)
 if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows") 
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 endif()
-find_package (Threads REQUIRED)
 
-find_package(Boost REQUIRED)
+find_package(Benchmark REQUIRED CONFIG)
+find_package(Boost REQUIRED CONFIG)
+find_package(cpr REQUIRED CONFIG)
+find_package(cxxopts REQUIRED CONFIG)
+find_package(Flatbuffers REQUIRED CONFIG)
+find_package(Folly REQUIRED CONFIG)
+find_package(GTest REQUIRED CONFIG)
+find_package(jwt-cpp REQUIRED CONFIG)
+find_package(nlohmann_json REQUIRED CONFIG)
+find_package(prometheus-cpp REQUIRED CONFIG)
+find_package(semver.c REQUIRED CONFIG)
+find_package(spdlog REQUIRED CONFIG)
+find_package (Threads REQUIRED)
+find_package(userspace-rcu REQUIRED CONFIG)
+
+set(COMMON_DEPS
+    Boost::headers
+    cxxopts::cxxopts
+    nlohmann_json::nlohmann_json
+    prometheus-cpp::prometheus-cpp
+    spdlog::spdlog
+    userspace-rcu::urcu
+  )
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
@@ -66,31 +84,32 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     
     # add warning options
     add_flags("-Wall -Wextra -Werror -Wpedantic")
-    
-    # add C++ only warning options
-    
-    # add optimizations
-    if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-        message("Debug build")
-        remove_flag("-O[0-4]")
-        add_flags("-O0 -DDEBUG_RCU")
-    else()
-        message("Release build")
-        remove_flag("-O[0-4]")
-        add_flags("-O3")
-    endif()
 endif()
 
 # add conan information 
-add_flags("-DPACKAGE_NAME=\\\"${CONAN_PACKAGE_NAME}\\\"")
-add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
+add_flags("-DPACKAGE_NAME=sisl")
+if (DEFINED CONAN_PACKAGE_VERSION)
+  message("Package Version: [${CONAN_PACKAGE_VERSION}]")
+  add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
+else ()
+  message("Unknown Package Version")
+  add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
+endif ()
 
 if(UNIX)
     # enable proper memstream flags
     add_flags("-D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
 endif()
 
-add_subdirectory (src/async_http)
+include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/auth_manager)
+include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/settings)
+
+if (DEFINED EVHTP_ON)
+  if (${EVHTP_ON})
+    add_subdirectory (src/async_http)
+  endif()
+endif()
+
 #add_subdirectory (src/btree)
 add_subdirectory (src/cache)
 add_subdirectory (src/logging)
@@ -102,6 +121,7 @@ add_subdirectory (src/settings)
 add_subdirectory (src/utility)
 add_subdirectory (src/sisl_version)
 add_subdirectory (src/auth_manager)
+add_subdirectory (src/file_watcher)
 
 add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
@@ -113,8 +133,11 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_buffer>
             $<TARGET_OBJECTS:sisl_auth_manager>
             $<TARGET_OBJECTS:sisl_trf_client>
+            $<TARGET_OBJECTS:sisl_file_watcher>
            )
-target_link_libraries(sisl ${COMMON_LIB_DEPS})
+target_link_libraries(sisl
+    Folly::Folly
+  )
 
 # build info
 string(TOUPPER "${CMAKE_BUILD_TYPE}" UC_CMAKE_BUILD_TYPE)
