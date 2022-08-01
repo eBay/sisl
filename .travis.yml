@@ -18,3 +18,4 @@ install:
 script:
 # Download dependencies and build project
   - conan install --build missing .
+  - conan build .
