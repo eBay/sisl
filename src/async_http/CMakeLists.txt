@@ -1,3 +1,5 @@
+cmake_minimum_required (VERSION 3.10)
+
 add_flags("-Wno-unused-parameter -Wno-cast-function-type")
 
 include_directories(BEFORE ..)
