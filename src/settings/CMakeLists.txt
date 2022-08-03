@@ -1,3 +1,5 @@
+cmake_minimum_required (VERSION 3.10)
+
 if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
     add_flags("-Wno-attributes") # needed for C++ 20 folly compilation
 endif()
@@ -5,6 +7,8 @@ endif()
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 include_directories(BEFORE . ${CMAKE_CURRENT_BINARY_DIR}/generated/)
+
+find_package(FlatBuffers REQUIRED)
 
 set(SETTINGS_SOURCE_FILES 
     settings.cpp
