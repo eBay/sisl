@@ -1,9 +1,11 @@
+cmake_minimum_required (VERSION 3.10)
+
 add_flags("-Wno-unused-parameter")
 
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
-find_package(Flatbuffers REQUIRED CONFIG)
+find_package(FlatBuffers REQUIRED)
 
 set(AUTH_MGR_SOURCE_FILES 
     auth_manager.cpp

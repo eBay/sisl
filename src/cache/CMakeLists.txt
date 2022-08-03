@@ -1,3 +1,5 @@
+cmake_minimum_required (VERSION 3.10)
+
 if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
     add_flags("-Wno-unused-parameter -Wno-cast-function-type")
 endif()
