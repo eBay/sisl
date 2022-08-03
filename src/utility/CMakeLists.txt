@@ -1,3 +1,5 @@
+cmake_minimum_required (VERSION 3.10)
+
 add_flags("-Wno-unused-parameter")
 
 include_directories(BEFORE ..)
