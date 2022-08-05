@@ -1,4 +1,4 @@
-name: Conan
+name: Conan Build
 
 on:
   push:
@@ -20,6 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.8"]
+        build-type: ["Debug", "Release"]
 
     steps:
     - uses: actions/checkout@v3
@@ -40,7 +41,7 @@ jobs:
     - name: Install dependencies
       # Build your program with the given configuration
       run: |
-        conan install --build missing .
+        conan install -s build_type=${{ matrix.build-type }} --build missing .
 
     - name: Build
       # Build your program with the given configuration
