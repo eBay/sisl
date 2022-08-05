@@ -1,4 +1,4 @@
-name: Conan
+name: Conan Build
 
 on:
   push:
