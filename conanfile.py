@@ -137,9 +137,9 @@ class MetricsConan(ConanFile):
                 self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
                 self.cpp_info.exelinkflags.append("-fsanitize=undefined")
             elif self.options.coverage == 'True':
-                self.cpp_info.libs.append('gcov')
+                self.cpp_info.system_libs.append('gcov')
         if self.settings.os == "Linux":
-            self.cpp_info.libs.extend(["dl"])
+            self.cpp_info.system_libs.append("dl")
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
 
         if self.options.malloc_impl == 'jemalloc':
