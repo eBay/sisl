@@ -1,11 +1,17 @@
+cmake_minimum_required(VERSION 3.11)
 
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS grpc_helper_test.proto)
+add_library(test_proto OBJECT
+    grpc_helper_test.proto
+  )
+target_link_libraries(test_proto
+      protobuf::libprotobuf
+      gRPC::grpc++
+  )
 
-PROTOBUF_GENERATE_GRPC_CPP(GRPC_SRCS GRPC_HDRS grpc_helper_test.proto)
-
-
-MESSAGE( STATUS "PROTO_SRCS = " ${PROTO_SRCS} " " ${PROTO_HDRS})
-MESSAGE( STATUS "GRPC_SRCS = " ${GRPC_SRCS} " " ${GRPC_HDRS})
-
-
-add_library(test_proto OBJECT ${PROTO_SRCS} ${PROTO_HDRS} ${GRPC_SRCS} ${GRPC_HDRS})
+protobuf_generate(LANGUAGE cpp TARGET test_proto PROTOS grpc_helper_test.proto)
+protobuf_generate(
+    TARGET test_proto
+    LANGUAGE grpc
+    GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+    PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>
+)

@@ -1,30 +1,38 @@
 set(CMAKE_CXX_STANDARD 17)
-set(CPP_WARNINGS "-Wall -Wextra -Werror -Wno-unused-parameter")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_WARNINGS} -DPACKAGE_NAME=${CONAN_PACKAGE_NAME} -DPACKAGE_VERSION=${CONAN_PACKAGE_VERSION}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 
-find_package(Boost REQUIRED)
-find_package(Threads REQUIRED)
-find_package(OpenSSL REQUIRED)
-find_package(Protobuf REQUIRED)
-
-include(${CMAKE_HOME_DIRECTORY}/cmake/grpc.cmake)
-
-include_directories(BEFORE include)
-
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-    # Remove tcmalloc from debug builds so valgrind etc. work well
-    list(REMOVE_ITEM CONAN_LIBS tcmalloc tcmalloc_minimal)
+set(PACKAGE_REVISION "0.0.0+unknown")
+if (DEFINED CONAN_PACKAGE_NAME)
+  set(PACKAGE_REVISION "${CONAN_PACKAGE_VERSION}")
 endif ()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_WARNINGS} -DPACKAGE_NAME=${PROJECT_NAME} -DPACKAGE_VERSION=${PACKAGE_REVISION}")
 
-set(GRPC_HELPER_LIBS ${CONAN_LIBS} ${CMAKE_THREAD_LIBS_INIT})
+find_package(Threads REQUIRED)
+find_package(sisl CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
 
+include_directories(BEFORE "include")
 
-set (GRPC_HELPER_SOURCE
+add_library(${PROJECT_NAME}
     lib/rpc_server.cpp
     lib/rpc_client.cpp
-)
-
-
-add_library(grpc_helper ${GRPC_HELPER_SOURCE})
+  )
+target_link_libraries(${PROJECT_NAME}
+    gRPC::grpc++
+    sisl::sisl
+    Boost::Boost
+  )
  
 add_subdirectory(tests)
+
+# build info
+string(TOUPPER "${CMAKE_BUILD_TYPE}" UC_CMAKE_BUILD_TYPE)
+message(STATUS "Build configuration:       ${CMAKE_BUILD_TYPE}")
+message(STATUS "C compiler info:           ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION} ${CMAKE_C_COMPILER_EXTERNAL_TOOLCHAIN}")
+message(STATUS "C++ compiler info:         ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION} ${CMAKE_CXX_COMPILER_EXTERNAL_TOOLCHAIN}")
+message(STATUS "C flags:                   ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UC_CMAKE_BUILD_TYPE}}")
+message(STATUS "C++ flags:                 ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UC_CMAKE_BUILD_TYPE}}")
+message(STATUS "Linker flags (executable): ${CMAKE_EXE_LINKER_FLAGS} ${CMAKE_EXE_LINKER_FLAGS_${UC_CMAKE_BUILD_TYPE}}")
+message(STATUS "Linker flags (shared):     ${CMAKE_SHARED_LINKER_FLAGS} ${CMAKE_SHARED_LINKER_FLAGS_${UC_CMAKE_BUILD_TYPE}}")
+message(STATUS "Linker flags (module):     ${CMAKE_MODULE_LINKER_FLAGS} ${CMAKE_MODULE_LINKER_FLAGS_${UC_CMAKE_BUILD_TYPE}}")
+message(STATUS "Linker flags (static):     ${CMAKE_STATIC_LINKER_FLAGS} ${CMAKE_STATIC_LINKER_FLAGS_${UC_CMAKE_BUILD_TYPE}}")
