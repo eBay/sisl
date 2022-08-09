@@ -25,7 +25,7 @@ class MetricsConan(ConanFile):
                 'fPIC': True,
                 'coverage': False,
                 'sanitize': False,
-                'malloc_impl': 'libc',
+                'malloc_impl': 'tcmalloc',
                 'prerelease': True,
                 'with_evhtp': True,
             }
