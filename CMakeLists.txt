@@ -8,8 +8,8 @@ endif ()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CPP_WARNINGS} -DPACKAGE_NAME=${PROJECT_NAME} -DPACKAGE_VERSION=${PACKAGE_REVISION}")
 
 find_package(Threads REQUIRED)
-find_package(sisl CONFIG REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
+find_package(sisl REQUIRED)
+find_package(gRPC REQUIRED)
 
 include_directories(BEFORE "include")
 
