@@ -2,7 +2,6 @@
 bin/
 
 # Compiled Object files
-build*
 *.slo
 *.lo
 *.o
@@ -93,6 +92,7 @@ src/tags*
 src/.tags*
 
 # build generated products
+build/**
 debug/**
 release/**
 cmake-*/**
