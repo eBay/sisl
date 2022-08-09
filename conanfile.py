@@ -27,7 +27,7 @@ class MetricsConan(ConanFile):
                 'sanitize': False,
                 'malloc_impl': 'libc',
                 'prerelease': True,
-                'with_evhtp': False,
+                'with_evhtp': True,
             }
 
     build_requires = (
