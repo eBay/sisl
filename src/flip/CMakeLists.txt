@@ -21,8 +21,8 @@ if (CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif ()
 
-find_package(gRPC CONFIG REQUIRED)
-find_package(sisl CONFIG REQUIRED)
+find_package(gRPC REQUIRED)
+find_package(sisl REQUIRED)
 
 include_directories(BEFORE include)
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/proto)
