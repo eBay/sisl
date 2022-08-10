@@ -24,9 +24,7 @@ VersionMgr* VersionMgr::m_instance = nullptr;
 std::once_flag VersionMgr::m_init_flag;
 
 VersionMgr::~VersionMgr() {
-    for (auto it = m_version_map.begin(); m_version_map.end() != it; ++it) {
-        semver_free(&it->second);
-    }
+    clear();
 }
 
 void VersionMgr::createAndInit() {
@@ -39,6 +37,15 @@ void VersionMgr::createAndInit() {
 VersionMgr* VersionMgr::getInstance() {
     std::call_once(m_init_flag, &VersionMgr::createAndInit);
     return m_instance;
+}
+
+void VersionMgr::clear() {
+    auto ver_info{VersionMgr::getInstance()};
+    std::unique_lock l{ver_info->m_mutex};
+    for (auto it = ver_info->m_version_map.begin(); ver_info->m_version_map.end() != it; ++it) {
+        semver_free(&it->second);
+    }
+    ver_info->m_version_map.clear();
 }
 
 semver_t* VersionMgr::getVersion(const std::string& name) {
