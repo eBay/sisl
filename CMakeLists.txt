@@ -1,3 +1,5 @@
+cmake_minimum_required (VERSION 3.11)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
 
@@ -13,7 +15,8 @@ find_package(gRPC REQUIRED)
 
 include_directories(BEFORE "include")
 
-add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME})
+target_sources(${PROJECT_NAME} PRIVATE
     lib/rpc_server.cpp
     lib/rpc_client.cpp
   )
