@@ -41,6 +41,7 @@ public:
     void operator=(VersionMgr const&) = delete;
 
     static VersionMgr* getInstance();
+    static void clear();
     static semver_t* getVersion(const std::string& name);
     static std::vector< modinfo > getVersions();
     static void addVersion(const std::string& name, const semver_t& ver);

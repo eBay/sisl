@@ -32,6 +32,8 @@ TEST(entryTest, entry) {
 
     auto versions{sisl::VersionMgr::getVersions()};
     EXPECT_EQ((int)versions.size(), 2);
+
+    sisl::VersionMgr::clear();
 }
 
 int main(int argc, char* argv[]) {
