@@ -1,7 +1,7 @@
 from conans import ConanFile, CMake, tools
 import os
 
-class MetricsConan(ConanFile):
+class SISLConan(ConanFile):
     name = "sisl"
     version = "8.0.1"
     homepage = "https://github.com/eBay/sisl"
@@ -56,7 +56,7 @@ class MetricsConan(ConanFile):
             del self.options.fPIC
 
     def requirements(self):
-            # Custom packages
+        # Custom packages
         self.requires("prometheus-cpp/1.0.0")
 
         # Generic packages (conan-center)
