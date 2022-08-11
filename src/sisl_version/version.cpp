@@ -15,7 +15,6 @@
  *
  *********************************************************************************/
 #include "version.hpp"
-#include "logging/logging.h"
 #include <cassert>
 
 namespace sisl {
@@ -23,15 +22,10 @@ namespace sisl {
 VersionMgr* VersionMgr::m_instance = nullptr;
 std::once_flag VersionMgr::m_init_flag;
 
-VersionMgr::~VersionMgr() {
-    clear();
-}
-
 void VersionMgr::createAndInit() {
     m_instance = new VersionMgr();
-    auto& version = m_instance->m_version_map["sisl"];
-    auto const ret = semver_parse(PACKAGE_VERSION, &version);
-    RELEASE_ASSERT_EQ(0, ret, "Version could not be parsed: {}", PACKAGE_VERSION);
+    auto ver{version::Semver200_version(PACKAGE_VERSION)};
+    m_instance->m_version_map["sisl"] = ver;
 }
 
 VersionMgr* VersionMgr::getInstance() {
@@ -39,21 +33,12 @@ VersionMgr* VersionMgr::getInstance() {
     return m_instance;
 }
 
-void VersionMgr::clear() {
-    auto ver_info{VersionMgr::getInstance()};
-    std::unique_lock l{ver_info->m_mutex};
-    for (auto it = ver_info->m_version_map.begin(); ver_info->m_version_map.end() != it; ++it) {
-        semver_free(&it->second);
-    }
-    ver_info->m_version_map.clear();
-}
-
-semver_t* VersionMgr::getVersion(const std::string& name) {
+version::Semver200_version VersionMgr::getVersion(const std::string& name) {
     auto ver_info{VersionMgr::getInstance()};
     std::unique_lock l{ver_info->m_mutex};
     auto it{ver_info->m_version_map.find(name)};
     assert(it != ver_info->m_version_map.end());
-    return &it->second;
+    return it->second;
 }
 
 std::vector< modinfo > VersionMgr::getVersions() {
@@ -64,7 +49,7 @@ std::vector< modinfo > VersionMgr::getVersions() {
     return res;
 }
 
-void VersionMgr::addVersion(const std::string& name, const semver_t& ver) {
+void VersionMgr::addVersion(const std::string& name, const version::Semver200_version& ver) {
     auto ver_info{VersionMgr::getInstance()};
     std::unique_lock l{ver_info->m_mutex};
     auto it{ver_info->m_version_map.find(name)};
