@@ -57,13 +57,14 @@ find_package(folly REQUIRED)
 find_package(GTest REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(prerelease_dummy QUIET)
 find_package(prometheus-cpp REQUIRED)
 find_package(semver REQUIRED)
 find_package(spdlog REQUIRED)
 find_package (Threads REQUIRED)
 find_package(userspace-rcu REQUIRED)
 
-set(COMMON_DEPS
+list (APPEND COMMON_DEPS
     Boost::headers
     cxxopts::cxxopts
     nlohmann_json::nlohmann_json
@@ -71,6 +72,9 @@ set(COMMON_DEPS
     spdlog::spdlog
     userspace-rcu::userspace-rcu
   )
+if (${prerelease_dummy_FOUND})
+    list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
+endif ()
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
