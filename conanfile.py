@@ -56,6 +56,9 @@ class SISLConan(ConanFile):
             del self.options.fPIC
 
     def requirements(self):
+        if self.options.prerelease:
+            self.requires("prerelease_dummy/1.0.1")
+
         # Custom packages
         self.requires("prometheus-cpp/1.0.0")
 
@@ -123,8 +126,6 @@ class SISLConan(ConanFile):
         self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
         self.cpp_info.cppflags.append("-fconcepts")
         self.cpp_info.includedirs = ["include", "include/sisl/"]
-        if self.options.prerelease:
-            self.cpp_info.cxxflags.append("-D_PRERELEASE=1")
         if self.settings.os == "Linux":
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")
