@@ -1,7 +1,7 @@
 from conans import ConanFile, CMake, tools
 import os
 
-class MetricsConan(ConanFile):
+class SISLConan(ConanFile):
     name = "sisl"
     version = "8.0.1"
     homepage = "https://github.com/eBay/sisl"
@@ -17,7 +17,6 @@ class MetricsConan(ConanFile):
                 "coverage": ['True', 'False'],
                 "sanitize": ['True', 'False'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
-                'prerelease' : ['True', 'False'],
                 'with_evhtp' : ['True', 'False'],
               }
     default_options = {
@@ -25,9 +24,8 @@ class MetricsConan(ConanFile):
                 'fPIC': True,
                 'coverage': False,
                 'sanitize': False,
-                'malloc_impl': 'libc',
-                'prerelease': True,
-                'with_evhtp': False,
+                'malloc_impl': 'tcmalloc',
+                'with_evhtp': True,
             }
 
     build_requires = (
@@ -56,7 +54,7 @@ class MetricsConan(ConanFile):
             del self.options.fPIC
 
     def requirements(self):
-            # Custom packages
+        # Custom packages
         self.requires("prometheus-cpp/1.0.0")
 
         # Generic packages (conan-center)
@@ -67,7 +65,7 @@ class MetricsConan(ConanFile):
         self.requires("folly/2022.01.31.00")
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.10.5")
-        self.requires("semver.c/1.0.0")
+        self.requires("semver200/1.1.0")
         self.requires("spdlog/1.10.0")
         self.requires("userspace-rcu/0.11.4")
         self.requires("fmt/8.1.1",          override=True)
@@ -123,8 +121,6 @@ class MetricsConan(ConanFile):
         self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
         self.cpp_info.cppflags.append("-fconcepts")
         self.cpp_info.includedirs = ["include", "include/sisl/"]
-        if self.options.prerelease:
-            self.cpp_info.cxxflags.append("-D_PRERELEASE=1")
         if self.settings.os == "Linux":
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")

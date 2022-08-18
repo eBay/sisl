@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #ifndef USING_TCMALLOC
-#if defined(JEMALLOC_EXPORT) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
+#if defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
 
 #include <cstdint>
 #include <iterator>
