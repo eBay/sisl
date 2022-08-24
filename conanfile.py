@@ -1,5 +1,10 @@
-from conans import ConanFile, CMake, tools
-import os
+from os.path import join
+from conan import ConanFile
+from conan.tools.files import copy
+from conans.tools import check_min_cppstd
+from conans import CMake
+
+required_conan_version = ">=1.50.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
@@ -11,47 +16,27 @@ class SISLConan(ConanFile):
     license = "Apache-2.0"
 
     settings = "arch", "os", "compiler", "build_type"
+
     options = {
                 "shared": ['True', 'False'],
                 "fPIC": ['True', 'False'],
-                "coverage": ['True', 'False'],
-                "sanitize": ['True', 'False'],
-                'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
+                'malloc_impl' : ['libc', 'jemalloc'],
                 'with_evhtp' : ['True', 'False'],
               }
     default_options = {
                 'shared': False,
                 'fPIC': True,
-                'coverage': False,
-                'sanitize': False,
-                'malloc_impl': 'tcmalloc',
-                'with_evhtp': True,
+                'malloc_impl': 'libc',
+                'with_evhtp': False,
             }
-
-    build_requires = (
-                    # Generic packages (conan-center)
-                    "benchmark/1.6.1",
-                    "gtest/1.11.0",
-                )
 
     generators = "cmake", "cmake_find_package"
     exports_sources = ("CMakeLists.txt", "cmake/*", "src/*", "LICENSE")
 
-    def config_options(self):
-        if self.settings.build_type != "Debug":
-            del self.options.sanitize
-            del self.options.coverage
-        elif os.getenv("OVERRIDE_SANITIZE") != None:
-            self.options.sanitize = True
+    def build_requirements(self):
+        self.build_requires("benchmark/1.6.1")
+        self.build_requires("gtest/1.11.0")
 
-    def configure(self):
-        if self.settings.build_type == "Debug":
-            if self.options.coverage and self.options.sanitize:
-                raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
-            if self.options.coverage or self.options.sanitize:
-                self.options.malloc_impl = 'libc'
-        if self.options.shared:
-            del self.options.fPIC
 
     def requirements(self):
         # Custom packages
@@ -75,69 +60,59 @@ class SISLConan(ConanFile):
         self.requires("zlib/1.2.12",        override=True)
         if self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
-        elif self.options.malloc_impl == "tcmalloc":
-            self.requires("gperftools/2.7.0")
         if self.options.with_evhtp:
             self.requires("evhtp/1.2.18.2")
+
+    def validate(self):
+        if self.info.settings.compiler.cppstd:
+            check_min_cppstd(self, 20)
+
+    def configure(self):
+        if self.options.shared:
+            del self.options.fPIC
 
     def build(self):
         cmake = CMake(self)
 
-        definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
-                       'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
+        definitions = {'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
                        'MEMORY_SANITIZER_ON': 'OFF',
-                       'EVHTP_ON': 'OFF'}
+                       'EVHTP_ON': 'OFF',
+                       'MALLOC_IMPL': self.options.malloc_impl}
         test_target = None
 
         if self.options.with_evhtp:
             definitions['EVHTP_ON'] = 'ON'
-
-        if self.settings.build_type == "Debug":
-            if self.options.sanitize:
-                definitions['MEMORY_SANITIZER_ON'] = 'ON'
-            elif self.options.coverage:
-                definitions['CONAN_BUILD_COVERAGE'] = 'ON'
-                test_target = 'coverage'
-
-        definitions['MALLOC_IMPL'] = self.options.malloc_impl
 
         cmake.configure(defs=definitions)
         cmake.build()
         cmake.test(target=test_target)
 
     def package(self):
-        self.copy(pattern="LICENSE*", dst="licenses")
-        self.copy("*.hpp", src="src/", dst="include/sisl", keep_path=True)
-        self.copy("*.h", src="src/", dst="include/sisl", keep_path=True)
-        self.copy("*.a", dst="lib/", keep_path=False)
-        self.copy("*.lib", dst="lib/", keep_path=False)
-        self.copy("*.so", dst="lib/", keep_path=False)
-        self.copy("*.dll", dst="lib/", keep_path=False)
-        self.copy("*.dylib", dst="lib/", keep_path=False)
-        self.copy("*.cmake", dst="cmake/", keep_path=False)
+        lib_dir = join(self.package_folder, "lib")
+        copy(self, "LICENSE", self.source_folder, join(self.package_folder, "licenses/"), keep_path=False)
+        copy(self, "*.lib", self.build_folder, lib_dir, keep_path=False)
+        copy(self, "*.a", self.build_folder, lib_dir, keep_path=False)
+        copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
+        copy(self, "*.dylib*", self.build_folder, lib_dir, keep_path=False)
+        copy(self, "*.dll*", self.build_folder, join(self.package_folder, "bin"), keep_path=False)
+        copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
+
+        hdr_dir = join(self.package_folder, join("include", "sisl"))
+
+        copy(self, "*.hpp", join(self.source_folder, "src"), hdr_dir, keep_path=True)
+        copy(self, "*.h", join(self.source_folder, "src"), hdr_dir, keep_path=True)
+        copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
-        self.cpp_info.cppflags.append("-Wno-unused-local-typedefs")
-        self.cpp_info.cppflags.append("-fconcepts")
-        self.cpp_info.includedirs = ["include", "include/sisl/"]
+        self.cpp_info.cppflags.extend(["-Wno-unused-local-typedefs", "-fconcepts"])
+
         if self.settings.os == "Linux":
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")
             self.cpp_info.cppflags.append("-D_LARGEFILE64")
-        if self.settings.build_type == "Debug":
-            if  self.options.sanitize:
-                self.cpp_info.sharedlinkflags.append("-fsanitize=address")
-                self.cpp_info.exelinkflags.append("-fsanitize=address")
-                self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
-                self.cpp_info.exelinkflags.append("-fsanitize=undefined")
-            elif self.options.coverage == 'True':
-                self.cpp_info.system_libs.append('gcov')
-        if self.settings.os == "Linux":
             self.cpp_info.system_libs.append("dl")
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
 
         if self.options.malloc_impl == 'jemalloc':
             self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
-        elif self.options.malloc_impl == 'tcmalloc':
-            self.cpp_info.cppflags.append("-DUSING_TCMALLOC=1")
