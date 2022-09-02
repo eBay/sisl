@@ -71,14 +71,19 @@ public:
     PrometheusReportHistogram(prometheus::Family< prometheus::Histogram >& family,
                               const std::map< std::string, std::string >& label_pairs,
                               const hist_bucket_boundaries_t& bkt_boundaries) :
-            m_histogram(family.Add(label_pairs, bkt_boundaries)) {}
+            m_histogram(family.Add(label_pairs, bkt_boundaries)), m_bkt_boundaries{bkt_boundaries} {}
 
-    virtual void set_value(const std::vector< double >& bucket_values, double sum) {
-        // Use modified prometheus method (not part of original repo)
-        m_histogram.TransferBucketCounters(bucket_values, sum);
+    virtual void set_value(std::vector< double >& bucket_values, double sum) {
+        // Since histogram doesn't have reset facility (PR is yet to be accepted in the main repo),
+        // we are doing a placement new to reconstruct the entire object to force to call its constructor. This
+        // way we don't need to register histogram again to family.
+        bucket_values.resize(m_bkt_boundaries.size() + 1);
+        prometheus::Histogram* inplace_hist = new ((void*)&m_histogram) prometheus::Histogram(m_bkt_boundaries);
+        inplace_hist->ObserveMultiple(bucket_values, sum);
     }
 
     prometheus::Histogram& m_histogram;
+    const hist_bucket_boundaries_t& m_bkt_boundaries;
 };
 
 class PrometheusReporter : public Reporter {

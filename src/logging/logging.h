@@ -265,7 +265,8 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
  * LOGMSG_ASSERT:   If condition is not met: Logs the message with stack trace, aborts in debug build only.
  * DEBUG_ASSERT:    No-op in release build, for debug build, if condition is not met, logs the message and aborts
  */
-#if __cplusplus > 201703L
+//#if __cplusplus > 201703L
+#if 0
 #define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
     [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }
 #else

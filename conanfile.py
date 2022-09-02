@@ -1,9 +1,9 @@
 from conans import ConanFile, CMake, tools
 import os
 
-class MetricsConan(ConanFile):
+class SislConan(ConanFile):
     name = "sisl"
-    version = "8.0.1"
+    version = "8.0.2"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -56,8 +56,7 @@ class MetricsConan(ConanFile):
             del self.options.fPIC
 
     def requirements(self):
-            # Custom packages
-        self.requires("prometheus-cpp/1.0.0")
+        # Custom packages
 
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
@@ -70,6 +69,7 @@ class MetricsConan(ConanFile):
         self.requires("semver.c/1.0.0")
         self.requires("spdlog/1.10.0")
         self.requires("userspace-rcu/0.11.4")
+        self.requires("prometheus-cpp/1.0.1")
         self.requires("fmt/8.1.1",          override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1q",     override=True)

@@ -59,7 +59,7 @@ find_package(nlohmann_json REQUIRED)
 find_package(prometheus-cpp REQUIRED)
 find_package(semver.c REQUIRED)
 find_package(spdlog REQUIRED)
-find_package (Threads REQUIRED)
+find_package(Threads REQUIRED)
 find_package(userspace-rcu REQUIRED)
 
 set(COMMON_DEPS
