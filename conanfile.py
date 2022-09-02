@@ -1,7 +1,7 @@
 from os.path import join
 from conan import ConanFile
 from conan.tools.files import copy
-from conans.tools import check_min_cppstd
+from conan.tools.build import check_min_cppstd
 from conans import CMake
 
 required_conan_version = ">=1.50.0"
@@ -111,7 +111,7 @@ class SISLConan(ConanFile):
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")
             self.cpp_info.cppflags.append("-D_LARGEFILE64")
-            self.cpp_info.system_libs.append("dl")
+            self.cpp_info.system_libs.extend(["dl", "pthread"])
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
 
         if self.options.malloc_impl == 'jemalloc':
