@@ -40,10 +40,6 @@ class SISLConan(ConanFile):
 
     def requirements(self):
         # Custom packages
-<<<<<<< HEAD
-=======
-        self.requires("prometheus-cpp/1.0.0")
->>>>>>> 4dfc1da9e22a96c046783e85f1db48bcd2a7259d
 
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
