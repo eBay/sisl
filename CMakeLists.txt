@@ -13,6 +13,7 @@ enable_testing()
 
 if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
     include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+    conan_basic_setup(TARGETS)
 else ()
     message("The file conanbuildinfo.cmake doesn't exist, some properties will be unavailable")
 endif ()
@@ -56,20 +57,24 @@ find_package(folly REQUIRED)
 find_package(GTest REQUIRED)
 find_package(jwt-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(prerelease_dummy QUIET)
 find_package(prometheus-cpp REQUIRED)
-find_package(semver.c REQUIRED)
+find_package(zmarok-semver REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(Threads REQUIRED)
 find_package(userspace-rcu REQUIRED)
 
-set(COMMON_DEPS
+list (APPEND COMMON_DEPS
     Boost::headers
     cxxopts::cxxopts
     nlohmann_json::nlohmann_json
     prometheus-cpp::prometheus-cpp
     spdlog::spdlog
-    userspace-rcu::urcu
+    userspace-rcu::userspace-rcu
   )
+if (${prerelease_dummy_FOUND})
+    list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
+endif ()
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
