@@ -61,7 +61,7 @@ find_package(prerelease_dummy QUIET)
 find_package(prometheus-cpp REQUIRED)
 find_package(zmarok-semver REQUIRED)
 find_package(spdlog REQUIRED)
-find_package (Threads REQUIRED)
+find_package(Threads REQUIRED)
 find_package(userspace-rcu REQUIRED)
 
 list (APPEND COMMON_DEPS
