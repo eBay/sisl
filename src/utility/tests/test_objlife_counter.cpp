@@ -11,6 +11,7 @@
 #include "options/options.h"
 
 #include "fds/buffer.hpp"
+
 #include "obj_life_counter.hpp"
 
 SISL_LOGGING_INIT(test_objlife)
@@ -70,13 +71,13 @@ TEST_F(ObjLifeTest, BasicCount) {
 
     const auto prom_format{sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat)};
     std::cout << "Prometheus Output = " << prom_format;
-    ASSERT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",type="alive"} 1.0)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",type="alive"} 1)") !=
                 std::string::npos);
-    ASSERT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",type="created"} 1.0)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",type="created"} 1)") !=
                 std::string::npos);
-    ASSERT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",type="alive"} 1.0)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",type="alive"} 1)") !=
                 std::string::npos);
-    ASSERT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",type="created"} 2.0)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",type="created"} 2)") !=
                 std::string::npos);
 }
 
@@ -94,10 +95,6 @@ int main(int argc, char* argv[]) {
 
     g_num_threads = SISL_OPTIONS["num_threads"].as< uint32_t >();
 
-#ifdef _PRERELEASE
     const auto ret{RUN_ALL_TESTS()};
     return ret;
-#else
-    return 0;
-#endif
 }

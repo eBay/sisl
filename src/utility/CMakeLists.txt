@@ -33,9 +33,11 @@ add_executable(test_enum ${TEST_ENUM})
 target_link_libraries(test_enum ${COMMON_DEPS} GTest::gtest)
 add_test(NAME EnumTest COMMAND test_enum)
 
-set(TEST_OBJLIFE
-    tests/test_objlife_counter.cpp
-   )
-add_executable(test_objlife ${TEST_OBJLIFE})
-target_link_libraries(test_objlife sisl ${COMMON_DEPS} GTest::gtest)
-add_test(NAME ObjLifeTest COMMAND test_objlife)
+if (${prerelease_dummy_FOUND})
+  set(TEST_OBJLIFE
+      tests/test_objlife_counter.cpp
+     )
+  add_executable(test_objlife ${TEST_OBJLIFE})
+  target_link_libraries(test_objlife sisl ${COMMON_DEPS} GTest::gtest)
+  add_test(NAME ObjLifeTest COMMAND test_objlife)
+endif ()
