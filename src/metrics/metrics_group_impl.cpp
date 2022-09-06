@@ -366,7 +366,8 @@ HistogramDynamicInfo::HistogramDynamicInfo(const HistogramStaticInfo& static_inf
 void HistogramDynamicInfo::publish(const HistogramValue& hvalue) {
     if (is_histogram_reporter()) {
         const auto arr = hvalue.get_freqs();
-        as_histogram()->set_value(std::vector< double >(arr.cbegin(), arr.cend()), hvalue.get_sum());
+        auto v = std::vector< double >(arr.cbegin(), arr.cend());
+        as_histogram()->set_value(v, hvalue.get_sum());
     } else {
         as_gauge()->set_value(average(hvalue));
     }

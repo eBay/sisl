@@ -274,7 +274,8 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
  * LOGMSG_ASSERT:   If condition is not met: Logs the message with stack trace, aborts in debug build only.
  * DEBUG_ASSERT:    No-op in release build, for debug build, if condition is not met, logs the message and aborts
  */
-#if __cplusplus > 201703L
+//#if __cplusplus > 201703L
+#if 0
 #define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...) do {                                                 \
         [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }               \
     } while(0)
@@ -313,7 +314,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define RELEASE_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, <, val2, ##__VA_ARGS__)
 #define RELEASE_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >=, val2, ##__VA_ARGS__)
 #define RELEASE_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, !=, nullptr, ##__VA_ARGS__)
+#define RELEASE_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT((void*)val1, !=, nullptr, ##__VA_ARGS__)
 
 #define LOGMSG_ASSERT(cond, m, ...)                                                                                    \
     _GENERIC_ASSERT(                                                                                                   \
@@ -344,7 +345,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define LOGMSG_ASSERT_LT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, <, val2, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_GE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >= val2, ##__VA_ARGS__)
 #define LOGMSG_ASSERT_GT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_NOTNULL(val1, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, !=, nullptr, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_NOTNULL(val1, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT((void*)val1, !=, nullptr, ##__VA_ARGS__)
 
 #ifndef NDEBUG
 #define DEBUG_ASSERT(cond, msg, ...) RELEASE_ASSERT(cond, msg, ##__VA_ARGS__)
@@ -356,7 +357,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define DEBUG_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_LT(val1, val2, ##__VA_ARGS__)
 #define DEBUG_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_GE(val1, val2, ##__VA_ARGS__)
 #define DEBUG_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_GT(val1, val2, ##__VA_ARGS__)
-#define DEBUG_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_NOTNULL(val1, ##__VA_ARGS__)
+#define DEBUG_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_NOTNULL((void*)val1, ##__VA_ARGS__)
 #else
 #define DEBUG_ASSERT(cond, msg, ...)
 #define DEBUG_ASSERT_CMP(...)

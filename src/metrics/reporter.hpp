@@ -38,7 +38,7 @@ public:
 
 class ReportHistogram {
 public:
-    virtual void set_value(const std::vector< double >& bucket_values, double sum) = 0;
+    virtual void set_value(std::vector< double >& bucket_values, double sum) = 0;
 };
 
 class Reporter {

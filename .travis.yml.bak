@@ -1,0 +1,21 @@
+os: linux
+language: cpp
+dist: focal
+compiler:
+    - gcc
+before_install:
+  - sudo apt-get update
+  - sudo apt-get upgrade -y
+  - sudo apt-get install -y --no-install-recommends binutils ca-certificates libaio1 libpython2.7 libstdc++6 libunwind8 netbase python3 tzdata
+
+install:
+# Install conan
+  - pip install conan
+
+# Automatic detection of your arch, compiler, etc.
+  - conan user
+
+script:
+# Download dependencies and build project
+  - conan install --build missing .
+  - conan build .
