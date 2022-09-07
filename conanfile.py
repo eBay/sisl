@@ -46,6 +46,7 @@ class SISLConan(ConanFile):
         self.requires("cpr/1.8.1")
         self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")
+        self.requires("gflags/2.2.2")
         self.requires("folly/2022.01.31.00")
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.10.5")
