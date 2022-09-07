@@ -18,12 +18,6 @@ set(AUTH_DEPS
       GTest::gmock
     )
 
-set(TEST_HTTP_SERVER_SOURCES 
-    tests/test_http_server.cpp
-   )
-add_executable(test_http_server ${TEST_HTTP_SERVER_SOURCES})
-target_link_libraries(test_http_server ${AUTH_DEPS})
-
 add_executable(test_http_server_auth
     tests/AuthTest.cpp
   )
