@@ -149,6 +149,7 @@ pipeline {
 
                     stage("Deploy") {
                         when { allOf {
+                            branch "${STABLE_BRANCH}"
                             expression { "${COVERAGE}" == 'False' }
                             expression { "${BUILD_TYPE}" != 'sanitize' }
                             expression { not { branch "PR_*" } }
