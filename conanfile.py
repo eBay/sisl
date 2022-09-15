@@ -20,12 +20,18 @@ class SISLConan(ConanFile):
     options = {
                 "shared": ['True', 'False'],
                 "fPIC": ['True', 'False'],
-                'malloc_impl' : ['libc', 'jemalloc'],
+                "coverage": ['True', 'False'],
+                "sanitize": ['True', 'False'],
+                'prerelease' : ['True', 'False'],
+                'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
                 'with_evhtp' : ['True', 'False'],
               }
     default_options = {
                 'shared': False,
                 'fPIC': True,
+                'coverage': False,
+                'sanitize': False,
+                'prerelease': True,
                 'malloc_impl': 'libc',
                 'with_evhtp': False,
             }
@@ -40,6 +46,8 @@ class SISLConan(ConanFile):
 
     def requirements(self):
         # Custom packages
+        if self.options.prerelease:
+            self.requires("prerelease_dummy/1.0.1")
 
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
@@ -60,6 +68,8 @@ class SISLConan(ConanFile):
         self.requires("zlib/1.2.12",        override=True)
         if self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
+        elif self.options.malloc_impl == "tcmalloc":
+            self.requires("gperftools/2.7.0")
         if self.options.with_evhtp:
             self.requires("evhtp/1.2.18.2")
 
@@ -74,7 +84,8 @@ class SISLConan(ConanFile):
     def build(self):
         cmake = CMake(self)
 
-        definitions = {'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
+        definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
+                       'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
                        'MEMORY_SANITIZER_ON': 'OFF',
                        'EVHTP_ON': 'OFF',
                        'MALLOC_IMPL': self.options.malloc_impl}
@@ -83,9 +94,18 @@ class SISLConan(ConanFile):
         if self.options.with_evhtp:
             definitions['EVHTP_ON'] = 'ON'
 
+        if self.settings.build_type == "Debug":
+            if self.options.sanitize:
+                definitions['MEMORY_SANITIZER_ON'] = 'ON'
+            elif self.options.coverage:
+                definitions['CONAN_BUILD_COVERAGE'] = 'ON'
+                test_target = 'coverage'
+
+        definitions['MALLOC_IMPL'] = self.options.malloc_impl
+
         cmake.configure(defs=definitions)
         cmake.build()
-        cmake.test(target=test_target)
+        cmake.test(target=test_target, output_on_failure=True)
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
@@ -116,3 +136,5 @@ class SISLConan(ConanFile):
 
         if self.options.malloc_impl == 'jemalloc':
             self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
+        elif self.options.malloc_impl == 'tcmalloc':
+            self.cpp_info.cppflags.append("-DUSING_TCMALLOC=1")
