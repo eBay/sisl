@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
-        CONAN_USER = 'sisl'
+        CONAN_USER = 'github'
         TARGET_BRANCH = 'master'
         TESTING_BRANCH = 'testing/v*'
         STABLE_BRANCH = 'stable/v*'
