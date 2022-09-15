@@ -3,7 +3,7 @@ import os
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.0.1"
+    version = "8.1.1"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -18,7 +18,6 @@ class SISLConan(ConanFile):
                 "sanitize": ['True', 'False'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
                 'prerelease' : ['True', 'False'],
-                'with_evhtp' : ['True', 'False'],
               }
     default_options = {
                 'shared': False,
@@ -27,13 +26,13 @@ class SISLConan(ConanFile):
                 'sanitize': False,
                 'malloc_impl': 'tcmalloc',
                 'prerelease': True,
-                'with_evhtp': True,
             }
 
     build_requires = (
                     # Generic packages (conan-center)
                     "benchmark/1.6.1",
                     "gtest/1.11.0",
+                    "pistache/2020.06.18",
                 )
 
     generators = "cmake", "cmake_find_package"
@@ -82,20 +81,14 @@ class SISLConan(ConanFile):
             self.requires("jemalloc/5.2.1")
         elif self.options.malloc_impl == "tcmalloc":
             self.requires("gperftools/2.7.0")
-        if self.options.with_evhtp:
-            self.requires("evhtp/1.2.18.2")
 
     def build(self):
         cmake = CMake(self)
 
         definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
                        'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
-                       'MEMORY_SANITIZER_ON': 'OFF',
-                       'EVHTP_ON': 'OFF'}
+                       'MEMORY_SANITIZER_ON': 'OFF'}
         test_target = None
-
-        if self.options.with_evhtp:
-            definitions['EVHTP_ON'] = 'ON'
 
         if self.settings.build_type == "Debug":
             if self.options.sanitize:
