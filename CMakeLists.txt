@@ -108,12 +108,6 @@ endif()
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/auth_manager)
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/settings)
 
-if (DEFINED EVHTP_ON)
-  if (${EVHTP_ON})
-    add_subdirectory (src/async_http)
-  endif()
-endif()
-
 #add_subdirectory (src/btree)
 add_subdirectory (src/cache)
 add_subdirectory (src/logging)
