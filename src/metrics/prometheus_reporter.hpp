@@ -77,7 +77,10 @@ public:
         // Since histogram doesn't have reset facility (PR is yet to be accepted in the main repo),
         // we are doing a placement new to reconstruct the entire object to force to call its constructor. This
         // way we don't need to register histogram again to family.
+        using namespace prometheus;
+
         bucket_values.resize(m_bkt_boundaries.size() + 1);
+        m_histogram.~Histogram();
         prometheus::Histogram* inplace_hist = new ((void*)&m_histogram) prometheus::Histogram(m_bkt_boundaries);
         inplace_hist->ObserveMultiple(bucket_values, sum);
     }
