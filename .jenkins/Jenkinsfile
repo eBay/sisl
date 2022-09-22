@@ -134,7 +134,8 @@ pipeline {
                             expression { "${BUILD_TYPE}" != 'sanitize' }
                         } }
                         steps {
-                            sh "conan remote add conancenter https://center.conan.io"
+                            sh "conan remote add conancenter https://center.conan.io --insert 0"
+                            sh "conan remote add_ref prerelease_dummy/1.0.1 ebay-local"
                             sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o malloc_impl=${ALLOC_IMPL} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
@@ -144,7 +145,7 @@ pipeline {
                             expression { "${BUILD_TYPE}" == 'sanitize' }
                         } }
                         steps {
-                            sh "conan remote add conancenter https://center.conan.io"
+                            sh "conan remote add conancenter https://center.conan.io --insert 0"
                             sh "conan create ${BUILD_MISSING} -o malloc_impl=${ALLOC_IMPL} -o sanitize=True -pr debug . ${PROJECT}/${TAG}"
                         }
                     }
