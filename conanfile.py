@@ -40,7 +40,7 @@ class SISLConan(ConanFile):
     def build_requirements(self):
         self.build_requires("benchmark/1.6.1")
         self.build_requires("gtest/1.11.0")
-        self.build_requires("pistache/2020.06.18")
+        self.build_requires("pistache/cci.20201127")
 
     def requirements(self):
         # Custom packages

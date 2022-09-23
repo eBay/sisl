@@ -6,7 +6,7 @@ include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
 find_package(FlatBuffers REQUIRED)
-find_package(pistache REQUIRED)
+find_package(Pistache REQUIRED)
 
 set(AUTH_MGR_SOURCE_FILES 
     auth_manager.cpp
