@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
-        CONAN_USER = 'github'
+        CONAN_USER = 'oss'
         TARGET_BRANCH = 'master'
         TESTING_BRANCH = 'testing/v*'
         STABLE_BRANCH = 'stable/v*'
@@ -149,7 +149,6 @@ pipeline {
 
                     stage("Deploy") {
                         when { allOf {
-                            branch "${STABLE_BRANCH}"
                             expression { "${COVERAGE}" == 'False' }
                             expression { "${BUILD_TYPE}" != 'sanitize' }
                             expression { not { branch "PR_*" } }
