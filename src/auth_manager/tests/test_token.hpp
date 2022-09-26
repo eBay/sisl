@@ -58,7 +58,7 @@ static const std::string rsa_priv_key = "-----BEGIN PRIVATE KEY-----\n"
  * to build a token with some invalid attributes, we must explicitly set those
  * attributes.
  *
- * A trustfabric token:
+ * A trustfabric token example:
  * Header claims <key-value pairs>
  *   alg: RS256
  *   kid: 779112af

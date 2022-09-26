@@ -1,8 +1,3 @@
-/**
- * The following test cases are taken from OM.
- * https://github.corp.ebay.com/SDS/om_cpp/blob/master/src/tests/unit/Middleware/AuthTest.cpp
- **/
-
 #include <fstream>
 #include <iostream>
 #include <memory>
