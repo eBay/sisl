@@ -55,6 +55,7 @@ class SISLConan(ConanFile):
         self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")
         self.requires("folly/2022.01.31.00")
+        self.requires("grpc/1.48.0")
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.10.5")
         self.requires("zmarok-semver/1.1.0")
@@ -118,10 +119,13 @@ class SISLConan(ConanFile):
         copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
 
         hdr_dir = join(self.package_folder, join("include", "sisl"))
-
-        copy(self, "*.hpp", join(self.source_folder, "src"), hdr_dir, keep_path=True)
-        copy(self, "*.h", join(self.source_folder, "src"), hdr_dir, keep_path=True)
+        copy(self, "*.hpp", join(self.source_folder, "src"), hdr_dir, keep_path=True, excludes="flip/*")
+        copy(self, "*.h", join(self.source_folder, "src"), hdr_dir, keep_path=True, excludes="flip/*")
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
+
+        flip_hdr_dir = join(self.package_folder, join("include", "flip"))
+        copy(self, "*.hpp", join(self.source_folder, "src/flip"), flip_hdr_dir, keep_path=False)
+        copy(self, "*.h", join(self.source_folder, "src/flip"), flip_hdr_dir, keep_path=False)
 
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
