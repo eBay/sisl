@@ -4,7 +4,7 @@
 
 #include "flip.hpp"
 
-#include <sisl/options/options.h>
+#include "options/options.h"
 
 SISL_LOGGING_INIT(flip)
 

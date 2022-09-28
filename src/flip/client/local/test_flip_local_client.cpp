@@ -3,11 +3,11 @@
 //
 
 #include "flip_spec.pb.h"
-#include "flip.hpp"
+#include "flip_client.hpp"
 #include <memory>
 #include <string>
 
-#include <sisl/options/options.h>
+#include "options/options.h"
 
 using namespace flip;
 
