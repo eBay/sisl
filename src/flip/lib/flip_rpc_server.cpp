@@ -15,7 +15,7 @@ grpc::Status FlipRPCServer::InjectFault(grpc::ServerContext* context, const Flip
     flip::Flip::instance().add(*request);
     response->set_success(true);
     return grpc::Status::OK;
-};
+}
 
 grpc::Status FlipRPCServer::GetFaults(grpc::ServerContext* context, const FlipNameRequest* request,
                                       FlipListResponse* response) {
@@ -26,7 +26,7 @@ grpc::Status FlipRPCServer::GetFaults(grpc::ServerContext* context, const FlipNa
     }
     // LOG(INFO) << "GetFaults response = " << response->DebugString();
     return grpc::Status::OK;
-};
+}
 
 class FlipRPCServiceWrapper : public FlipRPCServer::Service {
 public:

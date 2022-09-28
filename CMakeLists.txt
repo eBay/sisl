@@ -126,6 +126,7 @@ add_subdirectory (src/utility)
 add_subdirectory (src/sisl_version)
 add_subdirectory (src/auth_manager)
 add_subdirectory (src/file_watcher)
+add_subdirectory (src/flip)
 
 add_library(sisl
             $<TARGET_OBJECTS:sisl_metrics>
