@@ -28,6 +28,7 @@ target_link_libraries(flip
           sisl
           gRPC::grpc++
           spdlog::spdlog
+          nlohmann_json::nlohmann_json
         )
 
 add_executable(test_flip lib/test_flip.cpp)
