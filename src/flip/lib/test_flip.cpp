@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-#include <sisl/options/options.h>
+#include "options/options.h"
 
 SISL_LOGGING_INIT(flip)
 SISL_OPTIONS_ENABLE(logging)

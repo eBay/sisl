@@ -1,16 +1,4 @@
 cmake_minimum_required(VERSION 3.10)
-project(flip)
-set(CMAKE_CXX_STANDARD 17)
-
-if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    conan_output_dirs_setup()
-    conan_set_rpath()
-    conan_set_std()
-    conan_set_fpic()
-else()
-    message(WARNING "Conan Build file does not exist, trying to build without!")
-endif()
 
 if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
   include (cmake/debug_flags.cmake)
@@ -19,25 +7,20 @@ if  (${MEMORY_SANITIZER_ON})
   include (cmake/mem_sanitizer.cmake)
 endif ()
 
-find_program(CCACHE_FOUND ccache)
-if (CCACHE_FOUND)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
-endif ()
-
 find_package(gRPC REQUIRED)
-find_package(sisl REQUIRED)
 
 include_directories(BEFORE include)
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/proto)
+include_directories(BEFORE ..)
 
-add_library(flip
+add_library(flip_server
           src/flip_rpc_server.cpp
           $<TARGET_OBJECTS:flip_proto>
         )
-target_link_libraries(flip
+target_link_libraries(flip_server
           sisl::sisl
           gRPC::grpc++
+          spdlog::spdlog
         )
 
 add_executable(test_flip src/test_flip.cpp)
