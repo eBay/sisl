@@ -3,7 +3,7 @@
 //
 
 #include "flip_spec.pb.h"
-#include "Flip/client/local/flip_client.hpp"
+#include "flip_client.hpp"
 #include <memory>
 #include <string>
 
