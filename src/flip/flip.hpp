@@ -4,20 +4,22 @@
 #ifndef FLIP_FLIP_HPP
 #define FLIP_FLIP_HPP
 
-#include "flip_spec.pb.h"
-#include "flip_rpc_server.hpp"
 #include <atomic>
 #include <tuple>
 #include <functional>
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
-#include <sisl/logging/logging.h>
+
 #include <shared_mutex>
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <cstdlib>
 #include <string>
 #include <regex>
+
+#include "flip_spec.pb.h"
+#include "flip_rpc_server.hpp"
+#include "logging/logging.h"
 
 SISL_LOGGING_DECL(flip)
 

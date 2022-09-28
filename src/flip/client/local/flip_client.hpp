@@ -1,5 +1,5 @@
 #pragma once
-#include "flip.hpp"
+#include "lib/flip.hpp"
 
 namespace flip {
 class FlipClient {
