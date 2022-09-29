@@ -12,11 +12,6 @@ to replace these libraries, but provide a layer on top of it. In general there a
 Following are the tools it provides so far
 
 ## Whats in this library
-### Async HTTP Server
-
-Provides an HTTP REST Server for asynchronous programming model. It works on top of evhtp library, but wraps threading model
-C++ methods for evhtp C library.
-
 ### Metrics
 
 A very high performance metrics collection (counters, histograms and gauges) and report the results in form of json or 
@@ -36,7 +31,7 @@ More details in the Wisr README under [src/wisr/README.md]
 
 ### FDS
 This is a bunch of data structures meant for high performance or specific use cases. Each of these structures are detailed in their 
-corresponding source files. Some of the major data structures are
+corresponding source files. Some of the major data structures are listed below:
 
 #### Bitset
 A high performance bitset to have various functionalities to scan the contiguous 1s, 0s, set/reset multiple bits without iterating over
@@ -60,6 +55,9 @@ Capture the vector in a pool in thread local fashion, so that vectors are not bu
 
 ### Settings Framework
 Please refer to the README under [src/settings/README.md]
+
+### Flip
+Flip is fault injection framework, Please refer to the README under [src/flip/README.md]
 
 ## Installation
 This is mostly header only library and can be just compiled into your code. There are some of the pieces which needs a library (libsisl)
