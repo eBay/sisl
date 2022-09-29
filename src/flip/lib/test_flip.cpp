@@ -45,18 +45,18 @@ void run_and_validate_ret_flip(flip::Flip* flip) {
     std::string unknown_coll = "unknown_collection";
 
     auto result = flip->get_test_flip< std::string >("ret_fspec", my_coll);
-    assert(result);
-    assert(result.get() == "Error simulated value");
+    RELEASE_ASSERT(result, "get_test_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT_EQ(result.get(), "Error simulated value", "Incorrect flip returned");
 
     result = flip->get_test_flip< std::string >("ret_fspec", unknown_coll);
-    assert(!result);
+    RELEASE_ASSERT(!result, "get_test_flip succeeded for incorrect conditions - unexpected");
 
     result = flip->get_test_flip< std::string >("ret_fspec", my_coll);
-    assert(result);
-    assert(result.get() == "Error simulated value");
+    RELEASE_ASSERT(result, "get_test_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT_EQ(result.get(), "Error simulated value", "Incorrect flip returned");
 
     result = flip->get_test_flip< std::string >("ret_fspec", my_coll);
-    assert(!result); // Not more than 2
+    RELEASE_ASSERT(!result, "get_test_flip freq set to 2, but 3rd time hit as well - unexpected"); // Not more than 2
 }
 
 void create_check_fspec(flip::FlipSpec* fspec) {
@@ -76,11 +76,14 @@ void run_and_validate_check_flip(flip::Flip* flip) {
     int valid_cmd = 1;
     int invalid_cmd = -1;
 
-    assert(!flip->test_flip("check_fspec", invalid_cmd));
-    assert(flip->test_flip("check_fspec", valid_cmd));
-    assert(!flip->test_flip("check_fspec", invalid_cmd));
-    assert(flip->test_flip("check_fspec", valid_cmd));
-    assert(!flip->test_flip("check_fspec", valid_cmd)); // Not more than 2
+    RELEASE_ASSERT(!flip->test_flip("check_fspec", invalid_cmd),
+                   "test_flip succeeded for incorrect conditions - unexpected");
+    RELEASE_ASSERT(flip->test_flip("check_fspec", valid_cmd), "test_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT(!flip->test_flip("check_fspec", invalid_cmd),
+                   "test_flip succeeded for incorrect conditions - unexpected");
+    RELEASE_ASSERT(flip->test_flip("check_fspec", valid_cmd), "test_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT(!flip->test_flip("check_fspec", valid_cmd),
+                   "test_flip freq set to 2, but 3rd time hit as well - unexpected"); // Not more than 2
 }
 
 void create_delay_fspec(flip::FlipSpec* fspec) {
@@ -102,23 +105,28 @@ void run_and_validate_delay_flip(flip::Flip* flip) {
     int invalid_cmd = -1;
     std::shared_ptr< std::atomic< int > > closure_calls = std::make_shared< std::atomic< int > >(0);
 
-    assert(flip->delay_flip(
-        "delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd));
+    RELEASE_ASSERT(flip->delay_flip(
+                       "delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd),
+                   "delay_flip failed for valid conditions - unexpected");
 
-    assert(!flip->delay_flip(
-        "delay_fspec", [closure_calls]() { (*closure_calls)++; }, invalid_cmd));
+    RELEASE_ASSERT(!flip->delay_flip(
+                       "delay_fspec", [closure_calls]() { (*closure_calls)++; }, invalid_cmd),
+                   "delay_flip succeeded for invalid conditions - unexpected");
 
-    assert(flip->delay_flip(
-        "delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd));
+    RELEASE_ASSERT(flip->delay_flip(
+                       "delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd),
+                   "delay_flip failed for valid conditions - unexpected");
 
-    assert(!flip->delay_flip(
-        "delay_fspec", [closure_calls]() { (*closure_calls)++; }, invalid_cmd));
+    RELEASE_ASSERT(!flip->delay_flip(
+                       "delay_fspec", [closure_calls]() { (*closure_calls)++; }, invalid_cmd),
+                   "delay_flip succeeded for invalid conditions - unexpected");
 
-    assert(!flip->delay_flip(
-        "delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd));
+    RELEASE_ASSERT(!flip->delay_flip(
+                       "delay_fspec", [closure_calls]() { (*closure_calls)++; }, valid_cmd),
+                   "delay_flip hit more than the frequency set - unexpected");
 
     sleep(2);
-    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
+    RELEASE_ASSERT_EQ((*closure_calls).load(), 2, "Not all delay flips hit are called back");
 }
 
 void create_delay_ret_fspec(flip::FlipSpec* fspec) {
@@ -143,49 +151,54 @@ void run_and_validate_delay_return_flip(flip::Flip* flip) {
     int invalid_cmd = -1;
     std::shared_ptr< std::atomic< int > > closure_calls = std::make_shared< std::atomic< int > >(0);
 
-    assert(flip->get_delay_flip< std::string >(
-        "delay_ret_fspec",
-        [closure_calls](std::string error) {
-            (*closure_calls)++;
-            DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
-        },
-        valid_cmd));
+    RELEASE_ASSERT(flip->get_delay_flip< std::string >(
+                       "delay_ret_fspec",
+                       [closure_calls](std::string error) {
+                           (*closure_calls)++;
+                           DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
+                       },
+                       valid_cmd),
+                   "delay_flip failed for valid conditions - unexpected");
 
-    assert(!flip->get_delay_flip< std::string >(
-        "delay_ret_fspec",
-        [closure_calls](std::string error) {
-            assert(0);
-            (*closure_calls)++;
-        },
-        invalid_cmd));
+    RELEASE_ASSERT(!flip->get_delay_flip< std::string >(
+                       "delay_ret_fspec",
+                       [closure_calls](std::string error) {
+                           assert(0);
+                           (*closure_calls)++;
+                       },
+                       invalid_cmd),
+                   "delay_flip succeeded for invalid conditions - unexpected");
 
-    assert(flip->get_delay_flip< std::string >(
-        "delay_ret_fspec",
-        [closure_calls](std::string error) {
-            DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
-            (*closure_calls)++;
-        },
-        valid_cmd));
+    RELEASE_ASSERT(flip->get_delay_flip< std::string >(
+                       "delay_ret_fspec",
+                       [closure_calls](std::string error) {
+                           DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
+                           (*closure_calls)++;
+                       },
+                       valid_cmd),
+                   "delay_flip failed for valid conditions - unexpected");
 
-    assert(!flip->get_delay_flip< std::string >(
-        "delay_ret_fspec",
-        [closure_calls](std::string error) {
-            assert(0);
-            (*closure_calls)++;
-        },
-        invalid_cmd));
+    RELEASE_ASSERT(!flip->get_delay_flip< std::string >(
+                       "delay_ret_fspec",
+                       [closure_calls](std::string error) {
+                           assert(0);
+                           (*closure_calls)++;
+                       },
+                       invalid_cmd),
+                   "delay_flip succeeded for invalid conditions - unexpected");
 
-    assert(!flip->get_delay_flip< std::string >(
-        "delay_ret_fspec",
-        [closure_calls](std::string error) {
-            DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
-            (*closure_calls)++;
-            LOGINFO("Called with error = {}", error);
-        },
-        valid_cmd));
+    RELEASE_ASSERT(!flip->get_delay_flip< std::string >(
+                       "delay_ret_fspec",
+                       [closure_calls](std::string error) {
+                           DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
+                           (*closure_calls)++;
+                           LOGINFO("Called with error = {}", error);
+                       },
+                       valid_cmd),
+                   "delay_flip hit more than the frequency set - unexpected");
 
     sleep(2);
-    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
+    RELEASE_ASSERT_EQ((*closure_calls).load(), 2, "Not all delay flips hit are called back");
 }
 
 #if 0
