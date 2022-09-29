@@ -431,7 +431,7 @@ MODLEVELDEC(_, _, base)
 
 #define MODLEVELDEF(r, l, module)                                                                                      \
     extern "C" {                                                                                                       \
-    spdlog::level::level_enum BOOST_PP_CAT(module_level_, module){l};                                                  \
+    __attribute__((visibility("default"))) spdlog::level::level_enum BOOST_PP_CAT(module_level_, module){l};           \
     }
 
 #define MOD_LEVEL_STRING(r, _, module) BOOST_PP_STRINGIZE(module),

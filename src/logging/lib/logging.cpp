@@ -215,15 +215,19 @@ void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
     spdlog::register_logger(glob_critical_logger);
 }
 
-static void set_module_log_level(const std::string& module_name, const spdlog::level::level_enum level) {
-    const auto sym{std::string{"module_level_"} + module_name};
-    auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
+static spdlog::level::level_enum* to_mod_log_level_ptr(const std::string& module_name) {
+    const auto sym = std::string{"module_level_"} + module_name;
+    auto* mod_level = static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()));
     if (mod_level == nullptr) {
-        LOGWARN("Unable to locate the module {} in registered modules", module_name);
-        return;
+        std::cout << fmt::format("Unable to locate the module {} in registered modules, error: {}\n", module_name,
+                                 dlerror());
     }
+    return mod_level;
+}
 
-    *mod_level = level;
+static void set_module_log_level(const std::string& module_name, const spdlog::level::level_enum level) {
+    auto* mod_level = to_mod_log_level_ptr(module_name);
+    if (mod_level != nullptr) { *mod_level = level; }
 }
 
 static std::string setup_modules() {
@@ -347,14 +351,8 @@ void SetModuleLogLevel(const std::string& module_name, const spdlog::level::leve
 }
 
 spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name) {
-    const auto sym{std::string{"module_level_"} + module_name};
-    auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
-    if (mod_level == nullptr) {
-        LOGWARN("Unable to locate the module {} in registered modules", module_name);
-        return spdlog::level::level_enum::off;
-    }
-
-    return *mod_level;
+    auto* mod_level = to_mod_log_level_ptr(module_name);
+    return mod_level ? *mod_level : spdlog::level::level_enum::off;
 }
 
 nlohmann::json GetAllModuleLogLevel() {
