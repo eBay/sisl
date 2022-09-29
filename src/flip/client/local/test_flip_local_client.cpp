@@ -20,6 +20,7 @@
 #include <string>
 
 #include "options/options.h"
+#include "logging/logging.h"
 
 using namespace flip;
 
@@ -32,11 +33,12 @@ void run_and_validate_noret_flip() {
     int valid_cmd = 1;
     int invalid_cmd = -1;
 
-    assert(!g_flip.test_flip("noret_flip", invalid_cmd));
-    assert(g_flip.test_flip("noret_flip", valid_cmd));
-    assert(!g_flip.test_flip("noret_flip", invalid_cmd));
-    assert(g_flip.test_flip("noret_flip", valid_cmd));
-    assert(!g_flip.test_flip("noret_flip", valid_cmd)); // Not more than 2
+    RELEASE_ASSERT(!g_flip.test_flip("noret_flip", invalid_cmd), "notret_flip invalid cmd succeeeded - unexpected");
+    RELEASE_ASSERT(g_flip.test_flip("noret_flip", valid_cmd), "notret_flip valid cmd failed - unexpected");
+    RELEASE_ASSERT(!g_flip.test_flip("noret_flip", invalid_cmd), "notret_flip valid cmd succeeeded - unexpected");
+    RELEASE_ASSERT(g_flip.test_flip("noret_flip", valid_cmd), "notret_flip valid cmd failed - unexpected");
+    RELEASE_ASSERT(!g_flip.test_flip("noret_flip", valid_cmd),
+                   "notret_flip valid cmd succeeeded - no more than 2 expected to succeed"); // Not more than 2
 }
 
 void run_and_validate_ret_flip() {
@@ -46,21 +48,21 @@ void run_and_validate_ret_flip() {
     std::string invalid_dev_name = "/boot/sda";
 
     auto result = g_flip.get_test_flip< std::string >("simval_flip", my_vol, valid_dev_name);
-    assert(result);
-    assert(result.get() == "Simulated error value");
+    RELEASE_ASSERT(result, "get_test_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT_EQ(result.get(), "Simulated error value", "Incorrect flip returned");
 
     result = g_flip.get_test_flip< std::string >("simval_flip", unknown_vol, valid_dev_name);
-    assert(!result);
+    RELEASE_ASSERT(!result, "get_test_flip succeeded for incorrect conditions - unexpected");
 
     result = g_flip.get_test_flip< std::string >("simval_flip", my_vol, invalid_dev_name);
-    assert(!result);
+    RELEASE_ASSERT(!result, "get_test_flip succeeded for incorrect conditions  - unexpected");
 
     result = g_flip.get_test_flip< std::string >("simval_flip", my_vol, valid_dev_name);
-    assert(result);
-    assert(result.get() == "Simulated error value");
+    RELEASE_ASSERT(result, "get_test_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT_EQ(result.get(), "Simulated error value", "Incorrect flip returned");
 
     result = g_flip.get_test_flip< std::string >("simval_flip", my_vol, valid_dev_name);
-    assert(!result); // Not more than 2
+    RELEASE_ASSERT(!result, "get_test_flip freq set to 2, but 3rd time hit as well - unexpected"); // Not more than 2
 }
 
 void run_and_validate_delay_flip() {
@@ -71,19 +73,24 @@ void run_and_validate_delay_flip() {
     long invalid_size_bytes = 4096;
     std::shared_ptr< std::atomic< int > > closure_calls = std::make_shared< std::atomic< int > >(0);
 
-    assert(g_flip.delay_flip(
-        "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, valid_size_bytes1));
-    assert(!g_flip.delay_flip(
-        "delay_flip", [closure_calls]() { (*closure_calls)++; }, invalid_cmd, valid_size_bytes1));
-    assert(g_flip.delay_flip(
-        "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, valid_size_bytes2));
-    assert(!g_flip.delay_flip(
-        "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, invalid_size_bytes));
-    assert(!g_flip.delay_flip(
-        "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, valid_size_bytes1));
+    RELEASE_ASSERT(g_flip.delay_flip(
+                       "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, valid_size_bytes1),
+                   "delay_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT(!g_flip.delay_flip(
+                       "delay_flip", [closure_calls]() { (*closure_calls)++; }, invalid_cmd, valid_size_bytes1),
+                   "delay_flip succeeded for invalid conditions - unexpected");
+    RELEASE_ASSERT(g_flip.delay_flip(
+                       "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, valid_size_bytes2),
+                   "delay_flip failed for valid conditions - unexpected");
+    RELEASE_ASSERT(!g_flip.delay_flip(
+                       "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, invalid_size_bytes),
+                   "delay_flip succeeded for invalid conditions - unexpected");
+    RELEASE_ASSERT(!g_flip.delay_flip(
+                       "delay_flip", [closure_calls]() { (*closure_calls)++; }, valid_cmd, valid_size_bytes1),
+                   "delay_flip hit more than the frequency set - unexpected");
 
     sleep(2);
-    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
+    RELEASE_ASSERT_EQ((*closure_calls).load(), 2, "Not all delay flips hit are called back");
 }
 
 void run_and_validate_delay_return_flip() {
@@ -91,49 +98,54 @@ void run_and_validate_delay_return_flip() {
     double invalid_double = 1.85;
     std::shared_ptr< std::atomic< int > > closure_calls = std::make_shared< std::atomic< int > >(0);
 
-    assert(g_flip.get_delay_flip< std::string >(
-        "delay_simval_flip",
-        [closure_calls](std::string error) {
-            (*closure_calls)++;
-            DEBUG_ASSERT_EQ(error, "Simulated delayed errval");
-        },
-        valid_double));
+    RELEASE_ASSERT(g_flip.get_delay_flip< std::string >(
+                       "delay_simval_flip",
+                       [closure_calls](std::string error) {
+                           (*closure_calls)++;
+                           RELEASE_ASSERT_EQ(error, "Simulated delayed errval", "Invalid closure called");
+                       },
+                       valid_double),
+                   "delay_flip failed for valid conditions - unexpected");
 
-    assert(!g_flip.get_delay_flip< std::string >(
-        "delay_simval_flip",
-        [closure_calls](std::string error) {
-            assert(0);
-            (*closure_calls)++;
-        },
-        invalid_double));
+    RELEASE_ASSERT(!g_flip.get_delay_flip< std::string >(
+                       "delay_simval_flip",
+                       [closure_calls](std::string error) {
+                           RELEASE_ASSERT(false, "Invalid closure called");
+                           (*closure_calls)++;
+                       },
+                       invalid_double),
+                   "delay_flip succeeded for invalid conditions - unexpected");
 
-    assert(g_flip.get_delay_flip< std::string >(
-        "delay_simval_flip",
-        [closure_calls](std::string error) {
-            DEBUG_ASSERT_EQ(error, "Simulated delayed errval");
-            (*closure_calls)++;
-        },
-        valid_double));
+    RELEASE_ASSERT(g_flip.get_delay_flip< std::string >(
+                       "delay_simval_flip",
+                       [closure_calls](std::string error) {
+                           RELEASE_ASSERT_EQ(error, "Simulated delayed errval", "Invalid closure called");
+                           (*closure_calls)++;
+                       },
+                       valid_double),
+                   "delay_flip failed for valid conditions - unexpected");
 
-    assert(!g_flip.get_delay_flip< std::string >(
-        "delay_simval_flip",
-        [closure_calls](std::string error) {
-            assert(0);
-            (*closure_calls)++;
-        },
-        invalid_double));
+    RELEASE_ASSERT(!g_flip.get_delay_flip< std::string >(
+                       "delay_simval_flip",
+                       [closure_calls](std::string error) {
+                           RELEASE_ASSERT(false, "Invalid closure called");
+                           (*closure_calls)++;
+                       },
+                       invalid_double),
+                   "delay_flip succeeded for invalid conditions - unexpected");
 
-    assert(!g_flip.get_delay_flip< std::string >(
-        "delay_simval_flip",
-        [closure_calls](std::string error) {
-            DEBUG_ASSERT_EQ(error, "Simulated delayed errval");
-            (*closure_calls)++;
-            LOGINFO("Called with error = {}", error);
-        },
-        valid_double));
+    RELEASE_ASSERT(!g_flip.get_delay_flip< std::string >(
+                       "delay_simval_flip",
+                       [closure_calls](std::string error) {
+                           RELEASE_ASSERT_EQ(error, "Simulated delayed errval", "Invalid closure called");
+                           (*closure_calls)++;
+                           LOGINFO("Called with error = {}", error);
+                       },
+                       valid_double),
+                   "delay_flip hit more than the frequency set - unexpected");
 
     sleep(2);
-    DEBUG_ASSERT_EQ((*closure_calls).load(), 2);
+    RELEASE_ASSERT_EQ((*closure_calls).load(), 2, "Not all delay flips hit are called back");
 }
 
 int main(int argc, char* argv[]) {

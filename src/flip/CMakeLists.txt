@@ -40,6 +40,6 @@ target_link_libraries(test_flip_server flip cxxopts::cxxopts)
 
 add_executable(test_flip_local_client client/local/test_flip_local_client.cpp)
 target_link_libraries(test_flip_local_client flip cxxopts::cxxopts)
-
+add_test(NAME TestFlipLocalClient COMMAND test_flip_local_client)
 
 
