@@ -120,7 +120,7 @@ class SISLConan(ConanFile):
         copy(self, "*.h", join(self.source_folder, "src/flip"), flip_hdr_dir, keep_path=False)
 
     def package_info(self):
-        self.cpp_info.libs = ["sisl"]
+        self.cpp_info.libs = ["sisl", "flip"]
         self.cpp_info.cppflags.extend(["-Wno-unused-local-typedefs", "-fconcepts"])
 
         if self.settings.os == "Linux":
