@@ -17,13 +17,15 @@ void entry() {
 TEST(entryTest, entry) {
     entry();
 
-    const std::string dummy_ver{fmt::format("{0}", sisl::VersionMgr::getVersion("dummy"))};
-    LOGINFO("Dummy ver. {}", dummy_ver);
+    std::stringstream dummy_ver;
+    dummy_ver << sisl::VersionMgr::getVersion("dummy");
+    LOGINFO("Dummy ver. {}", dummy_ver.str());
 
-    const std::string sisl_ver{fmt::format("{0}", sisl::VersionMgr::getVersion("sisl"))};
-    LOGINFO("SISL ver. {}", sisl_ver);
+    std::stringstream sisl_ver;
+    sisl_ver << sisl::VersionMgr::getVersion("sisl");
+    LOGINFO("SISL ver. {}", sisl_ver.str());
 
-    EXPECT_EQ(dummy_ver, sisl_ver);
+    EXPECT_EQ(dummy_ver.str(), sisl_ver.str());
 
     auto versions{sisl::VersionMgr::getVersions()};
     EXPECT_EQ((int)versions.size(), 2);

@@ -20,12 +20,6 @@ add_executable(test_stream_tracker ${TEST_STREAM_TRACKER_SOURCES})
 target_link_libraries(test_stream_tracker sisl ${COMMON_DEPS} GTest::gtest)
 #add_test(NAME HttpServerTest COMMAND test_http_server)
 
-set(GROUP_COMMIT_SOURCES
-    tests/group_commit.cpp
-   )
-add_executable(group_commit ${GROUP_COMMIT_SOURCES})
-target_link_libraries(group_commit sisl ${COMMON_DEPS})
-
 set(TEST_ATOMIC_STATUS_COUNTER_SOURCES 
     tests/test_atomic_status_counter.cpp
    )
