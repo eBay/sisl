@@ -155,12 +155,12 @@ template < typename... Args >
 }
 
 template < typename... Args >
-[[maybe_unused]] void log_message(const char* const format, Args&&... args) {
+[[maybe_unused]] void log_message(fmt::format_string< Args... > msg_fmt, Args&&... args) {
     auto& logger{sisl::logging::GetLogger()};
     auto& critical_logger{sisl::logging::GetCriticalLogger()};
 
-    if (logger) { logger->critical(format, std::forward< Args >(args)...); }
-    if (critical_logger) { critical_logger->critical(format, std::forward< Args >(args)...); }
+    if (logger) { logger->critical(msg_fmt, std::forward< Args >(args)...); }
+    if (critical_logger) { critical_logger->critical(msg_fmt, std::forward< Args >(args)...); }
 }
 
 #ifdef __linux__
