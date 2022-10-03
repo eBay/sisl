@@ -109,6 +109,8 @@ class SISLConan(ConanFile):
         copy(self, "*.dylib*", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.dll*", self.build_folder, join(self.package_folder, "bin"), keep_path=False)
         copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
+        copy(self, "*.proto", join(self.source_folder, "src/flip/proto/"), join(self.package_folder, "proto/flip/"), keep_path=False)
+        copy(self, "*", join(self.source_folder, "src/flip/client/python/"), join(self.package_folder, "bindings/flip/python/"), keep_path=False)
 
         hdr_dir = join(self.package_folder, join("include", "sisl"))
         copy(self, "*.hpp", join(self.source_folder, "src"), hdr_dir, keep_path=True, excludes="flip/*")
@@ -120,7 +122,7 @@ class SISLConan(ConanFile):
         copy(self, "*.h", join(self.source_folder, "src/flip"), flip_hdr_dir, keep_path=False)
 
     def package_info(self):
-        self.cpp_info.libs = ["sisl"]
+        self.cpp_info.libs = ["sisl", "flip"]
         self.cpp_info.cppflags.extend(["-Wno-unused-local-typedefs", "-fconcepts"])
 
         if self.settings.os == "Linux":
