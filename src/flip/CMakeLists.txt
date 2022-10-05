@@ -4,13 +4,6 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     add_flags("-Wno-unused-parameter -Wno-cast-function-type")
 endif()
 
-if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
-  include (cmake/debug_flags.cmake)
-endif ()
-if  (${MEMORY_SANITIZER_ON})
-  include (cmake/mem_sanitizer.cmake)
-endif ()
-
 find_package(gRPC REQUIRED)
 
 include_directories(BEFORE include)
