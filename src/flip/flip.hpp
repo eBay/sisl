@@ -316,6 +316,7 @@ using io_work = boost::asio::io_service::work;
 
 class FlipTimerBase {
 public:
+    virtual ~FlipTimerBase() = default;
     virtual void schedule(boost::posix_time::time_duration delay_us, const std::function< void() >& closure) = 0;
 };
 
