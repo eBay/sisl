@@ -39,11 +39,19 @@ protected:
 
     void init(const std::vector< std::string >& override_cfgs = {}) {
         auto reg_mem = &sisl::SettingsFactoryRegistry::instance();
+        sisl::SettingsFactoryRegistry::instance().~SettingsFactoryRegistry();
         new (reg_mem) sisl::SettingsFactoryRegistry("/tmp", override_cfgs);
 
         auto fac_mem = &test_app_schema_factory::instance();
         sisl::SettingsFactoryRegistry::instance().unregister_factory("test_app_schema");
+        test_app_schema_factory::instance().~test_app_schema_factory();
         new (fac_mem) test_app_schema_factory();
+    }
+
+    void Teardown() {
+        test_app_schema_factory::instance().~test_app_schema_factory();
+        sisl::SettingsFactoryRegistry::instance().~SettingsFactoryRegistry();
+        std::remove(g_schema_file);
     }
 };
 
