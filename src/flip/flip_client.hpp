@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #pragma once
-#include "lib/flip.hpp"
+#include <flip/flip.hpp>
 
 namespace flip {
 class FlipClient {

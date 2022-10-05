@@ -18,6 +18,7 @@ target_link_libraries(sisl_auth_manager
     flatbuffers::flatbuffers
     jwt-cpp::jwt-cpp
   )
+set(FLATBUFFERS_FLATC_EXECUTABLE, ${CONAN_BIN_DIRS_FLATBUFFER}/flatc)
 message("Flatbuffers parser: [${FLATBUFFERS_FLATC_EXECUTABLE}]")
 settings_gen_cpp(${FLATBUFFERS_FLATC_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/generated/ sisl_auth_manager security_config.fbs)
 

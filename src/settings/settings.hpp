@@ -123,8 +123,7 @@ static bool diff(const reflection::Schema* schema, const reflection::Object* sch
             break;
         }
 
-        case reflection::BaseType::Array:
-        case reflection::BaseType::Union: {
+        default: {
             // Please do not use unions or arrays in settings. It's crazy!
             // LOG_ASSERT(false) << "reflection::BaseType::Union type in settings is not supported";
             break;
@@ -210,8 +209,7 @@ static bool diff_vector(const reflection::Schema* schema, const reflection::Fiel
         break;
     }
 
-    case reflection::BaseType::Array:
-    case reflection::BaseType::Union: {
+    default: {
         // Please do not use unions or arrays in settings. It's crazy!
         // LOG_ASSERT(false) << "reflection::BaseType::Union type in settings is not supported";
         break;
@@ -235,12 +233,13 @@ protected:
 
 class SettingsFactoryRegistry {
 public:
-    static SettingsFactoryRegistry& instance() {
-        static SettingsFactoryRegistry _inst;
+    static SettingsFactoryRegistry& instance(const std::string& path = "",
+                                             const std::vector< std::string >& override_cfgs = {}) {
+        static SettingsFactoryRegistry _inst{path, override_cfgs};
         return _inst;
     }
 
-    SettingsFactoryRegistry();
+    SettingsFactoryRegistry(const std::string& path = "", const std::vector< std::string >& override_cfgs = {});
     void register_factory(const std::string& s, SettingsFactoryBase* f);
     void unregister_factory(const std::string& s);
 
@@ -250,6 +249,7 @@ public:
 
 private:
     mutable std::shared_mutex m_mtx;
+    std::string m_config_path;
     std::unordered_map< std::string, SettingsFactoryBase* > m_factories;
     std::unordered_map< std::string, nlohmann::json > m_override_cfgs;
 };
@@ -335,9 +335,10 @@ public:
 private:
     void load(const std::string& config, bool is_config_file) {
         try {
-            auto new_settings = parse_config(config, is_config_file);
+            SettingsT new_settings;
+            parse_config(config, is_config_file, new_settings);
             // post_process(true, &new_settings);
-            m_rcu_data.make_and_exchange(new_settings);
+            m_rcu_data.make_and_exchange(std::move(new_settings));
         } catch (std::exception& e) {
             throw std::runtime_error(fmt::format("Exception reading config {} (errmsg = {})",
                                                  (is_config_file ? config : " in json"), e.what()));
@@ -346,7 +347,8 @@ private:
 
     bool reload(const std::string& config, bool is_config_file) {
         try {
-            auto new_settings = parse_config(config, is_config_file /* is_config_file */);
+            SettingsT new_settings;
+            parse_config(config, is_config_file /* is_config_file */, new_settings);
             /* post_process may reconfigure some settings, therefore this has to be called before taking diff */
             // post_process(false, &new_settings);
 
@@ -354,7 +356,7 @@ private:
                 m_current_settings = ""; /* getSettings will return empty briefly before exiting */
                 return true;
             } else {
-                m_rcu_data.make_and_exchange(new_settings);
+                m_rcu_data.make_and_exchange(std::move(new_settings));
             }
         } catch (std::exception& e) {
             LOGERROR("Exception reading config {} (errmsg = {})", (is_config_file ? config : " in json"), e.what());
@@ -362,7 +364,7 @@ private:
         return false;
     }
 
-    SettingsT parse_config(const std::string& config, bool is_file) {
+    void parse_config(const std::string& config, bool is_file, SettingsT& out_settings) {
         std::string json_config_str;
         if (is_file) {
             if (!flatbuffers::LoadFile(config.c_str(), false, &json_config_str)) {
@@ -392,11 +394,8 @@ private:
         /* parsing succeeded, update current settings string */
         m_current_settings = std::move(json_config_str);
 
-        SettingsT settings;
         flatbuffers::GetRoot< typename SettingsT::TableType >(parser.builder_.GetBufferPointer())
-            ->UnPackTo(&settings, nullptr);
-
-        return settings;
+            ->UnPackTo(&out_settings, nullptr);
     }
 
     bool check_restart_needed(const SettingsT* new_settings, const std::shared_ptr< SettingsT > current_settings) {
