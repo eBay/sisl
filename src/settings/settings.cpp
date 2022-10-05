@@ -50,38 +50,46 @@ static nlohmann::json kv_path_to_json(const std::vector< std::string >& paths, c
     return nlohmann::json::parse(json_str);
 }
 
-SettingsFactoryRegistry::SettingsFactoryRegistry() {
+SettingsFactoryRegistry::SettingsFactoryRegistry(const std::string& path,
+                                                 const std::vector< std::string >& override_cfgs) :
+        m_config_path{path} {
+    if (SISL_OPTIONS.count("config_path") != 0) { m_config_path = SISL_OPTIONS["config_path"].as< std::string >(); }
+
+    std::vector< std::string > cfgs;
     if (SISL_OPTIONS.count("override_config") != 0) {
-        const auto cfgs{SISL_OPTIONS["override_config"].as< std::vector< std::string > >()};
-        for (const auto& cfg : cfgs) {
-            // Get the entire path along with module name and its value
-            std::vector< std::string > kv;
-            boost::split(kv, cfg, boost::is_any_of(":="));
-            if (kv.size() < 2) { continue; }
+        cfgs = SISL_OPTIONS["override_config"].as< std::vector< std::string > >();
+    } else {
+        cfgs = override_cfgs;
+    }
 
-            // Split this and convert to a json string which json library can parse. I am sure
-            // there are cuter ways to do this, but well someother time....
-            std::vector< std::string > paths;
-            boost::split(paths, kv[0], boost::is_any_of("."));
-            if (paths.size() < 2) { continue; }
-            auto schema_name{std::move(paths.front())};
-            paths.erase(std::begin(paths));
+    for (const auto& cfg : cfgs) {
+        // Get the entire path along with module name and its value
+        std::vector< std::string > kv;
+        boost::split(kv, cfg, boost::is_any_of(":="));
+        if (kv.size() < 2) { continue; }
 
-            auto j = kv_path_to_json(paths, kv[1]); // Need a copy constructor here.
-            const auto it{m_override_cfgs.find(schema_name)};
-            if (it != std::cend(m_override_cfgs)) {
-                it->second.merge_patch(j);
-            } else {
-                m_override_cfgs.emplace(std::move(schema_name), std::move(j));
-            }
+        // Split this and convert to a json string which json library can parse. I am sure
+        // there are cuter ways to do this, but well someother time....
+        std::vector< std::string > paths;
+        boost::split(paths, kv[0], boost::is_any_of("."));
+        if (paths.size() < 2) { continue; }
+        auto schema_name{std::move(paths.front())};
+        paths.erase(std::begin(paths));
+
+        auto j = kv_path_to_json(paths, kv[1]); // Need a copy constructor here.
+        const auto it{m_override_cfgs.find(schema_name)};
+        if (it != std::cend(m_override_cfgs)) {
+            it->second.merge_patch(j);
+        } else {
+            m_override_cfgs.emplace(std::move(schema_name), std::move(j));
         }
     }
 }
 
-void SettingsFactoryRegistry::register_factory(const std::string& name, SettingsFactoryBase* const f) {
-    if (SISL_OPTIONS.count("config_path") == 0) { return; }
+void SettingsFactoryRegistry::register_factory(const std::string& name, SettingsFactoryBase* f) {
+    if (m_config_path.empty()) { return; }
 
-    const auto config_file{fmt::format("{}/{}.json", SISL_OPTIONS["config_path"].as< std::string >(), name)};
+    const auto config_file{fmt::format("{}/{}.json", m_config_path, name)};
     {
         std::unique_lock lg{m_mtx};
         f->set_config_file(config_file);
