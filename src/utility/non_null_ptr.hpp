@@ -93,7 +93,11 @@ struct embedded_t : public T {
 
     explicit operator bool() const noexcept { return true; }
 
-    T* release() noexcept { return nullptr; }
+    T* release() noexcept {
+        embedded_t* ret = new embedded_t();
+        *ret = *this;
+        return static_cast< T* >(ret);
+    }
 };
 
 template < class T >
