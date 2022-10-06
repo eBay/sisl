@@ -134,9 +134,20 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_trf_client>
             $<TARGET_OBJECTS:sisl_file_watcher>
            )
-target_link_libraries(sisl
+
+list(APPEND SISL_DEPS 
     Folly::Folly
-  )
+)
+
+if (DEFINED MALLOC_IMPL)
+    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+        list(APPEND SISL_DEPS gperftools::tcmalloc)
+    endif()
+endif()
+
+target_link_libraries(sisl
+    ${SISL_DEPS}
+)
 
 # build info
 string(TOUPPER "${CMAKE_BUILD_TYPE}" UC_CMAKE_BUILD_TYPE)
