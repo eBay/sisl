@@ -71,7 +71,14 @@ if (DEFINED MALLOC_IMPL)
             tests/test_jemalloc_helper.cpp
            )
         add_executable(test_jemalloc ${TEST_JEMALLOC_SOURCE_FILES})
-        target_link_libraries(test_jemalloc sisl jemalloc)
+        target_link_libraries(test_jemalloc sisl ${COMMON_DEPS} jemalloc GTest::gtest)
         add_test(NAME TestJemalloc COMMAND test_jemalloc)
+    elseif (${MALLOC_IMPL} STREQUAL "tcmalloc")
+        set(TEST_TCMALLOC_SOURCE_FILES
+            tests/test_tcmalloc_helper.cpp
+            )
+        add_executable(test_tcmalloc ${TEST_TCMALLOC_SOURCE_FILES})
+        target_link_libraries(test_tcmalloc sisl ${COMMON_DEPS} GTest::gtest)
+        add_test(NAME TestTcmalloc COMMAND test_tcmalloc)
     endif()
 endif()

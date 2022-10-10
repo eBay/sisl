@@ -55,7 +55,9 @@ find_package(cpr REQUIRED)
 find_package(cxxopts REQUIRED)
 find_package(folly REQUIRED)
 find_package(GTest REQUIRED)
-find_package(gperftools REQUIRED)
+if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+    find_package(gperftools REQUIRED)
+endif()
 find_package(jwt-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(prerelease_dummy QUIET)
@@ -76,6 +78,12 @@ list (APPEND COMMON_DEPS
 if (${prerelease_dummy_FOUND})
     list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
 endif ()
+
+if (DEFINED MALLOC_IMPL)
+    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+        list(APPEND COMMON_DEPS gperftools::gperftools)
+    endif()
+endif()
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
@@ -139,10 +147,9 @@ add_library(sisl
 list(APPEND SISL_DEPS 
     Folly::Folly
 )
-
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "tcmalloc")
-        list(APPEND SISL_DEPS gperftools::tcmalloc)
+        list(APPEND SISL_DEPS gperftools::gperftools)
     endif()
 endif()
 
