@@ -55,6 +55,9 @@ find_package(cpr REQUIRED)
 find_package(cxxopts REQUIRED)
 find_package(folly REQUIRED)
 find_package(GTest REQUIRED)
+if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+    find_package(gperftools REQUIRED)
+endif()
 find_package(jwt-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(prerelease_dummy QUIET)
@@ -75,6 +78,12 @@ list (APPEND COMMON_DEPS
 if (${prerelease_dummy_FOUND})
     list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
 endif ()
+
+if (DEFINED MALLOC_IMPL)
+    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+        list(APPEND COMMON_DEPS gperftools::gperftools)
+    endif()
+endif()
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
@@ -134,9 +143,19 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_trf_client>
             $<TARGET_OBJECTS:sisl_file_watcher>
            )
-target_link_libraries(sisl
+
+list(APPEND SISL_DEPS 
     Folly::Folly
-  )
+)
+if (DEFINED MALLOC_IMPL)
+    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+        list(APPEND SISL_DEPS gperftools::gperftools)
+    endif()
+endif()
+
+target_link_libraries(sisl
+    ${SISL_DEPS}
+)
 
 # build info
 string(TOUPPER "${CMAKE_BUILD_TYPE}" UC_CMAKE_BUILD_TYPE)

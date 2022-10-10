@@ -8,7 +8,7 @@ required_conan_version = ">=1.50.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.2.1"
+    version = "8.2.2"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -136,3 +136,5 @@ class SISLConan(ConanFile):
             self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
         elif self.options.malloc_impl == 'tcmalloc':
             self.cpp_info.cppflags.append("-DUSING_TCMALLOC=1")
+            self.cpp_info.libdirs += self.deps_cpp_info["gperftools"].lib_paths
+            self.cpp_info.libs += ["tcmalloc"]
