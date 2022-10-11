@@ -98,7 +98,7 @@ pipeline {
                             expression { "${COVERAGE}" == 'False' }
                             expression { "${BUILD_TYPE}" != 'sanitize' }
                             expression { "${BUILD_TYPE}" != 'debug' }
-                            expression { { branch "PR_*" } }
+                            expression { branch == "PR_*" }
                         } }
                         steps {
                             def PRERELEASE_OPT = 'True'
