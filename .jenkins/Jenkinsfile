@@ -62,60 +62,25 @@ pipeline {
                 axes {
                     axis {
                         name 'BUILD_TYPE'
-                        values 'sanitize', 'debug', 'test'
+                        values 'sanitize', 'release', 'debug', 'test'
                     }
                     axis {
                         name 'COVERAGE'
                         values 'False'
                     }
-                    axis {
-                        name 'PRERELEASE'
-                        values 'True', 'False'
-                    }
-                    axis {
-                        name 'ALLOC_IMPL'
-                        values 'tcmalloc', 'libc'
-                } }
-                excludes { exclude {
-                    axis {
-                        name 'BUILD_TYPE'
-                        values 'sanitize', 'test'
-                    }
-                    axis {
-                        name 'COVERAGE'
-                        values 'True'
+                }
+                excludes { 
+                    exclude {
+                        axis {
+                            name 'BUILD_TYPE'
+                            values 'sanitize', 'test', 'release'
+                        }
+                        axis {
+                            name 'COVERAGE'
+                            values 'True'
+                        }
                     }
                 }
-                    exclude {
-                    axis {
-                        name 'PRERELEASE'
-                        values 'False'
-                    }
-                    axis {
-                        name 'BUILD_TYPE'
-                        values 'debug', 'sanitize'
-                    }
-                    }
-                    exclude {
-                    axis {
-                        name 'BUILD_TYPE'
-                        values 'test'
-                    }
-                    axis {
-                        name 'ALLOC_IMPL'
-                        values 'libc'
-                    }
-                }
-                    exclude {
-                    axis {
-                        name 'BUILD_TYPE'
-                        values 'sanitize'
-                    }
-                    axis {
-                        name 'ALLOC_IMPL'
-                        values 'tcmalloc'
-                    }
-                } }
 
                 stages {
                     stage('Adjust Tag for Master/PR') {
@@ -128,13 +93,34 @@ pipeline {
                         }
                     }
 
-                    stage("Build") {
+                    stage("PR Build") {
                         when { allOf {
                             expression { "${COVERAGE}" == 'False' }
                             expression { "${BUILD_TYPE}" != 'sanitize' }
+                            expression { "${BUILD_TYPE}" != 'debug' }
+                            expression { { branch "PR_*" } }
                         } }
                         steps {
-                            sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o malloc_impl=${ALLOC_IMPL} -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
+                            def PRERELEASE_OPT = 'True'
+                            if ("${BUILD_TYPE}" == 'release') {
+                                PRERELEASE_OPT = 'False'
+                            }
+                            sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE_OPT} -o malloc_impl=tcmalloc -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
+                        }
+                    }
+
+                    stage("Branch Build") {
+                        when { allOf {
+                            expression { "${COVERAGE}" == 'False' }
+                            expression { "${BUILD_TYPE}" != 'sanitize' }
+                            expression { not { branch "PR_*" } }
+                        } }
+                        steps {
+                            def PRERELEASE_OPT = 'True'
+                            if ("${BUILD_TYPE}" == 'release') {
+                                PRERELEASE_OPT = 'False'
+                            }
+                            sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE_OPT} -o malloc_impl=tcmalloc -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
 
@@ -143,25 +129,15 @@ pipeline {
                             expression { "${BUILD_TYPE}" == 'sanitize' }
                         } }
                         steps {
-                            sh "conan create ${BUILD_MISSING} -o malloc_impl=${ALLOC_IMPL} -o sanitize=True -pr debug . ${PROJECT}/${TAG}"
+                            sh "conan create ${BUILD_MISSING} -o malloc_impl=libc -o sanitize=True -pr debug . ${PROJECT}/${TAG}"
                         }
                     }
 
-                    stage("Deploy") {
-                        when { allOf {
-                            expression { "${COVERAGE}" == 'False' }
-                            expression { "${BUILD_TYPE}" != 'sanitize' }
-                            expression { not { branch "PR_*" } }
-                        } }
-                        steps {
-                            sh "conan user -r ebay-local -p ${ARTIFACTORY_PASS} _service_sds"
-                            sh "conan upload ${PROJECT}/${TAG} -c --all -r ebay-local"
-                        }
-                    }
                     stage('Coverage') {
                         when { not { anyOf {
                             branch "${STABLE_BRANCH}"
                             expression { "${COVERAGE}" == 'False' }
+                            expression { not { branch "PR_*" } }
                         } } }
 
                         stages {
@@ -194,6 +170,18 @@ pipeline {
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    stage("Deploy") {
+                        when { allOf {
+                            expression { "${COVERAGE}" == 'False' }
+                            expression { "${BUILD_TYPE}" != 'sanitize' }
+                            expression { not { branch "PR_*" } }
+                        } }
+                        steps {
+                            sh "conan user -r ebay-local -p ${ARTIFACTORY_PASS} _service_sds"
+                            sh "conan upload ${PROJECT}/${TAG} -c --all -r ebay-local"
                         }
                     }
                 }
