@@ -101,11 +101,13 @@ pipeline {
                             expression { branch == "PR_*" }
                         } }
                         steps {
-                            def PRERELEASE_OPT = 'True'
-                            if ("${BUILD_TYPE}" == 'release') {
-                                PRERELEASE_OPT = 'False'
+                            script {
+                                def PRERELEASE_OPT = 'True'
+                                if ("${BUILD_TYPE}" == 'release') {
+                                    PRERELEASE_OPT = 'False'
+                                }
+                                sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE_OPT} -o malloc_impl=tcmalloc -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                             }
-                            sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE_OPT} -o malloc_impl=tcmalloc -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
 
@@ -116,11 +118,13 @@ pipeline {
                             expression { not { branch "PR_*" } }
                         } }
                         steps {
-                            def PRERELEASE_OPT = 'True'
-                            if ("${BUILD_TYPE}" == 'release') {
-                                PRERELEASE_OPT = 'False'
+                            script {
+                                def PRERELEASE_OPT = 'True'
+                                if ("${BUILD_TYPE}" == 'release') {
+                                    PRERELEASE_OPT = 'False'
+                                }
+                                sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE_OPT} -o malloc_impl=tcmalloc -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                             }
-                            sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE_OPT} -o malloc_impl=tcmalloc -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
                         }
                     }
 
