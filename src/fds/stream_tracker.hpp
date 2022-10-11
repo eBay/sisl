@@ -16,8 +16,8 @@
  *********************************************************************************/
 #pragma once
 
+#include <folly/SharedMutex.h>
 #include "bitset.hpp"
-#include "folly/SharedMutex.h"
 #include "../metrics/metrics_group_impl.hpp"
 #include "../metrics/metrics.hpp"
 

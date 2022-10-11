@@ -2,7 +2,7 @@
 #pragma once
 
 #include <functional>
-#include "logging/logging.h"
+#include "../logging/logging.h"
 #include <thread>
 
 namespace sisl {

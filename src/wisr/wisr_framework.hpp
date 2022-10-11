@@ -19,8 +19,8 @@
 #include <tuple>
 #include <vector>
 
-#include "utility/thread_buffer.hpp"
-#include "utility/urcu_helper.hpp"
+#include "../utility/thread_buffer.hpp"
+#include "../utility/urcu_helper.hpp"
 
 namespace sisl {
 

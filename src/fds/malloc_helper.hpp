@@ -36,11 +36,11 @@
 #include <sys/resource.h>
 #endif
 
-#include "logging/logging.h"
 #include <nlohmann/json.hpp>
 
-#include "metrics/histogram_buckets.hpp"
-#include "metrics/metrics.hpp"
+#include "../logging/logging.h"
+#include "../metrics/histogram_buckets.hpp"
+#include "../metrics/metrics.hpp"
 
 #if defined(USING_TCMALLOC)
 #include <gperftools/malloc_extension.h>
