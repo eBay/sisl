@@ -28,8 +28,8 @@
 #include <memory>
 #include <type_traits>
 
-#include "boost/preprocessor/arithmetic/inc.hpp"
-#include "boost/preprocessor/repetition/repeat_from_to.hpp"
+#include <boost/preprocessor/arithmetic/inc.hpp>
+#include <boost/preprocessor/repetition/repeat_from_to.hpp>
 
 // NOTE: In future should use [[likely]] and [[unlikely]] but not valid syntax in if predicate
 #if defined __GNUC__ || defined __llvm__

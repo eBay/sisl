@@ -16,7 +16,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include "utility/enum.hpp"
+#include "../utility/enum.hpp"
 #include "security_config.hpp"
 
 namespace sisl {

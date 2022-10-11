@@ -29,7 +29,7 @@
 
 #include <fmt/format.h>
 
-#include "utility/enum.hpp"
+#include "../utility/enum.hpp"
 
 namespace sisl {
 

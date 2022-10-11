@@ -113,13 +113,9 @@ class SISLConan(ConanFile):
         copy(self, "*", join(self.source_folder, "src/flip/client/python/"), join(self.package_folder, "bindings/flip/python/"), keep_path=False)
 
         hdr_dir = join(self.package_folder, join("include", "sisl"))
-        copy(self, "*.hpp", join(self.source_folder, "src"), hdr_dir, keep_path=True, excludes="flip/*")
-        copy(self, "*.h", join(self.source_folder, "src"), hdr_dir, keep_path=True, excludes="flip/*")
+        copy(self, "*.hpp", join(self.source_folder, "src"), hdr_dir, keep_path=True)
+        copy(self, "*.h", join(self.source_folder, "src"), hdr_dir, keep_path=True)
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
-
-        flip_hdr_dir = join(self.package_folder, join("include", "flip"))
-        copy(self, "*.hpp", join(self.source_folder, "src/flip"), flip_hdr_dir, keep_path=False)
-        copy(self, "*.h", join(self.source_folder, "src/flip"), flip_hdr_dir, keep_path=False)
 
     def package_info(self):
         self.cpp_info.libs = ["sisl", "flip"]
