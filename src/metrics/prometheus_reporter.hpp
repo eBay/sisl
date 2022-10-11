@@ -33,7 +33,7 @@
 #include <prometheus/text_serializer.h>
 #pragma GCC diagnostic pop
 
-#include "logging/logging.h"
+#include "../logging/logging.h"
 
 namespace sisl {
 

@@ -29,10 +29,9 @@
 
 #include <nlohmann/json.hpp>
 
-#include "logging/logging.h"
-#include "options/options.h"
-
-#include "utility/urcu_helper.hpp"
+#include "../logging/logging.h"
+#include "../options/options.h"
+#include "../utility/urcu_helper.hpp"
 
 #define SETTINGS_INIT(schema_type, schema_name)                                                                        \
     extern unsigned char schema_name##_fbs[];                                                                          \

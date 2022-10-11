@@ -22,7 +22,7 @@
 #include <vector>
 #include <cstdint>
 #include "metrics_tlocal.hpp"
-#include "wisr/wisr_framework.hpp"
+#include "../wisr/wisr_framework.hpp"
 
 namespace sisl {
 using WisrBufferMetrics =
