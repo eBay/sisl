@@ -98,7 +98,7 @@ pipeline {
                             expression { "${COVERAGE}" == "False" }
                             expression { "${BUILD_TYPE}" != "sanitize" }
                             expression { "${BUILD_TYPE}" != "debug" }
-                            expression { (env.BRANCH_NAME =~ /PR_/) }
+                            expression { (env.BRANCH_NAME =~ /PR-/) }
                         } }
                         steps {
                             script {
@@ -117,7 +117,7 @@ pipeline {
                         when { allOf {
                             expression { "${COVERAGE}" == "False" }
                             expression { "${BUILD_TYPE}" != "sanitize" }
-                            expression { !(env.BRANCH_NAME =~ /PR_/) }
+                            expression { !(env.BRANCH_NAME =~ /PR-/) }
                         } }
                         steps {
                             script {
@@ -132,7 +132,7 @@ pipeline {
                         }
                     }
 
-                    stage("Sanitize") {
+                    stage("Sanitize PR/Branch Build") {
                         when { allOf {
                             expression { "${BUILD_TYPE}" == 'sanitize' }
                         } }
@@ -145,7 +145,7 @@ pipeline {
                         when { not { anyOf {
                             branch "${STABLE_BRANCH}"
                             expression { "${COVERAGE}" == 'False' }
-                            expression { !(env.BRANCH_NAME =~ /PR_/) }
+                            expression { !(env.BRANCH_NAME =~ /PR-/) }
                         } } }
 
                         stages {
@@ -185,7 +185,7 @@ pipeline {
                         when { allOf {
                             expression { "${COVERAGE}" == 'False' }
                             expression { "${BUILD_TYPE}" != 'sanitize' }
-                            expression { !(env.BRANCH_NAME =~ /PR_/) }
+                            expression { !(env.BRANCH_NAME =~ /PR-/) }
                         } }
                         steps {
                             sh "conan user -r ebay-local -p ${ARTIFACTORY_PASS} _service_sds"
