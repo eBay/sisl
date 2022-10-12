@@ -16,8 +16,8 @@
  *********************************************************************************/
 #pragma once
 
-#include "flip_spec.pb.h"
-#include "flip_server.grpc.pb.h"
+#include "proto/flip_spec.pb.h"
+#include "proto/flip_server.grpc.pb.h"
 
 namespace flip {
 class FlipRPCServer final : public FlipServer::Service {
