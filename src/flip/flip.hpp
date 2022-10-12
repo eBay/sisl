@@ -30,7 +30,7 @@
 #include <string>
 #include <regex>
 
-#include "flip_spec.pb.h"
+#include "proto/flip_spec.pb.h"
 #include "flip_rpc_server.hpp"
 #include "../logging/logging.h"
 
