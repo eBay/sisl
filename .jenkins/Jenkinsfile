@@ -95,15 +95,15 @@ pipeline {
 
                     stage("PR Build") {
                         when { allOf {
-                            expression { "${COVERAGE}" == 'False' }
-                            expression { "${BUILD_TYPE}" != 'sanitize' }
-                            expression { "${BUILD_TYPE}" != 'debug' }
-                            expression { branch == "PR_*" }
+                            expression { "${COVERAGE}" == "False" }
+                            expression { "${BUILD_TYPE}" != "sanitize" }
+                            expression { "${BUILD_TYPE}" != "debug" }
+                            expression { BRANCH_NAME ==~ /^PR_*/ }
                         } }
                         steps {
                             script {
                                 def PRERELEASE = 'True'
-                                def BUILD_PROFILE = ${BUILD_TYPE}
+                                def BUILD_PROFILE = "${BUILD_TYPE}"
                                 if ("${BUILD_TYPE}" == 'release') {
                                     PRERELEASE = 'False'
                                     BUILD_PROFILE = "test"
@@ -115,15 +115,15 @@ pipeline {
 
                     stage("Branch Build") {
                         when { allOf {
-                            expression { "${COVERAGE}" == 'False' }
-                            expression { "${BUILD_TYPE}" != 'sanitize' }
+                            expression { "${COVERAGE}" == "False" }
+                            expression { "${BUILD_TYPE}" != "sanitize" }
                             expression { not { branch "PR_*" } }
                         } }
                         steps {
                             script {
                                 def PRERELEASE = 'True'
-                                def BUILD_PROFILE = ${BUILD_TYPE}
-                                if ("${BUILD_TYPE}" == 'release') {
+                                def BUILD_PROFILE = "${BUILD_TYPE}"
+                                if ("${BUILD_TYPE}" == "release") {
                                     PRERELEASE = 'False'
                                     BUILD_PROFILE = "test"
                                 }
