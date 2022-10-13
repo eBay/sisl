@@ -8,7 +8,7 @@ required_conan_version = ">=1.50.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.2.3"
+    version = "8.2.4"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -31,7 +31,7 @@ class SISLConan(ConanFile):
                 'coverage': False,
                 'sanitize': False,
                 'prerelease': True,
-                'malloc_impl': 'libc',
+                'malloc_impl': 'tcmalloc',
             }
 
     generators = "cmake", "cmake_find_package"
@@ -77,6 +77,11 @@ class SISLConan(ConanFile):
     def configure(self):
         if self.options.shared:
             del self.options.fPIC
+        if self.settings.build_type == "Debug":
+            if self.options.coverage and self.options.sanitize:
+                raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
+            if self.options.coverage or self.options.sanitize:
+                self.options.malloc_impl = 'libc'
 
     def build(self):
         cmake = CMake(self)
