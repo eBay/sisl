@@ -165,7 +165,6 @@ pipeline {
                     stage("Deploy") {
                         when { allOf {
                             expression { "${COVERAGE}" == 'False' }
-                            expression { "${BUILD_TYPE}" != 'sanitize' }
                             expression { !(env.BRANCH_NAME =~ /PR-/) }
                         } }
                         steps {
