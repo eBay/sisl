@@ -116,7 +116,7 @@ pipeline {
                                 if (("${env.BRANCH_NAME}" =~ /PR-/) && ("$BUILD_TYPE" == "debug")) {
                                     sh "echo Skipping debug build for PR branch"
                                 } else {
-                                    sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o sanitize=${SANITIZE} -pr ${BUILD_PROFILE} . ${PROJECT}/${TAG}"
+                                    sh "conan create -u ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o sanitize=${SANITIZE} -pr ${BUILD_PROFILE} . ${PROJECT}/${TAG}"
                                 }
                             }
                         }
