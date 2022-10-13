@@ -93,51 +93,32 @@ pipeline {
                         }
                     }
 
-                    stage("PR Build") {
+                    stage("Build") {
                         when { allOf {
                             expression { "${COVERAGE}" == "False" }
-                            expression { "${BUILD_TYPE}" != "sanitize" }
-                            expression { "${BUILD_TYPE}" != "debug" }
-                            expression { (env.BRANCH_NAME =~ /PR-/) }
                         } }
                         steps {
                             script {
                                 def PRERELEASE = 'True'
                                 def BUILD_PROFILE = "${BUILD_TYPE}"
-                                if ("${BUILD_TYPE}" == 'release') {
-                                    PRERELEASE = 'False'
-                                    BUILD_PROFILE = "test"
-                                }
-                                sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o malloc_impl=tcmalloc -pr ${BUILD_PROFILE} . ${PROJECT}/${TAG}"
-                            }
-                        }
-                    }
+                                def SANITIZE = 'False'
 
-                    stage("Branch Build") {
-                        when { allOf {
-                            expression { "${COVERAGE}" == "False" }
-                            expression { "${BUILD_TYPE}" != "sanitize" }
-                            expression { !(env.BRANCH_NAME =~ /PR-/) }
-                        } }
-                        steps {
-                            script {
-                                def PRERELEASE = 'True'
-                                def BUILD_PROFILE = "${BUILD_TYPE}"
+                                if ("${BUILD_TYPE}" == 'sanitize') {
+                                    SANITIZE = 'True'
+                                    BUILD_PROFILE = "debug"
+                                }
+
                                 if ("${BUILD_TYPE}" == "release") {
                                     PRERELEASE = 'False'
                                     BUILD_PROFILE = "test"
                                 }
-                                sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o malloc_impl=tcmalloc -pr ${BUILD_PROFILE} . ${PROJECT}/${TAG}"
-                            }
-                        }
-                    }
 
-                    stage("Sanitize PR/Branch Build") {
-                        when { allOf {
-                            expression { "${BUILD_TYPE}" == 'sanitize' }
-                        } }
-                        steps {
-                            sh "conan create ${BUILD_MISSING} -o malloc_impl=libc -o sanitize=True -pr debug . ${PROJECT}/${TAG}"
+                                if (("${env.BRANCH_NAME}" =~ /PR-/) && ("$BUILD_TYPE" == "debug")) {
+                                    sh "echo Skipping debug build for PR branch"
+                                } else {
+                                    sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o sanitize=${SANITIZE} -pr ${BUILD_PROFILE} . ${PROJECT}/${TAG}"
+                                }
+                            }
                         }
                     }
 
