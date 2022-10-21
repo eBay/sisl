@@ -8,7 +8,7 @@ include_directories(BEFORE ..)
 include_directories(BEFORE .)
 include_directories(BEFORE . ${CMAKE_CURRENT_SOURCE_DIR}/)
 
-find_package(FlatBuffers REQUIRED)
+find_package(flatbuffers REQUIRED)
 set(SETTINGS_SOURCE_FILES 
     settings.cpp
    )

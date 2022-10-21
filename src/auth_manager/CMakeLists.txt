@@ -5,7 +5,7 @@ add_flags("-Wno-unused-parameter")
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
-find_package(FlatBuffers REQUIRED)
+find_package(flatbuffers REQUIRED)
 find_package(Pistache REQUIRED)
 
 set(AUTH_MGR_SOURCE_FILES 
