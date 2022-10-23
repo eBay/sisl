@@ -13,7 +13,6 @@
 #include <sisl/utility/obj_life_counter.hpp>
 #include <sisl/utility/atomic_counter.hpp>
 #include <sisl/utility/enum.hpp>
-#include <sisl/auth_manager/auth_manager.hpp>
 #include "rpc_common.hpp"
 
 SISL_LOGGING_DECL(grpc_server)
@@ -117,15 +116,14 @@ class RpcStaticInfo : public RpcStaticInfoBase {
 public:
     RpcStaticInfo(GrpcServer* server, typename ServiceT::AsyncService& svc, const request_call_cb_t& call_cb,
                   const rpc_handler_cb_t& rpc_cb, const rpc_completed_cb_t& comp_cb, size_t idx,
-                  const std::string& name, std::shared_ptr< sisl::AuthManager > auth_mgr) :
+                  const std::string& name) :
             m_server{server},
             m_svc{svc},
             m_req_call_cb{call_cb},
             m_handler_cb{rpc_cb},
             m_comp_cb{comp_cb},
             m_rpc_idx{idx},
-            m_rpc_name{name},
-            m_auth_mgr{auth_mgr} {}
+            m_rpc_name{name} {}
 
     GrpcServer* m_server;
     typename ServiceT::AsyncService& m_svc;
@@ -134,7 +132,6 @@ public:
     rpc_completed_cb_t m_comp_cb;
     size_t m_rpc_idx;
     std::string m_rpc_name;
-    std::shared_ptr< sisl::AuthManager > m_auth_mgr;
 };
 
 /**
@@ -225,38 +222,10 @@ public:
 
 private:
     bool do_authorization() {
-        bool ret{true};
-        // Auth is enabled if auth mgr is not null
-        if (m_rpc_info->m_auth_mgr) {
-            auto& client_headers = m_ctx.client_metadata();
-            if (auto it = client_headers.find("authorization"); it != client_headers.end()) {
-                const std::string bearer{"Bearer "};
-                if (it->second.starts_with(bearer)) {
-                    auto token_ref = it->second.substr(bearer.size());
-                    std::string raw_token{token_ref.begin(), token_ref.end()};
-                    std::string msg;
-                    m_retstatus = grpc::Status(
-                        RPCHelper::to_grpc_statuscode(m_rpc_info->m_auth_mgr->verify(raw_token, msg)), msg);
-                    ret = m_retstatus.error_code() == grpc::StatusCode::OK;
-                } else {
-                    m_retstatus =
-                        grpc::Status(grpc::StatusCode::UNAUTHENTICATED,
-                                     grpc::string("authorization header value does not start with 'Bearer '"));
-                    RPC_SERVER_LOG(ERROR,
-                                   "authorization header value does not start with Bearer, client_req_context={}, "
-                                   "from peer={}",
-                                   get_client_req_context(), get_peer_info());
-                }
-            } else {
-                m_retstatus =
-                    grpc::Status(grpc::StatusCode::UNAUTHENTICATED, grpc::string("missing header authorization"));
-                ret = false;
-                RPC_SERVER_LOG(ERROR, "missing header authorization, client_req_context={}, from peer={}",
-                               get_client_req_context(), get_peer_info());
-            }
-        }
-        return ret;
+        m_retstatus = RPCHelper::do_authorization(m_rpc_info->m_server, &m_ctx);
+        return m_retstatus.error_code() == grpc::StatusCode::OK;
     }
+
     // The implementation of this method should dispatch the request for processing by calling
     // do_start_request_processing One reference on `this` is transferred to the callee, and the
     // callee is responsible for releasing it (typically via `RpcData::send_response(..)`).

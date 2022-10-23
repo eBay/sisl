@@ -10,6 +10,7 @@
 #include <sisl/utility/enum.hpp>
 #include <sisl/auth_manager/auth_manager.hpp>
 #include "rpc_call.hpp"
+#include "generic_service.hpp"
 
 namespace grpc_helper {
 
@@ -74,7 +75,7 @@ public:
             std::unique_lock lg(m_rpc_registry_mtx);
             rpc_idx = m_rpc_registry.size();
             m_rpc_registry.emplace_back(new RpcStaticInfo< ServiceT, ReqT, RespT, false >(
-                this, *svc, request_call_cb, rpc_handler, done_handler, rpc_idx, name, m_auth_mgr));
+                this, *svc, request_call_cb, rpc_handler, done_handler, rpc_idx, name));
 
             // Register one call per cq.
             for (auto i = 0u; i < m_cqs.size(); ++i) {
@@ -96,6 +97,22 @@ public:
         });
     }
 
+    void run_generic_handler_cb(const std::string& rpc_name,
+                                const boost::intrusive_ptr< GenericRpcData >& rpc_data) const {
+        auto it = m_generic_rpc_registry.find(rpc_name);
+        if (it == m_generic_rpc_registry.end()) {
+            LOGMSG_ASSERT(false, "generic RPC not registered");
+            return;
+        }
+        (it->second)(rpc_data);
+    }
+
+    bool is_auth_enabled() const { return m_auth_mgr != nullptr; }
+
+    sisl::AuthVerifyStatus auth_verify(const std::string& token, std::string& msg) const {
+        return m_auth_mgr->verify(token, msg);
+    }
+
 private:
     void handle_rpcs(uint32_t thread_num, const rpc_thread_start_cb_t& thread_start_cb);
 
@@ -112,5 +129,6 @@ private:
     std::mutex m_rpc_registry_mtx;
     std::vector< std::unique_ptr< RpcStaticInfoBase > > m_rpc_registry;
     std::shared_ptr< sisl::AuthManager > m_auth_mgr;
+    std::unordered_map< std::string, generic_rpc_handler_cb_t > m_generic_rpc_registry;
 };
 } // namespace grpc_helper

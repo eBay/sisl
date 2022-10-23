@@ -128,8 +128,53 @@ void GrpcServer::shutdown() {
     }
 }
 
+// RPCHelper static methods
+
 bool RPCHelper::has_server_shutdown(const GrpcServer* server) {
     return (server->m_state.load(std::memory_order_acquire) != ServerState::RUNNING);
+}
+
+void RPCHelper::run_generic_handler_cb(const GrpcServer* server, const std::string& method,
+                                       const boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+    server->run_generic_handler_cb(method, rpc_data);
+}
+
+grpc::Status RPCHelper::do_authorization(const GrpcServer* server, const grpc::ServerContext* srv_ctx) {
+    if (!server->is_auth_enabled()) { return grpc::Status(); }
+    auto& client_headers = srv_ctx->client_metadata();
+    if (auto it = client_headers.find("authorization"); it != client_headers.end()) {
+        const std::string bearer{"Bearer "};
+        if (it->second.starts_with(bearer)) {
+            auto token_ref = it->second.substr(bearer.size());
+            std::string raw_token{token_ref.begin(), token_ref.end()};
+            std::string msg;
+            return grpc::Status(RPCHelper::to_grpc_statuscode(server->auth_verify(raw_token, msg)), msg);
+        } else {
+            return grpc::Status(grpc::StatusCode::UNAUTHENTICATED,
+                                grpc::string("authorization header value does not start with 'Bearer '"));
+        }
+    } else {
+        return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, grpc::string("missing header authorization"));
+    }
+}
+
+grpc::StatusCode RPCHelper::to_grpc_statuscode(const sisl::AuthVerifyStatus status) {
+    grpc::StatusCode ret;
+    switch (status) {
+    case sisl::AuthVerifyStatus::OK:
+        ret = grpc::StatusCode::OK;
+        break;
+    case sisl::AuthVerifyStatus::UNAUTH:
+        ret = grpc::StatusCode::UNAUTHENTICATED;
+        break;
+    case sisl::AuthVerifyStatus::FORBIDDEN:
+        ret = grpc::StatusCode::PERMISSION_DENIED;
+        break;
+    default:
+        ret = grpc::StatusCode::UNKNOWN;
+        break;
+    }
+    return ret;
 }
 
 } // namespace grpc_helper
