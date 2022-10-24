@@ -11,6 +11,7 @@
 #include <boost/core/noncopyable.hpp>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/async_unary_call.h>
+#include <grpcpp/generic/generic_stub.h>
 #include <grpc/support/log.h>
 
 #include <sisl/logging/logging.h>
@@ -50,6 +51,7 @@ template < typename ReqT, typename RespT >
 class ClientRpcDataInternal : public ClientRpcDataAbstract {
 public:
     using ResponseReaderPtr = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+    using GenericResponseReaderPtr = std::unique_ptr< grpc::GenericClientAsyncResponseReader >;
 
     /* Allow GrpcAsyncClient and its inner classes to use
      * ClientCallData.
@@ -86,6 +88,7 @@ public:
     ::grpc::ClientContext m_context;
     ::grpc::Status m_status;
     ResponseReaderPtr m_resp_reader_ptr;
+    GenericResponseReaderPtr m_generic_resp_reader_ptr;
 };
 
 template < typename ReqT, typename RespT >
@@ -292,6 +295,39 @@ public:
         ::grpc::CompletionQueue* cq() { return &m_worker->cq(); }
     };
 
+    /**
+     * GenericAsyncStub is a wrapper of the grpc::GenericStub which
+     * provides the interface to call generic methods by name.
+     * We assume the Request and Response types are grpc::ByteBuffer.
+     *
+     * Please use GrpcAsyncClient::make_generic_stub() to create GenericAsyncStub.
+     */
+
+    struct GenericAsyncStub {
+        GenericAsyncStub(std::unique_ptr< grpc::GenericStub > stub, GrpcAsyncClientWorker* worker,
+                         std::shared_ptr< sisl::TrfClient > trf_client) :
+                m_generic_stub(std::move(stub)), m_worker(worker), m_trf_client(trf_client) {}
+
+        void call_unary(const grpc::ByteBuffer& request, const std::string& method,
+                        const unary_callback_t< grpc::ByteBuffer >& callback, uint32_t deadline) {
+            auto data = new ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer >(callback);
+            data->set_deadline(deadline);
+            if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
+            // Note that async unary RPCs don't post a CQ tag in call
+            data->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&data->context(), method, request, cq());
+            data->m_generic_resp_reader_ptr->StartCall();
+            // CQ tag posted here
+            data->m_generic_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
+            return;
+        }
+
+        std::unique_ptr< grpc::GenericStub > m_generic_stub;
+        GrpcAsyncClientWorker* m_worker;
+        std::shared_ptr< sisl::TrfClient > m_trf_client;
+
+        grpc::CompletionQueue* cq() { return &m_worker->cq(); }
+    };
+
     template < typename T, typename... Ts >
     static auto make(Ts&&... params) {
         return std::make_unique< T >(std::forward< Ts >(params)...);
@@ -303,6 +339,13 @@ public:
         if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
 
         return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w, m_trf_client);
+    }
+
+    auto make_generic_stub(const std::string& worker) {
+        auto w = GrpcAsyncClientWorker::get_worker(worker);
+        if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
+
+        return std::make_unique< GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w, m_trf_client);
     }
 };
 

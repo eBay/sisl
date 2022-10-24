@@ -134,9 +134,9 @@ bool RPCHelper::has_server_shutdown(const GrpcServer* server) {
     return (server->m_state.load(std::memory_order_acquire) != ServerState::RUNNING);
 }
 
-void RPCHelper::run_generic_handler_cb(const GrpcServer* server, const std::string& method,
-                                       const boost::intrusive_ptr< GenericRpcData >& rpc_data) {
-    server->run_generic_handler_cb(method, rpc_data);
+bool RPCHelper::run_generic_handler_cb(const GrpcServer* server, const std::string& method,
+                                       boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+    return server->run_generic_handler_cb(method, rpc_data);
 }
 
 grpc::Status RPCHelper::do_authorization(const GrpcServer* server, const grpc::ServerContext* srv_ctx) {

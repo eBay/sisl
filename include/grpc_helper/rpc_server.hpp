@@ -97,20 +97,55 @@ public:
         });
     }
 
-    void run_generic_handler_cb(const std::string& rpc_name,
-                                const boost::intrusive_ptr< GenericRpcData >& rpc_data) const {
-        auto it = m_generic_rpc_registry.find(rpc_name);
-        if (it == m_generic_rpc_registry.end()) {
-            LOGMSG_ASSERT(false, "generic RPC not registered");
-            return;
-        }
-        (it->second)(rpc_data);
-    }
-
     bool is_auth_enabled() const { return m_auth_mgr != nullptr; }
 
     sisl::AuthVerifyStatus auth_verify(const std::string& token, std::string& msg) const {
         return m_auth_mgr->verify(token, msg);
+    }
+
+    // generic service methods
+
+    bool run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data) const {
+        auto it = m_generic_rpc_registry.find(rpc_name);
+        if (it == m_generic_rpc_registry.end()) {
+            LOGMSG_ASSERT(false, "generic RPC not registered");
+            // respond immediately
+            return true;
+            ;
+        }
+        return (it->second)(rpc_data);
+    }
+
+    bool register_async_generic_service() {
+        DEBUG_ASSERT_EQ(ServerState::INITED, m_state, "register service in non-INITED state");
+        if (m_generic_service_registered) {
+            LOGMSG_ASSERT(false, "Duplicate register generic async service");
+            return false;
+        }
+        m_builder.RegisterAsyncGenericService(m_generic_service.get());
+        m_generic_rpc_static_info = std::make_unique< GenericRpcStaticInfo >(this, m_generic_service.get());
+        return true;
+    }
+
+    bool register_generic_rpc(const std::string& name, const generic_rpc_handler_cb_t& rpc_handler) {
+        DEBUG_ASSERT_EQ(ServerState::RUNNING, m_state, "register service in non-INITED state");
+
+        if (!m_generic_service_registered) {
+            LOGMSG_ASSERT(false, "RPC registration attempted before generic service is registered");
+            return false;
+        }
+        if (m_generic_rpc_registry.find(name) != m_generic_rpc_registry.end()) {
+            LOGMSG_ASSERT(false, "duplicate generic RPC registration attempted");
+            return false;
+        }
+        m_generic_rpc_registry.emplace(std::make_pair(name, rpc_handler));
+
+        // Register one call per cq.
+        for (auto i = 0u; i < m_cqs.size(); ++i) {
+            auto rpc_call = GenericRpcData::make(m_generic_rpc_static_info.get(), i);
+            rpc_call->enqueue_call_request(*m_cqs[i]);
+        }
+        return true;
     }
 
 private:
@@ -129,6 +164,9 @@ private:
     std::mutex m_rpc_registry_mtx;
     std::vector< std::unique_ptr< RpcStaticInfoBase > > m_rpc_registry;
     std::shared_ptr< sisl::AuthManager > m_auth_mgr;
+    std::unique_ptr< grpc::AsyncGenericService > m_generic_service;
+    std::unique_ptr< GenericRpcStaticInfo > m_generic_rpc_static_info;
+    bool m_generic_service_registered{false};
     std::unordered_map< std::string, generic_rpc_handler_cb_t > m_generic_rpc_registry;
 };
 } // namespace grpc_helper
