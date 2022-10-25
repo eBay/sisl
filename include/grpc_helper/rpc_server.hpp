@@ -122,8 +122,10 @@ public:
             LOGMSG_ASSERT(false, "Duplicate register generic async service");
             return false;
         }
+        m_generic_service = std::make_unique< grpc::AsyncGenericService >();
         m_builder.RegisterAsyncGenericService(m_generic_service.get());
         m_generic_rpc_static_info = std::make_unique< GenericRpcStaticInfo >(this, m_generic_service.get());
+        m_generic_service_registered = true;
         return true;
     }
 

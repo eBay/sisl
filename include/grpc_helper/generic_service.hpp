@@ -36,35 +36,37 @@ public:
     // There is only one generic static rpc data for all rpcs.
     size_t get_rpc_idx() const override { return 0; }
 
+    const grpc::ByteBuffer& request() const { return m_request; }
+    grpc::ByteBuffer& response() { return m_response; }
+
     void enqueue_call_request(::grpc::ServerCompletionQueue& cq) override {
-        m_rpc_info->m_generic_service->RequestCall(m_ctx, &m_stream, &cq, &cq,
+        m_rpc_info->m_generic_service->RequestCall(&m_ctx, &m_stream, &cq, &cq,
                                                    static_cast< void* >(m_request_received_tag.ref()));
     }
 
     void send_response() { m_stream.Write(m_response, static_cast< void* >(m_buf_write_tag.ref())); }
 
     GenericRpcData(GenericRpcStaticInfo* rpc_info, size_t queue_idx) :
-            RpcDataAbstract{queue_idx}, m_rpc_info{rpc_info}, m_stream(m_ctx) {}
+            RpcDataAbstract{queue_idx}, m_rpc_info{rpc_info}, m_stream(&m_ctx) {}
 
 private:
     GenericRpcStaticInfo* m_rpc_info;
     grpc::GenericServerAsyncReaderWriter m_stream;
-    grpc::GenericServerContext* m_ctx;
+    grpc::GenericServerContext m_ctx;
     grpc::ByteBuffer m_request;
     grpc::ByteBuffer m_response;
-    std::atomic_bool m_is_canceled{false};
     grpc::Status m_retstatus{grpc::Status::OK};
 
 private:
     bool do_authorization() {
-        m_retstatus = RPCHelper::do_authorization(m_rpc_info->m_server, m_ctx);
+        m_retstatus = RPCHelper::do_authorization(m_rpc_info->m_server, &m_ctx);
         return m_retstatus.error_code() == grpc::StatusCode::OK;
     }
 
     RpcDataAbstract* on_request_received(bool ok) {
         bool in_shutdown = RPCHelper::has_server_shutdown(m_rpc_info->m_server);
 
-        if (ok && !m_is_canceled.load(std::memory_order_relaxed)) {
+        if (ok) {
             if (!do_authorization()) {
                 m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
             }
@@ -76,21 +78,21 @@ private:
 
     RpcDataAbstract* on_buf_read(bool ok) {
         auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
-        if (RPCHelper::run_generic_handler_cb(m_rpc_info->m_server, m_ctx->method(), this_rpc_data)) {
-            send_response();
-        }
+        // take a ref before the handler cb is called.
+        // unref is called in send_response which is handled by us (in case of sync calls)
+        // or by the handler (for async calls)
+        ref();
+        if (RPCHelper::run_generic_handler_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data)) { send_response(); }
         return nullptr;
     }
 
     RpcDataAbstract* on_buf_write(bool ok) {
         m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
+        unref();
         return nullptr;
     }
 
-    RpcDataAbstract* on_request_completed(bool ok) {
-        if (m_ctx->IsCancelled()) { m_is_canceled.store(true, std::memory_order_release); }
-        return nullptr;
-    }
+    RpcDataAbstract* on_request_completed(bool ok) { return nullptr; }
 
     struct RpcTagImpl : public RpcTag {
         using callback_type = RpcDataAbstract* (GenericRpcData::*)(bool ok);

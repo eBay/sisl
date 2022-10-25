@@ -42,6 +42,15 @@ using req_builder_cb_t = std::function< void(ReqT&) >;
 template < typename RespT >
 using unary_callback_t = std::function< void(RespT&, ::grpc::Status& status) >;
 
+template < typename ReqT, typename RespT >
+class ClientRpcDataInternal;
+
+using GenericClientRpcData = ClientRpcData< grpc::ByteBuffer, grpc::ByteBuffer >;
+using generic_rpc_comp_cb_t = rpc_comp_cb_t< grpc::ByteBuffer, grpc::ByteBuffer >;
+using generic_req_builder_cb_t = req_builder_cb_t< grpc::ByteBuffer >;
+using generic_unary_callback_t = unary_callback_t< grpc::ByteBuffer >;
+using GenericClientRpcDataInternal = ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer >;
+
 /**
  * The specialized 'ClientRpcDataInternal' per gRPC call, it stores
  * the response handler function
@@ -309,8 +318,8 @@ public:
                 m_generic_stub(std::move(stub)), m_worker(worker), m_trf_client(trf_client) {}
 
         void call_unary(const grpc::ByteBuffer& request, const std::string& method,
-                        const unary_callback_t< grpc::ByteBuffer >& callback, uint32_t deadline) {
-            auto data = new ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer >(callback);
+                        const generic_unary_callback_t& callback, uint32_t deadline) {
+            auto data = new GenericClientRpcDataInternal(callback);
             data->set_deadline(deadline);
             if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
             // Note that async unary RPCs don't post a CQ tag in call
@@ -319,6 +328,17 @@ public:
             // CQ tag posted here
             data->m_generic_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
             return;
+        }
+
+        void call_rpc(const generic_req_builder_cb_t& builder_cb, const std::string& method,
+                      const generic_rpc_comp_cb_t& done_cb, uint32_t deadline) {
+            auto cd = new GenericClientRpcData(done_cb);
+            builder_cb(cd->m_req);
+            cd->set_deadline(deadline);
+            if (m_trf_client) { cd->add_metadata("authorization", m_trf_client->get_typed_token()); }
+            cd->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&cd->context(), method, cd->m_req, cq());
+            cd->m_generic_resp_reader_ptr->StartCall();
+            cd->m_generic_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
         }
 
         std::unique_ptr< grpc::GenericStub > m_generic_stub;

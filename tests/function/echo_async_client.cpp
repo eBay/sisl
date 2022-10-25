@@ -17,9 +17,61 @@ using namespace grpc_helper;
 using namespace ::grpc_helper_test;
 using namespace std::placeholders;
 
+struct DataMessage {
+    int m_seqno;
+    std::string m_buf;
+
+    DataMessage() = default;
+    DataMessage(const int n, const std::string& buf) : m_seqno{n}, m_buf{buf} {}
+
+    void SerializeToString(std::string& str_buf) const {
+        // first char denotes number of digits in seq_no
+        str_buf.append(std::to_string(numDigits(m_seqno)));
+        // append the seqno
+        str_buf.append(std::to_string(m_seqno));
+        // append the data buffer
+        str_buf.append(m_buf);
+    }
+    void DeserializeFromString(const std::string& str_buf) {
+        int num_dig = str_buf[0] - '0';
+        m_seqno = std::stoi(str_buf.substr(1, num_dig));
+        m_buf = str_buf.substr(1 + num_dig);
+    }
+
+    static int numDigits(int n) {
+        int ret = 0;
+        for (; n > 0; ret++) {
+            n /= 10;
+        }
+        return ret;
+    }
+};
+
+static void DeserializeFromByteBuffer(const grpc::ByteBuffer& buffer, DataMessage& msg) {
+    std::vector< grpc::Slice > slices;
+    (void)buffer.Dump(&slices);
+    std::string buf;
+    buf.reserve(buffer.Length());
+    for (auto s = slices.begin(); s != slices.end(); s++) {
+        buf.append(reinterpret_cast< const char* >(s->begin()), s->size());
+    }
+    msg.DeserializeFromString(buf);
+}
+static void SerializeToByteBuffer(grpc::ByteBuffer& buffer, const DataMessage& msg) {
+    std::string buf;
+    msg.SerializeToString(buf);
+    buffer.Clear();
+    grpc::Slice slice(buf);
+    grpc::ByteBuffer tmp(&slice, 1);
+    buffer.Swap(&tmp);
+}
+
+static const std::string GENERIC_CLIENT_MESSAGE{"I am a super client!"};
+static const std::string GENERIC_METHOD{"SendData"};
+
 class TestClient {
 public:
-    static constexpr int GRPC_CALL_COUNT = 100;
+    static constexpr int GRPC_CALL_COUNT = 400;
     const std::string WORKER_NAME{"Worker-1"};
 
     void validate_echo_reply(const EchoRequest& req, EchoReply& reply, ::grpc::Status& status) {
@@ -44,6 +96,19 @@ public:
         }
     }
 
+    void validate_generic_reply(const DataMessage& req, grpc::ByteBuffer& reply, ::grpc::Status& status) {
+        RELEASE_ASSERT_EQ(status.ok(), true, "generic request {} failed, status {}: {}", req.m_seqno,
+                          status.error_code(), status.error_message());
+        DataMessage svr_msg;
+        DeserializeFromByteBuffer(reply, svr_msg);
+        RELEASE_ASSERT_EQ(req.m_seqno, svr_msg.m_seqno);
+        RELEASE_ASSERT_EQ(req.m_buf, svr_msg.m_buf);
+        {
+            std::unique_lock lk(m_wait_mtx);
+            if (--m_generic_counter == 0) { m_cv.notify_all(); }
+        }
+    }
+
     void run(const std::string& server_address) {
         auto client = std::make_unique< GrpcAsyncClient >(server_address, "", "");
         client->init();
@@ -51,10 +116,14 @@ public:
 
         auto echo_stub = client->make_stub< EchoService >(WORKER_NAME);
         auto ping_stub = client->make_stub< PingService >(WORKER_NAME);
+        auto generic_stub = client->make_generic_stub(WORKER_NAME);
 
-        m_ping_counter = GRPC_CALL_COUNT;
-        m_echo_counter = GRPC_CALL_COUNT;
-        for (int i = 1; i <= GRPC_CALL_COUNT * 2; ++i) {
+        m_echo_counter = static_cast< int >(GRPC_CALL_COUNT / 2);
+        // all numbers divisible by 3 but not 2
+        m_ping_counter = static_cast< int >((GRPC_CALL_COUNT - 3) / 6) + 1;
+        m_generic_counter = GRPC_CALL_COUNT - m_echo_counter - m_ping_counter;
+
+        for (int i = 1; i <= GRPC_CALL_COUNT; ++i) {
             if ((i % 2) == 0) {
                 if ((i % 4) == 0) {
                     EchoRequest req;
@@ -74,8 +143,9 @@ public:
                         },
                         1);
                 }
-            } else {
-                if ((i % 3) == 0) {
+            } else if ((i % 3) == 0) {
+                // divide all numbers divisible by 3 and not by 2 into two equal buckets
+                if ((((i + 3) / 6) % 2) == 0) {
                     PingRequest req;
                     req.set_seqno(i);
                     ping_stub->call_unary< PingRequest, PingReply >(
@@ -92,19 +162,42 @@ public:
                         },
                         1);
                 }
+            } else {
+                // divide all numbers not divisible by 2 and 3 into two equal buckets
+                if (((i + 1) % 6) == 0) {
+                    DataMessage req(i, GENERIC_CLIENT_MESSAGE);
+                    grpc::ByteBuffer cli_buf;
+                    SerializeToByteBuffer(cli_buf, req);
+                    generic_stub->call_unary(
+                        cli_buf, GENERIC_METHOD,
+                        [req, this](grpc::ByteBuffer& reply, ::grpc::Status& status) {
+                            validate_generic_reply(req, reply, status);
+                        },
+                        1);
+                } else {
+                    DataMessage data_msg(i, GENERIC_CLIENT_MESSAGE);
+                    generic_stub->call_rpc([data_msg](grpc::ByteBuffer& req) { SerializeToByteBuffer(req, data_msg); },
+                                           GENERIC_METHOD,
+                                           [data_msg, this](GenericClientRpcData& cd) {
+                                               validate_generic_reply(data_msg, cd.reply(), cd.status());
+                                           },
+                                           1);
+                }
             }
         }
     }
 
     void wait() {
         std::unique_lock lk(m_wait_mtx);
-        m_cv.wait(lk, [this]() { return ((m_echo_counter == 0) && (m_ping_counter == 0)); });
+        m_cv.wait(lk,
+                  [this]() { return ((m_echo_counter == 0) && (m_ping_counter == 0) && (m_generic_counter == 0)); });
         GrpcAsyncClientWorker::shutdown_all();
     }
 
 private:
     int m_echo_counter;
     int m_ping_counter;
+    int m_generic_counter;
     std::mutex m_wait_mtx;
     std::condition_variable m_cv;
 };
@@ -179,6 +272,45 @@ public:
         }
     };
 
+    class GenericServiceImpl final {
+        std::atomic< uint32_t > num_calls = 0ul;
+
+        static void set_response(const grpc::ByteBuffer& req, grpc::ByteBuffer& resp) {
+            DataMessage cli_request;
+            DeserializeFromByteBuffer(req, cli_request);
+            RELEASE_ASSERT((cli_request.m_buf == GENERIC_CLIENT_MESSAGE), "Could not parse response buffer");
+            SerializeToByteBuffer(resp, cli_request);
+        }
+
+    public:
+        bool receive_data(boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+            if ((++num_calls % 2) == 0) {
+                LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls);
+                auto t = std::thread([rpc = rpc_data] {
+                    set_response(rpc->request(), rpc->response());
+                    rpc->response() = rpc->response();
+                    rpc->send_response();
+                });
+                t.detach();
+                return false;
+            }
+            set_response(rpc_data->request(), rpc_data->response());
+            return true;
+        }
+
+        void register_service(GrpcServer* server) {
+            auto const res = server->register_async_generic_service();
+            RELEASE_ASSERT(res, "Failed to Register Service");
+        }
+
+        void register_rpcs(GrpcServer* server) {
+            LOGINFO("register rpc calls");
+            auto const res =
+                server->register_generic_rpc(GENERIC_METHOD, std::bind(&GenericServiceImpl::receive_data, this, _1));
+            RELEASE_ASSERT(res, "register generic rpc failed");
+        }
+    };
+
     void start(const std::string& server_address) {
         LOGINFO("Start echo and ping server on {}...", server_address);
         m_grpc_server = GrpcServer::make(server_address, 4, "", "");
@@ -188,11 +320,15 @@ public:
         m_ping_impl = new PingServiceImpl();
         m_ping_impl->register_service(m_grpc_server);
 
+        m_generic_impl = new GenericServiceImpl();
+        m_generic_impl->register_service(m_grpc_server);
+
         m_grpc_server->run();
         LOGINFO("Server listening on {}", server_address);
 
         m_echo_impl->register_rpcs(m_grpc_server);
         m_ping_impl->register_rpcs(m_grpc_server);
+        m_generic_impl->register_rpcs(m_grpc_server);
     }
 
     void shutdown() {
@@ -201,12 +337,14 @@ public:
         delete m_grpc_server;
         delete m_echo_impl;
         delete m_ping_impl;
+        delete m_generic_impl;
     }
 
 private:
     GrpcServer* m_grpc_server = nullptr;
     EchoServiceImpl* m_echo_impl = nullptr;
     PingServiceImpl* m_ping_impl = nullptr;
+    GenericServiceImpl* m_generic_impl = nullptr;
 };
 
 SISL_LOGGING_INIT(logging, grpc_server)
@@ -217,7 +355,7 @@ int main(int argc, char** argv) {
     sisl::logging::SetLogger("async_client");
 
     TestServer server;
-    std::string server_address("0.0.0.0:50051");
+    std::string server_address("0.0.0.0:50052");
     server.start(server_address);
 
     TestClient client;
