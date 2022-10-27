@@ -26,6 +26,7 @@ public:
     inline static const std::string default_app_env{get_env("APP_ENV")};
     inline static const std::string default_ssl_cert_file{get_env("SSL_CERT")};
     inline static const std::string default_ssl_key_file{get_env("SSL_KEY")};
+    inline static const std::string default_ssl_ca_file{get_env("SSL_CA")};
     inline static const std::string default_tf_token_url{get_env("TOKEN_URL")};
     inline static const std::string default_issuer{get_env("TOKEN_ISSUER")};
     inline static const std::string default_server{get_env("TOKEN_SERVER")};
@@ -44,6 +45,11 @@ public:
             auto& ssl_key_file = s.ssl_key_file;
             if (ssl_key_file.empty()) {
                 ssl_key_file = default_ssl_key_file;
+                is_modified = true;
+            }
+            auto& ssl_ca_file = s.ssl_ca_file;
+            if (ssl_ca_file.empty()) {
+                ssl_ca_file = default_ssl_ca_file;
                 is_modified = true;
             }
             auto& server = s.trf_client->server;
