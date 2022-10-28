@@ -29,7 +29,7 @@ public:
     }
 
     RpcDataAbstract* create_new() override { return new GenericRpcData(m_rpc_info, m_queue_idx); }
-    void set_status(grpc::Status status) { m_retstatus = status; }
+    void set_status(grpc::Status& status) { m_retstatus = status; }
 
     ~GenericRpcData() override = default;
 

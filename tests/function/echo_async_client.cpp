@@ -288,7 +288,6 @@ public:
                 LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls);
                 auto t = std::thread([rpc = rpc_data] {
                     set_response(rpc->request(), rpc->response());
-                    rpc->response() = rpc->response();
                     rpc->send_response();
                 });
                 t.detach();

@@ -105,15 +105,20 @@ public:
 
     // generic service methods
 
-    bool run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data) const {
-        auto it = m_generic_rpc_registry.find(rpc_name);
-        if (it == m_generic_rpc_registry.end()) {
-            LOGMSG_ASSERT(false, "generic RPC not registered");
-            // respond immediately
-            return true;
-            ;
+    bool run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+        generic_rpc_handler_cb_t cb;
+        {
+            std::shared_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
+            auto it = m_generic_rpc_registry.find(rpc_name);
+            if (it == m_generic_rpc_registry.end()) {
+                LOGMSG_ASSERT(false, "generic RPC not registered");
+                // respond immediately
+                return true;
+                ;
+            }
+            cb = it->second;
         }
-        return (it->second)(rpc_data);
+        return cb(rpc_data);
     }
 
     bool register_async_generic_service() {
@@ -136,11 +141,14 @@ public:
             LOGMSG_ASSERT(false, "RPC registration attempted before generic service is registered");
             return false;
         }
-        if (m_generic_rpc_registry.find(name) != m_generic_rpc_registry.end()) {
-            LOGMSG_ASSERT(false, "duplicate generic RPC registration attempted");
-            return false;
+
+        {
+            std::unique_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
+            if (auto [it, happened]{m_generic_rpc_registry.emplace(name, rpc_handler)}; !happened) {
+                LOGMSG_ASSERT(false, "duplicate generic RPC registration attempted");
+                return false;
+            }
         }
-        m_generic_rpc_registry.emplace(std::make_pair(name, rpc_handler));
 
         // Register one call per cq.
         for (auto i = 0u; i < m_cqs.size(); ++i) {
@@ -170,5 +178,6 @@ private:
     std::unique_ptr< GenericRpcStaticInfo > m_generic_rpc_static_info;
     bool m_generic_service_registered{false};
     std::unordered_map< std::string, generic_rpc_handler_cb_t > m_generic_rpc_registry;
+    std::shared_mutex m_generic_rpc_registry_mtx;
 };
 } // namespace grpc_helper

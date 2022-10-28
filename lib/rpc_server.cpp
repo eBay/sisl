@@ -134,7 +134,7 @@ bool RPCHelper::has_server_shutdown(const GrpcServer* server) {
     return (server->m_state.load(std::memory_order_acquire) != ServerState::RUNNING);
 }
 
-bool RPCHelper::run_generic_handler_cb(const GrpcServer* server, const std::string& method,
+bool RPCHelper::run_generic_handler_cb(GrpcServer* server, const std::string& method,
                                        boost::intrusive_ptr< GenericRpcData >& rpc_data) {
     return server->run_generic_handler_cb(method, rpc_data);
 }
@@ -146,9 +146,10 @@ grpc::Status RPCHelper::do_authorization(const GrpcServer* server, const grpc::S
         const std::string bearer{"Bearer "};
         if (it->second.starts_with(bearer)) {
             auto token_ref = it->second.substr(bearer.size());
-            std::string raw_token{token_ref.begin(), token_ref.end()};
             std::string msg;
-            return grpc::Status(RPCHelper::to_grpc_statuscode(server->auth_verify(raw_token, msg)), msg);
+            return grpc::Status(RPCHelper::to_grpc_statuscode(
+                                    server->auth_verify(std::string(token_ref.begin(), token_ref.end()), msg)),
+                                msg);
         } else {
             return grpc::Status(grpc::StatusCode::UNAUTHENTICATED,
                                 grpc::string("authorization header value does not start with 'Bearer '"));
