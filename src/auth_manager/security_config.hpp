@@ -88,7 +88,7 @@ public:
                 is_modified = true;
             }
             auto& app_env = s.trf_client->app_env;
-            if (app_name.empty()) {
+            if (app_env.empty()) {
                 app_env = std::string_view(default_app_env);
                 is_modified = true;
             }
