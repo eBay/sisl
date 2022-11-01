@@ -16,9 +16,11 @@ class TrfClient {
 public:
     TrfClient();
     std::string get_token();
+    std::string get_token_type();
     std::string get_typed_token() {
-        const auto token_str{get_token()};
-        return fmt::format("{} {}", m_token_type, token_str);
+        // get_token needs to be called first which might potentially set token type
+        const auto token{get_token()};
+        return fmt::format("{} {}", get_token_type(), token);
     }
 
 private:
@@ -30,7 +32,11 @@ private:
     }
     static bool get_file_contents(const std::string& file_name, std::string& contents);
 
+private:
+    std::shared_mutex m_mtx;
+
 protected:
+    // acquire unique lock before calling
     virtual void request_with_grant_token();
 
 protected:
