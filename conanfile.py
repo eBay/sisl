@@ -133,6 +133,11 @@ class SISLConan(ConanFile):
             self.cpp_info.system_libs.extend(["dl", "pthread"])
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
 
+        if  self.options.sanitize:
+            self.cpp_info.sharedlinkflags.append("-fsanitize=address")
+            self.cpp_info.exelinkflags.append("-fsanitize=address")
+            self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
+            self.cpp_info.exelinkflags.append("-fsanitize=undefined")
         if self.options.malloc_impl == 'jemalloc':
             self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
         elif self.options.malloc_impl == 'tcmalloc':
