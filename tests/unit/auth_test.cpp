@@ -31,7 +31,7 @@ static void set_token_response(const std::string& raw_token) {
         raw_token +
         "\",\n"
         "  \"token_type\": \"Bearer\",\n"
-        "  \"expires_in\": \"2000\",\n"
+        "  \"expires_in\": 2000,\n"
         "  \"refresh_token\": \"dummy_refresh_token\"\n"
         "}";
 }
