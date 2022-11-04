@@ -14,7 +14,7 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include "../proto/flip_spec.pb.h"
+#include "proto/flip_spec.pb.h"
 #include "flip.hpp"
 #include <memory>
 #include <string>
