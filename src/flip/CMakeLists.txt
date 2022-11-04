@@ -7,7 +7,7 @@ endif()
 find_package(gRPC REQUIRED)
 
 include_directories(BEFORE include)
-include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/proto)
+include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 include_directories(BEFORE ..)
 include_directories(BEFORE .)
 

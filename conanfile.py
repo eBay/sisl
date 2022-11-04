@@ -57,7 +57,7 @@ class SISLConan(ConanFile):
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.10.5")
         self.requires("zmarok-semver/1.1.0")
-        self.requires("spdlog/1.10.0")
+        self.requires("spdlog/1.11.0")
         self.requires("userspace-rcu/0.11.4")
         self.requires("prometheus-cpp/1.0.1")
         self.requires("fmt/8.1.1",          override=True)
