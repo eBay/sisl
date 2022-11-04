@@ -563,7 +563,7 @@ size_t stack_interpret_linux_file(const void* const* const stack_ptr, FILE* cons
 
 #ifdef __APPLE__
 size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr, const char* const* const stack_msg,
-                             const size_t stack_size, char* const output_buf, const size_t output_buflen, ,
+                             const size_t stack_size, char* const output_buf, const size_t output_buflen,
                              [[maybe_unused]] const bool trim_internal) {
     size_t cur_len{0};
 
@@ -639,14 +639,14 @@ size_t stack_interpret_apple([[maybe_unused]] const void* const* const stack_ptr
             ss << std::hex << load_base;
             ss << " -o " << exec_full_path;
             ss << " " << address;
-            const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(ss.str().c_str() "r"),
+            const std::unique_ptr< FILE, std::function< void(FILE* const) > > fp{::popen(ss.str().c_str(), "r"),
                                                                                  [](FILE* const ptr) {
                                                                                      if (ptr) ::pclose(ptr);
                                                                                  }};
             if (!fp) continue;
 
             std::array< char, 4096 > atos_cstr;
-            std::fgets(atos_cstr.data(), atos_cstr.size() - 1, fp);
+            std::fgets(atos_cstr.data(), atos_cstr.size() - 1, fp.get());
 
             const std::string atos_str{atos_cstr.data()};
             size_t d_pos{atos_str.find(" (in ")};

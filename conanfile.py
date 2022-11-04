@@ -40,7 +40,8 @@ class SISLConan(ConanFile):
     def build_requirements(self):
         self.build_requires("benchmark/1.6.1")
         self.build_requires("gtest/1.11.0")
-        self.build_requires("pistache/cci.20201127")
+        if self.settings.os in ["Linux"]:
+            self.build_requires("pistache/cci.20201127")
 
     def requirements(self):
         # Custom packages
@@ -52,14 +53,16 @@ class SISLConan(ConanFile):
         self.requires("cpr/1.8.1")
         self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")
-        self.requires("folly/2022.01.31.00")
+        if self.settings.os in ["Linux"]:
+            self.requires("folly/2022.01.31.00")
         self.requires("grpc/1.48.0")
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.10.5")
-        self.requires("zmarok-semver/1.1.0")
-        self.requires("spdlog/1.11.0")
-        self.requires("userspace-rcu/0.11.4")
         self.requires("prometheus-cpp/1.0.1")
+        self.requires("spdlog/1.11.0")
+        if self.settings.os in ["Linux"]:
+            self.requires("userspace-rcu/0.11.4")
+        self.requires("zmarok-semver/1.1.0")
         self.requires("fmt/8.1.1",          override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1q",     override=True)
