@@ -26,14 +26,15 @@
 #include <regex>
 
 #if defined(__linux__) || defined(__APPLE__)
+#if defined(__APPLE__)
+#undef _POSIX_C_SOURCE
+#endif
 #include <dlfcn.h>
 #include <unistd.h>
 #endif
 
 #if defined(__linux__)
 #include <linux/limits.h>
-#elif defined(__APPLE__)
-#include <sys/limits.h>
 #endif
 
 #include "options/options.h"

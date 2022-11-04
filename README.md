@@ -19,6 +19,8 @@ sent to prometheus whichever caller choose from. It is meant to scale with multi
 metrics. The collection is extremely fast <<5ns per metric, but pay penalty during metrics result gathering which is rare. It
 uses Wisr framework which will be detailed next
 
+*Lacks MacOS support*
+
 ### Wisr
 
 WISR stands for Waitfree Inserts Snoozy Rest. This is a framework and data structures on top of this framework which provides
@@ -32,6 +34,8 @@ More details in the Wisr README under [src/wisr/README.md]
 ### FDS
 This is a bunch of data structures meant for high performance or specific use cases. Each of these structures are detailed in their 
 corresponding source files. Some of the major data structures are listed below:
+
+*Lacks MacOS support*
 
 #### Bitset
 A high performance bitset to have various functionalities to scan the contiguous 1s, 0s, set/reset multiple bits without iterating over

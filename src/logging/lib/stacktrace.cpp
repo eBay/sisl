@@ -64,8 +64,10 @@ static bool exit_in_progress() {
     pthread_t current_id{tracing_thread_id.load()};
     pthread_t new_id{pthread_self()};
 
+#ifndef __APPLE__
     if (logger) { logger->critical("Thread num: {} entered exit handler\n", new_id); }
     if (critical_logger) { critical_logger->critical("Thread num: {} entered exit handler\n", new_id); }
+#endif
 
     if (current_id == new_id) {
         // we are already marked in exit handler
@@ -192,11 +194,19 @@ static void log_stack_trace_all_threads() {
         if (signal_thread) {
             const auto log_failure{[&logger, &critical_logger, &thread_count, &thread_id](const char* const msg) {
                 if (logger) {
+#ifndef __APPLE__
                     logger->critical("Thread ID: {}, Thread num: {} - {}\n", thread_id, thread_count, msg);
+#else
+                    logger->critical("Thread num: {} - {}\n", thread_count, msg);
+#endif
                     logger->flush();
                 }
                 if (critical_logger) {
+#ifndef __APPLE__
                     critical_logger->critical("Thread ID: {}, Thread num: {} - {}\n", thread_id, thread_count, msg);
+#else
+                    critical_logger->critical("Thread num: {} - {}\n", thread_count, msg);
+#endif
                     critical_logger->flush();
                 }
             }};
@@ -234,12 +244,20 @@ static void log_stack_trace_all_threads() {
         }
 
         if (logger) {
+#ifndef __APPLE__
             logger->critical("Thread ID: {}, Thread num: {}\n{}", thread_id, thread_count, g_stacktrace_buff.data());
+#else
+            logger->critical("Thread num: {}\n{}", thread_count, g_stacktrace_buff.data());
+#endif
             logger->flush();
         }
         if (critical_logger) {
+#ifndef __APPLE__
             critical_logger->critical("Thread ID: {}, Thread num: {}\n{}", thread_id, thread_count,
                                       g_stacktrace_buff.data());
+#else
+            critical_logger->critical("Thread num: {}\n{}", thread_count, g_stacktrace_buff.data());
+#endif
             critical_logger->flush();
         }
     }};
