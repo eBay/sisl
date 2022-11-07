@@ -125,14 +125,12 @@ endif()
 
 include_directories(BEFORE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_BINARY_DIR}/src/auth_manager
-    ${CMAKE_CURRENT_BINARY_DIR}/src/settings
 )
 
 #add_subdirectory (src/btree)
 add_subdirectory (src/logging)
 add_subdirectory (src/options)
-add_subdirectory (src/sisl_version)
+add_subdirectory (src/version)
 
 # These sub-libraries currently do not support MacOS due to dependencies
 # on Folly and pistache. It is unknown if Windows is supported...

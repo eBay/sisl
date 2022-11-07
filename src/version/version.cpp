@@ -14,7 +14,7 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include "version.hpp"
+#include <sisl/version.hpp>
 #include <cassert>
 
 namespace sisl {
