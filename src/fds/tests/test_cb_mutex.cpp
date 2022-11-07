@@ -17,8 +17,8 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include <gtest/gtest.h>
 
 #pragma GCC diagnostic push

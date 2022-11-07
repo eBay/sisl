@@ -14,6 +14,6 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include "options/options.h"
+#include <sisl/options/options.h>
 
 SISL_OPTION_GROUP(main, (help, "h", "help", "Help message", ::cxxopts::value< bool >(), ""))

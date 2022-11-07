@@ -22,7 +22,7 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include "options/options.h"
+#include <sisl/options/options.h>
 
 #include "settings.hpp"
 

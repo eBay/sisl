@@ -33,8 +33,8 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <nlohmann/json.hpp>
 
-#include "../logging/logging.h"
-#include "../options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include "metrics_atomic.hpp"
 #include "metrics_group_impl.hpp"
 #include "metrics_rcu.hpp"

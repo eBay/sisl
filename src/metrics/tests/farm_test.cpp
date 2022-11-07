@@ -23,7 +23,7 @@
 #include <thread>
 
 #include <gtest/gtest.h>
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 
 #include "metrics.hpp"
 

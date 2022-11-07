@@ -39,7 +39,7 @@
 #include <mach-o/getsect.h>
 #endif
 
-#include "logging.h"
+#include <sisl/logging/logging.h>
 
 #include "backtrace.h"
 

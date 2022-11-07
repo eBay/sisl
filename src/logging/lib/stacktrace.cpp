@@ -32,8 +32,8 @@
 #include <unistd.h>
 #endif
 
+#include <sisl/logging/logging.h>
 #include "backtrace.h"
-#include "logging.h"
 
 namespace {
 constexpr uint64_t backtrace_timeout_ms{4 * backtrace_detail::pipe_timeout_ms};

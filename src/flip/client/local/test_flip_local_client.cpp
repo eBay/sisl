@@ -19,8 +19,8 @@
 #include <memory>
 #include <string>
 
-#include "options/options.h"
-#include "logging/logging.h"
+#include <sisl/options/options.h>
+#include <sisl/logging/logging.h>
 
 using namespace flip;
 

@@ -16,7 +16,7 @@
  *********************************************************************************/
 #pragma once
 #include <utility/urcu_helper.hpp>
-#include "../logging/logging.h"
+#include <sisl/logging/logging.h>
 
 namespace sisl {
 template < typename StatusT >

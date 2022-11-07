@@ -16,7 +16,7 @@
  *********************************************************************************/
 #include "flip.hpp"
 
-#include "options/options.h"
+#include <sisl/options/options.h>
 
 SISL_LOGGING_INIT(flip)
 

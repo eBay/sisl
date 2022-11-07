@@ -1,6 +1,6 @@
 #pragma once
 #include "../settings/settings.hpp"
-#include "../options/options.h"
+#include <sisl/options/options.h>
 #include "generated/security_config_generated.h"
 
 SETTINGS_INIT(securitycfg::SecuritySettings, security_config)

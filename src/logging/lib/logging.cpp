@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 
-#include "logging.h"
+#include <sisl/logging/logging.h>
 
 #include <array>
 #include <chrono>
@@ -37,7 +37,7 @@
 #include <linux/limits.h>
 #endif
 
-#include "options/options.h"
+#include <sisl/options/options.h>
 #include <spdlog/async.h>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/rotating_file_sink.h>

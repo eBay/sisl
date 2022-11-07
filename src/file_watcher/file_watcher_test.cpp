@@ -10,7 +10,7 @@
 #include <gmock/gmock.h>
 
 #include "file_watcher.hpp"
-#include "options/options.h"
+#include <sisl/options/options.h>
 
 SISL_LOGGING_INIT(test_file_watcher)
 SISL_OPTIONS_ENABLE(logging)

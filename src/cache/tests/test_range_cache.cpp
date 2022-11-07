@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #include <iostream>
-#include "options/options.h"
+#include <sisl/options/options.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
@@ -27,7 +27,7 @@
 #include <unistd.h>
 #endif
 
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 #include "range_cache.hpp"
 #include "lru_evictor.hpp"
 #include "utility/enum.hpp"

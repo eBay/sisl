@@ -22,8 +22,8 @@
 #include <string>
 
 #include <benchmark/benchmark.h>
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include "metrics/metrics.hpp"
 #include "obj_allocator.hpp"
