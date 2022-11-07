@@ -15,12 +15,12 @@
  *
  *********************************************************************************/
 #include <iostream>
-#include "options/options.h"
+#include <sisl/options/options.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
 
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 #include "fds/bitset.hpp"
 #include "range_hashmap.hpp"
 #include "utility/enum.hpp"

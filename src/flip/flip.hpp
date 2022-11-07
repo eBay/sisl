@@ -32,7 +32,7 @@
 
 #include "proto/flip_spec.pb.h"
 #include "flip_rpc_server.hpp"
-#include "../logging/logging.h"
+#include <sisl/logging/logging.h>
 
 SISL_LOGGING_DECL(flip)
 

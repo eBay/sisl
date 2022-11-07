@@ -18,7 +18,7 @@
 #include <iostream>
 #include <memory>
 
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 
 #include "metrics_atomic.hpp"
 

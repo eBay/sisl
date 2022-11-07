@@ -38,7 +38,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "../logging/logging.h"
+#include <sisl/logging/logging.h>
 #include "../metrics/histogram_buckets.hpp"
 #include "../metrics/metrics.hpp"
 

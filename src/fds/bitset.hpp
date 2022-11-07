@@ -38,7 +38,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include "../logging/logging.h"
+#include <sisl/logging/logging.h>
 #include "bitword.hpp"
 #include "buffer.hpp"
 

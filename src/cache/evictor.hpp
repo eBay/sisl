@@ -19,7 +19,7 @@
 #include <array>
 #include <mutex>
 #include <functional>
-#include "../logging/logging.h"
+#include <sisl/logging/logging.h>
 #include "hash_entry_base.hpp"
 
 namespace sisl {

@@ -20,7 +20,7 @@
 #include <fstream>
 #include "metrics.hpp"
 #include <gtest/gtest.h>
-#include "options/options.h"
+#include <sisl/options/options.h>
 
 SISL_LOGGING_INIT(vmod_metrics_framework)
 

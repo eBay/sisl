@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #include "metrics_rcu.hpp"
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 
 namespace sisl {
 

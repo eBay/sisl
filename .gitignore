@@ -93,6 +93,7 @@ src/.tags*
 
 # build generated products
 build/**
+test_package/build
 debug/**
 release/**
 cmake-*/**

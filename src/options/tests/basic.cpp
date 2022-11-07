@@ -20,7 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "options.h"
+#include <sisl/options/options.h>
 
 SISL_OPTION_GROUP(logging,
                   (verbosity, "v", "verbosity", "Verbosity  level (0-5)",

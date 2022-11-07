@@ -7,8 +7,8 @@
 #include <cstdlib>
 
 #include <gtest/gtest.h>
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include "fds/buffer.hpp"
 
