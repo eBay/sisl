@@ -1,4 +1,4 @@
-#include <version.hpp>
+#include <sisl/version.hpp>
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
 #include <gtest/gtest.h>
