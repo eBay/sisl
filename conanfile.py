@@ -35,7 +35,7 @@ class SISLConan(ConanFile):
             }
 
     generators = "cmake", "cmake_find_package"
-    exports_sources = ("CMakeLists.txt", "cmake/*", "src/*", "LICENSE")
+    exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
 
     def build_requirements(self):
         self.build_requires("benchmark/1.6.1")
