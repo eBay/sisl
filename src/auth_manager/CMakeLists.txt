@@ -1,50 +1,45 @@
 cmake_minimum_required (VERSION 3.10)
 
-add_flags("-Wno-unused-parameter")
-
-include_directories(BEFORE ..)
-include_directories(BEFORE .)
-
 find_package(flatbuffers REQUIRED)
 find_package(Pistache REQUIRED)
 
-set(AUTH_MGR_SOURCE_FILES 
+add_library(sisl_auth_manager OBJECT)
+target_sources(sisl_auth_manager PRIVATE
     auth_manager.cpp
-   )
-add_library(sisl_auth_manager OBJECT ${AUTH_MGR_SOURCE_FILES})
+    trf_client.cpp
+  )
+if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+  target_include_directories(sisl_auth_manager BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+target_include_directories(sisl_auth_manager BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(sisl_auth_manager
     ${COMMON_DEPS}
     cpr::cpr
     flatbuffers::flatbuffers
     jwt-cpp::jwt-cpp
   )
-set(FLATBUFFERS_FLATC_EXECUTABLE, ${CONAN_BIN_DIRS_FLATBUFFER}/flatc)
-message("Flatbuffers parser: [${FLATBUFFERS_FLATC_EXECUTABLE}]")
-settings_gen_cpp(${FLATBUFFERS_FLATC_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/generated/ sisl_auth_manager security_config.fbs)
-
-set(TRF_CLIENT_SOURCE_FILES 
-    trf_client.cpp
-   )
-add_library(sisl_trf_client OBJECT ${TRF_CLIENT_SOURCE_FILES})
-target_link_libraries(sisl_trf_client
-    ${COMMON_DEPS}
-    cpr::cpr
-    flatbuffers::flatbuffers
+settings_gen_cpp(
+    ${FLATBUFFERS_FLATC_EXECUTABLE}
+    ${CMAKE_CURRENT_BINARY_DIR}/generated/
+    sisl_auth_manager
+    security_config.fbs
   )
-settings_gen_cpp(${FLATBUFFERS_FLATC_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/generated/ sisl_trf_client security_config.fbs)
 
-set(AUTH_DEPS
-      sisl
-      ${COMMON_DEPS}
-      cpr::cpr
-      pistache::pistache
-      flatbuffers::flatbuffers
-      jwt-cpp::jwt-cpp
-      GTest::gmock
-    )
-
-add_executable(test_auth_mgr
+add_executable(test_auth_mgr)
+target_sources(test_auth_mgr PRIVATE
     tests/AuthTest.cpp
   )
-target_link_libraries(test_auth_mgr ${AUTH_DEPS})
+if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+  target_include_directories(test_auth_mgr BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+target_include_directories(test_auth_mgr BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(test_auth_mgr
+    sisl
+    ${COMMON_DEPS}
+    cpr::cpr
+    pistache::pistache
+    flatbuffers::flatbuffers
+    jwt-cpp::jwt-cpp
+    GTest::gmock
+  )
 add_test(NAME test_auth_mgr COMMAND test_auth_mgr)
