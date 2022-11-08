@@ -154,7 +154,6 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
         $<TARGET_OBJECTS:sisl_file_watcher>
         $<TARGET_OBJECTS:sisl_metrics>
         $<TARGET_OBJECTS:sisl_settings>
-        $<TARGET_OBJECTS:sisl_trf_client>
     )
     list(APPEND SISL_DEPS 
         Folly::Folly
