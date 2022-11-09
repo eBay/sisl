@@ -129,10 +129,11 @@ class SISLConan(ConanFile):
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
     def package_info(self):
-        self.cpp_info.libs = ["sisl", "flip"]
+        self.cpp_info.libs = ["sisl"]
         self.cpp_info.cppflags.extend(["-fconcepts"])
 
         if self.settings.os == "Linux":
+            self.cpp_info.libs.append("flip")
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")
             self.cpp_info.cppflags.append("-D_LARGEFILE64")
