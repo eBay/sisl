@@ -40,7 +40,7 @@ class SISLConan(ConanFile):
     def build_requirements(self):
         self.build_requires("benchmark/1.6.1")
         self.build_requires("gtest/1.11.0")
-        if self.settings.os in ["Linux"]:
+        if self.settings.compiler in ["gcc"]:
             self.build_requires("pistache/cci.20201127")
 
     def requirements(self):
@@ -130,7 +130,9 @@ class SISLConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
-        self.cpp_info.cppflags.extend(["-fconcepts"])
+
+        if self.settings.compiler == "gcc":
+            self.cpp_info.cppflags.extend(["-fconcepts"])
 
         if self.settings.os == "Linux":
             self.cpp_info.libs.append("flip")
