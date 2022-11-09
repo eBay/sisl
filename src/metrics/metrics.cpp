@@ -16,7 +16,7 @@
  *********************************************************************************/
 #include <sisl/logging/logging.h>
 
-#include "metrics.hpp"
+#include "sisl/metrics/metrics.hpp"
 
 THREAD_BUFFER_INIT
 

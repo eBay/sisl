@@ -20,7 +20,7 @@
 
 #include <sisl/logging/logging.h>
 
-#include "metrics_atomic.hpp"
+#include "sisl/metrics/metrics_atomic.hpp"
 
 namespace sisl {
 

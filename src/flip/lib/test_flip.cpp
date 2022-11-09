@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #include "proto/flip_spec.pb.h"
-#include "flip.hpp"
+#include "sisl/flip/flip.hpp"
 #include <memory>
 #include <string>
 
@@ -153,7 +153,7 @@ void run_and_validate_delay_return_flip(flip::Flip* flip) {
 
     RELEASE_ASSERT(flip->get_delay_flip< std::string >(
                        "delay_ret_fspec",
-                       [closure_calls](std::string error) {
+                       [closure_calls]([[maybe_unused]] std::string error) {
                            (*closure_calls)++;
                            DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
                        },
@@ -162,7 +162,7 @@ void run_and_validate_delay_return_flip(flip::Flip* flip) {
 
     RELEASE_ASSERT(!flip->get_delay_flip< std::string >(
                        "delay_ret_fspec",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            assert(0);
                            (*closure_calls)++;
                        },
@@ -171,7 +171,7 @@ void run_and_validate_delay_return_flip(flip::Flip* flip) {
 
     RELEASE_ASSERT(flip->get_delay_flip< std::string >(
                        "delay_ret_fspec",
-                       [closure_calls](std::string error) {
+                       [closure_calls]([[maybe_unused]] std::string error) {
                            DEBUG_ASSERT_EQ(error, "Delayed error simulated value");
                            (*closure_calls)++;
                        },
@@ -180,7 +180,7 @@ void run_and_validate_delay_return_flip(flip::Flip* flip) {
 
     RELEASE_ASSERT(!flip->get_delay_flip< std::string >(
                        "delay_ret_fspec",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            assert(0);
                            (*closure_calls)++;
                        },

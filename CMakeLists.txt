@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 project (sisl)
 
 option(DEBUG_CMAKE "Debug CMake messages option" OFF)
@@ -127,55 +127,7 @@ include_directories(BEFORE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-#add_subdirectory (src/btree)
-add_subdirectory (src/logging)
-add_subdirectory (src/options)
-add_subdirectory (src/version)
-
-# These sub-libraries currently do not support MacOS due to dependencies
-# on Folly and pistache. It is unknown if Windows is supported...
-list(APPEND POSIX_LIBRARIES )
-list(APPEND SISL_DEPS  )
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
-    add_subdirectory (src/auth_manager)
-    add_subdirectory (src/cache)
-    add_subdirectory (src/fds)
-    add_subdirectory (src/file_watcher)
-    add_subdirectory (src/flip)
-    add_subdirectory (src/metrics)
-    add_subdirectory (src/settings)
-    add_subdirectory (src/utility)
-    add_subdirectory (src/wisr)
-
-    list(APPEND POSIX_LIBRARIES
-        $<TARGET_OBJECTS:sisl_auth_manager>
-        $<TARGET_OBJECTS:sisl_buffer>
-        $<TARGET_OBJECTS:sisl_cache>
-        $<TARGET_OBJECTS:sisl_file_watcher>
-        $<TARGET_OBJECTS:sisl_metrics>
-        $<TARGET_OBJECTS:sisl_settings>
-    )
-    list(APPEND SISL_DEPS 
-        Folly::Folly
-    )
-endif()
-
-add_library(sisl
-            ${POSIX_LIBRARIES}
-            $<TARGET_OBJECTS:sisl_logging>
-            $<TARGET_OBJECTS:sisl_options>
-            $<TARGET_OBJECTS:sisl_version>
-           )
-
-if (DEFINED MALLOC_IMPL)
-    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
-        list(APPEND SISL_DEPS gperftools::gperftools)
-    endif()
-endif()
-
-target_link_libraries(sisl
-    ${SISL_DEPS}
-)
+add_subdirectory(src)
 
 # build info
 string(TOUPPER "${CMAKE_BUILD_TYPE}" UC_CMAKE_BUILD_TYPE)

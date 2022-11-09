@@ -27,7 +27,7 @@
 #pragma GCC diagnostic pop
 
 #include "callback_mutex.hpp"
-#include "utils.hpp"
+#include "sisl/fds/utils.hpp"
 
 SISL_LOGGING_INIT(test_cb_mutex)
 
@@ -69,7 +69,7 @@ protected:
 
     template < typename I = MutexImpl >
     typename std::enable_if< !sisl::CallbackMutex< I >::shared_mode_supported, void >::type
-    thread_shared_fn(uint64_t count_per_thread) {
+    thread_shared_fn(uint64_t) {
         assert(0);
     }
 

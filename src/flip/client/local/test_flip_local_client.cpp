@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #include "proto/flip_spec.pb.h"
-#include "flip_client.hpp"
+#include "sisl/flip/flip_client.hpp"
 #include <memory>
 #include <string>
 
@@ -109,7 +109,7 @@ void run_and_validate_delay_return_flip() {
 
     RELEASE_ASSERT(!g_flip.get_delay_flip< std::string >(
                        "delay_simval_flip",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            RELEASE_ASSERT(false, "Invalid closure called");
                            (*closure_calls)++;
                        },
@@ -127,7 +127,7 @@ void run_and_validate_delay_return_flip() {
 
     RELEASE_ASSERT(!g_flip.get_delay_flip< std::string >(
                        "delay_simval_flip",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            RELEASE_ASSERT(false, "Invalid closure called");
                            (*closure_calls)++;
                        },

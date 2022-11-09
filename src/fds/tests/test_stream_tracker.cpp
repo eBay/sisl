@@ -19,11 +19,10 @@
 #include <thread>
 
 #include <nlohmann/json.hpp>
-
-#include "fds/thread_vector.hpp"
-#include "stream_tracker.hpp"
-
 #include <gtest/gtest.h>
+
+#include "sisl/fds/thread_vector.hpp"
+#include "sisl/fds/stream_tracker.hpp"
 
 using namespace sisl;
 

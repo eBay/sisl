@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #include <cstring>
-#include "buffer.hpp"
+#include "sisl/fds/buffer.hpp"
 
 namespace sisl {
 uint8_t* AlignedAllocatorImpl::aligned_alloc(const size_t align, const size_t sz, const sisl::buftag tag) {

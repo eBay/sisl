@@ -26,9 +26,9 @@
 #include <malloc.h>
 #endif
 
-#include "../metrics/metrics.hpp"
-#include "../utility/enum.hpp"
-#include "../fds/utils.hpp"
+#include <sisl/metrics/metrics.hpp>
+#include <sisl/utility/enum.hpp>
+#include "utils.hpp"
 
 namespace sisl {
 struct blob {
@@ -104,7 +104,7 @@ public:
     virtual uint8_t* aligned_pool_alloc(const size_t align, const size_t sz, const sisl::buftag tag) {
         return aligned_alloc(align, sz, tag);
     };
-    virtual void aligned_pool_free(uint8_t* const b, const size_t sz, const sisl::buftag tag) { aligned_free(b, tag); };
+    virtual void aligned_pool_free(uint8_t* const b, const size_t, const sisl::buftag tag) { aligned_free(b, tag); };
 
     virtual size_t buf_size(uint8_t* buf) const {
 #ifdef __linux__
@@ -205,7 +205,7 @@ struct io_blob : public blob {
         aligned ? sisl_aligned_free(blob::bytes, tag) : std::free(blob::bytes);
     }
 
-    void buf_realloc(const size_t new_size, const uint32_t align_size = 512, const buftag tag = buftag::common) {
+    void buf_realloc(const size_t new_size, const uint32_t align_size = 512, [[maybe_unused]] const buftag tag = buftag::common) {
         uint8_t* new_buf{nullptr};
         if (aligned) {
             // aligned before, so do not need check for new align size, once aligned will be aligned on realloc also

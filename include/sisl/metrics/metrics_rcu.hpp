@@ -16,13 +16,15 @@
  *********************************************************************************/
 #pragma once
 
-#include "histogram_buckets.hpp"
 #include <atomic>
 #include <array>
 #include <vector>
 #include <cstdint>
+
+#include <sisl/wisr/wisr_framework.hpp>
+
+#include "histogram_buckets.hpp"
 #include "metrics_tlocal.hpp"
-#include "../wisr/wisr_framework.hpp"
 
 namespace sisl {
 using WisrBufferMetrics =

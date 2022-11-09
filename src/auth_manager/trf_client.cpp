@@ -7,7 +7,7 @@
 #include <cpr/payload.h>
 #include <nlohmann/json.hpp>
 
-#include "trf_client.hpp"
+#include "sisl/auth_manager/trf_client.hpp"
 
 namespace sisl {
 TrfClient::TrfClient() { validate_grant_path(); }

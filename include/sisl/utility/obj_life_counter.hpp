@@ -27,7 +27,7 @@
 #if defined(__linux__) || defined(__APPLE__)
 #include <cxxabi.h>
 #endif
-#include "../metrics/metrics.hpp"
+#include <sisl/metrics/metrics.hpp>
 
 namespace sisl {
 

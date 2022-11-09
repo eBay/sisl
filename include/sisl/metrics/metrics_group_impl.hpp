@@ -30,9 +30,10 @@
 
 #include <nlohmann/json.hpp>
 
+#include <sisl/utility/thread_buffer.hpp>
+
 #include "histogram_buckets.hpp"
 #include "prometheus_reporter.hpp"
-#include "../utility/thread_buffer.hpp"
 
 namespace sisl {
 using on_gather_cb_t = std::function< void(void) >;

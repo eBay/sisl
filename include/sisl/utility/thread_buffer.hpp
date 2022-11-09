@@ -34,8 +34,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 
-#include "../fds/flexarray.hpp"
-#include "../fds/sparse_vector.hpp"
+#include <sisl/fds/flexarray.hpp>
+#include <sisl/fds/sparse_vector.hpp>
 #include "atomic_counter.hpp"
 #include "enum.hpp"
 #include "urcu_helper.hpp"

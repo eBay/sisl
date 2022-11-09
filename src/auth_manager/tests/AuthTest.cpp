@@ -8,8 +8,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "auth_manager.hpp"
-#include "trf_client.hpp"
+#include "sisl/auth_manager/auth_manager.hpp"
+#include "sisl/auth_manager/trf_client.hpp"
 #include "test_token.hpp"
 #include "basic_http_server.hpp"
 

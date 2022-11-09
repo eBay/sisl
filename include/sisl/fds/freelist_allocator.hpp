@@ -33,7 +33,7 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include "../metrics/metrics.hpp"
+#include <sisl/metrics/metrics.hpp>
 #include "utils.hpp"
 
 namespace sisl {

@@ -21,7 +21,7 @@
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
 #include "generated/test_app_schema_generated.h"
-#include "settings.hpp"
+#include "sisl/settings/settings.hpp"
 
 SISL_OPTIONS_ENABLE(logging, test_settings, config)
 SISL_LOGGING_INIT(test_settings, settings)

@@ -22,7 +22,7 @@
 #include <boost/optional.hpp>
 #include <sstream>
 #include <mutex>
-#include <utility/atomic_counter.hpp>
+#include <sisl/utility/atomic_counter.hpp>
 #include <atomic>
 #include <utility/obj_life_counter.hpp>
 #include "buffer.hpp"

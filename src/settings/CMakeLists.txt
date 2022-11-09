@@ -1,11 +1,11 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 
 find_package(flatbuffers REQUIRED)
 
 add_library(sisl_settings OBJECT)
 target_sources(sisl_settings PRIVATE
     settings.cpp
-   )
+  )
 target_link_libraries(sisl_settings
     ${COMMON_DEPS}
     flatbuffers::flatbuffers

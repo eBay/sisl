@@ -3,7 +3,7 @@
 
 #include <fmt/format.h>
 
-#include "auth_manager.hpp"
+#include "sisl/auth_manager/auth_manager.hpp"
 
 namespace sisl {
 

@@ -22,11 +22,11 @@
 #include <string>
 
 #include <benchmark/benchmark.h>
-#include <sisl/logging/logging.h>
-#include <sisl/options/options.h>
+#include "sisl/logging/logging.h"
+#include "sisl/options/options.h"
 
-#include "metrics/metrics.hpp"
-#include "obj_allocator.hpp"
+#include "sisl/metrics/metrics.hpp"
+#include "sisl/fds/obj_allocator.hpp"
 
 SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 RCU_REGISTER_INIT
@@ -49,7 +49,7 @@ void test_malloc(benchmark::State& state) {
     static thread_local std::random_device rd{};
     static thread_local std::default_random_engine engine{rd()};
 
-    for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
+    for ([[maybe_unused]] auto si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = new my_request());
         req->m_a = 10;
@@ -69,7 +69,7 @@ void test_obj_alloc(benchmark::State& state) {
     uint64_t counter{0};
     static thread_local std::random_device rd{};
     static thread_local std::default_random_engine engine{rd()};
-    for (auto [[maybe_unused]] si : state) { // Loops up to iteration count
+    for ([[maybe_unused]] auto si : state) { // Loops up to iteration count
         my_request* req;
         benchmark::DoNotOptimize(req = sisl::ObjectAllocator< my_request >::make_object());
         req->m_a = 10;

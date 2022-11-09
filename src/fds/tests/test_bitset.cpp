@@ -26,7 +26,7 @@
 
 #include <gtest/gtest.h>
 
-#include "bitset.hpp"
+#include "sisl/fds/bitset.hpp"
 
 using namespace sisl;
 
