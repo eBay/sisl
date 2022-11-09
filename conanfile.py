@@ -130,7 +130,9 @@ class SISLConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
-        self.cpp_info.cppflags.extend(["-fconcepts"])
+
+        if self.settings.compiler == "gcc":
+            self.cpp_info.cppflags.extend(["-fconcepts"])
 
         if self.settings.os == "Linux":
             self.cpp_info.libs.append("flip")
