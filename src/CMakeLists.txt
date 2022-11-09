@@ -9,8 +9,13 @@ add_subdirectory (version)
 # on Folly and pistache. It is unknown if Windows is supported...
 list(APPEND POSIX_LIBRARIES )
 list(APPEND SISL_DEPS  )
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
     add_subdirectory (auth_manager)
+    list(APPEND POSIX_LIBRARIES
+        $<TARGET_OBJECTS:sisl_auth_manager>
+      )
+endif()
+if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
     add_subdirectory (cache)
     add_subdirectory (fds)
     add_subdirectory (file_watcher)
@@ -21,7 +26,6 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
     add_subdirectory (wisr)
 
     list(APPEND POSIX_LIBRARIES
-        $<TARGET_OBJECTS:sisl_auth_manager>
         $<TARGET_OBJECTS:sisl_buffer>
         $<TARGET_OBJECTS:sisl_cache>
         $<TARGET_OBJECTS:sisl_file_watcher>
