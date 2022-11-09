@@ -10,7 +10,7 @@
 
 #include <gtest/gtest.h>
 
-#include "atomic_counter.hpp"
+#include "sisl/utility/atomic_counter.hpp"
 
 using namespace sisl;
 

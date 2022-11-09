@@ -2,7 +2,6 @@ cmake_minimum_required (VERSION 3.10)
 
 add_flags("-Wno-unused-parameter")
 
-include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
 set(TEST_ATOMIC_COUNTER_SOURCES

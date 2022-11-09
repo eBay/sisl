@@ -25,7 +25,7 @@
 
 #include <gtest/gtest.h>
 
-#include "bitword.hpp"
+#include "sisl/fds/bitword.hpp"
 
 using namespace sisl;
 

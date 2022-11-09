@@ -22,11 +22,11 @@
 #include <string>
 
 #include <benchmark/benchmark.h>
-#include <sisl/logging/logging.h>
-#include <sisl/options/options.h>
+#include "sisl/logging/logging.h"
+#include "sisl/options/options.h"
 
-#include "metrics/metrics.hpp"
-#include "obj_allocator.hpp"
+#include "sisl/metrics/metrics.hpp"
+#include "sisl/fds/obj_allocator.hpp"
 
 SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 RCU_REGISTER_INIT

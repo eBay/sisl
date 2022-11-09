@@ -22,8 +22,8 @@
 #include <grpcpp/server_context.h>
 #include <grpcpp/security/server_credentials.h>
 
-#include "flip_rpc_server.hpp"
-#include "flip.hpp"
+#include "sisl/flip/flip_rpc_server.hpp"
+#include "sisl/flip/flip.hpp"
 
 namespace flip {
 grpc::Status FlipRPCServer::InjectFault(grpc::ServerContext* context, const FlipSpec* request, FlipResponse* response) {

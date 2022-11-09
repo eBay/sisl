@@ -17,9 +17,10 @@
 #pragma once
 
 #include <folly/SharedMutex.h>
+#include <sisl/metrics/metrics_group_impl.hpp>
+#include <sisl/metrics/metrics.hpp>
+
 #include "bitset.hpp"
-#include "../metrics/metrics_group_impl.hpp"
-#include "../metrics/metrics.hpp"
 
 namespace sisl {
 class StreamTrackerMetrics : public MetricsGroupWrapper {

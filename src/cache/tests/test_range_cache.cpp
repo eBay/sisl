@@ -28,9 +28,9 @@
 #endif
 
 #include <sisl/logging/logging.h>
+#include <sisl/utility/enum.hpp>
 #include "range_cache.hpp"
 #include "lru_evictor.hpp"
-#include "utility/enum.hpp"
 
 using namespace sisl;
 SISL_LOGGING_INIT(test_rangecache)

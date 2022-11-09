@@ -27,7 +27,7 @@
 #pragma GCC diagnostic pop
 
 #include "callback_mutex.hpp"
-#include "utils.hpp"
+#include "sisl/fds/utils.hpp"
 
 SISL_LOGGING_INIT(test_cb_mutex)
 

@@ -39,8 +39,8 @@
 #include <nlohmann/json.hpp>
 
 #include <sisl/logging/logging.h>
-#include "../metrics/histogram_buckets.hpp"
-#include "../metrics/metrics.hpp"
+#include <sisl/metrics/histogram_buckets.hpp>
+#include <sisl/metrics/metrics.hpp>
 
 #if defined(USING_TCMALLOC)
 #include <gperftools/malloc_extension.h>

@@ -21,9 +21,9 @@
 #include <random>
 
 #include <sisl/logging/logging.h>
-#include "fds/bitset.hpp"
+#include <sisl/utility/enum.hpp>
+#include "sisl/fds/bitset.hpp"
 #include "range_hashmap.hpp"
-#include "utility/enum.hpp"
 
 using namespace sisl;
 SISL_LOGGING_INIT(test_hashmap)

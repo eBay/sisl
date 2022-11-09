@@ -4,7 +4,6 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     add_flags("-Wno-unused-parameter -Wno-cast-function-type")
 endif()
 
-include_directories(BEFORE ..)
 include_directories(BEFORE .)
 
 set(BUFFER_SOURCE_FILES 

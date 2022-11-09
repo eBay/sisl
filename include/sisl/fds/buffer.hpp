@@ -26,9 +26,9 @@
 #include <malloc.h>
 #endif
 
-#include "../metrics/metrics.hpp"
-#include "../utility/enum.hpp"
-#include "../fds/utils.hpp"
+#include <sisl/metrics/metrics.hpp>
+#include <sisl/utility/enum.hpp>
+#include "utils.hpp"
 
 namespace sisl {
 struct blob {

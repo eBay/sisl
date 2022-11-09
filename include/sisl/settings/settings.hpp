@@ -31,7 +31,7 @@
 
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
-#include "../utility/urcu_helper.hpp"
+#include <sisl/utility/urcu_helper.hpp>
 
 #define SETTINGS_INIT(schema_type, schema_name)                                                                        \
     extern unsigned char schema_name##_fbs[];                                                                          \

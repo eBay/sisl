@@ -6,11 +6,10 @@ endif()
 
 add_library(sisl_logging OBJECT)
 target_sources(sisl_logging PRIVATE
-    lib/backtrace.cpp
-    lib/logging.cpp
-    lib/stacktrace.cpp
+    backtrace.cpp
+    logging.cpp
+    stacktrace.cpp
    )
-target_include_directories(sisl_logging BEFORE PRIVATE .)
 target_link_libraries(sisl_logging ${COMMON_DEPS})
 
 add_executable(logging_example)

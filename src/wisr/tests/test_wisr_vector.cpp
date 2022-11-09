@@ -27,8 +27,8 @@
 
 #include <gtest/gtest.h>
 
-#include "utility/thread_buffer.hpp"
-#include "wisr/wisr_ds.hpp"
+#include "sisl/utility/thread_buffer.hpp"
+#include "sisl/wisr/wisr_ds.hpp"
 
 THREAD_BUFFER_INIT
 RCU_REGISTER_INIT

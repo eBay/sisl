@@ -15,7 +15,7 @@
  *
  *********************************************************************************/
 #include "proto/flip_spec.pb.h"
-#include "flip.hpp"
+#include "sisl/flip/flip.hpp"
 #include <memory>
 #include <string>
 

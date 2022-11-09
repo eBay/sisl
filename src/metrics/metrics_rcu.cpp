@@ -14,7 +14,7 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include "metrics_rcu.hpp"
+#include "sisl/metrics/metrics_rcu.hpp"
 #include <sisl/logging/logging.h>
 
 namespace sisl {

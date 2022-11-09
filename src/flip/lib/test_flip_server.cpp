@@ -14,7 +14,7 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include "flip.hpp"
+#include "sisl/flip/flip.hpp"
 
 #include <sisl/options/options.h>
 

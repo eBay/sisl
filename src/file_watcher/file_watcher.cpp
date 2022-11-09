@@ -7,7 +7,7 @@
 #include <sys/inotify.h>
 
 #include "file_watcher.hpp"
-#include "utility/thread_factory.hpp"
+#include "sisl/utility/thread_factory.hpp"
 
 namespace sisl {
 namespace fs = std::filesystem;

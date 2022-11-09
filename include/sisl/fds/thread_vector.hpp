@@ -20,8 +20,8 @@
 #include <vector>
 #include <optional>
 
-#include "../wisr/wisr_framework.hpp"
-#include "../wisr/wisr_ds.hpp"
+#include <sisl/wisr/wisr_framework.hpp>
+#include <sisl/wisr/wisr_ds.hpp>
 
 namespace sisl {
 
