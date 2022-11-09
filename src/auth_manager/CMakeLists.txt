@@ -1,17 +1,18 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 
 find_package(flatbuffers REQUIRED)
 find_package(Pistache REQUIRED)
+
+if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
+  include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_library(sisl_auth_manager OBJECT)
 target_sources(sisl_auth_manager PRIVATE
     auth_manager.cpp
     trf_client.cpp
   )
-if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-  target_include_directories(sisl_auth_manager BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-endif()
-target_include_directories(sisl_auth_manager BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(sisl_auth_manager
     ${COMMON_DEPS}
     cpr::cpr
@@ -29,10 +30,6 @@ add_executable(test_auth_mgr)
 target_sources(test_auth_mgr PRIVATE
     tests/AuthTest.cpp
   )
-if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-  target_include_directories(test_auth_mgr BEFORE PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-endif()
-target_include_directories(test_auth_mgr BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(test_auth_mgr
     sisl
     ${COMMON_DEPS}

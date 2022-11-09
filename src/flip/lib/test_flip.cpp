@@ -162,7 +162,7 @@ void run_and_validate_delay_return_flip(flip::Flip* flip) {
 
     RELEASE_ASSERT(!flip->get_delay_flip< std::string >(
                        "delay_ret_fspec",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            assert(0);
                            (*closure_calls)++;
                        },
@@ -180,7 +180,7 @@ void run_and_validate_delay_return_flip(flip::Flip* flip) {
 
     RELEASE_ASSERT(!flip->get_delay_flip< std::string >(
                        "delay_ret_fspec",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            assert(0);
                            (*closure_calls)++;
                        },

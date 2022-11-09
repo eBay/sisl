@@ -26,14 +26,14 @@
 #include "sisl/flip/flip.hpp"
 
 namespace flip {
-grpc::Status FlipRPCServer::InjectFault(grpc::ServerContext* context, const FlipSpec* request, FlipResponse* response) {
+grpc::Status FlipRPCServer::InjectFault(grpc::ServerContext*, const FlipSpec* request, FlipResponse* response) {
     LOGTRACEMOD(flip, "Flipspec request = {}", request->DebugString());
     flip::Flip::instance().add(*request);
     response->set_success(true);
     return grpc::Status::OK;
 }
 
-grpc::Status FlipRPCServer::GetFaults(grpc::ServerContext* context, const FlipNameRequest* request,
+grpc::Status FlipRPCServer::GetFaults(grpc::ServerContext*, const FlipNameRequest* request,
                                       FlipListResponse* response) {
     LOGTRACEMOD(flip, "GetFaults request = {}", request->DebugString());
     auto resp = request->name().size() ? flip::Flip::instance().get(request->name()) : flip::Flip::instance().get_all();

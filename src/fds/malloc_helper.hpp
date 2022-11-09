@@ -297,7 +297,7 @@ static size_t get_jemalloc_muzzy_page_count() {
 #endif
 
 /* Get the application total allocated memory. Relies on jemalloc. Returns 0 for other allocator. */
-[[maybe_unused]] static size_t get_total_memory(const bool refresh = true) {
+[[maybe_unused]] static size_t get_total_memory([[maybe_unused]] const bool refresh = true) {
     size_t allocated{0};
 
 #ifndef USING_TCMALLOC
@@ -321,7 +321,7 @@ static size_t get_jemalloc_muzzy_page_count() {
 }
 
 #if defined(USING_TCMALLOC)
-static void update_tcmalloc_range_stats(void* const arg, const base::MallocRange* const range) {
+static void update_tcmalloc_range_stats([[maybe_unused]] void* const arg, const base::MallocRange* const range) {
     // LOGINFO("Range: address={}, length={}, Type={}, fraction={}", range->address, range->length, range->type,
     //        range->fraction);
 

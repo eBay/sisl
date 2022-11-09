@@ -44,7 +44,7 @@ class StreamTracker {
 public:
     static constexpr size_t alloc_blk_size = 10000;
     static constexpr size_t compaction_threshold = alloc_blk_size / 2;
-    static constexpr auto null_processor = [](auto... x) -> bool { return true; };
+    static constexpr auto null_processor = []([[maybe_unused]] auto... x) -> bool { return true; };
 
     static_assert(std::is_trivially_copyable< T >::value, "Cannot use StreamTracker for non-trivally copyable classes");
 

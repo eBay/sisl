@@ -1,36 +1,34 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 
-add_flags("-Wno-unused-parameter")
+include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
 
-include_directories(BEFORE .)
-
-set(WISR_VECTOR_TEST 
+add_executable(wisr_vector_test)
+target_sources(wisr_vector_test PRIVATE 
     tests/test_wisr_vector.cpp
-   )
-add_executable(wisr_vector_test ${WISR_VECTOR_TEST})
+  )
 target_link_libraries(wisr_vector_test ${COMMON_DEPS} benchmark::benchmark GTest::gtest)
 add_test(NAME WisrVectorTest COMMAND wisr_vector_test)
 
-set(WISR_VECTOR_BENCHMARK 
+add_executable(wisr_vector_benchmark)
+target_sources(wisr_vector_benchmark PRIVATE 
     tests/wisr_vector_benchmark.cpp
-   )
-add_executable(wisr_vector_benchmark ${WISR_VECTOR_BENCHMARK})
+  )
 target_link_libraries(wisr_vector_benchmark ${COMMON_DEPS} benchmark::benchmark)
 
-set(WISR_LIST_BENCHMARK 
+add_executable(wisr_list_benchmark)
+target_sources(wisr_list_benchmark PRIVATE 
     tests/wisr_list_benchmark.cpp
-   )
-add_executable(wisr_list_benchmark ${WISR_LIST_BENCHMARK})
+  )
 target_link_libraries(wisr_list_benchmark ${COMMON_DEPS} benchmark::benchmark)
 
-set(WISR_DEQUE_BENCHMARK 
+add_executable(wisr_deque_benchmark)
+target_sources(wisr_deque_benchmark PRIVATE 
     tests/wisr_deque_benchmark.cpp
-   )
-add_executable(wisr_deque_benchmark ${WISR_DEQUE_BENCHMARK})
+  )
 target_link_libraries(wisr_deque_benchmark ${COMMON_DEPS} benchmark::benchmark)
 
-set(WISR_INTRUSIVE_SLIST_BENCHMARK 
+add_executable(wisr_intrusive_slist_benchmark)
+target_sources(wisr_intrusive_slist_benchmark PRIVATE 
     tests/wisr_intrusive_slist_benchmark.cpp
-   )
-add_executable(wisr_intrusive_slist_benchmark ${WISR_INTRUSIVE_SLIST_BENCHMARK})
+  )
 target_link_libraries(wisr_intrusive_slist_benchmark ${COMMON_DEPS} benchmark::benchmark)

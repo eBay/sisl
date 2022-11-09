@@ -130,7 +130,7 @@ class SISLConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["sisl", "flip"]
-        self.cpp_info.cppflags.extend(["-Wno-unused-local-typedefs", "-fconcepts"])
+        self.cpp_info.cppflags.extend(["-fconcepts"])
 
         if self.settings.os == "Linux":
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
