@@ -9,7 +9,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "file_watcher.hpp"
+#include "sisl/file_watcher/file_watcher.hpp"
 #include <sisl/options/options.h>
 
 SISL_LOGGING_INIT(test_file_watcher)

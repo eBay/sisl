@@ -27,7 +27,7 @@
 
 #include <gtest/gtest.h>
 
-#include "malloc_helper.hpp"
+#include "sisl/fds/malloc_helper.hpp"
 
 using namespace sisl;
 
