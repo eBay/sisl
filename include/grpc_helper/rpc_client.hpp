@@ -318,28 +318,10 @@ public:
                 m_generic_stub(std::move(stub)), m_worker(worker), m_trf_client(trf_client) {}
 
         void call_unary(const grpc::ByteBuffer& request, const std::string& method,
-                        const generic_unary_callback_t& callback, uint32_t deadline) {
-            auto data = new GenericClientRpcDataInternal(callback);
-            data->set_deadline(deadline);
-            if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
-            // Note that async unary RPCs don't post a CQ tag in call
-            data->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&data->context(), method, request, cq());
-            data->m_generic_resp_reader_ptr->StartCall();
-            // CQ tag posted here
-            data->m_generic_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
-            return;
-        }
+                        const generic_unary_callback_t& callback, uint32_t deadline);
 
         void call_rpc(const generic_req_builder_cb_t& builder_cb, const std::string& method,
-                      const generic_rpc_comp_cb_t& done_cb, uint32_t deadline) {
-            auto cd = new GenericClientRpcData(done_cb);
-            builder_cb(cd->m_req);
-            cd->set_deadline(deadline);
-            if (m_trf_client) { cd->add_metadata("authorization", m_trf_client->get_typed_token()); }
-            cd->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&cd->context(), method, cd->m_req, cq());
-            cd->m_generic_resp_reader_ptr->StartCall();
-            cd->m_generic_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
-        }
+                      const generic_rpc_comp_cb_t& done_cb, uint32_t deadline);
 
         std::unique_ptr< grpc::GenericStub > m_generic_stub;
         GrpcAsyncClientWorker* m_worker;
@@ -361,12 +343,7 @@ public:
         return std::make_unique< AsyncStub< ServiceT > >(ServiceT::NewStub(m_channel), w, m_trf_client);
     }
 
-    auto make_generic_stub(const std::string& worker) {
-        auto w = GrpcAsyncClientWorker::get_worker(worker);
-        if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
-
-        return std::make_unique< GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w, m_trf_client);
-    }
+    std::unique_ptr< GenericAsyncStub > make_generic_stub(const std::string& worker);
 };
 
 } // namespace grpc_helper

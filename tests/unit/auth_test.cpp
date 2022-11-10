@@ -123,7 +123,7 @@ public:
                 m_generic_received.store(true);
                 m_cv.notify_all();
             },
-            1000000);
+            1);
         {
             std::unique_lock lk(m_wait_mtx);
             m_cv.wait(lk, [this]() { return m_generic_received.load(); });
@@ -339,16 +339,27 @@ TEST(GenericServiceDeathTest, basic_test) {
     testing::GTEST_FLAG(death_test_style) = "threadsafe";
     auto g_grpc_server = GrpcServer::make("0.0.0.0:56789", nullptr, 1, "", "");
     // register rpc before generic service is registered
+#ifndef NDEBUG
     ASSERT_DEATH(g_grpc_server->register_generic_rpc(
                      "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }),
                  "Assertion .* failed");
+#else
+    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
+        "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));
+#endif
+
     ASSERT_TRUE(g_grpc_server->register_async_generic_service());
     // duplicate register
     EXPECT_FALSE(g_grpc_server->register_async_generic_service());
     // register rpc before server is run
+#ifndef NDEBUG
     ASSERT_DEATH(g_grpc_server->register_generic_rpc(
                      "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }),
                  "Assertion .* failed");
+#else
+    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
+        "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));
+#endif
     g_grpc_server->run();
     EXPECT_TRUE(g_grpc_server->register_generic_rpc(
         "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));

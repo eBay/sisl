@@ -11,6 +11,7 @@
 
 #include "grpc_helper/rpc_client.hpp"
 #include "grpc_helper/rpc_server.hpp"
+#include "grpc_helper/generic_service.hpp"
 #include "grpc_helper_test.grpc.pb.h"
 
 using namespace grpc_helper;
