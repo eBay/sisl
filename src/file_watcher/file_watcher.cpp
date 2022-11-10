@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 
-#include "file_watcher.hpp"
+#include "sisl/file_watcher/file_watcher.hpp"
 #include "sisl/utility/thread_factory.hpp"
 
 namespace sisl {

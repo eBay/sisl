@@ -19,7 +19,7 @@
 
 #include <gtest/gtest.h>
 
-#include "atomic_status_counter.hpp"
+#include "sisl/fds/atomic_status_counter.hpp"
 
 using namespace sisl;
 

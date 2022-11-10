@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.11)
 
 add_library(sisl_options OBJECT)
 target_sources(sisl_options PRIVATE
-    lib/options.cpp
+    options.cpp
   )
 target_link_libraries(sisl_options ${COMMON_DEPS})
 
