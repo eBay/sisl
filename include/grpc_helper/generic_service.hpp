@@ -69,8 +69,9 @@ private:
         if (ok) {
             if (!do_authorization()) {
                 m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
+            } else {
+                m_stream.Read(&m_request, static_cast< void* >(m_buf_read_tag.ref()));
             }
-            m_stream.Read(&m_request, static_cast< void* >(m_buf_read_tag.ref()));
         }
 
         return in_shutdown ? nullptr : create_new();

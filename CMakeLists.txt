@@ -14,7 +14,6 @@ find_package(sisl REQUIRED)
 find_package(gRPC REQUIRED)
 
 include_directories(BEFORE "include")
-include_directories(BEFORE ${CONAN_INCLUDE_DIRS_SISL}/sisl)
 
 add_library(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE

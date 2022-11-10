@@ -111,10 +111,11 @@ public:
             std::shared_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
             auto it = m_generic_rpc_registry.find(rpc_name);
             if (it == m_generic_rpc_registry.end()) {
-                LOGMSG_ASSERT(false, "generic RPC not registered");
+                auto status{grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
+                                         fmt::format("generic RPC {} not registered", rpc_name))};
+                rpc_data->set_status(status);
                 // respond immediately
                 return true;
-                ;
             }
             cb = it->second;
         }
@@ -124,7 +125,7 @@ public:
     bool register_async_generic_service() {
         DEBUG_ASSERT_EQ(ServerState::INITED, m_state, "register service in non-INITED state");
         if (m_generic_service_registered) {
-            LOGMSG_ASSERT(false, "Duplicate register generic async service");
+            LOGWARN("Duplicate register generic async service");
             return false;
         }
         m_generic_service = std::make_unique< grpc::AsyncGenericService >();
@@ -145,7 +146,7 @@ public:
         {
             std::unique_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
             if (auto [it, happened]{m_generic_rpc_registry.emplace(name, rpc_handler)}; !happened) {
-                LOGMSG_ASSERT(false, "duplicate generic RPC registration attempted");
+                LOGWARN("duplicate generic RPC {} registration attempted", name);
                 return false;
             }
         }
