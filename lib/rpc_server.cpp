@@ -31,6 +31,7 @@ GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const s
     if (!ssl_cert.empty() && !ssl_key.empty()) {
         std::string key_contents;
         std::string cert_contents;
+        std::string root_contents;
 
         if (!get_file_contents(ssl_cert, cert_contents)) {
             throw std::runtime_error("Unable to load ssl certification for grpc server");
@@ -38,10 +39,14 @@ GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const s
         if (!get_file_contents(ssl_key, key_contents)) {
             throw std::runtime_error("Unable to load ssl key for grpc server");
         }
+        // Quick fix to load root file in ssl creds.
+        // root files do not expire for a very long time
+        // TODO: handle root file rotation
+        get_file_contents(SECURITY_DYNAMIC_CONFIG(ssl_ca_file), root_contents);
 
         ::grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {key_contents, cert_contents};
         ::grpc::SslServerCredentialsOptions ssl_opts;
-        ssl_opts.pem_root_certs = "";
+        ssl_opts.pem_root_certs = root_contents;
         ssl_opts.pem_key_cert_pairs.push_back(pkcp);
 
         m_builder.AddListeningPort(listen_addr, ::grpc::SslServerCredentials(ssl_opts));
