@@ -14,11 +14,7 @@ GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::shared
 void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
     if (!m_ssl_cert.empty()) {
-        if (load_ssl_cert(m_ssl_cert, ssl_opts.pem_cert_chain)) {
-            // Quick fix to load root file in ssl creds.
-            // root files do not expire for a very long time
-            // TODO: handle root file rotation
-            load_ssl_cert(SECURITY_DYNAMIC_CONFIG(ssl_ca_file), ssl_opts.pem_root_certs);
+        if (load_ssl_cert(m_ssl_cert, ssl_opts.pem_root_certs)) {
             if (!m_target_domain.empty()) {
                 ::grpc::ChannelArguments channel_args;
                 channel_args.SetSslTargetNameOverride(m_target_domain);
