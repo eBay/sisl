@@ -51,7 +51,7 @@ class SISLConan(ConanFile):
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
         self.requires("cpr/1.8.1")
-        self.requires("cxxopts/3.0.0")
+        self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")
         if self.settings.os in ["Linux"]:
             self.requires("folly/2022.01.31.00")
