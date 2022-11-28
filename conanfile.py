@@ -38,7 +38,7 @@ class SISLConan(ConanFile):
     exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
 
     def build_requirements(self):
-        self.build_requires("benchmark/1.6.1")
+        self.build_requires("benchmark/1.7.0")
         self.build_requires("gtest/1.11.0")
         if self.settings.compiler in ["gcc"]:
             self.build_requires("pistache/cci.20201127")
@@ -51,7 +51,7 @@ class SISLConan(ConanFile):
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
         self.requires("cpr/1.8.1")
-        self.requires("cxxopts/2.2.1")
+        self.requires("cxxopts/3.0.0")
         self.requires("flatbuffers/1.12.0")
         if self.settings.os in ["Linux"]:
             self.requires("folly/2022.01.31.00")
