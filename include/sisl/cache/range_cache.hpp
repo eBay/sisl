@@ -17,8 +17,8 @@
 #pragma once
 
 #include <set>
-#include "evictor.hpp"
-#include "range_hashmap.hpp"
+#include <sisl/cache/evictor.hpp>
+#include <sisl/cache/range_hashmap.hpp>
 
 namespace sisl {
 

@@ -26,7 +26,7 @@ target_sources(test_flip PRIVATE
     lib/test_flip.cpp
   )
 target_link_libraries(test_flip flip cxxopts::cxxopts)
-add_test(NAME TestFlip COMMAND test_flip)
+add_test(NAME Flip COMMAND test_flip)
 
 add_executable(test_flip_server)
 target_sources(test_flip_server PRIVATE
@@ -39,4 +39,4 @@ target_sources(test_flip_local_client PRIVATE
     client/local/test_flip_local_client.cpp
   )
 target_link_libraries(test_flip_local_client flip cxxopts::cxxopts)
-add_test(NAME TestFlipLocalClient COMMAND test_flip_local_client)
+add_test(NAME FlipLocalClient COMMAND test_flip_local_client)

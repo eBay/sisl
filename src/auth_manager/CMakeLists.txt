@@ -39,4 +39,4 @@ target_link_libraries(test_auth_mgr
     jwt-cpp::jwt-cpp
     GTest::gmock
   )
-add_test(NAME test_auth_mgr COMMAND test_auth_mgr)
+add_test(NAME AuthManager COMMAND test_auth_mgr)

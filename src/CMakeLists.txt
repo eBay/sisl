@@ -1,6 +1,5 @@
 cmake_minimum_required (VERSION 3.11)
 
-#add_subdirectory (btree)
 add_subdirectory (logging)
 add_subdirectory (options)
 add_subdirectory (version)
