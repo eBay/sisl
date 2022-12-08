@@ -18,9 +18,11 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
-#include "metrics.hpp"
+
 #include <gtest/gtest.h>
-#include "options/options.h"
+#include <sisl/options/options.h>
+
+#include "sisl/metrics/metrics.hpp"
 
 SISL_LOGGING_INIT(vmod_metrics_framework)
 

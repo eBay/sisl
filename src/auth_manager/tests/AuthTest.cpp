@@ -8,8 +8,8 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "auth_manager/auth_manager.hpp"
-#include "auth_manager/trf_client.hpp"
+#include "sisl/auth_manager/auth_manager.hpp"
+#include "sisl/auth_manager/trf_client.hpp"
 #include "test_token.hpp"
 #include "basic_http_server.hpp"
 
@@ -156,7 +156,6 @@ public:
 
     void set_expiry(std::chrono::system_clock::time_point tp) { m_expiry = tp; }
     std::string get_access_token() { return m_access_token; }
-    std::string get_token_type() { return m_token_type; }
 };
 
 static void load_trf_settings() {
@@ -226,7 +225,7 @@ static void set_token_response(const std::string& raw_token) {
         raw_token +
         "\",\n"
         "  \"token_type\": \"Bearer\",\n"
-        "  \"expires_in\": \"2000\",\n"
+        "  \"expires_in\": 2000,\n"
         "  \"refresh_token\": \"dummy_refresh_token\"\n"
         "}";
 }

@@ -17,8 +17,8 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include <gtest/gtest.h>
 
 #pragma GCC diagnostic push
@@ -27,7 +27,7 @@
 #pragma GCC diagnostic pop
 
 #include "callback_mutex.hpp"
-#include "utils.hpp"
+#include "sisl/fds/utils.hpp"
 
 SISL_LOGGING_INIT(test_cb_mutex)
 
@@ -69,7 +69,7 @@ protected:
 
     template < typename I = MutexImpl >
     typename std::enable_if< !sisl::CallbackMutex< I >::shared_mode_supported, void >::type
-    thread_shared_fn(uint64_t count_per_thread) {
+    thread_shared_fn(uint64_t) {
         assert(0);
     }
 

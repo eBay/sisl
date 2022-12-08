@@ -26,11 +26,11 @@
 #endif
 
 #include <fmt/format.h>
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 
-#include "metrics_group_impl.hpp"
-#include "metrics.hpp"
-#include "metrics_tlocal.hpp"
+#include "sisl/metrics/metrics_group_impl.hpp"
+#include "sisl/metrics/metrics.hpp"
+#include "sisl/metrics/metrics_tlocal.hpp"
 
 namespace sisl {
 

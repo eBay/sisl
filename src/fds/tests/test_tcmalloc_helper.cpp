@@ -21,14 +21,13 @@
 #include <thread>
 #include <vector>
 
-#include "logging/logging.h"
-#include "options/options.h"
+#include "sisl/logging/logging.h"
+#include "sisl/options/options.h"
+#include "sisl/utility/thread_buffer.hpp"
 
 #include <gtest/gtest.h>
 
-#include "utility/thread_buffer.hpp"
-
-#include "malloc_helper.hpp"
+#include "sisl/fds/malloc_helper.hpp"
 
 using namespace sisl;
 

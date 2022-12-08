@@ -9,8 +9,8 @@
 
 #include <gtest/gtest.h>
 
-#include "thread_buffer.hpp"
-#include "utility/enum.hpp"
+#include "sisl/utility/thread_buffer.hpp"
+#include "sisl/utility/enum.hpp"
 
 class EnumTest : public testing::Test {
 public:

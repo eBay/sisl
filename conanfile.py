@@ -8,7 +8,7 @@ required_conan_version = ">=1.50.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.2.4"
+    version = "8.2.6"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -35,12 +35,13 @@ class SISLConan(ConanFile):
             }
 
     generators = "cmake", "cmake_find_package"
-    exports_sources = ("CMakeLists.txt", "cmake/*", "src/*", "LICENSE")
+    exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
 
     def build_requirements(self):
-        self.build_requires("benchmark/1.6.1")
+        self.build_requires("benchmark/1.7.0")
         self.build_requires("gtest/1.11.0")
-        self.build_requires("pistache/cci.20201127")
+        if self.settings.compiler in ["gcc"]:
+            self.build_requires("pistache/cci.20201127")
 
     def requirements(self):
         # Custom packages
@@ -52,14 +53,16 @@ class SISLConan(ConanFile):
         self.requires("cpr/1.8.1")
         self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")
-        self.requires("folly/2022.01.31.00")
+        if self.settings.os in ["Linux"]:
+            self.requires("folly/2022.01.31.00")
         self.requires("grpc/1.48.0")
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.10.5")
-        self.requires("zmarok-semver/1.1.0")
-        self.requires("spdlog/1.10.0")
-        self.requires("userspace-rcu/0.11.4")
         self.requires("prometheus-cpp/1.0.1")
+        self.requires("spdlog/1.11.0")
+        if self.settings.os in ["Linux"]:
+            self.requires("userspace-rcu/0.11.4")
+        self.requires("zmarok-semver/1.1.0")
         self.requires("fmt/8.1.1",          override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1q",     override=True)
@@ -107,32 +110,42 @@ class SISLConan(ConanFile):
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
-        copy(self, "LICENSE", self.source_folder, join(self.package_folder, "licenses/"), keep_path=False)
+        copy(self, "LICENSE", self.source_folder, join(self.package_folder, "licenses"), keep_path=False)
         copy(self, "*.lib", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.a", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.dylib*", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.dll*", self.build_folder, join(self.package_folder, "bin"), keep_path=False)
         copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
-        copy(self, "*.proto", join(self.source_folder, "src/flip/proto/"), join(self.package_folder, "proto/flip/"), keep_path=False)
-        copy(self, "*", join(self.source_folder, "src/flip/client/python/"), join(self.package_folder, "bindings/flip/python/"), keep_path=False)
+        copy(self, "*.proto", join(self.source_folder, "src", "flip", "proto"), join(self.package_folder, "proto", "flip"), keep_path=False)
+        copy(self, "*", join(self.source_folder, "src", "flip", "client", "python"), join(self.package_folder, "bindings", "flip", "python"), keep_path=False)
 
-        hdr_dir = join(self.package_folder, join("include", "sisl"))
-        copy(self, "*.hpp", join(self.source_folder, "src"), hdr_dir, keep_path=True)
-        copy(self, "*.h", join(self.source_folder, "src"), hdr_dir, keep_path=True)
+        copy(self, "*.h*", join(self.source_folder, "include"), join(self.package_folder, "include"), keep_path=True)
+
+        gen_dir = join(self.package_folder, "include", "sisl")
+        copy(self, "*.pb.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
+        copy(self, "*security_config_generated.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
     def package_info(self):
-        self.cpp_info.libs = ["sisl", "flip"]
-        self.cpp_info.cppflags.extend(["-Wno-unused-local-typedefs", "-fconcepts"])
+        self.cpp_info.libs = ["sisl"]
+
+        if self.settings.compiler == "gcc":
+            self.cpp_info.cppflags.extend(["-fconcepts"])
 
         if self.settings.os == "Linux":
+            self.cpp_info.libs.append("flip")
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
             self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")
             self.cpp_info.cppflags.append("-D_LARGEFILE64")
             self.cpp_info.system_libs.extend(["dl", "pthread"])
             self.cpp_info.exelinkflags.extend(["-export-dynamic"])
 
+        if  self.options.sanitize:
+            self.cpp_info.sharedlinkflags.append("-fsanitize=address")
+            self.cpp_info.exelinkflags.append("-fsanitize=address")
+            self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
+            self.cpp_info.exelinkflags.append("-fsanitize=undefined")
         if self.options.malloc_impl == 'jemalloc':
             self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
         elif self.options.malloc_impl == 'tcmalloc':

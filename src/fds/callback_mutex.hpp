@@ -17,7 +17,7 @@
 #include <mutex>
 #include <functional>
 #include <vector>
-#include "vector_pool.hpp"
+#include "sisl/fds/vector_pool.hpp"
 #include <boost/tti/has_member_function.hpp>
 
 // Generate the metafunction

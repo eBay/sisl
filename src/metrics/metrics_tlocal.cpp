@@ -18,9 +18,9 @@
 #include <iostream>
 #include <mutex>
 
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 
-#include "metrics_tlocal.hpp"
+#include "sisl/metrics/metrics_tlocal.hpp"
 
 namespace sisl {
 

@@ -75,7 +75,7 @@ settings_gen_cpp(${FLATBUFFERS_FLATC_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/gen
 In your main include code or separate code, add the following lines outside your namespace definition
 
 ```c++
-#include <settings/settings.hpp>
+#include <sisl/settings/settings.hpp>
 #include "generated/homeblks_config_generated.h"
 
 // <--- Format is

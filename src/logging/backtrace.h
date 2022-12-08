@@ -81,7 +81,6 @@ constexpr uint64_t pipe_timeout_ms{15000}; // 15 seconds.  Addr2line can be extr
 [[maybe_unused]] extern size_t stack_interpret_apple(const void* const* const stack_ptr,
                                                      const char* const* const stack_msg, const size_t stack_size,
                                                      char* const output_buf, const size_t output_buflen,
-                                                     const bool trim_internal,
                                                      [[maybe_unused]] const bool trim_internal);
 #else
 [[maybe_unused]] extern size_t stack_interpret_other(const void* const* const stack_ptr,

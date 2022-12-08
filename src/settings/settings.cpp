@@ -22,9 +22,9 @@
 
 #include <boost/algorithm/string.hpp>
 
-#include "options/options.h"
+#include <sisl/options/options.h>
 
-#include "settings.hpp"
+#include "sisl/settings/settings.hpp"
 
 SISL_OPTION_GROUP(config,
                   (config_path, "", "config_path", "Path to dynamic config of app", cxxopts::value< std::string >(),

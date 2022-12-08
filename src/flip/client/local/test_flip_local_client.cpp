@@ -14,13 +14,13 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include "../../proto/flip_spec.pb.h"
-#include "../../flip_client.hpp"
+#include "proto/flip_spec.pb.h"
+#include "sisl/flip/flip_client.hpp"
 #include <memory>
 #include <string>
 
-#include "options/options.h"
-#include "logging/logging.h"
+#include <sisl/options/options.h>
+#include <sisl/logging/logging.h>
 
 using namespace flip;
 
@@ -109,7 +109,7 @@ void run_and_validate_delay_return_flip() {
 
     RELEASE_ASSERT(!g_flip.get_delay_flip< std::string >(
                        "delay_simval_flip",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            RELEASE_ASSERT(false, "Invalid closure called");
                            (*closure_calls)++;
                        },
@@ -127,7 +127,7 @@ void run_and_validate_delay_return_flip() {
 
     RELEASE_ASSERT(!g_flip.get_delay_flip< std::string >(
                        "delay_simval_flip",
-                       [closure_calls](std::string error) {
+                       [closure_calls](std::string) {
                            RELEASE_ASSERT(false, "Invalid closure called");
                            (*closure_calls)++;
                        },

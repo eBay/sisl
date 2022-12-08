@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 project (sisl)
 
 option(DEBUG_CMAKE "Debug CMake messages option" OFF)
@@ -53,7 +53,6 @@ find_package(benchmark REQUIRED)
 find_package(Boost REQUIRED)
 find_package(cpr REQUIRED)
 find_package(cxxopts REQUIRED)
-find_package(folly REQUIRED)
 find_package(GTest REQUIRED)
 if (${MALLOC_IMPL} STREQUAL "tcmalloc")
     find_package(gperftools REQUIRED)
@@ -65,7 +64,12 @@ find_package(prometheus-cpp REQUIRED)
 find_package(zmarok-semver REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(Threads REQUIRED)
-find_package(userspace-rcu REQUIRED)
+
+# Linux Specific dependencies
+if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
+    find_package(folly REQUIRED)
+    find_package(userspace-rcu REQUIRED)
+endif()
 
 list (APPEND COMMON_DEPS
     Boost::headers
@@ -73,8 +77,13 @@ list (APPEND COMMON_DEPS
     nlohmann_json::nlohmann_json
     prometheus-cpp::prometheus-cpp
     spdlog::spdlog
-    userspace-rcu::userspace-rcu
   )
+if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
+    list (APPEND COMMON_DEPS
+        userspace-rcu::userspace-rcu
+    )
+endif()
+
 if (${prerelease_dummy_FOUND})
     list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
 endif ()
@@ -114,48 +123,11 @@ if(UNIX)
     add_flags("-D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
 endif()
 
-include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/auth_manager)
-include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/settings)
-
-#add_subdirectory (src/btree)
-add_subdirectory (src/cache)
-add_subdirectory (src/logging)
-add_subdirectory (src/options)
-add_subdirectory (src/wisr)
-add_subdirectory (src/metrics)
-add_subdirectory (src/fds)
-add_subdirectory (src/settings)
-add_subdirectory (src/utility)
-add_subdirectory (src/sisl_version)
-add_subdirectory (src/auth_manager)
-add_subdirectory (src/file_watcher)
-add_subdirectory (src/flip)
-
-add_library(sisl
-            $<TARGET_OBJECTS:sisl_metrics>
-            $<TARGET_OBJECTS:sisl_cache>
-            $<TARGET_OBJECTS:sisl_logging>
-            $<TARGET_OBJECTS:sisl_options>
-            $<TARGET_OBJECTS:sisl_version>
-            $<TARGET_OBJECTS:sisl_settings>
-            $<TARGET_OBJECTS:sisl_buffer>
-            $<TARGET_OBJECTS:sisl_auth_manager>
-            $<TARGET_OBJECTS:sisl_trf_client>
-            $<TARGET_OBJECTS:sisl_file_watcher>
-           )
-
-list(APPEND SISL_DEPS 
-    Folly::Folly
+include_directories(BEFORE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-if (DEFINED MALLOC_IMPL)
-    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
-        list(APPEND SISL_DEPS gperftools::gperftools)
-    endif()
-endif()
 
-target_link_libraries(sisl
-    ${SISL_DEPS}
-)
+add_subdirectory(src)
 
 # build info
 string(TOUPPER "${CMAKE_BUILD_TYPE}" UC_CMAKE_BUILD_TYPE)

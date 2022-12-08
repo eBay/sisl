@@ -7,7 +7,7 @@
 #include <cpr/payload.h>
 #include <nlohmann/json.hpp>
 
-#include "trf_client.hpp"
+#include "sisl/auth_manager/trf_client.hpp"
 
 namespace sisl {
 TrfClient::TrfClient() { validate_grant_path(); }
@@ -65,24 +65,35 @@ void TrfClient::request_with_grant_token() {
     session.SetTimeout(std::chrono::milliseconds{5000});
     const auto resp{session.Post()};
     if (resp.error || resp.status_code != 200) {
-        // TODO: log error, rest call failed
+        LOGDEBUG("request grant token from server failed, error: {}, status code: {}", resp.error.message,
+                 resp.status_code);
         return;
     }
 
     try {
         const nlohmann::json resp_json = nlohmann::json::parse(resp.text);
-        const std::string expires_in{resp_json["expires_in"]};
-        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(std::stoi(expires_in));
+        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(resp_json["expires_in"]);
         m_access_token = resp_json["access_token"];
         m_token_type = resp_json["token_type"];
     } catch ([[maybe_unused]] const nlohmann::detail::exception& e) {
-        // TODO: log error, parsing failed
-        return;
+        LOGDEBUG("parsing token response failed, what: {}", e.what());
     }
 }
 
 std::string TrfClient::get_token() {
-    if (m_access_token.empty() || access_token_expired()) { request_with_grant_token(); }
+    {
+        std::shared_lock< std::shared_mutex > lock(m_mtx);
+        if (!(m_access_token.empty() || access_token_expired())) { return m_access_token; }
+    }
+
+    // Not a frequent code path, occurs for the first time or when token expires
+    std::unique_lock< std::shared_mutex > lock(m_mtx);
+    request_with_grant_token();
     return m_access_token;
+}
+
+std::string TrfClient::get_token_type() {
+    std::shared_lock< std::shared_mutex > lock(m_mtx);
+    return m_token_type;
 }
 } // namespace sisl

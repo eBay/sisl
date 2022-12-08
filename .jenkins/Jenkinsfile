@@ -65,6 +65,10 @@ pipeline {
                         values 'sanitize', 'release', 'debug', 'test'
                     }
                     axis {
+                        name 'ALLOC'
+                        values 'libc', 'tcmalloc'
+                    }
+                    axis {
                         name 'COVERAGE'
                         values 'False'
                     }
@@ -78,6 +82,16 @@ pipeline {
                         axis {
                             name 'COVERAGE'
                             values 'True'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'BUILD_TYPE'
+                            values 'sanitize', 'test'
+                        }
+                        axis {
+                            name 'ALLOC'
+                            values 'libc'
                         }
                     }
                 }
@@ -110,13 +124,15 @@ pipeline {
 
                                 if ("${BUILD_TYPE}" == "release") {
                                     PRERELEASE = 'False'
-                                    BUILD_PROFILE = "test"
+                                    if ("${ALLOC}" != 'libc') {
+                                        BUILD_PROFILE = "test"
+                                    }
                                 }
 
                                 if (("${env.BRANCH_NAME}" =~ /PR-/) && ("$BUILD_TYPE" == "debug")) {
                                     sh "echo Skipping debug build for PR branch"
                                 } else {
-                                    sh "conan create ${BUILD_MISSING} -o prerelease=${PRERELEASE} -o sanitize=${SANITIZE} -pr ${BUILD_PROFILE} . ${PROJECT}/${TAG}"
+                                    sh "conan create -u ${BUILD_MISSING} -o ${PROJECT}:malloc_impl=${ALLOC} -o ${PROJECT}:prerelease=${PRERELEASE} -o ${PROJECT}:sanitize=${SANITIZE} -pr ${BUILD_PROFILE} . ${PROJECT}/${TAG}"
                                 }
                             }
                         }
@@ -165,7 +181,6 @@ pipeline {
                     stage("Deploy") {
                         when { allOf {
                             expression { "${COVERAGE}" == 'False' }
-                            expression { "${BUILD_TYPE}" != 'sanitize' }
                             expression { !(env.BRANCH_NAME =~ /PR-/) }
                         } }
                         steps {

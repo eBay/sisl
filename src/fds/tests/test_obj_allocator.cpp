@@ -17,10 +17,10 @@
 #include <cstdint>
 #include <iostream>
 
-#include "logging/logging.h"
-#include "options/options.h"
+#include "sisl/logging/logging.h"
+#include "sisl/options/options.h"
 
-#include "obj_allocator.hpp"
+#include "sisl/fds/obj_allocator.hpp"
 
 SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 
@@ -42,7 +42,7 @@ private:
 };
 } // namespace
 
-int main(int argc, char** argv) {
+int main() {
     Node< uint64_t >* const ptr1{sisl::ObjectAllocator< Node< uint64_t > >::make_object(~static_cast< uint64_t >(0))};
     std::cout << "ptr1 = " << static_cast< const void* >(ptr1) << " Id = " << ptr1->get_id() << std::endl;
     sisl::ObjectAllocator< Node< uint64_t > >::deallocate(ptr1);

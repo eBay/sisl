@@ -20,9 +20,9 @@
 #include <iostream>
 #include <thread>
 
-#include "options/options.h"
+#include <sisl/options/options.h>
 
-#include "logging.h"
+#include <sisl/logging/logging.h>
 
 SISL_LOGGING_INIT(my_module)
 

@@ -14,11 +14,12 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include <benchmark/benchmark.h>
 #include <mutex>
-#include "metrics.hpp"
 #include <string>
+#include <benchmark/benchmark.h>
 #include <boost/preprocessor/repetition/repeat.hpp>
+
+#include "sisl/metrics/metrics.hpp"
 
 SISL_LOGGING_INIT(vmod_metrics_framework)
 RCU_REGISTER_INIT

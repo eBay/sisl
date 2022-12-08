@@ -31,10 +31,11 @@
 #pragma GCC diagnostic pop
 #endif
 
-#include "../fds/buffer.hpp"
+#include <sisl/fds/buffer.hpp>
+#include <sisl/fds/utils.hpp>
+#include <sisl/utility/enum.hpp>
+
 #include "hash_entry_base.hpp"
-#include "../fds/utils.hpp"
-#include "../utility/enum.hpp"
 
 namespace sisl {
 

@@ -1,22 +1,15 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 
-if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
-    add_flags("-Wno-unused-parameter -Wno-cast-function-type")
-endif()
-
-include_directories(BEFORE ..)
-include_directories(BEFORE .)
-
-set(LOGGING_SOURCE_FILES 
-    lib/backtrace.cpp
-    lib/logging.cpp
-    lib/stacktrace.cpp
-   )
-add_library(sisl_logging OBJECT ${LOGGING_SOURCE_FILES})
+add_library(sisl_logging OBJECT)
+target_sources(sisl_logging PRIVATE
+    backtrace.cpp
+    logging.cpp
+    stacktrace.cpp
+  )
 target_link_libraries(sisl_logging ${COMMON_DEPS})
 
-set(TEST_LOGGING_FILES
+add_executable(logging_example)
+target_sources(logging_example PRIVATE
     test/example.cpp
-   )
-add_executable(logging_example ${TEST_LOGGING_FILES})
+  )
 target_link_libraries(logging_example sisl ${COMMON_DEPS})
