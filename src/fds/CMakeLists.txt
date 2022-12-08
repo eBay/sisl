@@ -13,26 +13,28 @@ target_sources(test_stream_tracker PRIVATE
     tests/test_stream_tracker.cpp
   )
 target_link_libraries(test_stream_tracker sisl ${COMMON_DEPS} GTest::gtest)
+add_test(NAME StreamTracker COMMAND test_stream_tracker)
 
 add_executable(test_atomic_status_counter)
 target_sources(test_atomic_status_counter PRIVATE
     tests/test_atomic_status_counter.cpp
   )
 target_link_libraries(test_atomic_status_counter sisl ${COMMON_DEPS} GTest::gtest atomic)
-add_test(NAME atomic_status_counter COMMAND test_atomic_status_counter)
+add_test(NAME AtomicStatusCounter COMMAND test_atomic_status_counter)
 
 add_executable(test_bitset)
 target_sources(test_bitset PRIVATE
     tests/test_bitset.cpp
   )
 target_link_libraries(test_bitset sisl ${COMMON_DEPS} GTest::gtest)
-add_test(NAME bitset COMMAND test_bitset)
+add_test(NAME Bitset COMMAND test_bitset)
 
 add_executable(test_bitword)
 target_sources(test_bitword PRIVATE
     tests/test_bitword.cpp
   )
 target_link_libraries(test_bitword sisl ${COMMON_DEPS} GTest::gtest)
+add_test(NAME Bitword COMMAND test_bitset)
 
 add_executable(obj_allocator_benchmark)
 target_sources(obj_allocator_benchmark PRIVATE

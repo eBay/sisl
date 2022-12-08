@@ -20,7 +20,8 @@
 #include <mutex>
 #include <functional>
 #include <sisl/logging/logging.h>
-#include "hash_entry_base.hpp"
+#include <sisl/cache/hash_entry_base.hpp>
+#include <spdlog/fmt/fmt.h>
 
 namespace sisl {
 typedef ValueEntryBase CacheRecord;

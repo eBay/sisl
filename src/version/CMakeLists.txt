@@ -11,4 +11,4 @@ target_sources(test_version PRIVATE
     tests/test_version.cpp
   )
 target_link_libraries(test_version sisl ${COMMON_DEPS} zmarok-semver::zmarok-semver GTest::gtest)
-add_test(NAME VersionTest COMMAND test_version)
+add_test(NAME Version COMMAND test_version)

@@ -22,7 +22,7 @@
 #include <memory>
 #include <boost/intrusive/list.hpp>
 #include <sisl/fds/utils.hpp>
-#include "evictor.hpp"
+#include <sisl/cache/evictor.hpp>
 
 using namespace boost::intrusive;
 

@@ -7,7 +7,7 @@ target_sources(wisr_vector_test PRIVATE
     tests/test_wisr_vector.cpp
   )
 target_link_libraries(wisr_vector_test ${COMMON_DEPS} benchmark::benchmark GTest::gtest)
-add_test(NAME WisrVectorTest COMMAND wisr_vector_test)
+add_test(NAME WisrVector COMMAND wisr_vector_test)
 
 add_executable(wisr_vector_benchmark)
 target_sources(wisr_vector_benchmark PRIVATE 

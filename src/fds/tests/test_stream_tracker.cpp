@@ -52,7 +52,7 @@ public:
     StreamTrackerTest() {}
     size_t get_mem_size() {
         auto json = MetricsFarm::getInstance().get_result_in_json();
-        return (size_t)json["StreamTracker"]["StreamTracker"]["Gauges"]["Total Memsize for stream tracker"];
+        return (size_t)json["StreamTracker"]["StreamTracker_2"]["Gauges"]["Total Memsize for stream tracker"];
     }
 };
 } // namespace
@@ -108,7 +108,7 @@ TEST_F(StreamTrackerTest, ForceRealloc) {
         m_tracker.create_and_complete(i, gen(s_engine));
     }
     EXPECT_EQ(m_tracker.completed_upto(), far_idx);
-    EXPECT_EQ(get_mem_size(), prev_size);
+    EXPECT_EQ(get_mem_size(), prev_size * 2);
 }
 
 int main(int argc, char* argv[]) {

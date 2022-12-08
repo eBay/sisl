@@ -15,7 +15,6 @@
  *
  *********************************************************************************/
 #include <iostream>
-#include <sisl/options/options.h>
 #include <gtest/gtest.h>
 #include <string>
 #include <random>
@@ -28,9 +27,10 @@
 #endif
 
 #include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include <sisl/utility/enum.hpp>
-#include "range_cache.hpp"
-#include "lru_evictor.hpp"
+#include <sisl/cache/range_cache.hpp>
+#include <sisl/cache/lru_evictor.hpp>
 
 using namespace sisl;
 SISL_LOGGING_INIT(test_rangecache)
