@@ -122,9 +122,11 @@ pipeline {
                                     BUILD_PROFILE = "debug"
                                 }
 
-                                if ("${BUILD_TYPE}" == "release") {
+                                if ("${ALLOC}" == 'libc') {
                                     PRERELEASE = 'False'
-                                    if ("${ALLOC}" != 'libc') {
+                                } else {
+                                    if ("${BUILD_TYPE}" == "release") {
+                                        PRERELEASE = 'False'
                                         BUILD_PROFILE = "test"
                                     }
                                 }
