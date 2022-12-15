@@ -64,6 +64,7 @@ class SISLConan(ConanFile):
             self.requires("userspace-rcu/0.11.4")
         self.requires("zmarok-semver/1.1.0")
         self.requires("fmt/8.1.1",          override=True)
+        self.requires("libcurl/7.86.0",    override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1q",     override=True)
         self.requires("xz_utils/5.2.5",     override=True)
