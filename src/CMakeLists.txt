@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 3.11)
 
+add_subdirectory (grpc)
 add_subdirectory (logging)
 add_subdirectory (options)
 add_subdirectory (version)
@@ -38,6 +39,7 @@ endif()
 
 add_library(sisl
             ${POSIX_LIBRARIES}
+            $<TARGET_OBJECTS:sisl_grpc>
             $<TARGET_OBJECTS:sisl_logging>
             $<TARGET_OBJECTS:sisl_options>
             $<TARGET_OBJECTS:sisl_version>

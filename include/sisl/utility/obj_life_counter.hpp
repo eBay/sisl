@@ -173,9 +173,9 @@ public:
         return instance;
     }
 
-    static void register_obj(const char* name, pair_of_atomic_ptrs ptrs) {}
+    static void register_obj(const char*, pair_of_atomic_ptrs) {}
 
-    static void foreach (const std::function< void(const std::string&, int64_t, int64_t) >& closure) {}
+    static void foreach (const std::function< void(const std::string&, int64_t, int64_t) >&) {}
     static inline void enable_metrics_reporting() {}
 };
 #endif // _PRERELEASE
