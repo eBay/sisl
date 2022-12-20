@@ -42,11 +42,11 @@ public:
                                     Pistache::Rest::Routes::bind(&TokenApi::get_key_handler, this));
     }
 
-    void get_token_handler(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response) {
+    void get_token_handler(const Pistache::Rest::Request&, Pistache::Http::ResponseWriter response) {
         this->get_token_impl(response);
     }
 
-    void get_key_handler(const Pistache::Rest::Request& request, Pistache::Http::ResponseWriter response) {
+    void get_key_handler(const Pistache::Rest::Request&, Pistache::Http::ResponseWriter response) {
 
         this->get_key_impl(response);
     }

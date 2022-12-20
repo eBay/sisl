@@ -19,7 +19,7 @@
 #include "sds_grpc_test.grpc.pb.h"
 
 using namespace ::grpc;
-using namespace ::sds::grpc;
+using namespace ::sisl;
 using namespace ::sds_grpc_test;
 using namespace std::placeholders;
 

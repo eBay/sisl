@@ -16,11 +16,11 @@
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
 
-#include "grpc_helper/rpc_server.hpp"
+#include "sisl/grpc/rpc_server.hpp"
 #include "grpc_helper_test.grpc.pb.h"
 
 using namespace ::grpc;
-using namespace grpc_helper;
+using namespace sisl;
 using namespace ::grpc_helper_test;
 using namespace std::placeholders;
 

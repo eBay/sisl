@@ -11,14 +11,14 @@
 #include <sisl/auth_manager/auth_manager.hpp>
 #include "rpc_call.hpp"
 
-namespace grpc_helper {
+namespace sisl {
 class GenericRpcData;
 class GenericRpcStaticInfo;
 using generic_rpc_handler_cb_t = std::function< bool(boost::intrusive_ptr< GenericRpcData >&) >;
 
 using rpc_thread_start_cb_t = std::function< void(uint32_t) >;
 
-ENUM(ServerState, uint8_t, VOID, INITED, RUNNING, SHUTTING_DOWN, TERMINATED);
+ENUM(ServerState, uint8_t, VOID, INITED, RUNNING, SHUTTING_DOWN, TERMINATED)
 
 class GrpcServer : private boost::noncopyable {
     friend class RPCHelper;
@@ -129,4 +129,4 @@ private:
     std::unordered_map< std::string, generic_rpc_handler_cb_t > m_generic_rpc_registry;
     std::shared_mutex m_generic_rpc_registry_mtx;
 };
-} // namespace grpc_helper
+} // namespace sisl::grpc

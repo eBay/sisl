@@ -3,7 +3,7 @@
 #include <string>
 #include <fstream>
 
-namespace grpc_helper {
+namespace sisl {
 
 static bool get_file_contents(const std::string& file_name, std::string& contents) {
     try {
@@ -15,4 +15,4 @@ static bool get_file_contents(const std::string& file_name, std::string& content
     return false;
 }
 
-} // namespace grpc_helper
+} // namespace sisl::grpc

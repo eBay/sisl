@@ -3,7 +3,7 @@
 #include <grpcpp/generic/async_generic_service.h>
 #include "rpc_call.hpp"
 
-namespace grpc_helper {
+namespace sisl {
 
 using generic_rpc_handler_cb_t = std::function< bool(boost::intrusive_ptr< GenericRpcData >&) >;
 
@@ -77,7 +77,7 @@ private:
         return in_shutdown ? nullptr : create_new();
     }
 
-    RpcDataAbstract* on_buf_read(bool ok) {
+    RpcDataAbstract* on_buf_read(bool ) {
         auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
         // take a ref before the handler cb is called.
         // unref is called in send_response which is handled by us (in case of sync calls)
@@ -87,16 +87,16 @@ private:
         return nullptr;
     }
 
-    RpcDataAbstract* on_buf_write(bool ok) {
+    RpcDataAbstract* on_buf_write(bool ) {
         m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
         unref();
         return nullptr;
     }
 
-    RpcDataAbstract* on_request_completed(bool ok) { return nullptr; }
+    RpcDataAbstract* on_request_completed(bool) { return nullptr; }
 
     struct RpcTagImpl : public RpcTag {
-        using callback_type = RpcDataAbstract* (GenericRpcData::*)(bool ok);
+        using callback_type = RpcDataAbstract* (GenericRpcData::*)(bool);
         RpcTagImpl(GenericRpcData* rpc, callback_type cb) : RpcTag{rpc}, m_callback{cb} {}
 
         RpcDataAbstract* do_process(bool ok) override {
@@ -114,4 +114,4 @@ private:
     RpcTagImpl m_request_completed_tag{this, &GenericRpcData::on_request_completed};
 };
 
-} // namespace grpc_helper
+} // namespace sisl

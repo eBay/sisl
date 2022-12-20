@@ -26,7 +26,7 @@ SISL_LOGGING_DECL(grpc_server)
                         }),                                                                                            \
                         msg, ##__VA_ARGS__);
 
-namespace grpc_helper {
+namespace sisl {
 class RpcDataAbstract : public boost::intrusive_ref_counter< RpcDataAbstract, boost::thread_safe_counter > {
 public:
     RpcDataAbstract(size_t queue_idx) :
@@ -163,7 +163,7 @@ public:
     // applicable)
     // NOTE: this function MUST `unref()` this call
     template < bool mode = streaming >
-    std::enable_if_t< !mode, void > send_response(bool is_last = true) {
+    std::enable_if_t< !mode, void > send_response([[maybe_unused]] bool is_last = true) {
         do_non_streaming_send();
     }
 
@@ -410,4 +410,4 @@ private:
     RpcTagImpl m_completed_tag{this, &RpcData::on_request_completed};
 };
 
-} // namespace grpc_helper
+} // namespace sisl::grpc

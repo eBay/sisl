@@ -1,7 +1,7 @@
-#include "grpc_helper/rpc_client.hpp"
+#include "sisl/grpc/rpc_client.hpp"
 #include "utils.hpp"
 
-namespace grpc_helper {
+namespace sisl {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
                                const std::string& ssl_cert) :
@@ -144,4 +144,4 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
     return std::make_unique< GrpcAsyncClient::GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w,
                                                                  m_trf_client);
 }
-} // namespace grpc_helper
+} // namespace sisl::grpc

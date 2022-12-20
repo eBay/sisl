@@ -1,6 +1,6 @@
 #pragma once
 
-namespace grpc_helper::testing {
+namespace sisl::grpc::testing {
 // public and private keys for unit test
 
 static const std::string rsa_pub_key = "-----BEGIN PUBLIC KEY-----\n"
@@ -69,4 +69,4 @@ struct TestToken {
 private:
     token_t token;
 };
-} // namespace grpc_helper::testing
+} // namespace sisl::grpc::testing

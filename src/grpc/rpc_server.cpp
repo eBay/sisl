@@ -4,8 +4,8 @@
  *  Created on: Oct 24, 2018
  */
 
-#include <grpc_helper/rpc_server.hpp>
-#include "grpc_helper/generic_service.hpp"
+#include "sisl/grpc/rpc_server.hpp"
+#include "sisl/grpc/generic_service.hpp"
 #include "utils.hpp"
 
 #ifdef _POSIX_THREADS
@@ -18,7 +18,7 @@ extern "C" {
 
 #include <grpcpp/impl/codegen/service_type.h>
 
-namespace grpc_helper {
+namespace sisl {
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                        const std::string& ssl_cert) :
         GrpcServer::GrpcServer(listen_addr, threads, ssl_key, ssl_cert, nullptr) {}
@@ -246,4 +246,4 @@ grpc::StatusCode RPCHelper::to_grpc_statuscode(const sisl::AuthVerifyStatus stat
     return ret;
 }
 
-} // namespace grpc_helper
+} // namespace sisl::grpc

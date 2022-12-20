@@ -8,15 +8,15 @@
 #include <sisl/auth_manager/trf_client.hpp>
 
 #include "basic_http_server.hpp"
-#include "grpc_helper/rpc_client.hpp"
-#include "grpc_helper/rpc_server.hpp"
+#include "sisl/grpc/rpc_client.hpp"
+#include "sisl/grpc/rpc_server.hpp"
 #include "grpc_helper_test.grpc.pb.h"
 #include "test_token.hpp"
 
 SISL_LOGGING_INIT(logging, grpc_server)
 SISL_OPTIONS_ENABLE(logging)
 
-namespace grpc_helper::testing {
+namespace sisl::grpc::testing {
 using namespace sisl;
 using namespace ::grpc_helper_test;
 using namespace ::testing;
@@ -91,7 +91,7 @@ public:
         LOGINFO("Server listening on {}", server_address);
         m_echo_impl->register_rpcs(m_grpc_server);
         m_grpc_server->register_generic_rpc(GENERIC_METHOD,
-                                            [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; });
+                                            [](boost::intrusive_ptr< GenericRpcData >&) { return true; });
     }
 
     void process_echo_reply() {
@@ -99,10 +99,10 @@ public:
         m_cv.notify_all();
     }
 
-    void call_async_echo(EchoRequest& req, EchoReply& reply, grpc::Status& status) {
+    void call_async_echo(EchoRequest& req, EchoReply& reply, ::grpc::Status& status) {
         m_echo_stub->call_unary< EchoRequest, EchoReply >(
             req, &EchoService::StubInterface::AsyncEcho,
-            [&reply, &status, this](EchoReply& reply_, grpc::Status& status_) {
+            [&reply, &status, this](EchoReply& reply_, ::grpc::Status& status_) {
                 reply = reply_;
                 status = status_;
                 process_echo_reply();
@@ -114,11 +114,11 @@ public:
         }
     }
 
-    void call_async_generic_rpc(grpc::Status& status) {
-        grpc::ByteBuffer req;
+    void call_async_generic_rpc(::grpc::Status& status) {
+        ::grpc::ByteBuffer req;
         m_generic_stub->call_unary(
             req, GENERIC_METHOD,
-            [&status, this](grpc::ByteBuffer&, ::grpc::Status& status_) {
+            [&status, this](::grpc::ByteBuffer&, ::grpc::Status& status_) {
                 status = status_;
                 m_generic_received.store(true);
                 m_cv.notify_all();
@@ -165,12 +165,12 @@ TEST_F(AuthDisableTest, allow_on_disabled_mode) {
     // server sets the same message as response
     req.set_message("dummy_msg");
     EchoReply reply;
-    grpc::Status status;
+    ::grpc::Status status;
     call_async_echo(req, reply, status);
     EXPECT_TRUE(status.ok());
     EXPECT_EQ(req.message(), reply.message());
 
-    grpc::Status generic_status;
+    ::grpc::Status generic_status;
     call_async_generic_rpc(status);
     EXPECT_TRUE(generic_status.ok());
 }
@@ -224,15 +224,15 @@ TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
     // server sets the same message as response
     req.set_message("dummy_msg");
     EchoReply reply;
-    grpc::Status status;
+    ::grpc::Status status;
     call_async_echo(req, reply, status);
     EXPECT_FALSE(status.ok());
-    EXPECT_EQ(status.error_code(), grpc::UNAUTHENTICATED);
+    EXPECT_EQ(status.error_code(), ::grpc::UNAUTHENTICATED);
     EXPECT_EQ(status.error_message(), "missing header authorization");
 
-    grpc::Status generic_status;
+    ::grpc::Status generic_status;
     call_async_generic_rpc(generic_status);
-    EXPECT_EQ(generic_status.error_code(), grpc::UNAUTHENTICATED);
+    EXPECT_EQ(generic_status.error_code(), ::grpc::UNAUTHENTICATED);
 }
 
 class TokenApiImpl : public TokenApi {
@@ -288,12 +288,12 @@ TEST_F(AuthEnableTest, allow_with_auth) {
     EchoRequest req;
     req.set_message("dummy_msg");
     EchoReply reply;
-    grpc::Status status;
+    ::grpc::Status status;
     call_async_echo(req, reply, status);
     EXPECT_TRUE(status.ok());
     EXPECT_EQ(req.message(), reply.message());
 
-    grpc::Status generic_status;
+    ::grpc::Status generic_status;
     call_async_generic_rpc(status);
     EXPECT_TRUE(generic_status.ok());
 }
@@ -331,7 +331,7 @@ void validate_generic_reply(const std::string& method, ::grpc::Status& status) {
     if (method == "method1" || method == "method2") {
         EXPECT_TRUE(status.ok());
     } else {
-        EXPECT_EQ(status.error_code(), grpc::UNIMPLEMENTED);
+        EXPECT_EQ(status.error_code(), ::grpc::UNIMPLEMENTED);
     }
 }
 
@@ -341,11 +341,11 @@ TEST(GenericServiceDeathTest, basic_test) {
     // register rpc before generic service is registered
 #ifndef NDEBUG
     ASSERT_DEATH(g_grpc_server->register_generic_rpc(
-                     "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }),
+                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
                  "Assertion .* failed");
 #else
     EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));
+        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 #endif
 
     ASSERT_TRUE(g_grpc_server->register_async_generic_service());
@@ -354,53 +354,53 @@ TEST(GenericServiceDeathTest, basic_test) {
     // register rpc before server is run
 #ifndef NDEBUG
     ASSERT_DEATH(g_grpc_server->register_generic_rpc(
-                     "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }),
+                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
                  "Assertion .* failed");
 #else
     EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));
+        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 #endif
     g_grpc_server->run();
     EXPECT_TRUE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));
+        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
     EXPECT_TRUE(g_grpc_server->register_generic_rpc(
-        "method2", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));
+        "method2", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
     // re-register method 1
     EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >& rpc_data) { return true; }));
+        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 
     auto client = std::make_unique< GrpcAsyncClient >("0.0.0.0:56789", "", "");
     client->init();
     GrpcAsyncClientWorker::create_worker("generic_worker", 1);
     auto generic_stub = client->make_generic_stub("generic_worker");
-    grpc::ByteBuffer cli_buf;
+    ::grpc::ByteBuffer cli_buf;
     generic_stub->call_unary(
         cli_buf, "method1",
-        [method = "method1"](grpc::ByteBuffer& reply, ::grpc::Status& status) {
+        [method = "method1"](::grpc::ByteBuffer&, ::grpc::Status& status) {
             validate_generic_reply(method, status);
         },
         1);
     generic_stub->call_unary(
         cli_buf, "method2",
-        [method = "method2"](grpc::ByteBuffer& reply, ::grpc::Status& status) {
+        [method = "method2"](::grpc::ByteBuffer&, ::grpc::Status& status) {
             validate_generic_reply(method, status);
         },
         1);
     generic_stub->call_unary(
         cli_buf, "method_unknown",
-        [method = "method_unknown"](grpc::ByteBuffer& reply, ::grpc::Status& status) {
+        [method = "method_unknown"](::grpc::ByteBuffer&, ::grpc::Status& status) {
             validate_generic_reply(method, status);
         },
         1);
 }
 
-} // namespace grpc_helper::testing
+} // namespace sisl::grpc::testing
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleMock(&argc, argv);
     SISL_OPTIONS_LOAD(argc, argv, logging)
     sisl::logging::SetLogger("auth_test");
     int ret{RUN_ALL_TESTS()};
-    grpc_helper::GrpcAsyncClientWorker::shutdown_all();
+    sisl::GrpcAsyncClientWorker::shutdown_all();
     return ret;
 }

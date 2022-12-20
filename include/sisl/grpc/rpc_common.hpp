@@ -1,6 +1,6 @@
 #pragma once
 
-namespace grpc_helper {
+namespace sisl {
 class GrpcServer;
 class GenericRpcData;
 struct RPCHelper {
@@ -10,4 +10,4 @@ struct RPCHelper {
     static grpc::Status do_authorization(const GrpcServer* server, const grpc::ServerContext* srv_ctx);
     static grpc::StatusCode to_grpc_statuscode(const sisl::AuthVerifyStatus status);
 };
-} // namespace grpc_helper
+} // namespace sisl::grpc

@@ -5,9 +5,10 @@ add_executable(auth_test
       $<TARGET_OBJECTS:test_proto>
   )
 target_link_libraries(auth_test
-    grpc_helper
+    sisl
+    sisl_grpc
     pistache::pistache
-    gRPC::grpc++
     GTest::gmock
+    ${COMMON_DEPS}
   )
 add_test(NAME Auth_Test COMMAND auth_test)

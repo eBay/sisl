@@ -19,7 +19,7 @@
 #include <sisl/utility/enum.hpp>
 #include <sisl/auth_manager/trf_client.hpp>
 
-namespace grpc_helper {
+namespace sisl {
 
 /**
  * A interface for handling gRPC async response
@@ -156,7 +156,7 @@ public:
     }
 };
 
-ENUM(ClientState, uint8_t, VOID, INIT, RUNNING, SHUTTING_DOWN, TERMINATED);
+ENUM(ClientState, uint8_t, VOID, INIT, RUNNING, SHUTTING_DOWN, TERMINATED)
 
 /**
  * One GrpcBaseClient can have multiple stub
@@ -346,4 +346,4 @@ public:
     std::unique_ptr< GenericAsyncStub > make_generic_stub(const std::string& worker);
 };
 
-} // namespace grpc_helper
+} // namespace sisl::grpc
