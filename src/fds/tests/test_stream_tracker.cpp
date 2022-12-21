@@ -150,6 +150,20 @@ TEST_F(StreamTrackerTest, Rollback) {
     EXPECT_EQ(m_tracker.at(170), TestData{new_val1});
     EXPECT_EQ(m_tracker.at(171), TestData{new_val2});
     EXPECT_EQ(m_tracker.at(172), TestData{new_val2});
+
+    bool exception_hit{false};
+    m_tracker.truncate(80);
+    try {
+        m_tracker.rollback(1);
+    } catch (const std::out_of_range& e) { exception_hit = true; }
+    EXPECT_EQ(exception_hit, true);
+
+    exception_hit = false;
+    m_tracker.truncate(173);
+    try {
+        m_tracker.rollback(1);
+    } catch (const std::out_of_range& e) { exception_hit = true; }
+    EXPECT_EQ(exception_hit, true);
 }
 
 int main(int argc, char* argv[]) {
