@@ -58,7 +58,7 @@ pipeline {
         stage('Build') {
             failFast true
             matrix {
-                agent { label 'sds-builder' }
+                agent { docker { image 'hub.tess.io/sds/sds_tess_build:4.00' } }
                 axes {
                     axis {
                         name 'BUILD_TYPE'
