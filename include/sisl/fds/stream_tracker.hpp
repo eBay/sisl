@@ -74,7 +74,7 @@ public:
     template < class... Args >
     int64_t create(int64_t idx, Args&&... args) {
         return do_update(
-            idx, [](T& data) { return false; }, true /* replace */, std::forward< Args >(args)...);
+            idx, []([[maybe_unused]] T& data) { return false; }, true /* replace */, std::forward< Args >(args)...);
     }
 
     template < class... Args >
@@ -86,6 +86,18 @@ public:
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
         auto start_bit = start_idx - m_slot_ref_idx;
         m_comp_slot_bits.set_bits(start_bit, end_idx - start_idx + 1);
+    }
+
+    void rollback(int64_t new_end_idx) {
+        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        if ((new_end_idx < m_slot_ref_idx) ||
+            (new_end_idx >= (m_slot_ref_idx + int64_cast(m_active_slot_bits.size())))) {
+            throw std::out_of_range("Slot idx is not in range");
+        }
+
+        auto new_end_bit = new_end_idx - m_slot_ref_idx;
+        m_active_slot_bits.reset_bits(new_end_bit + 1, m_active_slot_bits.size() - new_end_bit - 1);
+        m_comp_slot_bits.reset_bits(new_end_bit + 1, m_comp_slot_bits.size() - new_end_bit - 1);
     }
 
     T& at(int64_t idx) const {
