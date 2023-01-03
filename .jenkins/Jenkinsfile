@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'sds-builder-2204' }
 
     environment {
         ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
@@ -58,7 +58,7 @@ pipeline {
         stage('Build') {
             failFast true
             matrix {
-                agent { label 'sds-builder' }
+                agent { label 'sds-builder-2204' }
                 axes {
                     axis {
                         name 'BUILD_TYPE'
