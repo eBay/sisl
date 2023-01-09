@@ -41,7 +41,7 @@ private:
 private:
     int m_inotify_fd;
     std::map< std::string, FileInfo > m_files;
-    std::mutex m_files_lock;
+    mutable std::mutex m_files_lock;
     std::unique_ptr< std::thread > m_fw_thread;
     // This is used to notify poll loop to exit
     int m_pipefd[2] = {-1, -1};
