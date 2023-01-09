@@ -69,7 +69,7 @@ bool FileWatcher::register_listener(const std::string& file_path, const std::str
     {
         auto lk = std::unique_lock< std::mutex >(m_files_lock);
         if (const auto it{m_files.find(file_path)}; it != m_files.end()) {
-            auto file_info = it->second;
+            auto& file_info = it->second;
             file_info.m_handlers.emplace(listener_id, file_event_handler);
             LOGDEBUG("File path {} exists, adding the handler cb for the listener {}", file_path, listener_id);
             return true;
