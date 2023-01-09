@@ -186,16 +186,18 @@ void FileWatcher::handle_events() {
 }
 
 void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
-    auto lk = std::unique_lock< std::mutex >(m_files_lock);
     FileInfo file_info;
     get_fileinfo(wd, file_info);
     if (is_deleted) {
+        // There is a corner case (very unlikely) where a new listener
+        // regestered for this filepath  after the current delete event was triggered.
+        {
+            auto lk = std::unique_lock< std::mutex >(m_files_lock);
+            m_files.erase(file_info.m_filepath);
+        }
         for (const auto& [id, handler] : file_info.m_handlers) {
             handler(file_info.m_filepath, true);
         }
-        // There is a corner case (very unlikely) where a new listener
-        // regestered for this filepath  after the current delete event was triggered.
-        m_files.erase(file_info.m_filepath);
         return;
     }
 
@@ -243,8 +245,8 @@ bool FileWatcher::get_file_contents(const std::string& file_name, std::string& c
     return false;
 }
 
-// Hold the m_files_lock before calling this method.
 void FileWatcher::get_fileinfo(const int wd, FileInfo& file_info) const {
+    auto lk = std::unique_lock< std::mutex >(m_files_lock);
     for (const auto& [file_path, file] : m_files) {
         if (file.m_wd == wd) {
             file_info = file;
