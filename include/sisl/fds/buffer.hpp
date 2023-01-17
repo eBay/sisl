@@ -24,12 +24,12 @@
 #include <boost/preprocessor/stringize.hpp>
 #ifdef __linux__
 #include <malloc.h>
+#include <sys/uio.h>
 #endif
 
 #include <sisl/metrics/metrics.hpp>
 #include <sisl/utility/enum.hpp>
 #include "utils.hpp"
-
 namespace sisl {
 struct blob {
     uint8_t* bytes;
@@ -37,6 +37,44 @@ struct blob {
 
     blob() : blob{nullptr, 0} {}
     blob(uint8_t* const b, const uint32_t s) : bytes{b}, size{s} {}
+};
+
+struct sg_list {
+    uint64_t size; // total size of data pointed by iovs;
+    std::vector< iovec > iovs;
+};
+
+struct sg_iterator {
+    sg_iterator(const std::vector< iovec >& v) : m_input_iovs{v} { assert(v.size() > 0); }
+
+    std::vector< iovec > next_iovs(uint32_t size) {
+        std::vector< iovec > ret_iovs;
+        uint64_t remain_size = size;
+
+        while ((remain_size > 0) && (m_cur_index < m_input_iovs.size())) {
+            const auto& inp_iov = m_input_iovs[m_cur_index];
+            iovec this_iov;
+            this_iov.iov_base = static_cast< uint8_t* >(inp_iov.iov_base) + m_cur_offset;
+            if (remain_size < inp_iov.iov_len - m_cur_offset) {
+                this_iov.iov_len = remain_size;
+                m_cur_offset += remain_size;
+            } else {
+                this_iov.iov_len = inp_iov.iov_len - m_cur_offset;
+                ++m_cur_index;
+                m_cur_offset = 0;
+            }
+
+            ret_iovs.push_back(this_iov);
+            assert(remain_size >= this_iov.iov_len);
+            remain_size -= this_iov.iov_len;
+        }
+
+        return ret_iovs;
+    }
+
+    const std::vector< iovec >& m_input_iovs;
+    uint64_t m_cur_offset{0};
+    size_t m_cur_index{0};
 };
 
 // typedef size_t buftag_t;
@@ -192,7 +230,8 @@ struct io_blob : public blob {
         buf_alloc(sz, align_size, tag);
     }
     io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size), aligned{is_aligned} {}
+            blob(bytes, size),
+            aligned{is_aligned} {}
     ~io_blob() = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
@@ -205,7 +244,8 @@ struct io_blob : public blob {
         aligned ? sisl_aligned_free(blob::bytes, tag) : std::free(blob::bytes);
     }
 
-    void buf_realloc(const size_t new_size, const uint32_t align_size = 512, [[maybe_unused]] const buftag tag = buftag::common) {
+    void buf_realloc(const size_t new_size, const uint32_t align_size = 512,
+                     [[maybe_unused]] const buftag tag = buftag::common) {
         uint8_t* new_buf{nullptr};
         if (aligned) {
             // aligned before, so do not need check for new align size, once aligned will be aligned on realloc also
@@ -231,7 +271,8 @@ struct io_blob : public blob {
  */
 struct byte_array_impl : public io_blob {
     byte_array_impl(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) :
-            io_blob(sz, alignment, tag), m_tag{tag} {}
+            io_blob(sz, alignment, tag),
+            m_tag{tag} {}
     byte_array_impl(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
             io_blob(bytes, size, is_aligned) {}
     ~byte_array_impl() { io_blob::buf_free(m_tag); }
