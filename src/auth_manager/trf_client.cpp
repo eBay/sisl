@@ -76,8 +76,36 @@ void TrfClient::request_with_grant_token() {
         m_access_token = resp_json["access_token"];
         m_token_type = resp_json["token_type"];
     } catch ([[maybe_unused]] const nlohmann::detail::exception& e) {
-        LOGDEBUG("parsing token response failed, what: {}", e.what());
+        LOGERROR("parsing token response using json failed, what: {}; trying to parse manually", e.what());
+        parse_response(resp.text);
     }
+}
+
+void TrfClient::parse_response(const std::string& resp) {
+    try {
+        static std::string token1{"{\"access_token\":"};
+        static std::string token2{"\"token_type\":"};
+        static std::string token3{"\"expires_in\":"};
+
+        if (m_access_token = get_quoted_string(resp, token1); m_access_token.empty()) { return; }
+        if (m_token_type = get_quoted_string(resp, token2); m_access_token.empty()) { return; }
+        auto expiry_str = get_string(resp, token3);
+        if (expiry_str.empty()) { return; }
+        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(std::stol(expiry_str));
+    } catch (const std::exception& e) { LOGDEBUG("failed to parse pattern, what: {}", e.what()); }
+}
+
+std::string TrfClient::get_string(const std::string& resp, const std::string& pattern) {
+    auto n = resp.find(pattern);
+    if (n == std::string::npos) { return ""; }
+    auto n1 = resp.find(',', n);
+    if (n1 == std::string::npos) { return ""; }
+    return resp.substr(n + pattern.length(), n1 - n - pattern.length());
+}
+
+std::string TrfClient::get_quoted_string(const std::string& resp, const std::string& pattern) {
+    auto quoted_string{get_string(resp, pattern)};
+    return quoted_string.substr(1, quoted_string.length() - 2);
 }
 
 std::string TrfClient::get_token() {
