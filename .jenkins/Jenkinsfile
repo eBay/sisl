@@ -193,53 +193,6 @@ pipeline {
                 }
             }
         }
-
-        stage('Build-GCC9') {
-            failFast true
-            matrix {
-                agent { label 'sds-builder' }
-                axes {
-                    axis {
-                        name 'BUILD_TYPE'
-                        values 'release', 'debug'
-                    }
-                }
-
-                stages {
-                    stage('Adjust Tag for Master/PR') {
-                        when { not { anyOf {
-                            branch "${TESTING_BRANCH}"
-                            branch "${STABLE_BRANCH}"
-                        } } }
-                        steps {
-                            sh(script: "sed -Ei 's, version = .*\"([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*, version = \"\\1-${env.BUILD_NUMBER}\",' conanfile.py")
-                        }
-                    }
-
-                    stage("Build") {
-                        steps {
-                            script {
-                                if (("${env.BRANCH_NAME}" =~ /PR-/) && ("$BUILD_TYPE" == "debug")) {
-                                    sh "echo Skipping debug build for PR branch"
-                                } else {
-                                    sh "conan create -u ${BUILD_MISSING} -o ${PROJECT}:malloc_impl=libc -o ${PROJECT}:prerelease=False -o ${PROJECT}:sanitize=False -pr ${BUILD_TYPE} . ${PROJECT}/${TAG}"
-                                }
-                            }
-                        }
-                    }
-
-                    stage("Deploy") {
-                        when {
-                            expression { !(env.BRANCH_NAME =~ /PR-/) }
-                        }
-                        steps {
-                            sh "conan user -r ebay-local -p ${ARTIFACTORY_PASS} _service_sds"
-                            sh "conan upload ${PROJECT}/${TAG} -c --all -r ebay-local"
-                        }
-                    }
-                }
-            }
-        }
     }
 
     post {
