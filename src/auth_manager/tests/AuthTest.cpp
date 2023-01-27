@@ -156,6 +156,9 @@ public:
 
     void set_expiry(std::chrono::system_clock::time_point tp) { m_expiry = tp; }
     std::string get_access_token() { return m_access_token; }
+    std::chrono::system_clock::time_point get_expiry() { return m_expiry; }
+
+    void parse_token(const std::string& resp) { TrfClient::parse_response(resp); }
 };
 
 static void load_trf_settings() {
@@ -220,14 +223,8 @@ static const std::string trf_token_server_ip{"127.0.0.1"};
 static const uint32_t trf_token_server_port{12346};
 static std::string token_response;
 static void set_token_response(const std::string& raw_token) {
-    token_response = "{\n"
-                     "  \"access_token\": \"" +
-        raw_token +
-        "\",\n"
-        "  \"token_type\": \"Bearer\",\n"
-        "  \"expires_in\": 2000,\n"
-        "  \"refresh_token\": \"dummy_refresh_token\"\n"
-        "}";
+    token_response = "{\"access_token\":\"" + raw_token +
+        "\",\"token_type\":\"Bearer\",\"expires_in\":2000,\"refresh_token\":\"dummy_refresh_token\"}\n";
 }
 
 class TokenApiImpl : public TokenApi {
@@ -256,7 +253,10 @@ public:
         APIBase::start();
     }
 
-    virtual void TearDown() override { APIBase::stop(); }
+    virtual void TearDown() override {
+        APIBase::stop();
+        remove_grant_path();
+    }
 
 private:
     std::unique_ptr< TokenApiImpl > m_token_server;
@@ -296,6 +296,20 @@ TEST_F(TrfClientTest, request_with_grant_token) {
     mock_trf_client.get_token();
     EXPECT_EQ(raw_token, mock_trf_client.get_access_token());
     EXPECT_EQ("Bearer", mock_trf_client.get_token_type());
+}
+
+TEST(TrfClientParseTest, parse_token) {
+    load_trf_settings();
+    MockTrfClient mock_trf_client;
+    const auto raw_token{TestToken().sign_rs256()};
+    set_token_response(raw_token);
+    EXPECT_TRUE(mock_trf_client.get_access_token().empty());
+    EXPECT_TRUE(mock_trf_client.get_token_type().empty());
+    mock_trf_client.parse_token(token_response);
+    EXPECT_EQ(raw_token, mock_trf_client.get_access_token());
+    EXPECT_EQ("Bearer", mock_trf_client.get_token_type());
+    EXPECT_TRUE(mock_trf_client.get_expiry() > std::chrono::system_clock::now());
+    remove_grant_path();
 }
 } // namespace sisl::testing
 

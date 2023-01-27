@@ -38,6 +38,9 @@ private:
 protected:
     // acquire unique lock before calling
     virtual void request_with_grant_token();
+    void parse_response(const std::string& resp);
+    static std::string get_string(const std::string& resp, const std::string& pattern);
+    static std::string get_quoted_string(const std::string& resp, const std::string& pattern);
 
 protected:
     std::string m_access_token;
