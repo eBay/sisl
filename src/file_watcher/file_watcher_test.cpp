@@ -92,7 +92,7 @@ TEST_F(FileWatcherTest, basic_watcher) {
         m_file_change_params.cb_call_count = 1; // set it 1 for the next iteration of the test
     }
 
-    /* TODO fix this in CI. 
+    /* TODO fix this in CI.
     std::ofstream file_of1{m_file_change_params.file_str};
     file_of1 << "Hello World Again!";
     file_of1.flush();
