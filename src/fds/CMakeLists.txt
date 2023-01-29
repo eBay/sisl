@@ -57,6 +57,14 @@ target_sources(test_cb_mutex PRIVATE
 target_link_libraries(test_cb_mutex sisl ${COMMON_DEPS} GTest::gtest)
 #add_test(NAME TestCBMutex COMMAND test_cb_mutex)
 
+add_executable(test_sg_list)
+target_sources(test_sg_list PRIVATE
+    tests/test_sg_list.cpp
+  )
+target_link_libraries(test_sg_list sisl ${COMMON_DEPS} GTest::gtest)
+add_test(NAME SgList COMMAND test_sg_list)
+
+
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "jemalloc")
         add_executable(test_jemalloc)

@@ -17,6 +17,7 @@
 namespace sisl {
 class GrpcServer;
 class GenericRpcData;
+enum class AuthVerifyStatus : uint8_t;
 struct RPCHelper {
     static bool has_server_shutdown(const GrpcServer* server);
     static bool run_generic_handler_cb(GrpcServer* server, const std::string& method,

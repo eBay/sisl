@@ -69,7 +69,7 @@ bool FileWatcher::register_listener(const std::string& file_path, const std::str
     {
         auto lk = std::unique_lock< std::mutex >(m_files_lock);
         if (const auto it{m_files.find(file_path)}; it != m_files.end()) {
-            auto file_info = it->second;
+            auto& file_info = it->second;
             file_info.m_handlers.emplace(listener_id, file_event_handler);
             LOGDEBUG("File path {} exists, adding the handler cb for the listener {}", file_path, listener_id);
             return true;
@@ -186,16 +186,18 @@ void FileWatcher::handle_events() {
 }
 
 void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
-    auto lk = std::unique_lock< std::mutex >(m_files_lock);
     FileInfo file_info;
     get_fileinfo(wd, file_info);
     if (is_deleted) {
+        // There is a corner case (very unlikely) where a new listener
+        // regestered for this filepath  after the current delete event was triggered.
+        {
+            auto lk = std::unique_lock< std::mutex >(m_files_lock);
+            m_files.erase(file_info.m_filepath);
+        }
         for (const auto& [id, handler] : file_info.m_handlers) {
             handler(file_info.m_filepath, true);
         }
-        // There is a corner case (very unlikely) where a new listener
-        // regestered for this filepath  after the current delete event was triggered.
-        m_files.erase(file_info.m_filepath);
         return;
     }
 
@@ -243,8 +245,8 @@ bool FileWatcher::get_file_contents(const std::string& file_name, std::string& c
     return false;
 }
 
-// Hold the m_files_lock before calling this method.
 void FileWatcher::get_fileinfo(const int wd, FileInfo& file_info) const {
+    auto lk = std::unique_lock< std::mutex >(m_files_lock);
     for (const auto& [file_path, file] : m_files) {
         if (file.m_wd == wd) {
             file_info = file;
