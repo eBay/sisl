@@ -264,6 +264,10 @@ struct io_blob : public blob {
         blob::size = new_size;
         blob::bytes = new_buf;
     }
+
+    static io_blob from_string(const std::string& s) {
+        return io_blob{r_cast< uint8_t* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
+    }
 };
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
@@ -355,6 +359,8 @@ public:
     }
     void set_size(const uint32_t sz) { m_view.size = sz; }
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
+
+    std::string get_string() const { return std::string(r_cast< const char* >(bytes()), uint64_cast(size())); }
 
 private:
     byte_array m_base_buf;
