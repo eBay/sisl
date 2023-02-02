@@ -65,7 +65,7 @@ void TrfClient::request_with_grant_token() {
     session.SetTimeout(std::chrono::milliseconds{5000});
     const auto resp{session.Post()};
     if (resp.error || resp.status_code != 200) {
-        LOGDEBUG("request grant token from server failed, error: {}, status code: {}", resp.error.message,
+        LOGERROR("request grant token from server failed, error: {}, status code: {}", resp.error.message,
                  resp.status_code);
         return;
     }
@@ -76,7 +76,7 @@ void TrfClient::request_with_grant_token() {
         m_access_token = resp_json["access_token"];
         m_token_type = resp_json["token_type"];
     } catch ([[maybe_unused]] const nlohmann::detail::exception& e) {
-        LOGERROR("parsing token response using json failed, what: {}; trying to parse manually", e.what());
+        LOGDEBUG("parsing token response using json failed, what: {}; trying to parse manually", e.what());
         parse_response(resp.text);
     }
 }
@@ -92,7 +92,7 @@ void TrfClient::parse_response(const std::string& resp) {
         auto expiry_str = get_string(resp, token3);
         if (expiry_str.empty()) { return; }
         m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(std::stol(expiry_str));
-    } catch (const std::exception& e) { LOGDEBUG("failed to parse pattern, what: {}", e.what()); }
+    } catch (const std::exception& e) { LOGERROR("failed to parse response: {}, what: {}", resp, e.what()); }
 }
 
 std::string TrfClient::get_string(const std::string& resp, const std::string& pattern) {

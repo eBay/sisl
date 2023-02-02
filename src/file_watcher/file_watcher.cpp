@@ -110,19 +110,24 @@ bool FileWatcher::unregister_listener(const std::string& file_path, const std::s
 
     file_info.m_handlers.erase(listener_id);
     if (file_info.m_handlers.empty()) {
-        if (auto err = inotify_rm_watch(m_inotify_fd, file_info.m_wd); err != 0) {
-            LOGERROR("inotify rm failed for file path {}, listener id {} errno: {}", file_path, listener_id, errno);
+        if (!remove_watcher(file_info)) {
+            LOGDEBUG("inotify rm failed for file path {}, listener id {} errno: {}", file_path, listener_id, errno);
             return false;
         }
-        m_files.erase(file_path);
     }
+    return true;
+}
+
+bool FileWatcher::remove_watcher(FileInfo& file_info) {
+    if (auto err = inotify_rm_watch(m_inotify_fd, file_info.m_wd); err != 0) { return false; }
+    m_files.erase(file_info.m_filepath);
     return true;
 }
 
 bool FileWatcher::stop() {
     // signal event loop to break and wait for the thread to join
     // event value does not matter, this is just generating an event at the read end of the pipe
-    LOGINFO("Stopping file watcher event loop.");
+    LOGDEBUG("Stopping file watcher event loop.");
     int event = 1;
     int ret;
     do {
@@ -134,7 +139,7 @@ bool FileWatcher::stop() {
         return false;
     }
 
-    LOGINFO("Waiting for file watcher thread to join..");
+    LOGDEBUG("Waiting for file watcher thread to join..");
     if (m_fw_thread && m_fw_thread->joinable()) {
         try {
             m_fw_thread->join();
@@ -143,7 +148,7 @@ bool FileWatcher::stop() {
             return false;
         }
     }
-    LOGINFO("file watcher thread joined.");
+    LOGINFO("file watcher stopped.");
     return true;
 }
 
@@ -193,7 +198,7 @@ void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
         // regestered for this filepath  after the current delete event was triggered.
         {
             auto lk = std::unique_lock< std::mutex >(m_files_lock);
-            m_files.erase(file_info.m_filepath);
+            remove_watcher(file_info);
         }
         for (const auto& [id, handler] : file_info.m_handlers) {
             handler(file_info.m_filepath, true);

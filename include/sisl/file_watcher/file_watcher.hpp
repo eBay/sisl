@@ -35,6 +35,7 @@ private:
     void handle_events();
     void get_fileinfo(const int wd, FileInfo& file_info) const;
     void on_modified_event(const int wd, const bool is_deleted);
+    bool remove_watcher(FileInfo& file_info);
     static bool get_file_contents(const std::string& file_name, std::string& contents);
     static bool check_file_size(const std::string& file_path);
 
