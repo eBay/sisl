@@ -40,16 +40,17 @@ struct blob {
     blob(uint8_t* const b, const uint32_t s) : bytes{b}, size{s} {}
 };
 
+using sg_iovs_t = folly::small_vector< iovec, 4 >;
 struct sg_list {
     uint64_t size; // total size of data pointed by iovs;
-    folly::small_vector< iovec > iovs;
+    sg_iovs_t iovs;
 };
 
 struct sg_iterator {
-    sg_iterator(const folly::small_vector< iovec >& v) : m_input_iovs{v} { assert(v.size() > 0); }
+    sg_iterator(const sg_iovs_t& v) : m_input_iovs{v} { assert(v.size() > 0); }
 
-    folly::small_vector< iovec > next_iovs(uint32_t size) {
-        folly::small_vector< iovec > ret_iovs;
+    sg_iovs_t next_iovs(uint32_t size) {
+        sg_iovs_t ret_iovs;
         uint64_t remain_size = size;
 
         while ((remain_size > 0) && (m_cur_index < m_input_iovs.size())) {
@@ -73,7 +74,7 @@ struct sg_iterator {
         return ret_iovs;
     }
 
-    const folly::small_vector< iovec >& m_input_iovs;
+    const sg_iovs_t& m_input_iovs;
     uint64_t m_cur_offset{0};
     size_t m_cur_index{0};
 };

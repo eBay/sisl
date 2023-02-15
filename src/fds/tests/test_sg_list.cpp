@@ -27,7 +27,7 @@ struct SgListTest : public testing::Test {};
 // the iterator request size is same as iov size for each iov;
 TEST_F(SgListTest, TestIteratorAlignedSize) {
 
-    folly::small_vector< iovec > iovs;
+    sisl::sg_iovs_t iovs;
     iovs.push_back(iovec{nullptr, 1024});
     iovs.push_back(iovec{nullptr, 512});
     iovs.push_back(iovec{nullptr, 2048});
@@ -42,7 +42,7 @@ TEST_F(SgListTest, TestIteratorAlignedSize) {
     sg.iovs = iovs;
 
     sisl::sg_iterator sg_it{sg.iovs};
-    folly::small_vector< uint32_t > bids_size_vec{1024, 512, 2048, 512};
+    std::vector< uint32_t > bids_size_vec{1024, 512, 2048, 512};
     uint32_t bids_size_total = 0;
     for (const auto s : bids_size_vec) {
         bids_size_total += s;
@@ -65,7 +65,7 @@ TEST_F(SgListTest, TestIteratorAlignedSize) {
 // the iterator request size is unaligned with iov len, but total size is same;
 //
 TEST_F(SgListTest, TestIteratorUnalignedSize) {
-    folly::small_vector< iovec > iovs;
+    sisl::sg_iovs_t iovs;
     iovs.push_back(iovec{nullptr, 1024});
     iovs.push_back(iovec{nullptr, 512});
     iovs.push_back(iovec{nullptr, 2048});
@@ -80,7 +80,7 @@ TEST_F(SgListTest, TestIteratorUnalignedSize) {
     sg.iovs = iovs;
 
     sisl::sg_iterator sg_it{sg.iovs};
-    folly::small_vector< uint32_t > bids_size_vec{512, 1024, 1024, 512, 512, 512};
+    std::vector< uint32_t > bids_size_vec{512, 1024, 1024, 512, 512, 512};
     uint32_t bids_size_total = 0;
     for (const auto s : bids_size_vec) {
         bids_size_total += s;
