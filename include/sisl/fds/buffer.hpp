@@ -26,10 +26,11 @@
 #include <malloc.h>
 #include <sys/uio.h>
 #endif
-
+#include <folly/small_vector.h>
 #include <sisl/metrics/metrics.hpp>
 #include <sisl/utility/enum.hpp>
 #include "utils.hpp"
+
 namespace sisl {
 struct blob {
     uint8_t* bytes;
@@ -41,14 +42,14 @@ struct blob {
 
 struct sg_list {
     uint64_t size; // total size of data pointed by iovs;
-    std::vector< iovec > iovs;
+    folly::small_vector< iovec > iovs;
 };
 
 struct sg_iterator {
-    sg_iterator(const std::vector< iovec >& v) : m_input_iovs{v} { assert(v.size() > 0); }
+    sg_iterator(const folly::small_vector< iovec >& v) : m_input_iovs{v} { assert(v.size() > 0); }
 
-    std::vector< iovec > next_iovs(uint32_t size) {
-        std::vector< iovec > ret_iovs;
+    folly::small_vector< iovec > next_iovs(uint32_t size) {
+        folly::small_vector< iovec > ret_iovs;
         uint64_t remain_size = size;
 
         while ((remain_size > 0) && (m_cur_index < m_input_iovs.size())) {
@@ -72,7 +73,7 @@ struct sg_iterator {
         return ret_iovs;
     }
 
-    const std::vector< iovec >& m_input_iovs;
+    const folly::small_vector< iovec >& m_input_iovs;
     uint64_t m_cur_offset{0};
     size_t m_cur_index{0};
 };
