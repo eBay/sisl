@@ -24,9 +24,79 @@ SISL_OPTION_GROUP(test_sg_list,
 
 struct SgListTest : public testing::Test {};
 
-// a test case that make sure iterator works as expected;
-TEST_F(SgListTest, TestIterator) {
-    // TO Be Implemented;
+// the iterator request size is same as iov size for each iov;
+TEST_F(SgListTest, TestIteratorAlignedSize) {
+
+    sisl::sg_iovs_t iovs;
+    iovs.push_back(iovec{nullptr, 1024});
+    iovs.push_back(iovec{nullptr, 512});
+    iovs.push_back(iovec{nullptr, 2048});
+    iovs.push_back(iovec{nullptr, 512});
+    uint32_t iov_size_total = 0;
+    for (const auto& v : iovs) {
+        iov_size_total += v.iov_len;
+    }
+
+    sisl::sg_list sg;
+    sg.size = iov_size_total;
+    sg.iovs = iovs;
+
+    sisl::sg_iterator sg_it{sg.iovs};
+    std::vector< uint32_t > bids_size_vec{1024, 512, 2048, 512};
+    uint32_t bids_size_total = 0;
+    for (const auto s : bids_size_vec) {
+        bids_size_total += s;
+    }
+
+    assert(iov_size_total == bids_size_total);
+
+    uint32_t itr_size_total = 0;
+    for (const auto& size : bids_size_vec) {
+        const auto iovs = sg_it.next_iovs(size);
+        for (const auto& iov : iovs) {
+            itr_size_total += iov.iov_len;
+        }
+    }
+
+    assert(itr_size_total == bids_size_total);
+}
+
+//
+// the iterator request size is unaligned with iov len, but total size is same;
+//
+TEST_F(SgListTest, TestIteratorUnalignedSize) {
+    sisl::sg_iovs_t iovs;
+    iovs.push_back(iovec{nullptr, 1024});
+    iovs.push_back(iovec{nullptr, 512});
+    iovs.push_back(iovec{nullptr, 2048});
+    iovs.push_back(iovec{nullptr, 512});
+    uint32_t iov_size_total = 0;
+    for (const auto& v : iovs) {
+        iov_size_total += v.iov_len;
+    }
+
+    sisl::sg_list sg;
+    sg.size = iov_size_total;
+    sg.iovs = iovs;
+
+    sisl::sg_iterator sg_it{sg.iovs};
+    std::vector< uint32_t > bids_size_vec{512, 1024, 1024, 512, 512, 512};
+    uint32_t bids_size_total = 0;
+    for (const auto s : bids_size_vec) {
+        bids_size_total += s;
+    }
+
+    assert(iov_size_total == bids_size_total);
+
+    uint32_t itr_size_total = 0;
+    for (const auto& size : bids_size_vec) {
+        const auto iovs = sg_it.next_iovs(size);
+        for (const auto& iov : iovs) {
+            itr_size_total += iov.iov_len;
+        }
+    }
+
+    assert(itr_size_total == bids_size_total);
 }
 
 int main(int argc, char* argv[]) {
