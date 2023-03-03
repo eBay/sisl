@@ -93,8 +93,7 @@ pipeline {
 */
         stage("Compile") {
             steps {
-                sh "conan create ${BUILD_MISSING} -o sisl:prerelease=False -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG}"
-                sh "conan remove -f ${PROJECT}/${TAG}"
+                sh "conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG}"
                 sh "conan create ${BUILD_MISSING} -pr debug . ${PROJECT}/${TAG}"
                 sh "conan create ${BUILD_MISSING} -pr debug -o sisl:prerelease=False . ${PROJECT}/${TAG}"
                 sh "conan create ${BUILD_MISSING} -pr test . ${PROJECT}/${TAG}"
