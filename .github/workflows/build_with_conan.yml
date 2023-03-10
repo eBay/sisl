@@ -40,7 +40,7 @@ jobs:
     - name: Configure Conan
       # Configure conan profiles for build runner
       run: |
-        conan user
+        conan profile detect
 
     - name: Install dependencies
       # Build your program with the given configuration
