@@ -2,7 +2,7 @@ from os.path import join
 from conan import ConanFile
 from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
-from conans import CMake
+from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain
 
 required_conan_version = ">=1.50.0"
 
@@ -35,7 +35,6 @@ class SISLConan(ConanFile):
                 'malloc_impl': 'tcmalloc',
             }
 
-    generators = "cmake", "cmake_find_package"
     exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
 
     def build_requirements(self):
@@ -91,6 +90,12 @@ class SISLConan(ConanFile):
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if self.options.coverage or self.options.sanitize:
                 self.options.malloc_impl = 'libc'
+
+    def generate(self):
+        tc = CMakeToolchain(self)
+        tc.generate()
+        cmake = CMakeDeps(self)
+        cmake.generate()
 
     def build(self):
         cmake = CMake(self)
