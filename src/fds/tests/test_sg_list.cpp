@@ -101,6 +101,13 @@ public:
         sgl.size = SZ * 8;
     }
 
+    void TearDown() override {
+        for (auto& iov : sgl.iovs) {
+            auto data_ptr = r_cast< uint32_t* >(iov.iov_base);
+            delete data_ptr;
+        }
+    }
+
     static uint32_t get_random_num() {
         static std::random_device dev;
         static std::mt19937 rng(dev());
