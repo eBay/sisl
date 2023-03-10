@@ -49,9 +49,9 @@ struct sg_list {
 struct sg_iterator {
     sg_iterator(const sg_iovs_t& v) : m_input_iovs{v} { assert(v.size() > 0); }
 
-    sg_iovs_t next_iovs(uint32_t size) {
+    sg_iovs_t next_iovs(uint32_t const size) {
         sg_iovs_t ret_iovs;
-        uint64_t remain_size = size;
+        auto remain_size = size;
 
         while ((remain_size > 0) && (m_cur_index < m_input_iovs.size())) {
             const auto& inp_iov = m_input_iovs[m_cur_index];
@@ -72,6 +72,19 @@ struct sg_iterator {
         }
 
         return ret_iovs;
+    }
+
+    void move_offset(uint32_t const size) {
+        auto remain_size = size;
+        auto const input_iovs_size = m_input_iovs.size();
+        for (; (remain_size > 0) && (m_cur_index < input_iovs_size); ++m_cur_index, m_cur_offset = 0) {
+            auto const& inp_iov = m_input_iovs[m_cur_index];
+            if (remain_size < inp_iov.iov_len - m_cur_offset) {
+                m_cur_offset += remain_size;
+                return;
+            }
+            remain_size -= inp_iov.iov_len - m_cur_offset;
+        }
     }
 
     const sg_iovs_t& m_input_iovs;
@@ -270,7 +283,18 @@ struct io_blob : public blob {
     static io_blob from_string(const std::string& s) {
         return io_blob{r_cast< uint8_t* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
     }
+
+    static folly::small_vector< sisl::io_blob, 4 > sg_list_to_ioblob_list(sg_list const& sglist) {
+        folly::small_vector< sisl::io_blob, 4 > ret_list;
+        for (auto const& iov : sglist.iovs) {
+            ret_list.emplace_back(r_cast< uint8_t* >(const_cast< void* >(iov.iov_base)), uint32_cast(iov.iov_len),
+                                  false);
+        }
+        return ret_list;
+    }
 };
+
+using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
