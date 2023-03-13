@@ -49,7 +49,7 @@ struct sg_list {
 struct sg_iterator {
     sg_iterator(const sg_iovs_t& v) : m_input_iovs{v} { assert(v.size() > 0); }
 
-    sg_iovs_t next_iovs(uint32_t const size) {
+    sg_iovs_t next_iovs(uint32_t size) {
         sg_iovs_t ret_iovs;
         auto remain_size = size;
 
@@ -74,11 +74,11 @@ struct sg_iterator {
         return ret_iovs;
     }
 
-    void move_offset(uint32_t const size) {
+    void move_offset(const uint32_t size) {
         auto remain_size = size;
-        auto const input_iovs_size = m_input_iovs.size();
+        const auto input_iovs_size = m_input_iovs.size();
         for (; (remain_size > 0) && (m_cur_index < input_iovs_size); ++m_cur_index, m_cur_offset = 0) {
-            auto const& inp_iov = m_input_iovs[m_cur_index];
+            const auto& inp_iov = m_input_iovs[m_cur_index];
             if (remain_size < inp_iov.iov_len - m_cur_offset) {
                 m_cur_offset += remain_size;
                 return;
@@ -237,6 +237,9 @@ public:
     aligned_shared_ptr(T* p) : std::shared_ptr< T >(p) {}
 };
 
+struct io_blob;
+using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
+
 struct io_blob : public blob {
     bool aligned{false};
 
@@ -284,17 +287,15 @@ struct io_blob : public blob {
         return io_blob{r_cast< uint8_t* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
     }
 
-    static folly::small_vector< sisl::io_blob, 4 > sg_list_to_ioblob_list(sg_list const& sglist) {
-        folly::small_vector< sisl::io_blob, 4 > ret_list;
-        for (auto const& iov : sglist.iovs) {
+    static io_blob_list_t sg_list_to_ioblob_list(const sg_list& sglist) {
+        io_blob_list_t ret_list;
+        for (const auto& iov : sglist.iovs) {
             ret_list.emplace_back(r_cast< uint8_t* >(const_cast< void* >(iov.iov_base)), uint32_cast(iov.iov_len),
                                   false);
         }
         return ret_list;
     }
 };
-
-using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory

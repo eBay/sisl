@@ -25,29 +25,25 @@ SISL_OPTION_GROUP(test_sg_list,
 
 static constexpr uint32_t SZ{sizeof(uint32_t)};
 
-class SgListTestBasic : public testing::Test {
-public:
-    void SetUp() override {
-        iovs.push_back(iovec{nullptr, 1024});
-        iovs.push_back(iovec{nullptr, 512});
-        iovs.push_back(iovec{nullptr, 2048});
-        iovs.push_back(iovec{nullptr, 512});
-        for (const auto& v : iovs) {
-            iov_size_total += v.iov_len;
-        }
-        sg.size = iov_size_total;
-        sg.iovs = iovs;
+// the iterator request size is same as iov size for each iov;
+TEST(SgListTestBasic, TestIteratorAlignedSize) {
+    sisl::sg_iovs_t iovs;
+    iovs.push_back(iovec{nullptr, 1024});
+    iovs.push_back(iovec{nullptr, 512});
+    iovs.push_back(iovec{nullptr, 2048});
+    iovs.push_back(iovec{nullptr, 512});
+    uint32_t iov_size_total = 0;
+    for (const auto& v : iovs) {
+        iov_size_total += v.iov_len;
     }
 
-    sisl::sg_iovs_t iovs;
     sisl::sg_list sg;
-    uint32_t iov_size_total{0};
-};
+    sg.size = iov_size_total;
+    sg.iovs = iovs;
 
-// the iterator request size is same as iov size for each iov;
-TEST_F(SgListTestBasic, TestIteratorAlignedSize) {
-    uint32_t bids_size_total = 0;
+    sisl::sg_iterator sg_it{sg.iovs};
     std::vector< uint32_t > bids_size_vec{1024, 512, 2048, 512};
+    uint32_t bids_size_total = 0;
     for (const auto s : bids_size_vec) {
         bids_size_total += s;
     }
@@ -55,7 +51,6 @@ TEST_F(SgListTestBasic, TestIteratorAlignedSize) {
     ASSERT_EQ(iov_size_total, bids_size_total);
 
     uint32_t itr_size_total = 0;
-    sisl::sg_iterator sg_it{sg.iovs};
     for (const auto& size : bids_size_vec) {
         const auto iovs = sg_it.next_iovs(size);
         for (const auto& iov : iovs) {
@@ -69,9 +64,24 @@ TEST_F(SgListTestBasic, TestIteratorAlignedSize) {
 //
 // the iterator request size is unaligned with iov len, but total size is same;
 //
-TEST_F(SgListTestBasic, TestIteratorUnalignedSize) {
+TEST(SgListTestBasic, TestIteratorUnalignedSize) {
+    sisl::sg_iovs_t iovs;
+    iovs.push_back(iovec{nullptr, 1024});
+    iovs.push_back(iovec{nullptr, 512});
+    iovs.push_back(iovec{nullptr, 2048});
+    iovs.push_back(iovec{nullptr, 512});
+    uint32_t iov_size_total = 0;
+    for (const auto& v : iovs) {
+        iov_size_total += v.iov_len;
+    }
+
+    sisl::sg_list sg;
+    sg.size = iov_size_total;
+    sg.iovs = iovs;
+
+    sisl::sg_iterator sg_it{sg.iovs};
+    std::vector< uint32_t > bids_size_vec{512, 1024, 1024, 512, 512, 512};
     uint32_t bids_size_total = 0;
-    std::vector< uint32_t > bids_size_vec{2048, 512, 512, 1024};
     for (const auto s : bids_size_vec) {
         bids_size_total += s;
     }
@@ -79,7 +89,6 @@ TEST_F(SgListTestBasic, TestIteratorUnalignedSize) {
     ASSERT_EQ(iov_size_total, bids_size_total);
 
     uint32_t itr_size_total = 0;
-    sisl::sg_iterator sg_it{sg.iovs};
     for (const auto& size : bids_size_vec) {
         const auto iovs = sg_it.next_iovs(size);
         for (const auto& iov : iovs) {
