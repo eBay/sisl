@@ -51,7 +51,7 @@ struct sg_iterator {
 
     sg_iovs_t next_iovs(uint32_t size) {
         sg_iovs_t ret_iovs;
-        uint64_t remain_size = size;
+        auto remain_size = size;
 
         while ((remain_size > 0) && (m_cur_index < m_input_iovs.size())) {
             const auto& inp_iov = m_input_iovs[m_cur_index];
@@ -72,6 +72,19 @@ struct sg_iterator {
         }
 
         return ret_iovs;
+    }
+
+    void move_offset(const uint32_t size) {
+        auto remain_size = size;
+        const auto input_iovs_size = m_input_iovs.size();
+        for (; (remain_size > 0) && (m_cur_index < input_iovs_size); ++m_cur_index, m_cur_offset = 0) {
+            const auto& inp_iov = m_input_iovs[m_cur_index];
+            if (remain_size < inp_iov.iov_len - m_cur_offset) {
+                m_cur_offset += remain_size;
+                return;
+            }
+            remain_size -= inp_iov.iov_len - m_cur_offset;
+        }
     }
 
     const sg_iovs_t& m_input_iovs;
@@ -224,6 +237,9 @@ public:
     aligned_shared_ptr(T* p) : std::shared_ptr< T >(p) {}
 };
 
+struct io_blob;
+using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
+
 struct io_blob : public blob {
     bool aligned{false};
 
@@ -269,6 +285,15 @@ struct io_blob : public blob {
 
     static io_blob from_string(const std::string& s) {
         return io_blob{r_cast< uint8_t* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
+    }
+
+    static io_blob_list_t sg_list_to_ioblob_list(const sg_list& sglist) {
+        io_blob_list_t ret_list;
+        for (const auto& iov : sglist.iovs) {
+            ret_list.emplace_back(r_cast< uint8_t* >(const_cast< void* >(iov.iov_base)), uint32_cast(iov.iov_len),
+                                  false);
+        }
+        return ret_list;
     }
 };
 
