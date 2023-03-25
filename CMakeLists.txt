@@ -57,6 +57,11 @@ find_package(GTest REQUIRED)
 if (${MALLOC_IMPL} STREQUAL "tcmalloc")
     find_package(gperftools REQUIRED)
 endif()
+
+if (${MALLOC_IMPL} STREQUAL "jemalloc")
+    find_package(jemalloc REQUIRED)
+endif()
+
 find_package(jwt-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(prerelease_dummy QUIET)
@@ -91,6 +96,10 @@ endif ()
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "tcmalloc")
         list(APPEND COMMON_DEPS gperftools::gperftools)
+    endif()
+
+    if (${MALLOC_IMPL} STREQUAL "jemalloc")
+        list(APPEND COMMON_DEPS jemalloc::jemalloc)
     endif()
 endif()
 

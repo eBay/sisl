@@ -78,31 +78,34 @@ static constexpr size_t MAX_MODULES{100};
 static std::array< const char*, MAX_MODULES > glob_enabled_mods{"base"};
 static size_t glob_num_mods{1};
 
-/****************************** LoggerThreadContext ******************************/
-std::mutex LoggerThreadContext::s_logger_thread_mutex;
-std::unordered_set< LoggerThreadContext* > LoggerThreadContext::s_logger_thread_set;
-
-LoggerThreadContext::LoggerThreadContext() {
-    m_thread_id = pthread_self();
-    LoggerThreadContext::add_logger_thread(this);
+/****************************** LoggerThreadRegistry ******************************/
+std::shared_ptr< LoggerThreadRegistry > LoggerThreadRegistry::instance() {
+    static std::shared_ptr< LoggerThreadRegistry > inst{std::make_shared< LoggerThreadRegistry >()};
+    return inst;
 }
 
-LoggerThreadContext::~LoggerThreadContext() { LoggerThreadContext::remove_logger_thread(this); }
+void LoggerThreadRegistry::add_logger_thread(LoggerThreadContext* ctx) {
+    std::unique_lock l{m_logger_thread_mutex};
+    m_logger_thread_set.insert(ctx);
+}
 
+void LoggerThreadRegistry::remove_logger_thread(LoggerThreadContext* ctx) {
+    std::unique_lock l{m_logger_thread_mutex};
+    m_logger_thread_set.erase(ctx);
+}
+
+/****************************** LoggerThreadContext ******************************/
 LoggerThreadContext& LoggerThreadContext::instance() {
     static thread_local LoggerThreadContext inst{};
     return inst;
 }
 
-void LoggerThreadContext::add_logger_thread(LoggerThreadContext* const ctx) {
-    std::unique_lock l{s_logger_thread_mutex};
-    s_logger_thread_set.insert(ctx);
+LoggerThreadContext::LoggerThreadContext() :
+        m_thread_id{pthread_self()}, m_logger_thread_registry{LoggerThreadRegistry::instance()} {
+    m_logger_thread_registry->add_logger_thread(this);
 }
 
-void LoggerThreadContext::remove_logger_thread(LoggerThreadContext* const ctx) {
-    std::unique_lock l{s_logger_thread_mutex};
-    s_logger_thread_set.erase(ctx);
-}
+LoggerThreadContext::~LoggerThreadContext() { m_logger_thread_registry->remove_logger_thread(this); }
 
 /******************************** InitModules *********************************/
 void InitModules::init_modules(std::initializer_list< const char* > mods_list) {

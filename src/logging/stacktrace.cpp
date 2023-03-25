@@ -185,7 +185,7 @@ static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
 }
 
 static void log_stack_trace_all_threads() {
-    std::unique_lock logger_lock{LoggerThreadContext::s_logger_thread_mutex};
+    std::unique_lock logger_lock{LoggerThreadRegistry::instance()->m_logger_thread_mutex};
     auto& logger{GetLogger()};
     auto& critical_logger{GetCriticalLogger()};
     size_t thread_count{1};
@@ -267,7 +267,7 @@ static void log_stack_trace_all_threads() {
     ++thread_count;
 
     // dump other threads
-    for (auto* const ctx : LoggerThreadContext::s_logger_thread_set) {
+    for (auto* ctx : LoggerThreadRegistry::instance()->m_logger_thread_set) {
         if (ctx == &logger_thread_ctx) { continue; }
         dump_thread(true, ctx->m_thread_id);
         ++thread_count;
