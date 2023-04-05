@@ -36,9 +36,9 @@
 
 #include <sisl/fds/flexarray.hpp>
 #include <sisl/fds/sparse_vector.hpp>
-#include "atomic_counter.hpp"
-#include "enum.hpp"
-#include "urcu_helper.hpp"
+#include <sisl/utility/atomic_counter.hpp>
+#include <sisl/utility/enum.hpp>
+#include <sisl/utility/urcu_helper.hpp>
 
 namespace sisl {
 
@@ -243,14 +243,10 @@ private:
     // std::vector< thread_state_cb_t >        m_registered_notifiers;
 };
 
-#define thread_registry ThreadRegistry::instance()
-
 class ThreadLocalContext {
 public:
-    ThreadLocalContext() {
+    ThreadLocalContext() : thread_registry{ThreadRegistry::get_instance_ptr()} {
         this_thread_num = thread_registry->attach();
-        // LOGINFO("Created new ThreadLocalContext with thread_num = {}, my_thread_num = {}", this_thread_num,
-        //        my_thread_num());
     }
     ThreadLocalContext(const ThreadLocalContext&) = delete;
     ThreadLocalContext(ThreadLocalContext&&) noexcept = delete;
@@ -270,8 +266,9 @@ public:
     }
     static uint64_t get_context(const uint32_t context_id) { return instance()->user_contexts[context_id]; }
 
+public:
     static thread_local ThreadLocalContext inst;
-
+    std::shared_ptr< ThreadRegistry > thread_registry; // Take reference to control destruction order
     uint32_t this_thread_num;
     std::array< uint64_t, 5 > user_contexts; // To store any user contexts
 };
@@ -285,7 +282,9 @@ class ThreadBuffer {
 public:
     template < class... Args1 >
     ThreadBuffer(Args1&&... args) :
-            m_args(std::forward< Args1 >(args)...), m_thread_slots(ThreadRegistry::max_tracked_threads()) {
+            m_args(std::forward< Args1 >(args)...),
+            thread_registry{ThreadRegistry::get_instance_ptr()},
+            m_thread_slots(ThreadRegistry::max_tracked_threads()) {
         m_buffers.reserve(ThreadRegistry::max_tracked_threads());
         m_notify_idx = thread_registry->register_for_sc_notification(
             std::bind(&ThreadBuffer::on_thread_state_change, this, std::placeholders::_1, std::placeholders::_2));
@@ -436,10 +435,11 @@ private:
 private:
     sisl::sparse_vector< std::unique_ptr< T > > m_buffers;
     std::tuple< Args... > m_args;
+    std::shared_ptr< ThreadRegistry > thread_registry; // Take reference to control destruction order
     std::shared_mutex m_expand_mutex;
     boost::dynamic_bitset<> m_thread_slots;
     std::vector< std::unique_ptr< T > > m_exited_buffers; // Holds buffers whose threads already exited
-    uint64_t m_notify_idx = 0;
+    uint64_t m_notify_idx{0};
 };
 
 template < typename T, typename... Args >
