@@ -25,6 +25,8 @@ public:
     grpc::Status InjectFault(grpc::ServerContext* context, const FlipSpec* request, FlipResponse* response) override;
     grpc::Status GetFaults(grpc::ServerContext* context, const FlipNameRequest* request,
                            FlipListResponse* response) override;
+    grpc::Status RemoveFault(grpc::ServerContext*, const FlipRemoveRequest* request,
+                             FlipRemoveResponse* response) override;
     static void rpc_thread();
 };
 } // namespace flip

@@ -12,10 +12,17 @@ message FlipListResponse {
 
 message FlipNameRequest { string name = 1; }
 
+message FlipRemoveRequest { string name = 1; }
+
+message FlipRemoveResponse { uint32 num_removed = 1; }
+
 service FlipServer {
   // Inject a fault rpc
   rpc InjectFault(flip.FlipSpec) returns (flip.FlipResponse);
 
   // Get details about one or all faults
   rpc GetFaults(FlipNameRequest) returns (FlipListResponse);
+
+  // Remove a fault added earlier
+  rpc RemoveFault(FlipRemoveRequest) returns (FlipRemoveResponse);
 }
