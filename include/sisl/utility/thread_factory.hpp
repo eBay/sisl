@@ -60,6 +60,7 @@ std::unique_ptr< std::thread > make_unique_thread(const std::string name, F&& f,
 template < class... Args >
 std::thread named_thread(const std::string name, Args&&... args) {
     auto t = std::thread(std::forward< Args >(args)...);
+
 #ifdef _POSIX_THREADS
 #ifndef __APPLE__
     auto tname = name.substr(0, 15);
