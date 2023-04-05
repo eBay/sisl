@@ -33,7 +33,7 @@ RCU_REGISTER_INIT
 
 namespace {
 std::mutex s_print_mutex;
-constexpr size_t ITERATIONS{1000000};
+constexpr size_t ITERATIONS{10000000};
 constexpr size_t THREADS{8};
 
 struct my_request {
@@ -79,6 +79,7 @@ void test_obj_alloc(benchmark::State& state) {
         counter += req->m_d;
         sisl::ObjectAllocator< my_request >::deallocate(req);
     }
+
     {
         std::scoped_lock< std::mutex > lock{s_print_mutex};
         std::cout << "Counter = " << counter << std::endl;

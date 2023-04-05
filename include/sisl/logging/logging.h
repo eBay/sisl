@@ -376,6 +376,20 @@ static constexpr uint32_t max_stacktrace_size() { return static_cast< uint32_t >
 #define SIGUSR4 SIGUSR2
 #endif
 
+class LoggerThreadContext;
+
+class LoggerThreadRegistry {
+public:
+    std::mutex m_logger_thread_mutex;
+    std::unordered_set< LoggerThreadContext* > m_logger_thread_set;
+
+public:
+    void add_logger_thread(LoggerThreadContext* ctx);
+    void remove_logger_thread(LoggerThreadContext* ctx);
+
+    static std::shared_ptr< LoggerThreadRegistry > instance();
+};
+
 class LoggerThreadContext {
 public:
     LoggerThreadContext(const LoggerThreadContext&) = delete;
@@ -386,16 +400,10 @@ public:
 
     static LoggerThreadContext& instance();
 
-    static void add_logger_thread(LoggerThreadContext* const ctx);
-
-    static void remove_logger_thread(LoggerThreadContext* const ctx);
-
-    static std::mutex s_logger_thread_mutex;
-    static std::unordered_set< LoggerThreadContext* > s_logger_thread_set;
-
     std::shared_ptr< spdlog::logger > m_logger;
     std::shared_ptr< spdlog::logger > m_critical_logger;
     pthread_t m_thread_id;
+    std::shared_ptr< LoggerThreadRegistry > m_logger_thread_registry; // Take reference to avoid singleton destruction
 
 private:
     LoggerThreadContext();
