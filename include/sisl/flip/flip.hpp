@@ -134,6 +134,13 @@ struct val_converter< std::string > {
 };
 
 template <>
+struct val_converter< const std::string > {
+    std::string operator()(const ParamValue& val) {
+        return (val.kind_case() == ParamValue::kStringValue) ? val.string_value() : "";
+    }
+};
+
+template <>
 struct val_converter< const char* > {
     const char* operator()(const ParamValue& val) {
         return (val.kind_case() == ParamValue::kStringValue) ? val.string_value().c_str() : nullptr;
@@ -172,15 +179,6 @@ struct to_proto_converter< int > {
     void operator()(const int& val, ParamValue* out_pval) { out_pval->set_int_value(val); }
 };
 
-#if 0
-template <>
-struct val_converter<const int> {
-    const int operator()(const ParamValue &val) {
-        return (val.kind_case() == ParamValue::kIntValue) ? val.int_value() : 0;
-    }
-};
-#endif
-
 template <>
 struct to_proto_converter< long > {
     void operator()(const long& val, ParamValue* out_pval) { out_pval->set_long_value(val); }
@@ -193,6 +191,11 @@ struct to_proto_converter< double > {
 
 template <>
 struct to_proto_converter< std::string > {
+    void operator()(const std::string& val, ParamValue* out_pval) { out_pval->set_string_value(val); }
+};
+
+template <>
+struct to_proto_converter< const std::string > {
     void operator()(const std::string& val, ParamValue* out_pval) { out_pval->set_string_value(val); }
 };
 
@@ -273,6 +276,43 @@ struct compare_val< std::string > {
         }
     }
 };
+
+template <>
+struct compare_val< const std::string > {
+    bool operator()(const std::string& val1, const std::string& val2, Operator oper) {
+        switch (oper) {
+        case Operator::DONT_CARE:
+            return true;
+
+        case Operator::EQUAL:
+            return (val1 == val2);
+
+        case Operator::NOT_EQUAL:
+            return (val1 != val2);
+
+        case Operator::GREATER_THAN:
+            return (val1 > val2);
+
+        case Operator::LESS_THAN:
+            return (val1 < val2);
+
+        case Operator::GREATER_THAN_OR_EQUAL:
+            return (val1 >= val2);
+
+        case Operator::LESS_THAN_OR_EQUAL:
+            return (val1 <= val2);
+
+        case Operator::REG_EX: {
+            const std::regex re(val2);
+            return (std::sregex_iterator(val1.begin(), val1.end(), re) != std::sregex_iterator());
+        }
+
+        default:
+            return false;
+        }
+    }
+};
+
 template <>
 struct compare_val< const char* > {
     bool operator()(const char*& val1, const char*& val2, Operator oper) {
@@ -317,12 +357,14 @@ using io_work = boost::asio::io_service::work;
 class FlipTimerBase {
 public:
     virtual ~FlipTimerBase() = default;
-    virtual void schedule(boost::posix_time::time_duration delay_us, const std::function< void() >& closure) = 0;
+    virtual void schedule(const std::string& timer_name, boost::posix_time::time_duration delay_us,
+                          const std::function< void() >& closure) = 0;
+    virtual void cancel(const std::string& timer_name) = 0;
 };
 
 class FlipTimerAsio : public FlipTimerBase {
 public:
-    FlipTimerAsio() : m_timer_count(0) {}
+    FlipTimerAsio() {}
     ~FlipTimerAsio() {
         if (m_timer_thread != nullptr) {
             m_work.reset();
@@ -330,25 +372,28 @@ public:
         }
     }
 
-    void schedule(boost::posix_time::time_duration delay_us, const std::function< void() >& closure) override {
+    void schedule(const std::string& timer_name, boost::posix_time::time_duration delay_us,
+                  const std::function< void() >& closure) override {
         std::unique_lock< std::mutex > lk(m_thr_mutex);
-        ++m_timer_count;
         if (m_work == nullptr) {
             m_work = std::make_unique< io_work >(m_svc);
             m_timer_thread = std::make_unique< std::thread >(std::bind(&FlipTimerAsio::timer_thr, this));
         }
 
         auto t = std::make_shared< deadline_timer >(m_svc, delay_us);
-        t->async_wait([this, closure, t](const boost::system::error_code& e) {
+        t->async_wait([this, closure, t, timer_name](const boost::system::error_code& e) {
             if (e) {
                 LOGERRORMOD(flip, "Error in timer routine, message {}", e.message());
             } else {
                 closure();
             }
-            std::unique_lock< std::mutex > lk(m_thr_mutex);
-            --m_timer_count;
+            remove_timer(timer_name, t);
         });
+
+        m_timer_instances.insert(std::make_pair(timer_name, std::move(t)));
     }
+
+    void cancel(const std::string& timer_name) { remove_timer(timer_name, nullptr); }
 
     void timer_thr() {
         size_t executed = 0;
@@ -358,11 +403,24 @@ public:
     }
 
 private:
+    void remove_timer(const std::string& timer_name, const std::shared_ptr< deadline_timer >& t) {
+        std::unique_lock< std::mutex > lk(m_thr_mutex);
+        auto range = m_timer_instances.equal_range(timer_name);
+        for (auto it = range.first; it != range.second;) {
+            if ((t == nullptr) || (it->second == t)) {
+                it = m_timer_instances.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+private:
     io_service m_svc;
     std::unique_ptr< io_work > m_work;
     std::mutex m_thr_mutex;
-    int32_t m_timer_count;
     std::unique_ptr< std::thread > m_timer_thread;
+    std::multimap< std::string, std::shared_ptr< deadline_timer > > m_timer_instances;
 };
 
 static constexpr int TEST_ONLY = 0;
@@ -424,35 +482,17 @@ public:
         for (const auto& it : m_flip_specs) {
             const auto& inst = it.second;
             res.emplace_back(inst.to_string());
-#if 0
-            for (auto it = inst_range.first; it != inst_range.second; ++it) {
-                const auto& inst = inst_range->second;
-                res.emplace_back(inst.to_string());
-            }
-#endif
         }
 
         return res;
     }
-#if 0
-    bool add_flip(std::string flip_name, std::vector<FlipCondition&> conditions, FlipAction& action,
-            uint32_t count, uint8_t percent) {
-        FlipSpec fspec;
-        *(fspec.mutable_flip_name()) = "delay_ret_fspec";
 
-        auto cond = fspec->mutable_conditions()->Add();
-        *cond->mutable_name() = "cmd_type";
-        cond->set_oper(flip::Operator::EQUAL);
-        cond->mutable_value()->set_int_value(2);
-
-        fspec->mutable_flip_action()->mutable_delay_returns()->set_delay_in_usec(100000);
-        fspec->mutable_flip_action()->mutable_delay_returns()->mutable_return_()->set_string_value("Delayed error simulated value");
-
-        auto freq = fspec->mutable_flip_frequency();
-        freq->set_count(2);
-        freq->set_percent(100);
+    uint32_t remove(const std::string& flip_name) {
+        std::unique_lock< std::shared_mutex > lock(m_mutex);
+        auto nremoved = m_flip_specs.erase(flip_name);
+        m_timer->cancel(flip_name);
+        return static_cast< uint32_t >(nremoved);
     }
-#endif
 
     template < class... Args >
     bool test_flip(std::string flip_name, Args&&... args) {
@@ -478,7 +518,7 @@ public:
         if (ret == boost::none) return false; // Not a hit
 
         uint64_t delay_usec = boost::get< uint64_t >(ret.get());
-        get_timer().schedule(boost::posix_time::microseconds(delay_usec), closure);
+        get_timer().schedule(flip_name, boost::posix_time::microseconds(delay_usec), closure);
         return true;
     }
 
@@ -491,7 +531,7 @@ public:
 
         auto param = boost::get< delayed_return_param< T > >(ret.get());
         LOGDEBUGMOD(flip, "Returned param delay = {} val = {}", param.delay_usec, param.val);
-        get_timer().schedule(boost::posix_time::microseconds(param.delay_usec),
+        get_timer().schedule(flip_name, boost::posix_time::microseconds(param.delay_usec),
                              [closure, param]() { closure(param.val); });
         return true;
     }
@@ -621,65 +661,6 @@ private:
 
     FlipTimerBase& get_timer() { return *m_timer; }
 
-#if 0
-    template< typename T >
-    bool compare_val(T &val1, T &val2, Operator oper) {
-        switch (oper) {
-        case Operator::DONT_CARE:
-            return true;
-
-        case Operator::EQUAL:
-            return (val1 == val2);
-
-        case Operator::NOT_EQUAL:
-            return (val1 != val2);
-
-        case Operator::GREATER_THAN:
-            return (val1 > val2);
-
-        case Operator::LESS_THAN:
-            return (val1 < val2);
-
-        case Operator::GREATER_THAN_OR_EQUAL:
-            return (val1 >= val2);
-
-        case Operator::LESS_THAN_OR_EQUAL:
-            return (val1 <= val2);
-
-        default:
-            return false;
-        }
-    }
-
-    template<>
-    bool compare_val(const char *&val1, const char *&val2, Operator oper) {
-        switch (oper) {
-        case Operator::DONT_CARE:
-            return true;
-
-        case Operator::EQUAL:
-            return (val1 && val2 && (strcmp(val1, val2) == 0)) || (!val1 && !val2);
-
-        case Operator::NOT_EQUAL:
-            return (val1 && val2 && (strcmp(val1, val2) != 0)) || (!val1 && val2) || (val1 && !val2);
-
-        case Operator::GREATER_THAN:
-            return (val1 && val2 && (strcmp(val1, val2) > 0)) || (val1 && !val2);
-
-        case Operator::LESS_THAN:
-            return (val1 && val2 && (strcmp(val1, val2) < 0)) || (!val1 && val2);
-
-        case Operator::GREATER_THAN_OR_EQUAL:
-            return (val1 && val2 && (strcmp(val1, val2) >= 0)) || (val1 && !val2) || (!val1 && !val2);
-
-        case Operator::LESS_THAN_OR_EQUAL:
-            return (val1 && val2 && (strcmp(val1, val2) <= 0)) || (!val1 && val2) || (!val1 && !val2);
-
-        default:
-            return false;
-        }
-    }
-#endif
 private:
     std::multimap< std::string, flip_instance, flip_name_compare > m_flip_specs;
     std::shared_mutex m_mutex;
