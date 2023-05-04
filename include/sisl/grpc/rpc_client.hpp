@@ -326,7 +326,6 @@ public:
             data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
             // CQ tag posted here
             data->m_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
-            return;
         }
 
         StubPtr< ServiceT > m_stub;
