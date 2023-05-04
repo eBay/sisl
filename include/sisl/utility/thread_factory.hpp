@@ -16,9 +16,9 @@
  *********************************************************************************/
 #pragma once
 
+#include <chrono>
 #include <thread>
 #include <string>
-#include <functional>
 #include <memory>
 
 #ifdef _POSIX_THREADS
@@ -57,18 +57,28 @@ std::unique_ptr< std::thread > make_unique_thread(const std::string name, F&& f,
     });
 }
 
-template < class... Args >
-std::thread named_thread(const std::string name, Args&&... args) {
-    auto t = std::thread(std::forward< Args >(args)...);
-#ifdef _POSIX_THREADS
-#ifndef __APPLE__
-    auto tname = name.substr(0, 15);
-    auto ret = pthread_setname_np(t.native_handle(), tname.c_str());
-    if (ret != 0) { LOGERROR("Set name of thread to {} failed ret={}", tname, ret); }
-#endif /* __APPLE__ */
+template < class T >
+void name_thread([[maybe_unused]] T& t, std::string const& name) {
+#if defined(_POSIX_THREADS) && !defined(__APPLE__)
+    if (auto ret = pthread_setname_np(t.native_handle(), name.substr(0, 15).c_str()); ret != 0)
+        LOGERROR("Set name of thread to {} failed ret={}", name, ret);
+#else
+    LOGINFO("No ability to set thread name: {}", name);
 #endif /* _POSIX_THREADS */
+}
 
+template < class... Args >
+auto named_thread(const std::string name, Args&&... args) {
+    auto t = std::thread(std::forward< Args >(args)...);
+    name_thread(t, name);
     return t;
+}
+
+template < class... Args >
+auto named_jthread(const std::string name, Args&&... args) {
+    auto j = std::jthread(std::forward< Args >(args)...);
+    name_thread(j, name);
+    return j;
 }
 
 } // namespace sisl
