@@ -125,6 +125,7 @@ void GrpcAsyncClientWorker::shutdown_all() {
         // g_core_codegen_interface
         it.second.reset();
     }
+    s_workers.clear();
 }
 
 void GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request, const std::string& method,

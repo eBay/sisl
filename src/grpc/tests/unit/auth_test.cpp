@@ -51,6 +51,9 @@ static void set_token_response(const std::string& raw_token) {
 }
 static const std::string GENERIC_METHOD{"generic_method"};
 
+static const std::vector< std::pair< std::string, std::string > > grpc_metadata{
+    {sisl::request_id_header, "req_id1"}, {"key1", "val1"}, {"key2", "val2"}};
+
 class EchoServiceImpl final {
 public:
     ~EchoServiceImpl() = default;
@@ -58,6 +61,22 @@ public:
     bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
         LOGDEBUG("receive echo request {}", rpc_data->request().message());
         rpc_data->response().set_message(rpc_data->request().message());
+        return true;
+    }
+
+    bool echo_request_metadata(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
+        LOGDEBUG("receive echo request {}", rpc_data->request().message());
+        auto& client_headers = rpc_data->server_context().client_metadata();
+        for (auto const& [key, val] : grpc_metadata) {
+            LOGINFO("metadata received, key = {}; val = {}", key, val)
+            auto const& it{client_headers.find(key)};
+            if (it == client_headers.end()) {
+                rpc_data->set_status(::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, ::grpc::string()));
+            } else if (it->second != val) {
+                LOGERROR("wrong value, expected = {}, actual = {}", val, it->second)
+                rpc_data->set_status(::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, ::grpc::string()));
+            }
+        }
         return true;
     }
 
@@ -78,7 +97,12 @@ public:
             LOGERROR("register rpc failed");
             return false;
         }
-
+        if (!server->register_rpc< EchoService, EchoRequest, EchoReply, false >(
+                "EchoMetadata", &EchoService::AsyncService::RequestEchoMetadata,
+                std::bind(&EchoServiceImpl::echo_request_metadata, this, std::placeholders::_1))) {
+            LOGERROR("register rpc failed");
+            return false;
+        }
         return true;
     }
 };
@@ -144,6 +168,21 @@ public:
         }
     }
 
+    void call_async_echo_metadata(EchoRequest& req, EchoReply& reply, ::grpc::Status& status) {
+        m_echo_stub->call_unary< EchoRequest, EchoReply >(
+            req, &EchoService::StubInterface::AsyncEchoMetadata,
+            [&reply, &status, this](EchoReply& reply_, ::grpc::Status& status_) {
+                reply = reply_;
+                status = status_;
+                process_echo_reply();
+            },
+            1, grpc_metadata);
+        {
+            std::unique_lock lk(m_wait_mtx);
+            m_cv.wait(lk, [this]() { return m_echo_received.load(); });
+        }
+    }
+
 protected:
     std::shared_ptr< AuthManager > m_auth_mgr;
     EchoServiceImpl* m_echo_impl = nullptr;
@@ -187,6 +226,14 @@ TEST_F(AuthDisableTest, allow_on_disabled_mode) {
     ::grpc::Status generic_status;
     call_async_generic_rpc(status);
     EXPECT_TRUE(generic_status.ok());
+}
+
+TEST_F(AuthDisableTest, metadata) {
+    EchoRequest req;
+    EchoReply reply;
+    ::grpc::Status status;
+    call_async_echo_metadata(req, reply, status);
+    EXPECT_TRUE(status.ok());
 }
 
 static auto const grant_path = std::string{"dummy_grant.cg"};

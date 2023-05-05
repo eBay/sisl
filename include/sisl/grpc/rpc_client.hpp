@@ -220,6 +220,9 @@ private:
     std::vector< std::thread > m_threads;
 };
 
+// common request id header
+static std::string const request_id_header{"request_id"};
+
 class GrpcAsyncClient : public GrpcBaseClient {
 public:
     template < typename ServiceT >
@@ -307,6 +310,22 @@ public:
             if (m_trf_client) { cd->add_metadata("authorization", m_trf_client->get_typed_token()); }
             cd->m_resp_reader_ptr = (m_stub.get()->*method)(&cd->context(), cd->m_req, cq());
             cd->m_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
+        }
+
+        template < typename ReqT, typename RespT >
+        void call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
+                        const unary_callback_t< RespT >& callback, uint32_t deadline,
+                        const std::vector< std::pair< std::string, std::string > >& metadata) {
+            auto data = new ClientRpcDataInternal< ReqT, RespT >(callback);
+            data->set_deadline(deadline);
+            for (auto const& [key, value] : metadata) {
+                data->add_metadata(key, value);
+            }
+            if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
+            // Note that async unary RPCs don't post a CQ tag in call
+            data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
+            // CQ tag posted here
+            data->m_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
         }
 
         StubPtr< ServiceT > m_stub;
