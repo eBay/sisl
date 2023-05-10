@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     LOGERROR("Error");
     LOGCRITICAL("Critical");
 
-    auto thread = sisl::named_jthread("example_decl", [](std::stop_token stoken) {
+    auto j_thread = std::jthread([](std::stop_token stoken) {
         example_decl();
         while (!stoken.stop_requested()) {
             LOGWARNMOD(my_module, "Sleeping...");
@@ -31,8 +31,9 @@ int main(int argc, char** argv) {
         LOGINFOMOD(my_module, "Waking...");
         std::this_thread::sleep_for(1500ms);
     });
+    sisl::name_thread(j_thread, "example_decl");
     std::this_thread::sleep_for(300ms);
-    auto stop_source = thread.get_stop_source();
+    auto stop_source = j_thread.get_stop_source();
 
     auto custom_logger =
         sisl::logging::CreateCustomLogger("test_package", "_custom", false /*stdout*/, true /*stderr*/);

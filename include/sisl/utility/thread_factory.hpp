@@ -74,11 +74,4 @@ auto named_thread(const std::string name, Args&&... args) {
     return t;
 }
 
-template < class... Args >
-auto named_jthread(const std::string name, Args&&... args) {
-    auto j = std::jthread(std::forward< Args >(args)...);
-    name_thread(j, name);
-    return j;
-}
-
 } // namespace sisl

@@ -8,7 +8,7 @@ required_conan_version = ">=1.50.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.5.1"
+    version = "8.5.2"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -75,7 +75,7 @@ class SISLConan(ConanFile):
 
     def validate(self):
         if self.info.settings.compiler.cppstd:
-            check_min_cppstd(self, 20)
+            check_min_cppstd(self, 17)
 
     def configure(self):
         if self.options.shared:
