@@ -19,6 +19,8 @@ package grpc_helper_test;
 service EchoService {
     rpc Echo(EchoRequest) returns (EchoReply) {}
 
+    rpc EchoMetadata(EchoRequest) returns (EchoReply) {}
+
     rpc EchoLongReply(EchoRequest) returns (stream EchoReply) {}
 
     rpc LongEcho(stream EchoRequest) returns (EchoReply) {}
