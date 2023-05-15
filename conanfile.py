@@ -57,7 +57,7 @@ class SISLConan(ConanFile):
             self.requires("folly/2022.01.31.00")
         self.requires("grpc/1.48.0")
         self.requires("jwt-cpp/0.4.0")
-        self.requires("nlohmann_json/3.10.5")
+        self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.0.1")
         self.requires("spdlog/1.11.0")
         if self.settings.os in ["Linux"]:
