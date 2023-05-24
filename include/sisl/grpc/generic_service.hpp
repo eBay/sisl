@@ -20,7 +20,7 @@
 namespace sisl {
 
 using generic_rpc_handler_cb_t = std::function< bool(boost::intrusive_ptr< GenericRpcData >&) >;
-
+using generic_rpc_completed_cb_t = std::function< void(boost::intrusive_ptr< GenericRpcData >&) >;
 /**
  * Callbacks are registered by a name. The client generic stub uses the method name to call the RPC
  * We assume the Request and Response types are grpc::ByteBuffer
@@ -107,7 +107,11 @@ private:
         return nullptr;
     }
 
-    RpcDataAbstract* on_request_completed(bool) { return nullptr; }
+    RpcDataAbstract* on_request_completed(bool) {
+        auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
+        RPCHelper::run_generic_completion_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data);
+        return nullptr;
+    }
 
     struct RpcTagImpl : public RpcTag {
         using callback_type = RpcDataAbstract* (GenericRpcData::*)(bool);
