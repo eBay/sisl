@@ -22,6 +22,7 @@ class SISLConan(ConanFile):
                 "shared": ['True', 'False'],
                 "fPIC": ['True', 'False'],
                 "coverage": ['True', 'False'],
+                'testing' : ['True', 'False'],
                 "sanitize": ['True', 'False'],
                 'prerelease' : ['True', 'False'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
@@ -30,6 +31,7 @@ class SISLConan(ConanFile):
                 'shared': False,
                 'fPIC': True,
                 'coverage': False,
+                'testing': True,
                 'sanitize': False,
                 'prerelease': True,
                 'malloc_impl': 'tcmalloc',
@@ -91,6 +93,9 @@ class SISLConan(ConanFile):
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if self.options.coverage or self.options.sanitize:
                 self.options.malloc_impl = 'libc'
+            if not self.options.testing:
+                if self.options.coverage or self.options.sanitize:
+                    raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build(self):
         cmake = CMake(self)
@@ -112,7 +117,8 @@ class SISLConan(ConanFile):
 
         cmake.configure(defs=definitions)
         cmake.build()
-        cmake.test(target=test_target, output_on_failure=True)
+        if self.options.testing:
+            cmake.test(target=test_target, output_on_failure=True)
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
