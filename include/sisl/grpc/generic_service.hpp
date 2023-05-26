@@ -36,6 +36,12 @@ public:
     grpc::AsyncGenericService* m_generic_service;
 };
 
+class GenericRpcContextBase {
+public:
+    virtual ~GenericRpcContextBase() = default;
+};
+using generic_rpc_ctx_ptr = std::unique_ptr< GenericRpcContextBase >;
+
 class GenericRpcData : public RpcDataAbstract, sisl::ObjLifeCounter< GenericRpcData > {
 public:
     static RpcDataAbstract* make(GenericRpcStaticInfo* rpc_info, size_t queue_idx) {
@@ -60,6 +66,9 @@ public:
 
     void send_response() { m_stream.Write(m_response, static_cast< void* >(m_buf_write_tag.ref())); }
 
+    void set_context(generic_rpc_ctx_ptr ctx) { m_rpc_context = std::move(ctx); }
+    GenericRpcContextBase* get_context() { return m_rpc_context.get(); }
+
     GenericRpcData(GenericRpcStaticInfo* rpc_info, size_t queue_idx) :
             RpcDataAbstract{queue_idx}, m_rpc_info{rpc_info}, m_stream(&m_ctx) {}
 
@@ -70,6 +79,8 @@ private:
     grpc::ByteBuffer m_request;
     grpc::ByteBuffer m_response;
     grpc::Status m_retstatus{grpc::Status::OK};
+    // user can set and retrieve the context. Its life cycle is tied to that of rpc data.
+    generic_rpc_ctx_ptr m_rpc_context;
 
 private:
     bool do_authorization() {
