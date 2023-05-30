@@ -120,7 +120,9 @@ private:
 
     RpcDataAbstract* on_request_completed(bool) {
         auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
-        RPCHelper::run_generic_completion_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data);
+        if (m_retstatus.error_code() != grpc::StatusCode::UNIMPLEMENTED) {
+            RPCHelper::run_generic_completion_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data);
+        }
         return nullptr;
     }
 

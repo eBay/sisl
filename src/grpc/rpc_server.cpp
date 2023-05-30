@@ -166,10 +166,10 @@ void GrpcServer::run_generic_completion_cb(const std::string& rpc_name,
     {
         std::shared_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
         auto it = m_generic_rpc_registry.find(rpc_name);
-        if (it == m_generic_rpc_registry.end() || !(it->second.second)) { return; }
+        LOGMSG_ASSERT(it != m_generic_rpc_registry.end(), "completion cb not found for rpc {}", rpc_name);
         cb = it->second.second;
     }
-    cb(rpc_data);
+    if (cb) { cb(rpc_data); }
 }
 
 bool GrpcServer::register_async_generic_service() {

@@ -32,7 +32,7 @@ class SISLConan(ConanFile):
                 'fPIC': True,
                 'coverage': False,
                 'testing': True,
-                'sanitize': True,
+                'sanitize': False,
                 'prerelease': True,
                 'malloc_impl': 'tcmalloc',
             }
