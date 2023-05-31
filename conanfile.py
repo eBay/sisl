@@ -8,7 +8,7 @@ required_conan_version = ">=1.50.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "9.3.0"
+    version = "9.3.1"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"

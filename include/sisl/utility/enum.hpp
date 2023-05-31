@@ -165,6 +165,9 @@ private:
     }                                                                                                                  \
     [[nodiscard]] inline const std::string& enum_name(const FQEnumName##Support::enum_type es) {                       \
         return FQEnumName##Support::instance().get_name(es);                                                           \
+    }                                                                                                                  \
+    [[nodiscard]] inline FQEnumName##Support::underlying_type enum_value(const FQEnumName##Support::enum_type es) {    \
+        return static_cast< FQEnumName##Support::underlying_type >(es);                                                \
     }
 
 #endif // SISL_ENUM_HPP
