@@ -237,11 +237,10 @@ public:
                 [this](const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async echo request {}", rpc_data->request().message());
-                        auto t = std::thread([rpc = rpc_data] {
+                        std::thread([rpc = rpc_data] {
                             rpc->response().set_message(rpc->request().message());
                             rpc->send_response();
-                        });
-                        t.detach();
+                        }).detach();
                         return false;
                     }
                     LOGDEBUGMOD(grpc_server, "respond sync echo request {}", rpc_data->request().message());
@@ -270,11 +269,10 @@ public:
                 [this](const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async ping request {}", rpc_data->request().seqno());
-                        auto t = std::thread([rpc = rpc_data] {
+                        std::thread([rpc = rpc_data] {
                             rpc->response().set_seqno(rpc->request().seqno());
                             rpc->send_response();
-                        });
-                        t.detach();
+                        }).detach();
                         return false;
                     }
                     LOGDEBUGMOD(grpc_server, "respond sync ping request {}", rpc_data->request().seqno());
@@ -309,11 +307,10 @@ public:
                 [this](boost::intrusive_ptr< GenericRpcData >& rpc_data) {
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls);
-                        auto t = std::thread([rpc = rpc_data] {
+                        std::thread([rpc = rpc_data] {
                             set_response(rpc->request(), rpc->response());
                             rpc->send_response();
-                        });
-                        t.detach();
+                        }).detach();
                         return false;
                     }
                     set_response(rpc_data->request(), rpc_data->response());
@@ -353,6 +350,7 @@ public:
     }
 
     void shutdown() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         RELEASE_ASSERT(m_generic_impl->compare_counters(), "num calls and num completions do not match!");
         LOGINFO("Shutting down grpc server");
         m_grpc_server->shutdown();

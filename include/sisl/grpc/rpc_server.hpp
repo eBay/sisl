@@ -28,8 +28,6 @@
 namespace sisl {
 class GenericRpcData;
 class GenericRpcStaticInfo;
-using generic_rpc_handler_cb_t = std::function< bool(boost::intrusive_ptr< GenericRpcData >&) >;
-using generic_rpc_completed_cb_t = std::function< void(boost::intrusive_ptr< GenericRpcData >&) >;
 
 using rpc_thread_start_cb_t = std::function< void(uint32_t) >;
 

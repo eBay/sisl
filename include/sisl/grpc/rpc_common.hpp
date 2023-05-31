@@ -18,6 +18,10 @@ namespace sisl {
 class GrpcServer;
 class GenericRpcData;
 enum class AuthVerifyStatus : uint8_t;
+
+using generic_rpc_handler_cb_t = std::function< bool(boost::intrusive_ptr< GenericRpcData >&) >;
+using generic_rpc_completed_cb_t = std::function< void(boost::intrusive_ptr< GenericRpcData >&) >;
+
 struct RPCHelper {
     static bool has_server_shutdown(const GrpcServer* server);
     static bool run_generic_handler_cb(GrpcServer* server, const std::string& method,
