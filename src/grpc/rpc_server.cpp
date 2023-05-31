@@ -155,9 +155,21 @@ bool GrpcServer::run_generic_handler_cb(const std::string& rpc_name, boost::intr
             // respond immediately
             return true;
         }
-        cb = it->second;
+        cb = it->second.first;
     }
     return cb(rpc_data);
+}
+
+void GrpcServer::run_generic_completion_cb(const std::string& rpc_name,
+                                           boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+    generic_rpc_completed_cb_t cb;
+    {
+        std::shared_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
+        auto it = m_generic_rpc_registry.find(rpc_name);
+        LOGMSG_ASSERT(it != m_generic_rpc_registry.end(), "completion cb not found for rpc {}", rpc_name);
+        cb = it->second.second;
+    }
+    if (cb) { cb(rpc_data); }
 }
 
 bool GrpcServer::register_async_generic_service() {
@@ -177,7 +189,8 @@ bool GrpcServer::register_async_generic_service() {
     return true;
 }
 
-bool GrpcServer::register_generic_rpc(const std::string& name, const generic_rpc_handler_cb_t& rpc_handler) {
+bool GrpcServer::register_generic_rpc(const std::string& name, const generic_rpc_handler_cb_t& rpc_handler,
+                                      const generic_rpc_completed_cb_t& done_handler) {
     if (m_state.load() != ServerState::RUNNING) {
         LOGMSG_ASSERT(false, "register service in non-INITED state");
         return false;
@@ -190,7 +203,8 @@ bool GrpcServer::register_generic_rpc(const std::string& name, const generic_rpc
 
     {
         std::unique_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
-        if (auto [it, happened]{m_generic_rpc_registry.emplace(name, rpc_handler)}; !happened) {
+        if (auto [it, happened]{m_generic_rpc_registry.emplace(name, std::make_pair(rpc_handler, done_handler))};
+            !happened) {
             LOGWARN("duplicate generic RPC {} registration attempted", name);
             return false;
         }
@@ -213,6 +227,11 @@ bool RPCHelper::has_server_shutdown(const GrpcServer* server) {
 bool RPCHelper::run_generic_handler_cb(GrpcServer* server, const std::string& method,
                                        boost::intrusive_ptr< GenericRpcData >& rpc_data) {
     return server->run_generic_handler_cb(method, rpc_data);
+}
+
+void RPCHelper::run_generic_completion_cb(GrpcServer* server, const std::string& method,
+                                          boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+    server->run_generic_completion_cb(method, rpc_data);
 }
 
 grpc::Status RPCHelper::do_authorization(const GrpcServer* server, const grpc::ServerContext* srv_ctx) {
