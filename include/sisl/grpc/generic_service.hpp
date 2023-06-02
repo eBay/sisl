@@ -67,6 +67,8 @@ public:
     void set_context(generic_rpc_ctx_ptr ctx) { m_rpc_context = std::move(ctx); }
     GenericRpcContextBase* get_context() { return m_rpc_context.get(); }
 
+    void set_comp_cb(generic_rpc_completed_cb_t const& comp_cb) { m_comp_cb = comp_cb; }
+
     GenericRpcData(GenericRpcStaticInfo* rpc_info, size_t queue_idx) :
             RpcDataAbstract{queue_idx}, m_rpc_info{rpc_info}, m_stream(&m_ctx) {}
 
@@ -79,6 +81,8 @@ private:
     grpc::Status m_retstatus{grpc::Status::OK};
     // user can set and retrieve the context. Its life cycle is tied to that of rpc data.
     generic_rpc_ctx_ptr m_rpc_context;
+    // the handler cb can fill in the completion cb if it needs one
+    generic_rpc_completed_cb_t m_comp_cb{nullptr};
 
 private:
     bool do_authorization() {
@@ -118,9 +122,7 @@ private:
 
     RpcDataAbstract* on_request_completed(bool) {
         auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
-        if (m_retstatus.error_code() != grpc::StatusCode::UNIMPLEMENTED) {
-            RPCHelper::run_generic_completion_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data);
-        }
+        if (m_comp_cb) { m_comp_cb(this_rpc_data); }
         return nullptr;
     }
 

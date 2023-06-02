@@ -119,8 +119,7 @@ public:
     bool run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data);
     void run_generic_completion_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data);
     bool register_async_generic_service();
-    bool register_generic_rpc(const std::string& name, const generic_rpc_handler_cb_t& rpc_handler,
-                              const generic_rpc_completed_cb_t& done_handler = nullptr);
+    bool register_generic_rpc(const std::string& name, const generic_rpc_handler_cb_t& rpc_handler);
 
 private:
     void handle_rpcs(uint32_t thread_num, const rpc_thread_start_cb_t& thread_start_cb);
@@ -141,8 +140,7 @@ private:
     std::unique_ptr< grpc::AsyncGenericService > m_generic_service;
     std::unique_ptr< GenericRpcStaticInfo > m_generic_rpc_static_info;
     bool m_generic_service_registered{false};
-    std::unordered_map< std::string, std::pair< generic_rpc_handler_cb_t, generic_rpc_completed_cb_t > >
-        m_generic_rpc_registry;
+    std::unordered_map< std::string, generic_rpc_handler_cb_t > m_generic_rpc_registry;
     std::shared_mutex m_generic_rpc_registry_mtx;
 };
 } // namespace sisl::grpc
