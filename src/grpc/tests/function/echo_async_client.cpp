@@ -302,12 +302,12 @@ public:
 
         void register_rpcs(GrpcServer* server) {
             LOGINFO("register rpc calls");
-            auto const res = server->register_generic_rpc(
-                GENERIC_METHOD,
-                [this](boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+            auto const res =
+                server->register_generic_rpc(GENERIC_METHOD, [this](boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+                    rpc_data->set_comp_cb([this](boost::intrusive_ptr< GenericRpcData >&) { num_completions++; });
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls);
-                        std::thread([rpc = rpc_data] {
+                        std::thread([this, rpc = rpc_data] {
                             set_response(rpc->request(), rpc->response());
                             rpc->send_response();
                         }).detach();
@@ -315,8 +315,7 @@ public:
                     }
                     set_response(rpc_data->request(), rpc_data->response());
                     return true;
-                },
-                [this](boost::intrusive_ptr< GenericRpcData >&) { num_completions++; });
+                });
             RELEASE_ASSERT(res, "register generic rpc failed");
         }
 
