@@ -35,7 +35,6 @@ class SISLConan(ConanFile):
                 'sanitize': False,
                 'prerelease': False,
                 'malloc_impl': 'libc',
-                'pistache:with_ssl': True,
             }
 
     generators = "cmake", "cmake_find_package"
@@ -93,6 +92,8 @@ class SISLConan(ConanFile):
             check_min_cppstd(self, 20)
 
     def configure(self):
+        if self.settings.compiler in ["gcc"]:
+            self.options['pistache'].with_ssl: True
         if self.options.shared:
             del self.options.fPIC
         if self.settings.build_type == "Debug":
