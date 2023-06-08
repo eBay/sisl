@@ -64,7 +64,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Cache 3rdParty
-      id: cache-primes
+      id: cache-3rd-party
       uses: actions/cache@v3
       with:
         path: |
@@ -72,7 +72,8 @@ jobs:
           ~/.conan/data/spdlog
           ~/.conan/data/gperftools
           ~/.conan/data/jemalloc
-        key: ${{ matrix.build-type }}
+          ~/.conan/data/prerelease_dummy
+        key: ${{ matrix.build-type }}-${{ matrix.malloc-impl }}
 
     - name: Export Dependencies
       run: |
