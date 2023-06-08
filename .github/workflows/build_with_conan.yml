@@ -81,7 +81,6 @@ jobs:
         conan export 3rd_party/prerelease_dummy
 
     - name: Install dependencies
-      # Build your program with the given configuration
       run: |
         conan install \
             -o prerelease=${{ matrix.prerelease }} \
@@ -89,6 +88,10 @@ jobs:
             -s build_type=${{ matrix.build-type }} \
             --build missing .
             #-o sanitize=${{ matrix.sanitize }} \
+
+    - name: Cleanup dep builds
+      run: |
+        rm -rf ~/.conan/data/*/*/*/*/build
 
     - name: Build
       # Build your program with the given configuration
