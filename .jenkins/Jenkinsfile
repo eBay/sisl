@@ -108,7 +108,7 @@ pipeline {
                 sh "conan create ${BUILD_MISSING} -o malloc_impl=tcmalloc -o sisl:prerelease=True -pr test . ${PROJECT}/${TAG}"
 
                 # Release for Prod Build
-                sh "conan create ${BUILD_MISSING} -o sisl:prerelease=False -pr test . ${PROJECT}/${TAG}"
+                sh "conan create ${BUILD_MISSING} -o malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG}"
             }
         }
 
