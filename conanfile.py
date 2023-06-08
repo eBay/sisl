@@ -4,7 +4,7 @@ from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
 from conans import CMake
 
-required_conan_version = ">=1.50.0"
+required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
@@ -33,12 +33,18 @@ class SISLConan(ConanFile):
                 'coverage': False,
                 'testing': True,
                 'sanitize': False,
-                'prerelease': True,
-                'malloc_impl': 'tcmalloc',
+                'prerelease': False,
+                'malloc_impl': 'libc',
             }
 
     generators = "cmake", "cmake_find_package"
-    exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
+    exports = ["LICENSE"]
+    exports_sources = (
+                "CMakeLists.txt",
+                "cmake/*",
+                "include/*",
+                "src/*",
+            )
 
     def build_requirements(self):
         self.build_requires("benchmark/1.7.1")
@@ -86,6 +92,8 @@ class SISLConan(ConanFile):
             check_min_cppstd(self, 20)
 
     def configure(self):
+        if self.settings.compiler in ["gcc"]:
+            self.options['pistache'].with_ssl: True
         if self.options.shared:
             del self.options.fPIC
         if self.settings.build_type == "Debug":
