@@ -33,12 +33,19 @@ class SISLConan(ConanFile):
                 'coverage': False,
                 'testing': True,
                 'sanitize': False,
-                'prerelease': True,
-                'malloc_impl': 'tcmalloc',
+                'prerelease': False,
+                'malloc_impl': 'libc',
+                'pistache:with_ssl': True,
             }
 
     generators = "cmake", "cmake_find_package"
-    exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
+    exports = ["LICENSE"]
+    exports_sources = (
+                "CMakeLists.txt",
+                "cmake/*",
+                "include/*",
+                "src/*",
+            )
 
     def build_requirements(self):
         self.build_requires("benchmark/1.7.1")

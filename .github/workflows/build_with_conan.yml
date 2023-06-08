@@ -45,7 +45,7 @@ jobs:
     - name: Install dependencies
       # Build your program with the given configuration
       run: |
-        conan install -o malloc_impl=libc -o prerelease=False -s build_type=${{ matrix.build-type }} --build missing .
+        conan install -s build_type=${{ matrix.build-type }} --build missing .
 
     - name: Build
       # Build your program with the given configuration
