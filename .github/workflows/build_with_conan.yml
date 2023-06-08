@@ -72,6 +72,7 @@ jobs:
           ~/.conan/data/gperftools
           ~/.conan/data/jemalloc
           ~/.conan/data/prerelease_dummy
+          ~/.conan/data/spdlog
         key: ${{ matrix.build-type }}-${{ matrix.malloc-impl }}
 
     - name: Export Dependencies
