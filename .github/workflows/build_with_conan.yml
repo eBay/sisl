@@ -63,11 +63,22 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
+    - name: Cache 3rdParty
+      id: cache-primes
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.conan/data/folly
+          ~/.conan/data/spdlog
+          ~/.conan/data/gperftools
+          ~/.conan/data/jemalloc
+        key: ${{ matrix.build-type }}
+
     - name: Export Dependencies
       run: |
-        conan export 3rd_party/gperftools gperftools/2.7.0@
-        conan export 3rd_party/jemalloc jemalloc/5.2.1@
-        conan export 3rd_party/prerelease_dummy prerelease_dummy/1.0.1@
+        conan export 3rd_party/gperftools
+        conan export 3rd_party/jemalloc
+        conan export 3rd_party/prerelease_dummy
 
     - name: Install dependencies
       # Build your program with the given configuration
