@@ -23,16 +23,19 @@ namespace sisl {
 sobject_ptr sobject::get_child(const std::string& name) {
     std::shared_lock lock{m_mtx};
     for (const auto& [id, obj] : m_children) {
+        // Return the first child found. We assume if user asks for a path
+        // there is a unique child in the parent.
         if (id.name == name) { return obj; }
     }
     return nullptr;
 }
 
-// Add a child to current object.
 void sobject::add_child(const sobject_ptr child) {
+    // Add a child to current object.
     std::unique_lock lock{m_mtx};
     LOGINFO("Parent {}/{} added child {}/{}", type(), name(), child->type(), child->name());
     m_children.emplace(child->id(), child);
+    m_mgr->add_object_type(type(), child->type());
 }
 
 status_response sobject::run_callback(const status_request& request) const {
@@ -40,7 +43,8 @@ status_response sobject::run_callback(const status_request& request) const {
     response.json = nlohmann::json::object();
     response.json["type"] = m_id.type;
     response.json["name"] = m_id.name;
-    response.json.update(m_status_cb(request).json);
+    auto res = m_status_cb(request).json;
+    if (!res.is_null()) { response.json.update(res); }
     response.json["children"] = nlohmann::json::object();
 
     for (const auto& [id, obj] : m_children) {
@@ -66,22 +70,28 @@ status_response sobject::run_callback(const status_request& request) const {
 
 sobject_ptr sobject_manager::create_object(const std::string& type, const std::string& name, status_callback_type cb) {
     std::unique_lock lock{m_mtx};
-    auto obj = sobject::create(type, name, std::move(cb));
+    auto obj = sobject::create(this, type, name, std::move(cb));
     sobject_id id{type, name};
     m_object_store[id] = obj;
-    m_object_types.insert(type);
+    if (m_object_types.count(type) == 0) { m_object_types[type] = {}; }
     LOGINFO("Created status object type={} name={}", type, name);
     return obj;
 }
 
+void sobject_manager::add_object_type(const std::string& parent_type, const std::string& child_type) {
+    std::unique_lock lock{m_mtx};
+    m_object_types[parent_type].insert(child_type);
+}
+
 status_response sobject_manager::get_object_types() {
     status_response response;
-    auto types = nlohmann::json::array();
-    for (const auto& type : m_object_types) {
-        types.emplace_back(type);
-    }
 
-    response.json["types"] = std::move(types);
+    for (const auto& [type, children] : m_object_types) {
+        response.json[type] = nlohmann::json::array();
+        for (const auto& child_type : children) {
+            response.json[type].emplace_back(child_type);
+        }
+    }
     return response;
 }
 
@@ -160,9 +170,7 @@ status_response sobject_manager::get_status(const status_request& request) {
         return get_object_status(std::move(id), request);
     }
 
-    if (!request.do_recurse && request.obj_name.empty() && request.obj_type.empty()) {
-        return get_object_types();
-    }
+    if (request.obj_name.empty() && request.obj_type.empty()) { return get_object_types(); }
 
     // Dump all objects.
     return get_objects(request);
