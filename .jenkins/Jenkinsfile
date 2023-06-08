@@ -95,7 +95,7 @@ pipeline {
             steps {
                 # For Sanitized Unit Testing (no publish)
                 sh "conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG}"
-                sh "conan remove ${PROJECT}/${TAG}"
+                sh "conan remove -f ${PROJECT}/${TAG}"
 
                 # Debug/Release with libc for OM (disabled for now)
                 #sh "conan create ${BUILD_MISSING} -pr debug . ${PROJECT}/${TAG}"
