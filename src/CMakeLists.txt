@@ -4,6 +4,7 @@ add_subdirectory (grpc)
 add_subdirectory (logging)
 add_subdirectory (options)
 add_subdirectory (version)
+add_subdirectory (sobject)
 
 # These sub-libraries currently do not support MacOS due to dependencies
 # on Folly and pistache. It is unknown if Windows is supported...
@@ -32,7 +33,7 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
         $<TARGET_OBJECTS:sisl_metrics>
         $<TARGET_OBJECTS:sisl_settings>
     )
-    list(APPEND SISL_DEPS 
+    list(APPEND SISL_DEPS
         Folly::Folly
     )
 endif()
@@ -43,6 +44,7 @@ add_library(sisl
             $<TARGET_OBJECTS:sisl_logging>
             $<TARGET_OBJECTS:sisl_options>
             $<TARGET_OBJECTS:sisl_version>
+            $<TARGET_OBJECTS:sisl_sobject_mgr>
            )
 
 if (DEFINED MALLOC_IMPL)
