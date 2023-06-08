@@ -33,12 +33,18 @@ class SISLConan(ConanFile):
                 'coverage': False,
                 'testing': True,
                 'sanitize': False,
-                'prerelease': True,
-                'malloc_impl': 'tcmalloc',
+                'prerelease': False,
+                'malloc_impl': 'libc',
             }
 
     generators = "cmake", "cmake_find_package"
-    exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
+    exports = ["LICENSE"]
+    exports_sources = (
+                "CMakeLists.txt",
+                "cmake/*",
+                "include/*",
+                "src/*",
+            )
 
     def build_requirements(self):
         self.build_requires("benchmark/1.7.1")
@@ -86,6 +92,8 @@ class SISLConan(ConanFile):
             check_min_cppstd(self, 20)
 
     def configure(self):
+        if self.settings.compiler in ["gcc"]:
+            self.options['pistache'].with_ssl: True
         if self.options.shared:
             del self.options.fPIC
         if self.settings.build_type == "Debug":
