@@ -69,7 +69,6 @@ jobs:
       with:
         path: |
           ~/.conan/data/folly
-          ~/.conan/data/spdlog
           ~/.conan/data/gperftools
           ~/.conan/data/jemalloc
           ~/.conan/data/prerelease_dummy
