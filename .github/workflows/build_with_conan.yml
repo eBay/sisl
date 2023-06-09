@@ -67,19 +67,16 @@ jobs:
           ~/.conan/data/spdlog
         key: SislDeps-${{ matrix.build-type }}-${{ matrix.malloc-impl }}
 
-    - name: Export Dependencies
+    - name: Install Dependencies
       run: |
         conan export deps/sisl/3rd_party/gperftools
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
-
-    - name: Install dependencies
-      run: |
         conan install \
             -o prerelease=${{ matrix.prerelease }} \
             -o malloc_impl=${{ matrix.malloc-impl }} \
             -s build_type=${{ matrix.build-type }} \
-            --build missing .
+            --build missing deps/sisl
             #-o sanitize=${{ matrix.sanitize }} \
 
     - name: Cleanup dep builds
@@ -104,4 +101,9 @@ jobs:
     - name: Build
       # Build your program with the given configuration
       run: |
+        conan install \
+            -o prerelease=${{ matrix.prerelease }} \
+            -o malloc_impl=${{ matrix.malloc-impl }} \
+            -s build_type=${{ matrix.build-type }} \
+            --build missing .
         conan build .
