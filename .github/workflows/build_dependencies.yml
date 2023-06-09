@@ -1,0 +1,78 @@
+name: Conan Build
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: string
+      build-type:
+        required: true
+        type: string
+      malloc-impl:
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Setup Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.8"
+
+    - name: Install Conan
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install conan~=1.0
+        conan user
+        conan profile new --detect default
+        # Set std::string to non-CoW C++11 version
+        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
+
+    - name: Retrieve Dependencies
+      uses: actions/checkout@v3
+      with:
+        repository: ebay/sisl
+        path: deps/sisl
+        ref: ${{ inputs.branch }}
+
+    - name: Restore Sisl 3rdParty Cache
+      id: restore-cache-sisl
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ~/.conan/data/folly
+          ~/.conan/data/gperftools
+          ~/.conan/data/jemalloc
+          ~/.conan/data/prerelease_dummy
+          ~/.conan/data/spdlog
+        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
+
+    - name: Install Dependencies
+      run: |
+        conan export deps/sisl/3rd_party/gperftools
+        conan export deps/sisl/3rd_party/jemalloc
+        conan export deps/sisl/3rd_party/prerelease_dummy
+        conan install \
+            -o prerelease=True \
+            -o malloc_impl=${{ inputs.malloc-impl }} \
+            -s build_type=${{ inputs.build-type }} \
+            --build missing deps/sisl
+
+    - name: Cleanup dep builds
+      run: |
+        rm -rf ~/.conan/data/*/*/*/*/build
+
+    - name: Save Sisl 3rdParty Cache
+      id: save-cache-sisl
+      uses: actions/cache/save@v3
+      with:
+        path: |
+          ~/.conan/data/folly
+          ~/.conan/data/gperftools
+          ~/.conan/data/jemalloc
+          ~/.conan/data/prerelease_dummy
+          ~/.conan/data/spdlog
+        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
