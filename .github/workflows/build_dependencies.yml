@@ -12,7 +12,7 @@ on:
       malloc-impl:
         required: true
         type: string
-      prereleasee:
+      prerelease:
         required: false
         type: string
         default: 'False'
