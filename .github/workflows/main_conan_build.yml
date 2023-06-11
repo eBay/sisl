@@ -1,10 +1,7 @@
-name: Conan Build
+name: Sisl Main Build
 
 on:
   push:
-    branches:
-      - master
-  pull_request:
     branches:
       - master
 
@@ -27,6 +24,7 @@ jobs:
       branch: master
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
+      prerelease: True
 
   build:
     needs: build_deps
@@ -38,18 +36,14 @@ jobs:
         # sanitize: ["True", "False"]
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc", "jemalloc"]
-        prerelease: ["True", "False"]
+        prerelease: ["True"]
         exclude:
-          - build-type: Debug
-            prerelease: "True"
           - build-type: Debug
             malloc-impl: tcmalloc
           - build-type: Debug
             malloc-impl: jemalloc
           - build-type: Release
             malloc-impl: libc
-          - prerelease: "True"
-            malloc-impl: jemalloc
 
     steps:
     - name: Setup Python
@@ -76,13 +70,12 @@ jobs:
           ~/.conan/data/jemalloc
           ~/.conan/data/prerelease_dummy
           ~/.conan/data/spdlog
-        key: SislDeps-${{ matrix.build-type }}-${{ matrix.malloc-impl }}
+        key: SislDeps-${{ matrix.build-type }}-${{ matrix.malloc-impl }}-${{ matrix.prerelease }}
 
     - name: Checkout Code
       uses: actions/checkout@v3
 
     - name: Build
-      # Build your program with the given configuration
       run: |
         conan install \
             -o prerelease=${{ matrix.prerelease }} \
