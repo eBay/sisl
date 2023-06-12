@@ -1,4 +1,4 @@
-name: Conan Build
+name: BuildSislDeps
 
 on:
   workflow_call:
@@ -48,7 +48,7 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+        restore-keys: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Install Dependencies
       run: |
@@ -60,13 +60,12 @@ jobs:
             -o malloc_impl=${{ inputs.malloc-impl }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing deps/sisl
-      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+        conan info 2>/dev/null deps/sisl | grep ' ID:' | sort | uniq > pkg_id
 
     - name: Cleanup dep builds
       run: |
         ls -1d ~/.conan/data/* | grep -Ev '(folly|gperftools|jemalloc|prerelease_dummy|spdlog)' | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
-      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Save Sisl 3rdParty Cache
       id: save-cache-sisl
@@ -74,5 +73,5 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
-      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('pkg_id') }}
+      if: ${{ github.event_name != 'pull_request' }}
