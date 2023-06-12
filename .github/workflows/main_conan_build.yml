@@ -1,4 +1,4 @@
-name: Sisl Main Build
+name: Sisl Conan Build
 
 on:
   push:
