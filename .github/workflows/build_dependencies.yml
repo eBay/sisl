@@ -39,6 +39,14 @@ jobs:
         # Set std::string to non-CoW C++11 version
         sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
 
+    - name: Restore Sisl 3rdParty Cache
+      id: restore-cache-sisl
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ~/.conan/data
+        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+
     - name: Retrieve Code
       uses: actions/checkout@v3
       if: ${{ inputs.native == 'true' }}
@@ -49,15 +57,7 @@ jobs:
         repository: ebay/sisl
         path: deps/sisl
         ref: ${{ inputs.branch }}
-      if: ${{ inputs.native == 'false' }}
-
-    - name: Restore Sisl 3rdParty Cache
-      id: restore-cache-sisl
-      uses: actions/cache/restore@v3
-      with:
-        path: |
-          ~/.conan/data
-        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Install Dependencies
       run: |
@@ -69,7 +69,7 @@ jobs:
             -o malloc_impl=${{ inputs.malloc-impl }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing deps/sisl
-      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' && inputs.native == 'false' }}
+      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Build
       run: |
