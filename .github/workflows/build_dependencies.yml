@@ -47,11 +47,7 @@ jobs:
       uses: actions/cache/restore@v3
       with:
         path: |
-          ~/.conan/data/folly
-          ~/.conan/data/gperftools
-          ~/.conan/data/jemalloc
-          ~/.conan/data/prerelease_dummy
-          ~/.conan/data/spdlog
+          ~/.conan/data
         key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Install Dependencies
@@ -67,6 +63,7 @@ jobs:
 
     - name: Cleanup dep builds
       run: |
+        ls -1d ~/.conan/data/* | grep -Ev '(folly, gperftools, jemalloc, prerelease_dummy, spdlog)' | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
 
     - name: Save Sisl 3rdParty Cache
@@ -74,9 +71,6 @@ jobs:
       uses: actions/cache/save@v3
       with:
         path: |
-          ~/.conan/data/folly
-          ~/.conan/data/gperftools
-          ~/.conan/data/jemalloc
-          ~/.conan/data/prerelease_dummy
-          ~/.conan/data/spdlog
+          ~/.conan/data
         key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+      if: github.event_name != 'pull_request'
