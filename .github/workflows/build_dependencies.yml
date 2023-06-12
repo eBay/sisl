@@ -60,11 +60,13 @@ jobs:
             -o malloc_impl=${{ inputs.malloc-impl }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing deps/sisl
+      if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
 
     - name: Cleanup dep builds
       run: |
-        ls -1d ~/.conan/data/* | grep -Ev '(folly, gperftools, jemalloc, prerelease_dummy, spdlog)' | xargs rm -rf
+        ls -1d ~/.conan/data/* | grep -Ev '(folly, gperftools, jemalloc, prerelease_dummy, spdlog)' | xargs rm -rfv
         rm -rf ~/.conan/data/*/*/*/*/build
+      if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
 
     - name: Save Sisl 3rdParty Cache
       id: save-cache-sisl
@@ -73,4 +75,4 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
-      if: github.event_name != 'pull_request'
+      if: ${{ github.event_name != 'pull_request' && steps.cache-npm.outputs.cache-hit != 'true' }}
