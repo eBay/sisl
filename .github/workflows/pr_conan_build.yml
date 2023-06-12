@@ -12,7 +12,6 @@ jobs:
       matrix:
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc", "jemalloc"]
-        prerelease: ["True"]
         exclude:
           - build-type: Debug
             malloc-impl: tcmalloc
@@ -25,7 +24,7 @@ jobs:
       branch: master
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
-      prerelease: ${{ matrix.prerelease }}
+      prerelease: "True"
 
   build:
     needs: build_deps
@@ -67,7 +66,7 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        restore-keys: SislDeps-${{ matrix.build-type }}-${{ matrix.malloc-impl }}-${{ matrix.prerelease }}
+        key: SislDeps-${{ matrix.build-type }}-${{ matrix.malloc-impl }}-${{ matrix.prerelease }}
 
     - name: Checkout Code
       uses: actions/checkout@v3
