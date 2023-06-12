@@ -6,7 +6,7 @@ on:
       - master
 
 jobs:
-  build_deps:
+  Build:
     strategy:
       fail-fast: true
       matrix:
@@ -25,57 +25,4 @@ jobs:
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
       prerelease: "True"
-
-  build:
-    needs: build_deps
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        # Currently folly in conan-center has a bug when used with gcc 11.3 and sanitizer
-        # sanitize: ["True", "False"]
-        build-type: ["Debug", "Release"]
-        malloc-impl: ["libc", "tcmalloc", "jemalloc"]
-        prerelease: ["True"]
-        exclude:
-          - build-type: Debug
-            malloc-impl: tcmalloc
-          - build-type: Debug
-            malloc-impl: jemalloc
-          - build-type: Release
-            malloc-impl: libc
-
-    steps:
-    - name: Setup Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.8"
-
-    - name: Install Conan
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install conan~=1.0
-        conan user
-        conan profile new --detect default
-        # Set std::string to non-CoW C++11 version
-        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
-
-    - name: Restore Sisl 3rdParty Cache
-      id: restore-cache-sisl
-      uses: actions/cache/restore@v3
-      with:
-        path: |
-          ~/.conan/data
-        key: SislDeps-${{ matrix.build-type }}-${{ matrix.malloc-impl }}-${{ matrix.prerelease }}
-
-    - name: Checkout Code
-      uses: actions/checkout@v3
-
-    - name: Build
-      run: |
-        conan create \
-            -o prerelease=${{ matrix.prerelease }} \
-            -o malloc_impl=${{ matrix.malloc-impl }} \
-            -s build_type=${{ matrix.build-type }} \
-            --build missing \
-            .
+      native: 'true'
