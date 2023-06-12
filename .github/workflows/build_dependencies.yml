@@ -64,7 +64,7 @@ jobs:
 
     - name: Cleanup dep builds
       run: |
-        while read pkg; do echo "Cleaning ${pkg}"; rm -rf ${pkg}; done < $(ls -1d ~/.conan/data/* | grep -Ev '(folly, gperftools, jemalloc, prerelease_dummy, spdlog)')
+        ls -1d ~/.conan/data/* | grep -Ev '(folly|gperftools|jemalloc|prerelease_dummy|spdlog)' | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
       if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
