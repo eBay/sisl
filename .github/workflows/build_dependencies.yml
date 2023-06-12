@@ -16,6 +16,10 @@ on:
         required: false
         type: string
         default: 'False'
+      native:
+        required: false
+        default: 'false'
+        type: string
 
 jobs:
   BuildSislDeps:
@@ -35,12 +39,17 @@ jobs:
         # Set std::string to non-CoW C++11 version
         sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
 
+    - name: Retrieve Code
+      uses: actions/checkout@v3
+      if: ${{ inputs.native == 'true' }}
+
     - name: Retrieve Dependencies
       uses: actions/checkout@v3
       with:
         repository: ebay/sisl
         path: deps/sisl
         ref: ${{ inputs.branch }}
+      if: ${{ inputs.native == 'false' }}
 
     - name: Restore Sisl 3rdParty Cache
       id: restore-cache-sisl
@@ -60,7 +69,18 @@ jobs:
             -o malloc_impl=${{ inputs.malloc-impl }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing deps/sisl
-      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' && inputs.native == 'false' }}
+
+    - name: Build
+      run: |
+        conan create \
+            -o prerelease=${{ inputs.prerelease }} \
+            -o malloc_impl=${{ inputs.malloc-impl }} \
+            -s build_type=${{ inputs.build-type }} \
+            --build missing \
+            . \
+            oss/master
+      if: ${{ inputs.native == 'true' }}
 
     - name: Cleanup dep builds
       run: |

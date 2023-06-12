@@ -110,6 +110,7 @@ class SISLConan(ConanFile):
 
         definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
                        'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
+                       'CONAN_CMAKE_SILENT_OUTPUT': 'ON',
                        'MEMORY_SANITIZER_ON': 'OFF',
                        'MALLOC_IMPL': self.options.malloc_impl}
         test_target = None
