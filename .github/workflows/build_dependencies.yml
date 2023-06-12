@@ -74,8 +74,8 @@ jobs:
     - name: Build
       run: |
         conan create \
-            -o prerelease=${{ inputs.prerelease }} \
-            -o malloc_impl=${{ inputs.malloc-impl }} \
+            -o sisl:prerelease=${{ inputs.prerelease }} \
+            -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             . \
