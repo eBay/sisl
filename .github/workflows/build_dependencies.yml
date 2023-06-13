@@ -18,8 +18,8 @@ on:
         default: false
       testing:
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: 'False'
   workflow_dispatch:
     inputs:
       branch:
@@ -50,9 +50,11 @@ on:
         default: false
       testing:
         description: 'Run Tests'
-        required: false
-        type: boolean
-        default: false
+        required: true
+        type: choice
+          - True
+          - False
+        default: 'false'
 
 jobs:
   BuildSislDeps:
@@ -72,13 +74,13 @@ jobs:
         repository: ebay/sisl
         path: deps/sisl
         ref: ${{ inputs.branch }}
-      if: ${{ inputs.testing == 'true' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Setup Python
       uses: actions/setup-python@v3
       with:
         python-version: "3.8"
-      if: ${{ inputs.testing == 'true' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Setup Conan and Export Recipes
       run: |
@@ -92,7 +94,7 @@ jobs:
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
         conan export deps/sisl/3rd_party/pistache pistache/cci.20201127@
-      if: ${{ inputs.testing == 'true' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Build Cache
       run: |
@@ -102,7 +104,7 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
-      if: ${{ inputs.testing != 'true' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.testing != 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Test Package
       run: |
@@ -112,7 +114,7 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
-      if: ${{ inputs.testing == 'true' }}
+      if: ${{ inputs.testing == 'True' }}
 
     - name: Cleanup
       run: |
