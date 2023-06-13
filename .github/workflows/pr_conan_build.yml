@@ -16,7 +16,7 @@ jobs:
         prerelease: ["True", "False"]
         exclude:
           - build-type: Debug
-            prerelease: "False"
+            malloc-impl: tcmalloc
           - build-type: Release
             malloc-impl: libc
     uses: ./.github/workflows/build_dependencies.yml

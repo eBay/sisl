@@ -15,7 +15,7 @@ on:
       prerelease:
         required: false
         type: string
-        default: false
+        default: 'False'
       testing:
         required: false
         type: string
@@ -45,16 +45,17 @@ on:
         required: false
         type: choice
         options:
-          - True
-          - False
-        default: false
+          - 'True'
+          - 'False'
+        default: 'False'
       testing:
         description: 'Run Tests'
         required: true
         type: choice
-          - True
-          - False
-        default: 'false'
+        options:
+          - 'True'
+          - 'False'
+        default: 'False'
 
 jobs:
   BuildSislDeps:
@@ -71,7 +72,6 @@ jobs:
     - name: Retrieve Code
       uses: actions/checkout@v3
       with:
-        repository: ebay/sisl
         path: deps/sisl
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
