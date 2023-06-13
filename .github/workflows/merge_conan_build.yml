@@ -1,7 +1,7 @@
-name: Sisl PR Build
+name: Sisl Merge Build
 
 on:
-  pull_request:
+  push:
     branches:
       - stable/v8.x
       - master
@@ -15,8 +15,6 @@ jobs:
         malloc-impl: ["libc", "tcmalloc", "jemalloc"]
         prerelease: ["True", "False"]
         exclude:
-          - build-type: Debug
-            prerelease: "False"
           - build-type: Release
             malloc-impl: libc
     uses: ./.github/workflows/build_dependencies.yml

@@ -73,6 +73,7 @@ class SISLConan(ConanFile):
         self.requires("flatbuffers/1.12.0")
         self.requires("grpc/1.48.0")
         self.requires("jwt-cpp/0.4.0")
+        self.requires("libcurl/7.86.0")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.1.0")
         self.requires("spdlog/1.11.0")
