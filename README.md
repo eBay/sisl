@@ -1,5 +1,5 @@
 # SymbiosisLib (sisl)
-[![Conan Build](https://github.com/eBay/sisl/actions/workflows/build_with_conan.yml/badge.svg?branch=master)](https://github.com/eBay/sisl/actions/workflows/build_with_conan.yml)
+[![Conan Build](https://github.com/eBay/sisl/actions/workflows/merge_conan_build.yml/badge.svg?branch=stable/v8.x)](https://github.com/eBay/sisl/actions/workflows/merge_conan_build.yml)
 
 This repo provides a symbiosis of libraries (thus named sisl - pronounced like sizzle) mostly for very high performance data 
 structures and utilities. This is mostly on top of folly, boost, STL and other good well known libraries. Thus its not trying 
