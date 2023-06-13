@@ -1,0 +1,28 @@
+name: Sisl PR Build
+
+on:
+  pull_request:
+    branches:
+      - stable/v8.x
+      - master
+
+jobs:
+  Build:
+    strategy:
+      fail-fast: false
+      matrix:
+        build-type: ["Debug", "Release"]
+        malloc-impl: ["libc", "tcmalloc"]
+        prerelease: ["True", "False"]
+        exclude:
+          - build-type: Debug
+            prerelease: "False"
+          - build-type: Release
+            malloc-impl: libc
+    uses: ./.github/workflows/build_dependencies.yml
+    with:
+      branch: ${{ github.ref }}
+      build-type: ${{ matrix.build-type }}
+      malloc-impl: ${{ matrix.malloc-impl }}
+      prerelease: ${{ matrix.prerelease }}
+      testing: true
