@@ -67,7 +67,7 @@ class SISLConan(ConanFile):
             self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
-        self.requires("boost/1.79.0")
+        self.requires("boost/1.81.0")
         self.requires("cpr/1.9.3")
         self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")
