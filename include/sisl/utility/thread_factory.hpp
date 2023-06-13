@@ -20,6 +20,7 @@
 #include <thread>
 #include <string>
 #include <memory>
+#include <functional>
 
 #ifdef _POSIX_THREADS
 #include <pthread.h>
