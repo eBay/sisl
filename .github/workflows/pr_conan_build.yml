@@ -9,7 +9,7 @@ on:
 jobs:
   Build:
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc", "jemalloc"]

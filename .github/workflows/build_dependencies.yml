@@ -58,9 +58,9 @@ on:
         default: 'False'
 
 jobs:
- BuildSislDeps:
-  runs-on: ubuntu-22.04
-  steps:
+  BuildSislDeps:
+    runs-on: ubuntu-22.04
+    steps:
     - name: Restore Sisl Cache
       id: restore-cache-sisl
       uses: actions/cache/restore@v3
