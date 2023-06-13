@@ -1,8 +1,9 @@
-name: Sisl Conan Build
+name: Sisl Merge Build
 
 on:
   push:
     branches:
+      - stable/v8.x
       - master
 
 jobs:
@@ -12,6 +13,7 @@ jobs:
       matrix:
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc", "jemalloc"]
+        prerelease: ["True", "False"]
         exclude:
           - build-type: Debug
             malloc-impl: tcmalloc
@@ -21,8 +23,8 @@ jobs:
             malloc-impl: libc
     uses: ./.github/workflows/build_dependencies.yml
     with:
-      branch: master
+      branch: ${{ github.ref }}
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
-      prerelease: "True"
-      native: 'true'
+      prerelease: ${{ matrix.prerelease }}
+      testing: 'True'
