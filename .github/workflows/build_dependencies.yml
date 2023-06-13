@@ -45,8 +45,8 @@ on:
         required: false
         type: choice
         options:
-          - True
-          - False
+          - 'True'
+          - 'False'
         default: 'False'
       testing:
         description: 'Run Tests'
