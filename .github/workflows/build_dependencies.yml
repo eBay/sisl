@@ -72,7 +72,6 @@ jobs:
     - name: Retrieve Code
       uses: actions/checkout@v3
       with:
-        repository: ebay/sisl
         path: deps/sisl
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
