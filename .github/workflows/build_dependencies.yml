@@ -15,7 +15,7 @@ on:
       prerelease:
         required: false
         type: string
-        default: false
+        default: 'False'
       testing:
         required: false
         type: string
@@ -47,17 +47,18 @@ on:
         options:
           - True
           - False
-        default: false
+        default: 'False'
       testing:
         description: 'Run Tests'
         required: true
         type: choice
-          - True
-          - False
-        default: 'false'
+        options:
+          - 'True'
+          - 'False'
+        default: 'False'
 
 jobs:
-BuildSislDeps:
+ BuildSislDeps:
   runs-on: ubuntu-22.04
   steps:
     - name: Restore Sisl Cache
