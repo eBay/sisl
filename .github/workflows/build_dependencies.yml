@@ -74,7 +74,15 @@ jobs:
       with:
         path: deps/sisl
         ref: ${{ inputs.branch }}
-      if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.testing == 'True' }}
+
+    - name: Retrieve Recipe
+      uses: actions/checkout@v3
+      with:
+        repository: ebay/sisl
+        path: deps/sisl
+        ref: ${{ inputs.branch }}
+      if: ${{ inputs.testing == 'False' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Setup Python
       uses: actions/setup-python@v3
