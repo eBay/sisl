@@ -19,7 +19,9 @@ jobs:
           - platform: macos-13
             malloc-impl: jemalloc
           - build-type: Release
-            platform: [ubuntu-20.04, macos-13]
+            platform: ubuntu-20.04
+          - build-type: Release
+            platform: macos-13
           - build-type: Debug
             malloc-impl: tcmalloc
           - build-type: Debug
