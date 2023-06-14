@@ -16,8 +16,8 @@ jobs:
         malloc-impl: ["libc", "tcmalloc", "jemalloc"]
         prerelease: ["True", "False"]
         exclude:
-          - platform: [macos-13, macos-12]
-            malloc-impl: jemalloc
+          - malloc-impl: jemalloc
+            platform: [macos-13, macos-12]
           - build-type: Debug
             malloc-impl: tcmalloc
           - build-type: Debug
