@@ -49,13 +49,13 @@ on:
           - 'False'
         default: 'False'
       testing:
-        description: 'Run Tests'
+        description: 'Build and Run'
         required: true
         type: choice
         options:
           - 'True'
           - 'False'
-        default: 'False'
+        default: 'True'
 
 jobs:
   BuildSislDeps:
