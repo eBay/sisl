@@ -24,6 +24,7 @@ on:
         type: string
         default: 'False'
   workflow_dispatch:
+    inputs:
       platform:
         required: true
         type: choice
@@ -33,7 +34,6 @@ on:
           - macos-13
           - macos-12
         default: 'ubuntu-22.04'
-    inputs:
       branch:
         required: true
         type: string
