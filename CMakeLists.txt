@@ -71,10 +71,8 @@ find_package(spdlog REQUIRED)
 find_package(Threads REQUIRED)
 
 # Linux Specific dependencies
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
-    find_package(folly REQUIRED)
-    find_package(userspace-rcu REQUIRED)
-endif()
+find_package(folly QUIET OPTIONAL)
+find_package(userspace-rcu QUIET OPTIONAL)
 
 list (APPEND COMMON_DEPS
     Boost::headers
@@ -83,10 +81,8 @@ list (APPEND COMMON_DEPS
     prometheus-cpp::prometheus-cpp
     spdlog::spdlog
   )
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
-    list (APPEND COMMON_DEPS
-        userspace-rcu::userspace-rcu
-    )
+if(${userspace-rcu_FOUND})
+    list (APPEND COMMON_DEPS userspace-rcu::userspace-rcu)
 endif()
 
 if (${prerelease_dummy_FOUND})

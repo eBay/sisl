@@ -16,7 +16,7 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
         $<TARGET_OBJECTS:sisl_auth_manager>
       )
 endif()
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
+if(${folly_FOUND})
     add_subdirectory (cache)
     add_subdirectory (fds)
     add_subdirectory (file_watcher)
