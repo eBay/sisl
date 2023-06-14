@@ -137,13 +137,14 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
+        conan remove sisl
       if: ${{ inputs.testing == 'True' }}
 
     - name: Cleanup
       run: |
         ls -1d ~/.conan/data/* | grep -Ev '(folly|gperftools|jemalloc|prerelease_dummy|spdlog)' | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
-      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.platform != 'ubuntu-22.04' || inputs.platform != 'ubuntu-20.04' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Save Sisl Cache
       id: save-cache-sisl
