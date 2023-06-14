@@ -143,6 +143,7 @@ jobs:
     - name: Cleanup
       run: |
         dirty_pkgs=$(find ~/.conan/data -type d -name 'build' -d 5 | cut -d'/' -f6 |paste -sd'|' - -)
+        echo "Caching: ${dirty_pkgs}"
         ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
         rm -rf ~/.conan/data/*/*/*/*/source
