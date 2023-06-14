@@ -4,7 +4,8 @@ on:
   workflow_call:
     inputs:
       platform:
-        required: true
+        required: false
+        default: 'ubuntu-22.04'
         type: string
       branch:
         required: true
