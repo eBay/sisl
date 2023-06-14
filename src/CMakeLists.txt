@@ -1,6 +1,5 @@
 cmake_minimum_required (VERSION 3.11)
 
-add_subdirectory (grpc)
 add_subdirectory (logging)
 add_subdirectory (options)
 add_subdirectory (version)
@@ -15,6 +14,12 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
     list(APPEND POSIX_LIBRARIES
         $<TARGET_OBJECTS:sisl_auth_manager>
       )
+endif()
+if(${userspace-rcu_FOUND})
+    add_subdirectory (grpc)
+    list(APPEND POSIX_LIBRARIES
+            $<TARGET_OBJECTS:sisl_grpc>
+    )
 endif()
 if(${folly_FOUND})
     add_subdirectory (cache)
@@ -40,7 +45,6 @@ endif()
 
 add_library(sisl
             ${POSIX_LIBRARIES}
-            $<TARGET_OBJECTS:sisl_grpc>
             $<TARGET_OBJECTS:sisl_logging>
             $<TARGET_OBJECTS:sisl_options>
             $<TARGET_OBJECTS:sisl_version>

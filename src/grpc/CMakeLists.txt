@@ -19,4 +19,6 @@ target_link_libraries(sisl_grpc
     ${COMMON_DEPS}
   )
 
-add_subdirectory(tests)
+if(${Pistache_FOUND})
+  add_subdirectory(tests)
+endif()

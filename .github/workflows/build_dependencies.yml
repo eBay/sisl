@@ -3,6 +3,9 @@ name: Conan Build
 on:
   workflow_call:
     inputs:
+      platform:
+        required: true
+        type: string
       branch:
         required: true
         type: string
@@ -21,6 +24,15 @@ on:
         type: string
         default: 'False'
   workflow_dispatch:
+      platform:
+        required: true
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-20.04
+          - macos-13
+          - macos-12
+        default: 'ubuntu-22.04'
     inputs:
       branch:
         required: true
@@ -59,7 +71,7 @@ on:
 
 jobs:
   BuildSislDeps:
-    runs-on: ubuntu-22.04
+    runs-on: ${{ inputs.platform }}
     steps:
     - name: Restore Sisl Cache
       id: restore-cache-sisl
@@ -67,7 +79,7 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Retrieve Code
       uses: actions/checkout@v3
@@ -97,11 +109,15 @@ jobs:
         conan user
         conan profile new --detect default
         # Set std::string to non-CoW C++11 version
-        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
         conan export deps/sisl/3rd_party/gperftools
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+
+    - name: Fixup libstdc++
+      run: |
+        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
+      if: ${{ inputs.platform == 'ubuntu-22.04' && ( inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' ) }}
 
     - name: Build Cache
       run: |
@@ -135,5 +151,5 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
