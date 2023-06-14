@@ -148,7 +148,7 @@ jobs:
         ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
         rm -rf ~/.conan/data/*/*/*/*/source
-      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Save Sisl Cache
       id: save-cache-sisl
