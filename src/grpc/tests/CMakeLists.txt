@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.11)
 
-find_package(GTest REQUIRED)
-find_package(Pistache REQUIRED)
+find_package(GTest QUIET REQUIRED)
+find_package(Pistache QUIET REQUIRED)
 
 add_subdirectory(proto)
 

@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.11)
 
-find_package(flatbuffers REQUIRED)
-find_package(gRPC REQUIRED)
+find_package(flatbuffers QUIET REQUIRED)
+find_package(gRPC QUIET REQUIRED)
 
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/../auth_manager)
 
@@ -19,4 +19,6 @@ target_link_libraries(sisl_grpc
     ${COMMON_DEPS}
   )
 
-add_subdirectory(tests)
+if(${Pistache_FOUND})
+  add_subdirectory(tests)
+endif()

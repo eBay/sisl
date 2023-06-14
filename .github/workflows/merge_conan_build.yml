@@ -11,18 +11,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        platform: ["ubuntu-22.04", "ubuntu-20.04", "macos-13", "macos-12"]
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc", "jemalloc"]
         prerelease: ["True", "False"]
         exclude:
+          - malloc-impl: jemalloc
+            platform: macos-13
+          - malloc-impl: jemalloc
+            platform: macos-12
           - build-type: Debug
             malloc-impl: tcmalloc
           - build-type: Debug
             malloc-impl: jemalloc
           - build-type: Release
             malloc-impl: libc
+          - prerelease: "True"
+            platform: macos-13
+          - prerelease: "True"
+            platform: macos-12
+          - prerelease: "True"
+            platform: ubuntu-20.04
     uses: ./.github/workflows/build_dependencies.yml
     with:
+      platform: ${{ matrix.platform }}
       branch: ${{ github.ref }}
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
