@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.11)
 
-find_package(flatbuffers REQUIRED)
+find_package(flatbuffers QUIET REQUIRED)
 
 add_library(sisl_settings OBJECT)
 target_sources(sisl_settings PRIVATE
