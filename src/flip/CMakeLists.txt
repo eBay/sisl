@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-find_package(gRPC REQUIRED)
+find_package(gRPC QUIET REQUIRED)
 
 add_subdirectory (proto)
 

@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.11)
 
-find_package(flatbuffers REQUIRED)
-find_package(Pistache REQUIRED)
+find_package(flatbuffers QUIET REQUIRED)
+find_package(Pistache QUIET REQUIRED)
 
 if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
