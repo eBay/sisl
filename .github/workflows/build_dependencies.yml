@@ -113,6 +113,8 @@ jobs:
         conan export deps/sisl/3rd_party/gperftools
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
+        cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/package | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
+        echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Fixup libstdc++
@@ -128,12 +130,10 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
-      if: ${{ inputs.testing != 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Test Package
       run: |
-        cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export | sed 's,.*data/,,' | cut -d'/' -f1 | paste -sd'|' - -)
-        echo "::info:: Pre-cached: ${cached_pkgs}"
         conan create \
             -o sisl:prerelease=${{ inputs.prerelease }} \
             -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
@@ -145,9 +145,11 @@ jobs:
 
     - name: Cleanup
       run: |
-        dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/package | sed 's,.*data/,,' | cut -d'/' -f1 | paste -sd'|' - -)
-        echo "Caching: ${dirty_pkgs}"
-        ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs})" | xargs rm -rf
+        dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/build | sed 's,.*data/,,')
+        dirty_pkgs_v=$(echo "${dirty_pkgs}" | cut -d'/' -f1,2 | paste -sd',' - -)
+        echo "::info:: Caching: ${dirty_pkgs_v}"
+        dirty_pkgs_d=$(echo "${dirty_pkgs}" | cut -d'/' -f1 | paste -sd'|' - -)
+        ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs_d})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
         rm -rf ~/.conan/data/*/*/*/*/source
       if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
