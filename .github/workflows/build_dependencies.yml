@@ -97,8 +97,7 @@ jobs:
           ~/.conan/data
         key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
         restore-keys: |
-          SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-
-          SislDeps-${{ inputs.platform }}-
+          SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Setup Python
       uses: actions/setup-python@v3
