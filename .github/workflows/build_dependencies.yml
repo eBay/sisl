@@ -74,14 +74,6 @@ jobs:
   BuildSislDeps:
     runs-on: ${{ inputs.platform }}
     steps:
-    - name: Restore Sisl Cache
-      id: restore-cache-sisl
-      uses: actions/cache/restore@v3
-      with:
-        path: |
-          ~/.conan/data
-        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
-
     - name: Retrieve Code
       uses: actions/checkout@v3
       with:
@@ -95,7 +87,18 @@ jobs:
         repository: ebay/sisl
         path: deps/sisl
         ref: ${{ inputs.branch }}
-      if: ${{ inputs.testing == 'False' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.testing == 'False' }}
+
+    - name: Restore Sisl Cache
+      id: restore-cache-sisl
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ~/.conan/data
+        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
+        restore-keys: |
+          SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-
+          SislDeps-${{ inputs.platform }}-
 
     - name: Setup Python
       uses: actions/setup-python@v3
@@ -160,5 +163,5 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
