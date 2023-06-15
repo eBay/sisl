@@ -1,6 +1,7 @@
 name: Sisl Merge Build
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - stable/v8.x
