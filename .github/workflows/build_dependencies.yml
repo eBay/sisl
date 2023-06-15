@@ -132,6 +132,8 @@ jobs:
 
     - name: Test Package
       run: |
+        cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export | sed 's,.*data/,,' | cut -d'/' -f1 | paste -sd'|' - -)
+        echo "::info:: Pre-cached: ${cached_pkgs}"
         conan create \
             -o sisl:prerelease=${{ inputs.prerelease }} \
             -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
@@ -143,7 +145,7 @@ jobs:
 
     - name: Cleanup
       run: |
-        dirty_pkgs=$(find ~/.conan/data -type d -name 'build' -d 5 | cut -d'/' -f6 |paste -sd'|' - -)
+        dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/package | sed 's,.*data/,,' | cut -d'/' -f1 | paste -sd'|' - -)
         echo "Caching: ${dirty_pkgs}"
         ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
@@ -157,4 +159,4 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
-      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
