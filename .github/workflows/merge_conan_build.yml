@@ -23,7 +23,6 @@ jobs:
             platform: ubuntu-20.04
           - malloc-impl: libc
             prerelease: "False"
-            prerelease: "False"
           - malloc-impl: libc
             build-type: Release
             platform: ubuntu-22.04
