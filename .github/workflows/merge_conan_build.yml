@@ -1,6 +1,7 @@
 name: Sisl Merge Build
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - stable/v8.x
@@ -11,14 +12,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        platform: ["ubuntu-22.04", "ubuntu-20.04"]
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc"]
         prerelease: ["True", "False"]
         exclude:
-          - build-type: Release
-            malloc-impl: libc
+          - build-type: Debug
+            platform: ubuntu-20.04
+          - malloc-impl: tcmalloc
+            platform: ubuntu-20.04
+          - malloc-impl: libc
+            prerelease: "False"
+            prerelease: "False"
+          - malloc-impl: libc
+            build-type: Release
+            platform: ubuntu-22.04
+          - prerelease: "False"
+            build-type: Debug
     uses: ./.github/workflows/build_dependencies.yml
     with:
+      platform: ${{ matrix.platform }}
       branch: ${{ github.ref }}
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
