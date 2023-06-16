@@ -145,8 +145,13 @@ jobs:
       if: ${{ inputs.testing == 'True' }}
 
     - name: Cleanup
+      id: cleanup
       run: |
-        dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/build | sed 's,.*data/,,')
+        dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/build 2>/dev/null | sed 's,.*data/,,')
+        if [ -z "${dirty_pkgs}" ]; then
+           dirty_pkgs="nothing"
+        fi;
+        echo "dirty_pkgs=${dirty_pkgs}" >> "$GITHUB_OUTPUT"
         dirty_pkgs_v=$(echo "${dirty_pkgs}" | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Caching: ${dirty_pkgs_v}"
         dirty_pkgs_d=$(echo "${dirty_pkgs}" | cut -d'/' -f1 | paste -sd'|' - -)
@@ -162,4 +167,4 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
-      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' && steps.cleanup.outputs.dirty_pkgs != 'nothing' }}
