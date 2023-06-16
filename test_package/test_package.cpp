@@ -22,18 +22,20 @@ int main(int argc, char** argv) {
     LOGERROR("Error");
     LOGCRITICAL("Critical");
 
-    auto thread = std::thread([]() {
+    auto _thread = std::thread([]() {
         LOGWARNMOD(my_module, "Sleeping...");
         std::this_thread::sleep_for(1500ms);
+        LOGINFOMOD(my_module, "Waking...");
+        std::this_thread::sleep_for(1500ms);
     });
-    sisl::name_thread(thread, "example_thread");
+    sisl::name_thread(_thread, "example_decl");
     std::this_thread::sleep_for(300ms);
 
     auto custom_logger =
         sisl::logging::CreateCustomLogger("test_package", "_custom", false /*stdout*/, true /*stderr*/);
     LOGINFOMOD_USING_LOGGER(my_module, custom_logger, "hello world");
     DEBUG_ASSERT(true, "Always True");
-    thread.join();
+    _thread.join();
 
     return 0;
 }
