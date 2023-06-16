@@ -4,7 +4,7 @@ from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
 from conans import CMake
 
-required_conan_version = ">=1.50.0"
+required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
