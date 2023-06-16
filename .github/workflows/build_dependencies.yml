@@ -147,15 +147,15 @@ jobs:
       run: |
         dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/build 2>/dev/null | sed 's,.*data/,,')
         if [ -z "${dirty_pkgs}" ]; then
-           dirty_pkgs="nothing"
+           dirty_pkgs="nothing/0"
         fi;
-        echo "dirty_pkgs=${dirty_pkgs}" >> "$GITHUB_OUTPUT"
         dirty_pkgs_v=$(echo "${dirty_pkgs}" | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Caching: ${dirty_pkgs_v}"
         dirty_pkgs_d=$(echo "${dirty_pkgs}" | cut -d'/' -f1 | paste -sd'|' - -)
         ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs_d})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
         rm -rf ~/.conan/data/*/*/*/*/source
+        echo "dirty_pkgs=${dirty_pkgs_d}" >> "$GITHUB_OUTPUT"
       if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Save Sisl Cache
