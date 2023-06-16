@@ -122,6 +122,7 @@ jobs:
       if: ${{ inputs.platform == 'ubuntu-22.04' && ( inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' ) }}
 
     - name: Build Cache
+      id: build_cache
       run: |
         conan install \
             -o prerelease=${{ inputs.prerelease }} \
@@ -129,30 +130,17 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
-      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
-
-    - name: Test Package
-      run: |
-        conan create \
-            -o sisl:prerelease=${{ inputs.prerelease }} \
-            -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
-            -s build_type=${{ inputs.build-type }} \
-            --build missing \
-            deps/sisl
-        conan remove -f sisl
-      if: ${{ inputs.testing == 'True' }}
-
-    - name: Cleanup
-      id: cleanup
-      run: |
+        dep_pkgs=$(ls -1d deps/sisl/3rd_party/* 2>/dev/null | cut -d'/' -f4 | paste -sd'|' - -)
+        if [ -z "${dep_pkgs}" ]; then
+           dep_pkgs="no_3rd_party"
+        fi
         dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/build 2>/dev/null | sed 's,.*data/,,')
         if [ -z "${dirty_pkgs}" ]; then
-           dirty_pkgs="nothing/0"
-        fi;
-        dirty_pkgs_v=$(echo "${dirty_pkgs}" | cut -d'/' -f1,2 | paste -sd',' - -)
-        echo "::info:: Caching: ${dirty_pkgs_v}"
+           dirty_pkgs="no_public/0"
+        fi
         dirty_pkgs_d=$(echo "${dirty_pkgs}" | cut -d'/' -f1 | paste -sd'|' - -)
-        ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs_d})" | xargs rm -rf
+        echo "::info:: Caching: ${dirty_pkgs_d}|${dep_pkgs}"
+        ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs_d}|${dep_pkgs})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
         rm -rf ~/.conan/data/*/*/*/*/source
         echo "dirty_pkgs=${dirty_pkgs_d}" >> "$GITHUB_OUTPUT"
@@ -165,4 +153,15 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
-      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' && steps.cleanup.outputs.dirty_pkgs != 'nothing' }}
+      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' && steps.build_cache.outputs.dirty_pkgs != 'nothing' }}
+
+    - name: Create and test Package
+      run: |
+        conan create \
+            -o sisl:prerelease=${{ inputs.prerelease }} \
+            -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
+            -s build_type=${{ inputs.build-type }} \
+            --build missing \
+            deps/sisl
+        conan remove -f sisl
+      if: ${{ inputs.testing == 'True' }}
