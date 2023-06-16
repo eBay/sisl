@@ -102,7 +102,7 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-
-      if: ${{ inputs.testing == 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ github.event_name == 'pull_request' && inputs.testing == 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Setup Python
       uses: actions/setup-python@v3
@@ -152,7 +152,6 @@ jobs:
         ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs_d}|${dep_pkgs})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
         rm -rf ~/.conan/data/*/*/*/*/source
-        echo "dirty_pkgs=${dirty_pkgs_d}" >> "$GITHUB_OUTPUT"
       if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Save Sisl Cache
@@ -162,7 +161,7 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
-      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' && steps.build_cache.outputs.dirty_pkgs != 'nothing' }}
+      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Create and test Package
       run: |
