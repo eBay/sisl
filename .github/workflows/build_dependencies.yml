@@ -131,7 +131,6 @@ jobs:
       if: ${{ inputs.platform == 'ubuntu-22.04' && ( inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' ) }}
 
     - name: Build Cache
-      id: build_cache
       run: |
         conan install \
             -o prerelease=${{ inputs.prerelease }} \
@@ -139,6 +138,10 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
+      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+
+    - name: Clean Package Cache
+      run: |
         dep_pkgs=$(ls -1d deps/sisl/3rd_party/* 2>/dev/null | cut -d'/' -f4 | paste -sd'|' - -)
         if [ -z "${dep_pkgs}" ]; then
            dep_pkgs="no_3rd_party"
@@ -152,7 +155,7 @@ jobs:
         ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs_d}|${dep_pkgs})" | xargs rm -rf
         rm -rf ~/.conan/data/*/*/*/*/build
         rm -rf ~/.conan/data/*/*/*/*/source
-      if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Save Sisl Cache
       id: save-cache-sisl
