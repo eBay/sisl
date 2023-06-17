@@ -169,7 +169,7 @@ jobs:
 
     - name: Create and test Package
       run: |
-        sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc_impl }}" == "libc" ]] && echo "True" || echo "False")
+        sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc-impl }}" == "libc" ]] && echo "True" || echo "False")
         conan create \
             -o sisl:prerelease=${{ inputs.prerelease }} \
             -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
