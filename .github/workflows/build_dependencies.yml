@@ -20,10 +20,6 @@ on:
         required: false
         type: string
         default: 'False'
-      sanitize:
-        required: false
-        type: string
-        default: 'False'
       testing:
         required: false
         type: string
@@ -57,14 +53,6 @@ on:
           - jemalloc
       prerelease:
         description: 'Fault Instrumentation'
-        required: false
-        type: choice
-        options:
-          - 'True'
-          - 'False'
-        default: 'False'
-      sanitize:
-        description: 'Memory Sanitize'
         required: false
         type: choice
         options:
@@ -177,14 +165,15 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
-      if: ${{ inputs.sanitize == 'False' && github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Create and test Package
       run: |
+        sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc_impl }}" == "libc" ]] && echo "True" || echo "False")
         conan create \
             -o sisl:prerelease=${{ inputs.prerelease }} \
             -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
-            -o sisl:sanitize=${{ inputs.sanitize }} \
+            -o sisl:sanitize=${sanitize} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl

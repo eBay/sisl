@@ -15,12 +15,7 @@ jobs:
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc"]
         prerelease: ["True", "False"]
-        sanitize: ["True", "False"]
         exclude:
-          - build-type: Release
-            sanitize: "True"
-          - malloc-impl: tcmalloc
-            sanitize: "True"
           - build-type: Debug
             platform: ubuntu-20.04
           - malloc-impl: tcmalloc
@@ -39,5 +34,4 @@ jobs:
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
       prerelease: ${{ matrix.prerelease }}
-      sanitize: ${{ matrix.sanitize }}
       testing: 'True'
