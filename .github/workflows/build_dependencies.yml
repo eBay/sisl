@@ -148,7 +148,6 @@ jobs:
         conan install \
             -o prerelease=${{ inputs.prerelease }} \
             -o malloc_impl=${{ inputs.malloc-impl }} \
-            -o sanitize=${{ inputs.sanitize }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
