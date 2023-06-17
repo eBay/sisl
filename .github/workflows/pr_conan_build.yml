@@ -15,7 +15,16 @@ jobs:
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc"]
         prerelease: ["True", "False"]
+        sanitize: ["True", "False"]
         exclude:
+          - build-type: Release
+            sanitize: "True"
+          - malloc-impl: tcmalloc
+            sanitize: "True"
+          - build-type: Debug
+            malloc-impl: libc
+            prerelease: "True"
+            sanitize: "True"
           - build-type: Debug
             platform: ubuntu-20.04
           - malloc-impl: tcmalloc
