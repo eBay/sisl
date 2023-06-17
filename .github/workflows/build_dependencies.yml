@@ -116,6 +116,7 @@ jobs:
         python -m pip install conan~=1.0
         conan user
         conan profile new --detect default
+        conan export deps/sisl/3rd_party/folly folly/2022.01.31.00@
         conan export deps/sisl/3rd_party/gperftools
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
@@ -168,9 +169,11 @@ jobs:
 
     - name: Create and test Package
       run: |
+        sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc_impl }}" == "libc" ]] && echo "True" || echo "False")
         conan create \
             -o sisl:prerelease=${{ inputs.prerelease }} \
             -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
+            -o sisl:sanitize=${sanitize} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
