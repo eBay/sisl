@@ -20,6 +20,10 @@ on:
         required: false
         type: string
         default: 'False'
+      sanitize:
+        required: false
+        type: string
+        default: 'False'
       testing:
         required: false
         type: string
@@ -53,6 +57,14 @@ on:
           - jemalloc
       prerelease:
         description: 'Fault Instrumentation'
+        required: false
+        type: choice
+        options:
+          - 'True'
+          - 'False'
+        default: 'False'
+      sanitize:
+        description: 'Memory Sanitize'
         required: false
         type: choice
         options:
@@ -116,6 +128,7 @@ jobs:
         python -m pip install conan~=1.0
         conan user
         conan profile new --detect default
+        conan export deps/sisl/3rd_party/folly folly/2022.01.31.00@
         conan export deps/sisl/3rd_party/gperftools
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
@@ -135,6 +148,7 @@ jobs:
         conan install \
             -o prerelease=${{ inputs.prerelease }} \
             -o malloc_impl=${{ inputs.malloc-impl }} \
+            -o sanitize=${{ inputs.sanitize }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
@@ -164,13 +178,14 @@ jobs:
         path: |
           ~/.conan/data
         key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
-      if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+      if: ${{ inputs.sanitize == 'False' && github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Create and test Package
       run: |
         conan create \
             -o sisl:prerelease=${{ inputs.prerelease }} \
             -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
+            -o sisl:sanitize=${{ inputs.sanitize }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             deps/sisl
