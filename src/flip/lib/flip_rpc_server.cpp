@@ -27,7 +27,7 @@
 
 namespace flip {
 grpc::Status FlipRPCServer::InjectFault(grpc::ServerContext*, const FlipSpec* request, FlipResponse* response) {
-    LOGTRACEMOD(flip, "Flipspec request = {}", request->DebugString());
+    LOGTRACEMOD(flip, "InjectFault request = {}", request->DebugString());
     flip::Flip::instance().add(*request);
     response->set_success(true);
     return grpc::Status::OK;
@@ -41,6 +41,13 @@ grpc::Status FlipRPCServer::GetFaults(grpc::ServerContext*, const FlipNameReques
         response->add_infos()->set_info(r);
     }
     LOGTRACEMOD(flip, "GetFaults response = {}", response->DebugString());
+    return grpc::Status::OK;
+}
+
+grpc::Status FlipRPCServer::RemoveFault(grpc::ServerContext*, const FlipRemoveRequest* request,
+                                        FlipRemoveResponse* response) {
+    LOGTRACEMOD(flip, "RemoveFault request = {}", request->DebugString());
+    response->set_num_removed(flip::Flip::instance().remove(request->name()));
     return grpc::Status::OK;
 }
 

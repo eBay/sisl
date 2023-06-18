@@ -30,6 +30,13 @@ public:
         to_proto_converter< T >()(value, out_condition->mutable_value());
     }
 
+    template < typename T >
+    FlipCondition create_condition(const std::string& param_name, flip::Operator oper, const T& value) {
+        FlipCondition fcond;
+        create_condition(param_name, oper, value, &fcond);
+        return fcond;
+    }
+
     bool inject_noreturn_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
                               const FlipFrequency& freq) {
         FlipSpec fspec;
@@ -76,6 +83,8 @@ public:
         m_flip->add(fspec);
         return true;
     }
+
+    uint32_t remove_flip(const std::string& flip_name) { return m_flip->remove(flip_name); }
 
 private:
     void _create_flip_spec(std::string flip_name, const std::vector< FlipCondition >& conditions,

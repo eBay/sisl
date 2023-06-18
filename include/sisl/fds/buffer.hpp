@@ -24,8 +24,9 @@
 #include <boost/preprocessor/stringize.hpp>
 #ifdef __linux__
 #include <malloc.h>
+#include <sys/uio.h>
 #endif
-
+#include <folly/small_vector.h>
 #include <sisl/metrics/metrics.hpp>
 #include <sisl/utility/enum.hpp>
 #include "utils.hpp"
@@ -37,6 +38,58 @@ struct blob {
 
     blob() : blob{nullptr, 0} {}
     blob(uint8_t* const b, const uint32_t s) : bytes{b}, size{s} {}
+};
+
+using sg_iovs_t = folly::small_vector< iovec, 4 >;
+struct sg_list {
+    uint64_t size; // total size of data pointed by iovs;
+    sg_iovs_t iovs;
+};
+
+struct sg_iterator {
+    sg_iterator(const sg_iovs_t& v) : m_input_iovs{v} { assert(v.size() > 0); }
+
+    sg_iovs_t next_iovs(uint32_t size) {
+        sg_iovs_t ret_iovs;
+        auto remain_size = size;
+
+        while ((remain_size > 0) && (m_cur_index < m_input_iovs.size())) {
+            const auto& inp_iov = m_input_iovs[m_cur_index];
+            iovec this_iov;
+            this_iov.iov_base = static_cast< uint8_t* >(inp_iov.iov_base) + m_cur_offset;
+            if (remain_size < inp_iov.iov_len - m_cur_offset) {
+                this_iov.iov_len = remain_size;
+                m_cur_offset += remain_size;
+            } else {
+                this_iov.iov_len = inp_iov.iov_len - m_cur_offset;
+                ++m_cur_index;
+                m_cur_offset = 0;
+            }
+
+            ret_iovs.push_back(this_iov);
+            assert(remain_size >= this_iov.iov_len);
+            remain_size -= this_iov.iov_len;
+        }
+
+        return ret_iovs;
+    }
+
+    void move_offset(const uint32_t size) {
+        auto remain_size = size;
+        const auto input_iovs_size = m_input_iovs.size();
+        for (; (remain_size > 0) && (m_cur_index < input_iovs_size); ++m_cur_index, m_cur_offset = 0) {
+            const auto& inp_iov = m_input_iovs[m_cur_index];
+            if (remain_size < inp_iov.iov_len - m_cur_offset) {
+                m_cur_offset += remain_size;
+                return;
+            }
+            remain_size -= inp_iov.iov_len - m_cur_offset;
+        }
+    }
+
+    const sg_iovs_t& m_input_iovs;
+    uint64_t m_cur_offset{0};
+    size_t m_cur_index{0};
 };
 
 // typedef size_t buftag_t;
@@ -184,6 +237,9 @@ public:
     aligned_shared_ptr(T* p) : std::shared_ptr< T >(p) {}
 };
 
+struct io_blob;
+using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
+
 struct io_blob : public blob {
     bool aligned{false};
 
@@ -192,7 +248,8 @@ struct io_blob : public blob {
         buf_alloc(sz, align_size, tag);
     }
     io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size), aligned{is_aligned} {}
+            blob(bytes, size),
+            aligned{is_aligned} {}
     ~io_blob() = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
@@ -205,7 +262,8 @@ struct io_blob : public blob {
         aligned ? sisl_aligned_free(blob::bytes, tag) : std::free(blob::bytes);
     }
 
-    void buf_realloc(const size_t new_size, const uint32_t align_size = 512, [[maybe_unused]] const buftag tag = buftag::common) {
+    void buf_realloc(const size_t new_size, const uint32_t align_size = 512,
+                     [[maybe_unused]] const buftag tag = buftag::common) {
         uint8_t* new_buf{nullptr};
         if (aligned) {
             // aligned before, so do not need check for new align size, once aligned will be aligned on realloc also
@@ -224,6 +282,19 @@ struct io_blob : public blob {
         blob::size = new_size;
         blob::bytes = new_buf;
     }
+
+    static io_blob from_string(const std::string& s) {
+        return io_blob{r_cast< uint8_t* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
+    }
+
+    static io_blob_list_t sg_list_to_ioblob_list(const sg_list& sglist) {
+        io_blob_list_t ret_list;
+        for (const auto& iov : sglist.iovs) {
+            ret_list.emplace_back(r_cast< uint8_t* >(const_cast< void* >(iov.iov_base)), uint32_cast(iov.iov_len),
+                                  false);
+        }
+        return ret_list;
+    }
 };
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
@@ -231,7 +302,8 @@ struct io_blob : public blob {
  */
 struct byte_array_impl : public io_blob {
     byte_array_impl(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) :
-            io_blob(sz, alignment, tag), m_tag{tag} {}
+            io_blob(sz, alignment, tag),
+            m_tag{tag} {}
     byte_array_impl(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
             io_blob(bytes, size, is_aligned) {}
     ~byte_array_impl() { io_blob::buf_free(m_tag); }
@@ -314,6 +386,8 @@ public:
     }
     void set_size(const uint32_t sz) { m_view.size = sz; }
     void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
+
+    std::string get_string() const { return std::string(r_cast< const char* >(bytes()), uint64_cast(size())); }
 
 private:
     byte_array m_base_buf;

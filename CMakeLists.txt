@@ -49,27 +49,30 @@ if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 endif()
 
-find_package(benchmark REQUIRED)
-find_package(Boost REQUIRED)
-find_package(cpr REQUIRED)
-find_package(cxxopts REQUIRED)
-find_package(GTest REQUIRED)
+find_package(benchmark QUIET REQUIRED)
+find_package(Boost QUIET REQUIRED)
+find_package(cpr QUIET REQUIRED)
+find_package(cxxopts QUIET REQUIRED)
+find_package(GTest QUIET REQUIRED)
 if (${MALLOC_IMPL} STREQUAL "tcmalloc")
-    find_package(gperftools REQUIRED)
+  find_package(gperftools QUIET REQUIRED)
 endif()
-find_package(jwt-cpp REQUIRED)
-find_package(nlohmann_json REQUIRED)
+
+if (${MALLOC_IMPL} STREQUAL "jemalloc")
+  find_package(jemalloc QUIET REQUIRED)
+endif()
+
+find_package(jwt-cpp QUIET REQUIRED)
+find_package(nlohmann_json QUIET REQUIRED)
 find_package(prerelease_dummy QUIET)
-find_package(prometheus-cpp REQUIRED)
-find_package(zmarok-semver REQUIRED)
-find_package(spdlog REQUIRED)
-find_package(Threads REQUIRED)
+find_package(prometheus-cpp QUIET REQUIRED)
+find_package(zmarok-semver QUIET REQUIRED)
+find_package(spdlog QUIET REQUIRED)
+find_package(Threads QUIET REQUIRED)
 
 # Linux Specific dependencies
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
-    find_package(folly REQUIRED)
-    find_package(userspace-rcu REQUIRED)
-endif()
+find_package(folly QUIET)
+find_package(userspace-rcu QUIET)
 
 list (APPEND COMMON_DEPS
     Boost::headers
@@ -78,10 +81,8 @@ list (APPEND COMMON_DEPS
     prometheus-cpp::prometheus-cpp
     spdlog::spdlog
   )
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
-    list (APPEND COMMON_DEPS
-        userspace-rcu::userspace-rcu
-    )
+if(${userspace-rcu_FOUND})
+    list (APPEND COMMON_DEPS userspace-rcu::userspace-rcu)
 endif()
 
 if (${prerelease_dummy_FOUND})
@@ -91,6 +92,10 @@ endif ()
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "tcmalloc")
         list(APPEND COMMON_DEPS gperftools::gperftools)
+    endif()
+
+    if (${MALLOC_IMPL} STREQUAL "jemalloc")
+        list(APPEND COMMON_DEPS jemalloc::jemalloc)
     endif()
 endif()
 

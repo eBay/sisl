@@ -109,11 +109,16 @@ private:
 };
 
 #define VENUM(EnumName, Underlying, ...) ENUM(EnumName, Underlying, __VA_ARGS__)
+#define ENUM(EnumName, Underlying, ...) BASE_ENUM(EnumName, EnumName, Underlying, __VA_ARGS__)
+#define SCOPED_ENUM_DEF(Scope, EnumName, Underlying, ...) BASE_ENUM(Scope::EnumName, EnumName, Underlying, __VA_ARGS__)
+#define SCOPED_ENUM_DECL(EnumName, Underlying)                                                                         \
+    enum class EnumName : Underlying;                                                                                  \
+    struct EnumName##Support;
 
-#define ENUM(EnumName, Underlying, ...)                                                                                \
-    enum class EnumName : Underlying { __VA_ARGS__ };                                                                  \
+#define BASE_ENUM(FQEnumName, EnumName, Underlying, ...)                                                               \
+    enum class FQEnumName : Underlying { __VA_ARGS__ };                                                                \
                                                                                                                        \
-    struct EnumName##Support : EnumSupportBase< EnumName > {                                                           \
+    struct FQEnumName##Support : EnumSupportBase< EnumName > {                                                         \
         typedef EnumName enum_type;                                                                                    \
         typedef std::underlying_type_t< enum_type > underlying_type;                                                   \
         EnumName##Support(const std::string tokens) : EnumSupportBase< enum_type >{tokens} {};                         \
@@ -127,37 +132,42 @@ private:
             return s_instance;                                                                                         \
         };                                                                                                             \
     };                                                                                                                 \
-    [[nodiscard]] inline EnumName##Support::enum_type operator|(const EnumName##Support::enum_type a,                  \
-                                                                const EnumName##Support::enum_type b) {                \
-        return static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) |      \
-                                                           static_cast< EnumName##Support::underlying_type >(b));      \
+    [[nodiscard]] inline FQEnumName##Support::enum_type operator|(const FQEnumName##Support::enum_type a,              \
+                                                                  const FQEnumName##Support::enum_type b) {            \
+        return static_cast< FQEnumName##Support::enum_type >(static_cast< FQEnumName##Support::underlying_type >(a) |  \
+                                                             static_cast< FQEnumName##Support::underlying_type >(b));  \
     }                                                                                                                  \
-    [[nodiscard]] inline EnumName##Support::enum_type operator&(const EnumName##Support::enum_type a,                  \
-                                                                const EnumName##Support::enum_type b) {                \
-        return static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &      \
-                                                           static_cast< EnumName##Support::underlying_type >(b));      \
+    [[nodiscard]] inline FQEnumName##Support::enum_type operator&(const FQEnumName##Support::enum_type a,              \
+                                                                  const FQEnumName##Support::enum_type b) {            \
+        return static_cast< FQEnumName##Support::enum_type >(static_cast< FQEnumName##Support::underlying_type >(a) &  \
+                                                             static_cast< FQEnumName##Support::underlying_type >(b));  \
     }                                                                                                                  \
-    [[maybe_unused]] inline EnumName##Support::enum_type operator|=(EnumName##Support::enum_type& a,                   \
-                                                                    const EnumName##Support::enum_type b) {            \
-        return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) |  \
-                                                               static_cast< EnumName##Support::underlying_type >(b));  \
+    [[maybe_unused]] inline FQEnumName##Support::enum_type operator|=(FQEnumName##Support::enum_type& a,               \
+                                                                      const FQEnumName##Support::enum_type b) {        \
+        return a = static_cast< FQEnumName##Support::enum_type >(                                                      \
+                   static_cast< FQEnumName##Support::underlying_type >(a) |                                            \
+                   static_cast< FQEnumName##Support::underlying_type >(b));                                            \
     }                                                                                                                  \
-    [[maybe_unused]] inline EnumName##Support::enum_type operator&=(EnumName##Support::enum_type& a,                   \
-                                                                    const EnumName##Support::enum_type b) {            \
-        return a = static_cast< EnumName##Support::enum_type >(static_cast< EnumName##Support::underlying_type >(a) &  \
-                                                               static_cast< EnumName##Support::underlying_type >(b));  \
+    [[maybe_unused]] inline FQEnumName##Support::enum_type operator&=(FQEnumName##Support::enum_type& a,               \
+                                                                      const FQEnumName##Support::enum_type b) {        \
+        return a = static_cast< FQEnumName##Support::enum_type >(                                                      \
+                   static_cast< FQEnumName##Support::underlying_type >(a) &                                            \
+                   static_cast< FQEnumName##Support::underlying_type >(b));                                            \
     }                                                                                                                  \
     template < typename charT, typename traits >                                                                       \
     std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, traits >& out_stream,                   \
-                                                    const EnumName##Support::enum_type es) {                           \
+                                                    const FQEnumName##Support::enum_type es) {                         \
         std::basic_ostringstream< charT, traits > out_stream_copy{};                                                   \
         out_stream_copy.copyfmt(out_stream);                                                                           \
-        out_stream_copy << EnumName##Support::instance().get_name(es);                                                 \
+        out_stream_copy << FQEnumName##Support::instance().get_name(es);                                               \
         out_stream << out_stream_copy.str();                                                                           \
         return out_stream;                                                                                             \
     }                                                                                                                  \
-    [[nodiscard]] inline const std::string& enum_name(const EnumName##Support::enum_type es) {                         \
-        return EnumName##Support::instance().get_name(es);                                                             \
+    [[nodiscard]] inline const std::string& enum_name(const FQEnumName##Support::enum_type es) {                       \
+        return FQEnumName##Support::instance().get_name(es);                                                           \
+    }                                                                                                                  \
+    [[nodiscard]] inline FQEnumName##Support::underlying_type enum_value(const FQEnumName##Support::enum_type es) {    \
+        return static_cast< FQEnumName##Support::underlying_type >(es);                                                \
     }
 
 #endif // SISL_ENUM_HPP

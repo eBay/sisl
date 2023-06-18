@@ -225,21 +225,6 @@ public:
     public:
         ~EchoServiceImpl() = default;
 
-        bool echo_request(const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
-            if ((++num_calls % 2) == 0) {
-                LOGDEBUGMOD(grpc_server, "respond async echo request {}", rpc_data->request().message());
-                auto t = std::thread([rpc = rpc_data] {
-                    rpc->response().set_message(rpc->request().message());
-                    rpc->send_response();
-                });
-                t.detach();
-                return false;
-            }
-            LOGDEBUGMOD(grpc_server, "respond sync echo request {}", rpc_data->request().message());
-            rpc_data->response().set_message(rpc_data->request().message());
-            return true;
-        }
-
         void register_service(GrpcServer* server) {
             auto const res = server->register_async_service< EchoService >();
             RELEASE_ASSERT(res, "Failed to Register Service");
@@ -248,7 +233,20 @@ public:
         void register_rpcs(GrpcServer* server) {
             LOGINFO("register rpc calls");
             auto const res = server->register_rpc< EchoService, EchoRequest, EchoReply, false >(
-                "Echo", &EchoService::AsyncService::RequestEcho, std::bind(&EchoServiceImpl::echo_request, this, _1));
+                "Echo", &EchoService::AsyncService::RequestEcho,
+                [this](const AsyncRpcDataPtr< EchoService, EchoRequest, EchoReply >& rpc_data) {
+                    if ((++num_calls % 2) == 0) {
+                        LOGDEBUGMOD(grpc_server, "respond async echo request {}", rpc_data->request().message());
+                        std::thread([rpc = rpc_data] {
+                            rpc->response().set_message(rpc->request().message());
+                            rpc->send_response();
+                        }).detach();
+                        return false;
+                    }
+                    LOGDEBUGMOD(grpc_server, "respond sync echo request {}", rpc_data->request().message());
+                    rpc_data->response().set_message(rpc_data->request().message());
+                    return true;
+                });
             RELEASE_ASSERT(res, "register rpc failed");
         }
     };
@@ -259,21 +257,6 @@ public:
     public:
         ~PingServiceImpl() = default;
 
-        bool ping_request(const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
-            if ((++num_calls % 2) == 0) {
-                LOGDEBUGMOD(grpc_server, "respond async ping request {}", rpc_data->request().seqno());
-                auto t = std::thread([rpc = rpc_data] {
-                    rpc->response().set_seqno(rpc->request().seqno());
-                    rpc->send_response();
-                });
-                t.detach();
-                return false;
-            }
-            LOGDEBUGMOD(grpc_server, "respond sync ping request {}", rpc_data->request().seqno());
-            rpc_data->response().set_seqno(rpc_data->request().seqno());
-            return true;
-        }
-
         void register_service(GrpcServer* server) {
             auto const res = server->register_async_service< PingService >();
             RELEASE_ASSERT(res, "Failed to Register Service");
@@ -282,13 +265,27 @@ public:
         void register_rpcs(GrpcServer* server) {
             LOGINFO("register rpc calls");
             auto const res = server->register_rpc< PingService, PingRequest, PingReply, false >(
-                "Ping", &PingService::AsyncService::RequestPing, std::bind(&PingServiceImpl::ping_request, this, _1));
+                "Ping", &PingService::AsyncService::RequestPing,
+                [this](const AsyncRpcDataPtr< PingService, PingRequest, PingReply >& rpc_data) {
+                    if ((++num_calls % 2) == 0) {
+                        LOGDEBUGMOD(grpc_server, "respond async ping request {}", rpc_data->request().seqno());
+                        std::thread([rpc = rpc_data] {
+                            rpc->response().set_seqno(rpc->request().seqno());
+                            rpc->send_response();
+                        }).detach();
+                        return false;
+                    }
+                    LOGDEBUGMOD(grpc_server, "respond sync ping request {}", rpc_data->request().seqno());
+                    rpc_data->response().set_seqno(rpc_data->request().seqno());
+                    return true;
+                });
             RELEASE_ASSERT(res, "register ping rpc failed");
         }
     };
 
     class GenericServiceImpl final {
         std::atomic< uint32_t > num_calls = 0ul;
+        std::atomic< uint32_t > num_completions = 0ul;
 
         static void set_response(const grpc::ByteBuffer& req, grpc::ByteBuffer& resp) {
             DataMessage cli_request;
@@ -298,20 +295,6 @@ public:
         }
 
     public:
-        bool receive_data(boost::intrusive_ptr< GenericRpcData >& rpc_data) {
-            if ((++num_calls % 2) == 0) {
-                LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls);
-                auto t = std::thread([rpc = rpc_data] {
-                    set_response(rpc->request(), rpc->response());
-                    rpc->send_response();
-                });
-                t.detach();
-                return false;
-            }
-            set_response(rpc_data->request(), rpc_data->response());
-            return true;
-        }
-
         void register_service(GrpcServer* server) {
             auto const res = server->register_async_generic_service();
             RELEASE_ASSERT(res, "Failed to Register Service");
@@ -320,8 +303,28 @@ public:
         void register_rpcs(GrpcServer* server) {
             LOGINFO("register rpc calls");
             auto const res =
-                server->register_generic_rpc(GENERIC_METHOD, std::bind(&GenericServiceImpl::receive_data, this, _1));
+                server->register_generic_rpc(GENERIC_METHOD, [this](boost::intrusive_ptr< GenericRpcData >& rpc_data) {
+                    rpc_data->set_comp_cb([this](boost::intrusive_ptr< GenericRpcData >&) { num_completions++; });
+                    if ((++num_calls % 2) == 0) {
+                        LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls);
+                        std::thread([this, rpc = rpc_data] {
+                            set_response(rpc->request(), rpc->response());
+                            rpc->send_response();
+                        }).detach();
+                        return false;
+                    }
+                    set_response(rpc_data->request(), rpc_data->response());
+                    return true;
+                });
             RELEASE_ASSERT(res, "register generic rpc failed");
+        }
+
+        bool compare_counters() {
+            if (num_calls != num_completions) {
+                LOGERROR("num calls: {}, num_completions = {}", num_calls, num_completions);
+                return false;
+            }
+            return true;
         }
     };
 
@@ -346,6 +349,8 @@ public:
     }
 
     void shutdown() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        RELEASE_ASSERT(m_generic_impl->compare_counters(), "num calls and num completions do not match!");
         LOGINFO("Shutting down grpc server");
         m_grpc_server->shutdown();
         delete m_grpc_server;

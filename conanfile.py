@@ -8,7 +8,8 @@ required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.5.4"
+    version = "9.4.3"
+
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -21,6 +22,7 @@ class SISLConan(ConanFile):
                 "shared": ['True', 'False'],
                 "fPIC": ['True', 'False'],
                 "coverage": ['True', 'False'],
+                'testing' : ['True', 'False'],
                 "sanitize": ['True', 'False'],
                 'prerelease' : ['True', 'False'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
@@ -29,56 +31,69 @@ class SISLConan(ConanFile):
                 'shared': False,
                 'fPIC': True,
                 'coverage': False,
+                'testing': True,
                 'sanitize': False,
-                'prerelease': True,
-                'malloc_impl': 'tcmalloc',
+                'prerelease': False,
+                'malloc_impl': 'libc',
             }
 
     generators = "cmake", "cmake_find_package"
-    exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
+    exports = ["LICENSE"]
+    exports_sources = (
+                "CMakeLists.txt",
+                "cmake/*",
+                "include/*",
+                "src/*",
+            )
 
     def build_requirements(self):
-        self.build_requires("benchmark/1.7.0")
-        self.build_requires("gtest/1.11.0")
-        if self.settings.compiler in ["gcc"]:
-            self.build_requires("pistache/cci.20201127")
+        self.build_requires("benchmark/1.7.1")
+        self.build_requires("gtest/1.13.0")
 
     def requirements(self):
         # Custom packages
         if self.options.prerelease:
             self.requires("prerelease_dummy/1.0.1")
 
-        # Generic packages (conan-center)
-        self.requires("boost/1.79.0")
-        self.requires("cpr/1.8.1")
-        self.requires("cxxopts/2.2.1")
-        self.requires("flatbuffers/1.12.0")
+        # Memory allocation
+        if self.options.malloc_impl == "tcmalloc":
+            self.requires("gperftools/2.7.0")
+        elif self.options.malloc_impl == "jemalloc":
+            self.requires("jemalloc/5.2.1")
+
+        # Linux Specific Support
         if self.settings.os in ["Linux"]:
             self.requires("folly/2022.01.31.00")
+            self.requires("userspace-rcu/0.11.4")
+
+        # Generic packages (conan-center)
+        self.requires("boost/1.79.0")
+        self.requires("cpr/1.9.3")
+        self.requires("cxxopts/2.2.1")
+        self.requires("flatbuffers/1.12.0")
         self.requires("grpc/1.48.0")
         self.requires("jwt-cpp/0.4.0")
-        self.requires("libcurl/7.86.0")
         self.requires("nlohmann_json/3.11.2")
-        self.requires("prometheus-cpp/1.0.1")
+        self.requires("prometheus-cpp/1.1.0")
         self.requires("spdlog/1.11.0")
-        if self.settings.os in ["Linux"]:
-            self.requires("userspace-rcu/0.11.4")
         self.requires("zmarok-semver/1.1.0")
+        if self.settings.compiler in ["gcc"]:
+            self.requires("pistache/0.0.5")
+
         self.requires("fmt/8.1.1",          override=True)
+        self.requires("libcurl/7.86.0",     override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1q",     override=True)
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
-        if self.options.malloc_impl == "jemalloc":
-            self.requires("jemalloc/5.2.1")
-        elif self.options.malloc_impl == "tcmalloc":
-            self.requires("gperftools/2.7.0")
 
     def validate(self):
         if self.info.settings.compiler.cppstd:
-            check_min_cppstd(self, 17)
+            check_min_cppstd(self, 20)
 
     def configure(self):
+        if self.settings.compiler in ["gcc"]:
+            self.options['pistache'].with_ssl: True
         if self.options.shared:
             del self.options.fPIC
         if self.settings.build_type == "Debug":
@@ -86,6 +101,9 @@ class SISLConan(ConanFile):
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if self.options.coverage or self.options.sanitize:
                 self.options.malloc_impl = 'libc'
+            if not self.options.testing:
+                if self.options.coverage or self.options.sanitize:
+                    raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build(self):
         cmake = CMake(self)

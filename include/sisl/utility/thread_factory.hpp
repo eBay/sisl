@@ -21,6 +21,7 @@
 #include <string>
 #include <memory>
 #include <functional>
+#include <sisl/logging/logging.h>
 
 #ifdef _POSIX_THREADS
 #include <pthread.h>

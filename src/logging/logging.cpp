@@ -1,7 +1,7 @@
 /*********************************************************************************
  * Modifications Copyright 2017-2019 eBay Inc.
  *
- * Author/Developer(s): Brian Szymd
+ * Author/Developer(s): Brian Szmyd
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,31 +78,34 @@ static constexpr size_t MAX_MODULES{100};
 static std::array< const char*, MAX_MODULES > glob_enabled_mods{"base"};
 static size_t glob_num_mods{1};
 
-/****************************** LoggerThreadContext ******************************/
-std::mutex LoggerThreadContext::s_logger_thread_mutex;
-std::unordered_set< LoggerThreadContext* > LoggerThreadContext::s_logger_thread_set;
-
-LoggerThreadContext::LoggerThreadContext() {
-    m_thread_id = pthread_self();
-    LoggerThreadContext::add_logger_thread(this);
+/****************************** LoggerThreadRegistry ******************************/
+std::shared_ptr< LoggerThreadRegistry > LoggerThreadRegistry::instance() {
+    static std::shared_ptr< LoggerThreadRegistry > inst{std::make_shared< LoggerThreadRegistry >()};
+    return inst;
 }
 
-LoggerThreadContext::~LoggerThreadContext() { LoggerThreadContext::remove_logger_thread(this); }
+void LoggerThreadRegistry::add_logger_thread(LoggerThreadContext* ctx) {
+    std::unique_lock l{m_logger_thread_mutex};
+    m_logger_thread_set.insert(ctx);
+}
 
+void LoggerThreadRegistry::remove_logger_thread(LoggerThreadContext* ctx) {
+    std::unique_lock l{m_logger_thread_mutex};
+    m_logger_thread_set.erase(ctx);
+}
+
+/****************************** LoggerThreadContext ******************************/
 LoggerThreadContext& LoggerThreadContext::instance() {
     static thread_local LoggerThreadContext inst{};
     return inst;
 }
 
-void LoggerThreadContext::add_logger_thread(LoggerThreadContext* const ctx) {
-    std::unique_lock l{s_logger_thread_mutex};
-    s_logger_thread_set.insert(ctx);
+LoggerThreadContext::LoggerThreadContext() :
+        m_thread_id{pthread_self()}, m_logger_thread_registry{LoggerThreadRegistry::instance()} {
+    m_logger_thread_registry->add_logger_thread(this);
 }
 
-void LoggerThreadContext::remove_logger_thread(LoggerThreadContext* const ctx) {
-    std::unique_lock l{s_logger_thread_mutex};
-    s_logger_thread_set.erase(ctx);
-}
+LoggerThreadContext::~LoggerThreadContext() { m_logger_thread_registry->remove_logger_thread(this); }
 
 /******************************** InitModules *********************************/
 void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
@@ -135,18 +138,30 @@ std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
 }
 
 static std::filesystem::path get_base_dir() {
-    const auto cwd{std::filesystem::current_path()};
-    auto p{cwd / "logs"};
+    namespace fs = std::filesystem;
+    const auto cwd = fs::current_path();
+    const auto log_dir{cwd / "logs"};
+
     // Construct a unique directory path based on the current time
     auto const current_time{std::chrono::system_clock::now()};
     auto const current_t{std::chrono::system_clock::to_time_t(current_time)};
     auto const current_tm{std::localtime(&current_t)};
     std::array< char, PATH_MAX > c_time;
     if (std::strftime(c_time.data(), c_time.size(), "%F_%R", current_tm)) {
-        p /= c_time.data();
-        std::filesystem::create_directories(p);
+        const fs::path cur_log_dir = log_dir / c_time.data();
+        fs::create_directories(cur_log_dir);
+
+        const fs::path sym_path = log_dir / "latest";
+        try {
+            if (fs::is_symlink(sym_path)) { fs::remove(sym_path); }
+            fs::create_directory_symlink(cur_log_dir, sym_path);
+        } catch (std::exception& e) {
+            LOGINFO("Unable to create latest symlink={} to log dir={}, ignoring symlink creation\n", sym_path, log_dir);
+        }
+        return cur_log_dir;
+    } else {
+        return log_dir;
     }
-    return p;
 }
 
 static std::filesystem::path log_path(std::string const& name) {

@@ -28,7 +28,6 @@
 namespace sisl {
 class GenericRpcData;
 class GenericRpcStaticInfo;
-using generic_rpc_handler_cb_t = std::function< bool(boost::intrusive_ptr< GenericRpcData >&) >;
 
 using rpc_thread_start_cb_t = std::function< void(uint32_t) >;
 
@@ -118,6 +117,7 @@ public:
 
     // generic service methods
     bool run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data);
+    void run_generic_completion_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data);
     bool register_async_generic_service();
     bool register_generic_rpc(const std::string& name, const generic_rpc_handler_cb_t& rpc_handler);
 

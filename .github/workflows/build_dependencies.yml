@@ -32,6 +32,8 @@ on:
         options:
           - ubuntu-22.04
           - ubuntu-20.04
+          - macos-13
+          - macos-12
         default: 'ubuntu-22.04'
       branch:
         required: true
@@ -93,7 +95,7 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
+        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
 
     - name: Restore Testing Cache
       id: restore-cache-testing-sisl
@@ -121,7 +123,6 @@ jobs:
         conan export deps/sisl/3rd_party/gperftools
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
-        conan export deps/sisl/3rd_party/pistache pistache/cci.20201127@
         cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
@@ -165,12 +166,15 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
+        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Create and test Package
       run: |
-        if [[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc-impl }}" == "libc" && "${{ inputs.prerelease }}" == "False" ]]; then
+        if [[ "${{ inputs.platform }}" == "ubuntu-22.04" && \
+              "${{ inputs.build-type }}" == "Debug" && \
+              "${{ inputs.malloc-impl }}" == "libc" && \
+              "${{ inputs.prerelease }}" == "False" ]]; then
           conan install \
               -o prerelease=${{ inputs.prerelease }} \
               -o malloc_impl=${{ inputs.malloc-impl }} \

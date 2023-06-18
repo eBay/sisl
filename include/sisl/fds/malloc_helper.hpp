@@ -569,7 +569,7 @@ static void print_my_jemalloc_data(void* const opaque, const char* const buf) {
 #endif
 #endif
 
-[[maybe_unused]] static bool set_memory_release_rate(const double level) {
+[[maybe_unused]] static bool set_memory_release_rate([[maybe_unused]] const double level) {
 #if defined(USING_TCMALLOC)
     MallocExtension::instance()->SetMemoryReleaseRate(level);
     return true;
@@ -599,8 +599,8 @@ static std::atomic< bool > s_is_aggressive_decommit{false};
     return true;
 }
 
-[[maybe_unused]] static bool reset_aggressive_decommit_mem_if_needed(const size_t mem_usage,
-                                                                     const size_t aggressive_threshold) {
+[[maybe_unused]] static bool
+reset_aggressive_decommit_mem_if_needed([[maybe_unused]] const size_t mem_usage, [[maybe_unused]] const size_t aggressive_threshold) {
 #if defined(USING_TCMALLOC)
     if (tcmalloc_helper::s_is_aggressive_decommit.load(std::memory_order_acquire)) {
         LOGINFO("Total memory alloced={} is restored back to less than aggressive threshold limit {}, "
@@ -628,7 +628,7 @@ static std::atomic< bool > s_is_aggressive_decommit{false};
     return true;
 }
 
-[[maybe_unused]] static bool release_mem_if_needed(const size_t soft_threshold, const size_t aggressive_threshold_in) {
+[[maybe_unused]] static bool release_mem_if_needed([[maybe_unused]] const size_t soft_threshold, [[maybe_unused]] const size_t aggressive_threshold_in) {
     bool ret{false};
 #if defined(USING_TCMALLOC) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     size_t mem_usage{0};

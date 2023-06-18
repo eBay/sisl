@@ -6,10 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Dependency Changes
 
-### Fixed
+- Updated:  cpr/1.9.3
+- Updated:  pistache/0.0.5
+- Updated:  prometheus-cpp/1.1.0
+
+## [8.x]
+
+### Changed
 
 - Moved SISL code to github.com; start Changelog
 
-[Unreleased]: https://github.com/eBay/IOManager/compare/c5b7966...HEAD
+[Unreleased]: https://github.com/eBay/sisl/compare/stable/v8.x...HEAD
+[8.x]: https://github.com/eBay/sisl/compare/v5.0.10...stable/v8.x

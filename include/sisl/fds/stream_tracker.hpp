@@ -74,7 +74,7 @@ public:
     template < class... Args >
     int64_t create(int64_t idx, Args&&... args) {
         return do_update(
-            idx, [](T& data) { return false; }, true /* replace */, std::forward< Args >(args)...);
+            idx, []([[maybe_unused]] T& data) { return false; }, true /* replace */, std::forward< Args >(args)...);
     }
 
     template < class... Args >
@@ -86,6 +86,18 @@ public:
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
         auto start_bit = start_idx - m_slot_ref_idx;
         m_comp_slot_bits.set_bits(start_bit, end_idx - start_idx + 1);
+    }
+
+    void rollback(int64_t new_end_idx) {
+        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        if ((new_end_idx < m_slot_ref_idx) ||
+            (new_end_idx >= (m_slot_ref_idx + int64_cast(m_active_slot_bits.size())))) {
+            throw std::out_of_range("Slot idx is not in range");
+        }
+
+        auto new_end_bit = new_end_idx - m_slot_ref_idx;
+        m_active_slot_bits.reset_bits(new_end_bit + 1, m_active_slot_bits.size() - new_end_bit - 1);
+        m_comp_slot_bits.reset_bits(new_end_bit + 1, m_comp_slot_bits.size() - new_end_bit - 1);
     }
 
     T& at(int64_t idx) const {
@@ -176,9 +188,10 @@ public:
         return m_slot_ref_idx - 1;
     }
 
-    void foreach_completed(int64_t start_idx, const auto& cb) { _foreach(start_idx, true /* completed */, cb); }
-
-    void foreach_active(int64_t start_idx, const auto& cb) { _foreach(start_idx, false /* completed */, cb); }
+    void foreach_contiguous_completed(int64_t start_idx, const auto& cb) { _foreach_contiguous(start_idx, true, cb); }
+    void foreach_contiguous_active(int64_t start_idx, const auto& cb) { _foreach_contiguous(start_idx, false, cb); }
+    void foreach_all_completed(int64_t start_idx, const auto& cb) { _foreach_all(start_idx, true, cb); }
+    void foreach_all_active(int64_t start_idx, const auto& cb) { _foreach_all(start_idx, false, cb); }
 
     int64_t completed_upto(int64_t search_hint_idx = 0) const {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
@@ -295,13 +308,25 @@ private:
         }
     }
 
-    void _foreach(int64_t start_idx, bool completed, const auto& cb) {
+    void _foreach_contiguous(int64_t start_idx, bool completed_only, const auto& cb) {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
-        auto upto = _upto(completed, start_idx);
+        auto upto = _upto(completed_only, start_idx);
         for (auto idx = start_idx; idx <= upto; ++idx) {
             auto proceed = cb(idx, upto, *(get_slot_data(idx - m_slot_ref_idx)));
             if (!proceed) break;
         }
+    }
+
+    void _foreach_all(int64_t start_idx, bool completed_only, const auto& cb) {
+        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto search_bit = std::max(0l, (start_idx - m_slot_ref_idx));
+        do {
+            search_bit = completed_only ? m_comp_slot_bits.get_next_set_bit(search_bit)
+                                        : m_active_slot_bits.get_next_set_bit(search_bit);
+            if (search_bit == AtomicBitset::npos) { break; }
+            if (!cb(search_bit + m_slot_ref_idx, *(get_slot_data(search_bit)))) { break; }
+            ++search_bit;
+        } while (true);
     }
 
     T* get_slot_data(int64_t nbit) const { return &(m_slot_data[nbit + m_data_skip_count]); }

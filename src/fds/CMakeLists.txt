@@ -6,7 +6,7 @@ add_library(sisl_buffer OBJECT)
 target_sources(sisl_buffer PRIVATE
     buffer.cpp
   )
-target_link_libraries(sisl_buffer ${COMMON_DEPS})
+target_link_libraries(sisl_buffer Folly::Folly ${COMMON_DEPS})
 
 add_executable(test_stream_tracker)
 target_sources(test_stream_tracker PRIVATE
@@ -57,13 +57,21 @@ target_sources(test_cb_mutex PRIVATE
 target_link_libraries(test_cb_mutex sisl ${COMMON_DEPS} GTest::gtest)
 #add_test(NAME TestCBMutex COMMAND test_cb_mutex)
 
+add_executable(test_sg_list)
+target_sources(test_sg_list PRIVATE
+    tests/test_sg_list.cpp
+  )
+target_link_libraries(test_sg_list sisl ${COMMON_DEPS} GTest::gtest)
+add_test(NAME SgList COMMAND test_sg_list)
+
+
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "jemalloc")
         add_executable(test_jemalloc)
         target_sources(test_jemalloc PRIVATE
             tests/test_jemalloc_helper.cpp
           )
-        target_link_libraries(test_jemalloc sisl ${COMMON_DEPS} jemalloc GTest::gtest)
+        target_link_libraries(test_jemalloc sisl ${COMMON_DEPS} GTest::gtest)
         add_test(NAME TestJemalloc COMMAND test_jemalloc)
     elseif (${MALLOC_IMPL} STREQUAL "tcmalloc")
         add_executable(test_tcmalloc)
