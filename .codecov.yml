@@ -13,3 +13,4 @@ ignore:
   - "**/*_pb.h"
   - "**/test*/*.c*"
   - "**/test*/*.h*"
+  - "**/*test_flip.*"
