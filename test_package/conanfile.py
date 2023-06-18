@@ -9,7 +9,7 @@ class TestPackageConan(ConanFile):
 
     def build(self):
         cmake = CMake(self)
-        cmake.configure(defs={'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON'})
+        cmake.configure(defs={'CONAN_CMAKE_SILENT_OUTPUT': 'ON'})
         cmake.build()
 
     def test(self):

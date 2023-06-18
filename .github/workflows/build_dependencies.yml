@@ -114,6 +114,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install conan~=1.0
+        python -m pip install gcovr
         conan user
         conan profile new --detect default
         conan export deps/sisl/3rd_party/folly folly/2022.01.31.00@
@@ -121,7 +122,7 @@ jobs:
         conan export deps/sisl/3rd_party/jemalloc
         conan export deps/sisl/3rd_party/prerelease_dummy
         conan export deps/sisl/3rd_party/pistache pistache/cci.20201127@
-        cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/package | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
+        cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
@@ -169,13 +170,30 @@ jobs:
 
     - name: Create and test Package
       run: |
-        sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc-impl }}" == "libc" ]] && echo "True" || echo "False")
-        conan create \
-            -o sisl:prerelease=${{ inputs.prerelease }} \
-            -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
-            -o sisl:sanitize=${sanitize} \
-            -s build_type=${{ inputs.build-type }} \
-            --build missing \
-            deps/sisl
-        conan remove -f sisl
+        if [[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc-impl }}" == "libc" && "${{ inputs.prerelease }}" == "False" ]]; then
+          conan install \
+              -o prerelease=${{ inputs.prerelease }} \
+              -o malloc_impl=${{ inputs.malloc-impl }} \
+              -o coverage=True \
+              -s build_type=${{ inputs.build-type }} \
+              --build missing \
+              deps/sisl
+          conan build deps/sisl
+        else
+          sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc-impl }}" == "libc" && "${{ inputs.prerelease }}" == "True" ]] && echo "True" || echo "False")
+          conan create \
+              -o sisl:prerelease=${{ inputs.prerelease }} \
+              -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
+              -o sisl:sanitize=${sanitize} \
+              -s build_type=${{ inputs.build-type }} \
+              --build missing \
+              deps/sisl
+        fi
       if: ${{ inputs.testing == 'True' }}
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        gcov: true
+        gcov_ignore: src/*,deps/sisl/**/*_test.cpp
