@@ -1,0 +1,12 @@
+codecov:
+  notify:
+    require_ci_to_pass: no
+
+fixes:
+  - "deps/sisl/::"
+
+ignore:
+  - "**/*_test.cpp"
+  - "**/*_generated.h"
+  - "**/*_pb.cc"
+  - "**/*_pb.h"
