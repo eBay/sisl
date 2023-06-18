@@ -19,11 +19,11 @@ jobs:
         exclude:
           - build-type: Debug
             platform: ubuntu-20.04
-          - malloc-impl: tcmalloc
-            platform: ubuntu-20.04
           - malloc-impl: libc
             build-type: Release
             platform: ubuntu-22.04
+          - prerelease: "True"
+            platform: ubuntu-20.04
     uses: ./.github/workflows/build_dependencies.yml
     with:
       platform: ${{ matrix.platform }}
