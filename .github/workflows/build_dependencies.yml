@@ -196,4 +196,3 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         gcov: true
-        gcov_ignore: "**/*_test.cpp,**/*_generated.h,**/*_pb.cc,**/*_pb.h"

@@ -6,7 +6,7 @@ fixes:
   - "deps/sisl/::"
 
 ignore:
-  - **/*_test.cpp
-  - **/*_generated.h
-  - **/*_pb.cc
-  - **/*_pb.h
+  - "**/*_test.cpp"
+  - "**/*_generated.h"
+  - "**/*_pb.cc"
+  - "**/*_pb.h"
