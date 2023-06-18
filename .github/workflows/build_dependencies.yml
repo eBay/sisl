@@ -196,4 +196,4 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         gcov: true
-        gcov_include: deps/sisl/
+        gcov_ignore: src/*,deps/sisl/**/*_test.cpp
