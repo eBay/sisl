@@ -14,3 +14,4 @@ ignore:
   - "**/test*/*.c*"
   - "**/test*/*.h*"
   - "**/*test_flip.*"
+  - "**/grpc/tests/**"
