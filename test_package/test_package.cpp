@@ -10,9 +10,13 @@ extern void example_decl();
 
 using namespace std::chrono_literals;
 
+[[ maybe_unused ]]
+void crash() { volatile int* a = (int*)(NULL); *a = 1; }
+
 int main(int argc, char** argv) {
     SISL_OPTIONS_LOAD(argc, argv, logging)
     sisl::logging::SetLogger(std::string(argv[0]));
+    sisl::logging::install_crash_handler();
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     LOGTRACE("Trace");
@@ -36,6 +40,6 @@ int main(int argc, char** argv) {
     LOGINFOMOD_USING_LOGGER(my_module, custom_logger, "hello world");
     DEBUG_ASSERT(true, "Always True");
     _thread.join();
-
+    // crash();
     return 0;
 }
