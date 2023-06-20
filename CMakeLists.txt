@@ -73,6 +73,7 @@ find_package(Threads QUIET REQUIRED)
 # Linux Specific dependencies
 find_package(folly QUIET)
 find_package(userspace-rcu QUIET)
+find_package(breakpad QUIET)
 
 list (APPEND COMMON_DEPS
     Boost::headers
@@ -81,6 +82,9 @@ list (APPEND COMMON_DEPS
     prometheus-cpp::prometheus-cpp
     spdlog::spdlog
   )
+if(${breakpad_FOUND})
+    list (APPEND COMMON_DEPS breakpad::breakpad)
+endif()
 if(${userspace-rcu_FOUND})
     list (APPEND COMMON_DEPS userspace-rcu::userspace-rcu)
 endif()

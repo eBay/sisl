@@ -40,6 +40,7 @@ if(${folly_FOUND})
     )
     list(APPEND SISL_DEPS
         Folly::Folly
+        breakpad::breakpad
     )
 endif()
 

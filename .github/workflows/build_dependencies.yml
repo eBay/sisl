@@ -119,6 +119,7 @@ jobs:
         python -m pip install gcovr
         conan user
         conan profile new --detect default
+        conan export deps/sisl/3rd_party/breakpad breakpad/cci.20230127@
         conan export deps/sisl/3rd_party/folly folly/2022.01.31.00@
         conan export deps/sisl/3rd_party/gperftools
         conan export deps/sisl/3rd_party/jemalloc
