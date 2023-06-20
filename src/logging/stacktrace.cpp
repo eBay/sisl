@@ -33,7 +33,7 @@
 #endif
 
 #include <sisl/logging/logging.h>
-//#include "backtrace.h"
+#include <breakpad/client/linux/handler/exception_handler.h>
 
 namespace sisl {
 namespace logging {
@@ -121,7 +121,14 @@ static const char* exit_reason_name(const SignalType fatal_id) {
     }
 }
 
+static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, [[maybe_unused]] void* , bool succeeded) {
+    std::cerr << std::endl << "Minidump path: " << descriptor.path() << std::endl;
+    return succeeded;
+}
+
 static void crash_handler(const SignalType signal_number) {
+    LOGCRITICAL("\n * ****Received fatal SIGNAL : {}({})\tPID : {}", exit_reason_name(signal_number), signal_number,
+                ::getpid());
     const auto flush_logs{[]() { // flush all logs
         spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
             if (l) l->flush();
@@ -139,16 +146,9 @@ static void crash_handler(const SignalType signal_number) {
     } else {
         flush_logs();
     }
-
-    // remove all default logging info except for message
-    GetLogger()->set_pattern("%v");
-    log_stack_trace(g_crash_handle_all_threads);
-    LOGCRITICAL("\n * ****Received fatal SIGNAL : {}({})\tPID : {}", exit_reason_name(signal_number), signal_number,
-                ::getpid());
-
-    // flush again and shutdown
-    flush_logs();
     spdlog::shutdown();
+
+    bt_dumper(signal_number);
 
     exit_with_default_sighandler(signal_number);
 }
@@ -165,6 +165,7 @@ static void sigint_handler(const SignalType signal_number) {
 }
 
 static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
+    google_breakpad::ExceptionHandler::WriteMinidump("./", dumpCallback, nullptr);
 }
 
 /************************************************* Exported APIs **********************************/
@@ -322,19 +323,6 @@ void log_custom_signal_handlers() {
     }
 
     LOGINFO("Custom Signal handlers: {}", m);
-}
-
-void log_stack_trace([[maybe_unused]] const bool all_threads) {
-    //if (is_crash_handler_installed() && all_threads) {
-    //    log_stack_trace_all_threads();
-    //} else {
-        //TODO
-        // make this static so that no memory allocation is necessary
-        //static std::array< char, max_stacktrace_size() > buff;
-        //buff.fill(0);
-        //[[maybe_unused]] const size_t s{stack_backtrace(buff.data(), buff.size(), true)};
-        //LOGCRITICAL("\n\n{}", buff.data());
-    //}
 }
 
 bool send_thread_signal(const pthread_t thr, const SignalType sig_num) { return (::pthread_kill(thr, sig_num) == 0); }
