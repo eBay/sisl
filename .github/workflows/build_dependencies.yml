@@ -103,7 +103,7 @@ jobs:
       with:
         path: |
           ~/.conan/data
-        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-
+        key: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-
       if: ${{ github.event_name == 'pull_request' && inputs.testing == 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Setup Python
