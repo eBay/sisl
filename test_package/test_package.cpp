@@ -1,7 +1,6 @@
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
 #include <sisl/utility/thread_factory.hpp>
-#include <breakpad/client/linux/handler/exception_handler.h>
 
 SISL_LOGGING_INIT(my_module)
 
