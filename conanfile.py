@@ -4,7 +4,7 @@ from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
 from conans import CMake
 
-required_conan_version = ">=1.50.0"
+required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
@@ -92,22 +92,21 @@ class SISLConan(ConanFile):
 
         definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
                        'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
+                       'CONAN_CMAKE_SILENT_OUTPUT': 'ON',
                        'MEMORY_SANITIZER_ON': 'OFF',
                        'MALLOC_IMPL': self.options.malloc_impl}
-        test_target = None
 
         if self.settings.build_type == "Debug":
             if self.options.sanitize:
                 definitions['MEMORY_SANITIZER_ON'] = 'ON'
             elif self.options.coverage:
                 definitions['CONAN_BUILD_COVERAGE'] = 'ON'
-                test_target = 'coverage'
 
         definitions['MALLOC_IMPL'] = self.options.malloc_impl
 
         cmake.configure(defs=definitions)
         cmake.build()
-        cmake.test(target=test_target, output_on_failure=True)
+        cmake.test(output_on_failure=True)
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")

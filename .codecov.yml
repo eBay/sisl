@@ -1,0 +1,92 @@
+codecov:
+  notify:
+    require_ci_to_pass: no
+
+fixes:
+  - "deps/sisl/::"
+
+ignore:
+  - "**/*_test.c*"
+  - "**/*_test.h*"
+  - "**/*_generated.h"
+  - "**/*_pb.cc"
+  - "**/*_pb.h"
+  - "**/test*/*.c*"
+  - "**/test*/*.h*"
+  - "**/*test_flip.*"
+  - "**/grpc/tests/**"
+
+comment:
+  layout: "header, diff, flags, components"
+
+component_management:
+  default_rules:
+    statuses:
+      - type: project
+        target: auto
+  individual_components:
+    - component_id: modules_auth_manager
+      name: AuthManager
+      paths:
+        - src/auth_manager/**
+        - include/sisl/auth_manager/**
+    - component_id: modules_cache
+      name: Cache
+      paths:
+        - src/cache/**
+        - include/sisl/cache/**
+    - component_id: modules_fds
+      name: FDS
+      paths:
+        - src/fds/**
+        - include/sisl/fds/**
+    - component_id: modules_file_watcher
+      name: FileWatcher
+      paths:
+        - src/file_watcher/**
+        - include/sisl/file_watcher/**
+    - component_id: modules_flip
+      name: Flip
+      paths:
+        - src/flip/**
+        - include/sisl/flip/**
+    - component_id: modules_grpc
+      name: gRPC
+      paths:
+        - src/grpc/**
+        - include/sisl/grpc/**
+    - component_id: modules_logging
+      name: Logging
+      paths:
+        - src/logging/**
+        - include/sisl/logging/**
+    - component_id: modules_metrics
+      name: Metrics
+      paths:
+        - src/metrics/**
+        - include/sisl/metrics/**
+    - component_id: modules_options
+      name: Options
+      paths:
+        - src/options/**
+        - include/sisl/options/**
+    - component_id: modules_settings
+      name: Setting
+      paths:
+        - src/settings/**
+        - include/sisl/settings/**
+    - component_id: modules_sobject
+      name: StatusObject
+      paths:
+        - src/sobject/**
+        - include/sisl/sobject/**
+    - component_id: modules_version
+      name: Utility
+      paths:
+        - src/utility/**
+        - include/sisl/utility/**
+    - component_id: modules_version
+      name: Version
+      paths:
+        - src/version/**
+        - include/sisl/version.hpp
