@@ -73,7 +73,7 @@ using GenericClientRpcDataInternal = ClientRpcDataInternal< grpc::ByteBuffer, gr
 template < typename ReqT, typename RespT >
 class ClientRpcDataInternal : public ClientRpcDataAbstract {
 public:
-    using ResponseReaderPtr = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+    using ResponseReaderPtr = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
     using GenericResponseReaderPtr = std::unique_ptr< grpc::GenericClientAsyncResponseReader >;
 
     /* Allow GrpcAsyncClient and its inner classes to use
@@ -85,11 +85,13 @@ public:
     ClientRpcDataInternal(const unary_callback_t< RespT >& cb) : m_cb{cb} {}
     virtual ~ClientRpcDataInternal() = default;
 
-    // TODO: support time in any time unit -- lhuang8
-    void set_deadline(uint32_t seconds) {
-        std::chrono::system_clock::time_point deadline =
-            std::chrono::system_clock::now() + std::chrono::seconds(seconds);
-        m_context.set_deadline(deadline);
+    template < typename T >
+    void expire_after(T const& duration) {
+        m_context.set_deadline(std::chrono::system_clock::now() + duration);
+    }
+
+    void set_deadline(uint32_t duration) {
+        expire_after(std::chrono::seconds{duration});
     }
 
     ResponseReaderPtr& responder_reader() { return m_resp_reader_ptr; }
@@ -144,7 +146,7 @@ protected:
     const std::string m_target_domain;
     const std::string m_ssl_cert;
 
-    std::shared_ptr< ::grpc::ChannelInterface > m_channel;
+    std::shared_ptr<::grpc::ChannelInterface > m_channel;
     std::shared_ptr< sisl::TrfClient > m_trf_client;
 
 public:
@@ -260,7 +262,7 @@ public:
 
         /* unary call helper */
         template < typename RespT >
-        using unary_call_return_t = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+        using unary_call_return_t = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
 
         template < typename ReqT, typename RespT >
         using unary_call_t = unary_call_return_t< RespT > (stub_t::*)(::grpc::ClientContext*, const ReqT&,
@@ -288,11 +290,11 @@ public:
          * @param deadline - deadline in seconds
          *
          */
-        template < typename ReqT, typename RespT >
+        template < typename ReqT, typename RespT, typename Duration >
         void call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
-                        const unary_callback_t< RespT >& callback, uint32_t deadline) {
+                        const unary_callback_t< RespT >& callback, Duration const& deadline) {
             auto data = new ClientRpcDataInternal< ReqT, RespT >(callback);
-            data->set_deadline(deadline);
+            data->expire_after(deadline);
             if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
             // Note that async unary RPCs don't post a CQ tag in call
             data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
@@ -301,23 +303,23 @@ public:
             return;
         }
 
-        template < typename ReqT, typename RespT >
+        template < typename ReqT, typename RespT, typename Duration >
         void call_rpc(const req_builder_cb_t< ReqT >& builder_cb, const unary_call_t< ReqT, RespT >& method,
-                      const rpc_comp_cb_t< ReqT, RespT >& done_cb, uint32_t deadline) {
+                      const rpc_comp_cb_t< ReqT, RespT >& done_cb, Duration const& deadline) {
             auto cd = new ClientRpcData< ReqT, RespT >(done_cb);
             builder_cb(cd->m_req);
-            cd->set_deadline(deadline);
+            cd->expire_after(deadline);
             if (m_trf_client) { cd->add_metadata("authorization", m_trf_client->get_typed_token()); }
             cd->m_resp_reader_ptr = (m_stub.get()->*method)(&cd->context(), cd->m_req, cq());
             cd->m_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
         }
 
-        template < typename ReqT, typename RespT >
+        template < typename ReqT, typename RespT, typename Duration >
         void call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
-                        const unary_callback_t< RespT >& callback, uint32_t deadline,
+                        const unary_callback_t< RespT >& callback, Duration const& deadline,
                         const std::vector< std::pair< std::string, std::string > >& metadata) {
             auto data = new ClientRpcDataInternal< ReqT, RespT >(callback);
-            data->set_deadline(deadline);
+            data->expire_after(deadline);
             for (auto const& [key, value] : metadata) {
                 data->add_metadata(key, value);
             }
@@ -340,7 +342,8 @@ public:
     /**
      * GenericAsyncStub is a wrapper of the grpc::GenericStub which
      * provides the interface to call generic methods by name.
-     * We assume the Request and Response types are grpc::ByteBuffer.
+     * We assume the Request and Response types are grpc::ByteBuffer
+     * and timeouts are in milli-seconds.
      *
      * Please use GrpcAsyncClient::make_generic_stub() to create GenericAsyncStub.
      */
@@ -351,10 +354,10 @@ public:
                 m_generic_stub(std::move(stub)), m_worker(worker), m_trf_client(trf_client) {}
 
         void call_unary(const grpc::ByteBuffer& request, const std::string& method,
-                        const generic_unary_callback_t& callback, uint32_t deadline);
+                        const generic_unary_callback_t& callback, uint32_t deadline_ms);
 
         void call_rpc(const generic_req_builder_cb_t& builder_cb, const std::string& method,
-                      const generic_rpc_comp_cb_t& done_cb, uint32_t deadline);
+                      const generic_rpc_comp_cb_t& done_cb, uint32_t deadline_ms);
 
         std::unique_ptr< grpc::GenericStub > m_generic_stub;
         GrpcAsyncClientWorker* m_worker;
@@ -379,4 +382,4 @@ public:
     std::unique_ptr< GenericAsyncStub > make_generic_stub(const std::string& worker);
 };
 
-} // namespace sisl::grpc
+} // namespace sisl

@@ -12,6 +12,7 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
+#include <chrono>
 #include <memory>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -34,6 +35,7 @@ namespace sisl::grpc::testing {
 using namespace sisl;
 using namespace ::grpc_helper_test;
 using namespace ::testing;
+using namespace std::literals;
 
 static const std::string grpc_server_addr{"0.0.0.0:12345"};
 static const std::string trf_token_server_ip{"127.0.0.1"};
@@ -145,7 +147,7 @@ public:
                 status = status_;
                 process_echo_reply();
             },
-            1);
+            1s);
         {
             std::unique_lock lk(m_wait_mtx);
             m_cv.wait(lk, [this]() { return m_echo_received.load(); });
@@ -161,7 +163,7 @@ public:
                 m_generic_received.store(true);
                 m_cv.notify_all();
             },
-            1);
+            1000);
         {
             std::unique_lock lk(m_wait_mtx);
             m_cv.wait(lk, [this]() { return m_generic_received.load(); });
@@ -176,7 +178,7 @@ public:
                 status = status_;
                 process_echo_reply();
             },
-            1, grpc_metadata);
+            1s, grpc_metadata);
         {
             std::unique_lock lk(m_wait_mtx);
             m_cv.wait(lk, [this]() { return m_echo_received.load(); });
@@ -401,12 +403,12 @@ TEST(GenericServiceDeathTest, basic_test) {
     auto g_grpc_server = GrpcServer::make("0.0.0.0:56789", nullptr, 1, "", "");
     // register rpc before generic service is registered
 #ifndef NDEBUG
-    ASSERT_DEATH(g_grpc_server->register_generic_rpc(
-                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
-                 "Assertion .* failed");
+    ASSERT_DEATH(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
+        "Assertion .* failed");
 #else
-    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_FALSE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 #endif
 
     ASSERT_TRUE(g_grpc_server->register_async_generic_service());
@@ -414,21 +416,21 @@ TEST(GenericServiceDeathTest, basic_test) {
     EXPECT_FALSE(g_grpc_server->register_async_generic_service());
     // register rpc before server is run
 #ifndef NDEBUG
-    ASSERT_DEATH(g_grpc_server->register_generic_rpc(
-                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
-                 "Assertion .* failed");
+    ASSERT_DEATH(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
+        "Assertion .* failed");
 #else
-    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_FALSE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 #endif
     g_grpc_server->run();
-    EXPECT_TRUE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
-    EXPECT_TRUE(g_grpc_server->register_generic_rpc(
-        "method2", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_TRUE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_TRUE(
+        g_grpc_server->register_generic_rpc("method2", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
     // re-register method 1
-    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_FALSE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 
     auto client = std::make_unique< GrpcAsyncClient >("0.0.0.0:56789", "", "");
     client->init();
@@ -437,22 +439,18 @@ TEST(GenericServiceDeathTest, basic_test) {
     ::grpc::ByteBuffer cli_buf;
     generic_stub->call_unary(
         cli_buf, "method1",
-        [method = "method1"](::grpc::ByteBuffer&, ::grpc::Status& status) {
-            validate_generic_reply(method, status);
-        },
-        1);
+        [method = "method1"](::grpc::ByteBuffer&, ::grpc::Status& status) { validate_generic_reply(method, status); },
+        1000);
     generic_stub->call_unary(
         cli_buf, "method2",
-        [method = "method2"](::grpc::ByteBuffer&, ::grpc::Status& status) {
-            validate_generic_reply(method, status);
-        },
-        1);
+        [method = "method2"](::grpc::ByteBuffer&, ::grpc::Status& status) { validate_generic_reply(method, status); },
+        1000);
     generic_stub->call_unary(
         cli_buf, "method_unknown",
         [method = "method_unknown"](::grpc::ByteBuffer&, ::grpc::Status& status) {
             validate_generic_reply(method, status);
         },
-        1);
+        1000);
 }
 
 } // namespace sisl::grpc::testing

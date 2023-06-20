@@ -31,6 +31,7 @@
 using namespace sisl;
 using namespace ::grpc_helper_test;
 using namespace std::placeholders;
+using namespace std::literals;
 
 struct DataMessage {
     int m_seqno;
@@ -148,7 +149,7 @@ public:
                         [req, this](EchoReply& reply, ::grpc::Status& status) {
                             validate_echo_reply(req, reply, status);
                         },
-                        1);
+                        1s);
                 } else {
                     echo_stub->call_rpc< EchoRequest, EchoReply >(
                         [i](EchoRequest& req) { req.set_message(std::to_string(i)); },
@@ -156,7 +157,7 @@ public:
                         [this](ClientRpcData< EchoRequest, EchoReply >& cd) {
                             validate_echo_reply(cd.req(), cd.reply(), cd.status());
                         },
-                        1);
+                        1s);
                 }
             } else if ((i % 3) == 0) {
                 // divide all numbers divisible by 3 and not by 2 into two equal buckets
@@ -168,14 +169,14 @@ public:
                         [req, this](PingReply& reply, ::grpc::Status& status) {
                             validate_ping_reply(req, reply, status);
                         },
-                        1);
+                        1s);
                 } else {
                     ping_stub->call_rpc< PingRequest, PingReply >(
                         [i](PingRequest& req) { req.set_seqno(i); }, &PingService::StubInterface::AsyncPing,
                         [this](ClientRpcData< PingRequest, PingReply >& cd) {
                             validate_ping_reply(cd.req(), cd.reply(), cd.status());
                         },
-                        1);
+                        1s);
                 }
             } else {
                 // divide all numbers not divisible by 2 and 3 into two equal buckets
@@ -188,7 +189,7 @@ public:
                         [req, this](grpc::ByteBuffer& reply, ::grpc::Status& status) {
                             validate_generic_reply(req, reply, status);
                         },
-                        1);
+                        1000);
                 } else {
                     DataMessage data_msg(i, GENERIC_CLIENT_MESSAGE);
                     generic_stub->call_rpc([data_msg](grpc::ByteBuffer& req) { SerializeToByteBuffer(req, data_msg); },
@@ -196,7 +197,7 @@ public:
                                            [data_msg, this](GenericClientRpcData& cd) {
                                                validate_generic_reply(data_msg, cd.reply(), cd.status());
                                            },
-                                           1);
+                                           1000);
                 }
             }
         }

@@ -14,6 +14,7 @@
  *********************************************************************************/
 #include "sisl/grpc/rpc_client.hpp"
 #include "utils.hpp"
+#include <chrono>
 
 namespace sisl {
 
@@ -129,9 +130,9 @@ void GrpcAsyncClientWorker::shutdown_all() {
 }
 
 void GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request, const std::string& method,
-                                                   const generic_unary_callback_t& callback, uint32_t deadline) {
+                                                   const generic_unary_callback_t& callback, uint32_t deadline_ms) {
     auto data = new GenericClientRpcDataInternal(callback);
-    data->set_deadline(deadline);
+    data->expire_after(std::chrono::milliseconds{deadline_ms});
     if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
     // Note that async unary RPCs don't post a CQ tag in call
     data->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&data->context(), method, request, cq());
@@ -142,10 +143,10 @@ void GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& reque
 }
 
 void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t& builder_cb, const std::string& method,
-                                                 const generic_rpc_comp_cb_t& done_cb, uint32_t deadline) {
+                                                 const generic_rpc_comp_cb_t& done_cb, uint32_t deadline_ms) {
     auto cd = new GenericClientRpcData(done_cb);
     builder_cb(cd->m_req);
-    cd->set_deadline(deadline);
+    cd->expire_after(std::chrono::milliseconds{deadline_ms});
     if (m_trf_client) { cd->add_metadata("authorization", m_trf_client->get_typed_token()); }
     cd->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&cd->context(), method, cd->m_req, cq());
     cd->m_generic_resp_reader_ptr->StartCall();
