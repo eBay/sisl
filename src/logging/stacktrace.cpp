@@ -126,6 +126,10 @@ static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, 
     return succeeded;
 }
 
+static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
+    google_breakpad::ExceptionHandler::WriteMinidump("./", dumpCallback, nullptr);
+}
+
 static void crash_handler(const SignalType signal_number) {
     LOGCRITICAL("\n * ****Received fatal SIGNAL : {}({})\tPID : {}", exit_reason_name(signal_number), signal_number,
                 ::getpid());
@@ -162,10 +166,6 @@ static void sigint_handler(const SignalType signal_number) {
     spdlog::shutdown();
 
     exit_with_default_sighandler(signal_number);
-}
-
-static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
-    google_breakpad::ExceptionHandler::WriteMinidump("./", dumpCallback, nullptr);
 }
 
 /************************************************* Exported APIs **********************************/
