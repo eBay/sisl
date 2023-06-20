@@ -2,7 +2,6 @@ cmake_minimum_required (VERSION 3.11)
 
 add_library(sisl_logging OBJECT)
 target_sources(sisl_logging PRIVATE
-    backtrace.cpp
     logging.cpp
     stacktrace.cpp
   )

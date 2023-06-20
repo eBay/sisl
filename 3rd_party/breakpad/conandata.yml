@@ -1,0 +1,8 @@
+sources:
+  "cci.20230127":
+    url: "https://github.com/google/breakpad/archive/bae713b.tar.gz"
+    sha256: "65a0dd6db9065dc539ddf35f969d10b5ad8a7b2c305d2dc5a66a1f8d46f4a904"
+patches:
+  "cci.20230127":
+    - patch_file: "patches/0001-Use_conans_lss.patch"
+    - patch_file: "patches/0002-Remove-hardcoded-fpic.patch"
