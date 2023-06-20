@@ -67,8 +67,10 @@ find_package(Threads REQUIRED)
 
 # Linux Specific dependencies
 if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
+    find_package(breakpad REQUIRED)
     find_package(folly REQUIRED)
     find_package(userspace-rcu REQUIRED)
+    list (APPEND COMMON_DEPS breakpad::breakpad)
 endif()
 
 list (APPEND COMMON_DEPS

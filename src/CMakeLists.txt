@@ -35,6 +35,7 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
     )
     list(APPEND SISL_DEPS
         Folly::Folly
+        breakpad::breakpad
     )
 endif()
 

@@ -50,6 +50,8 @@ class SISLConan(ConanFile):
 
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
+        if self.settings.os in ["Linux"]:
+            self.requires("breakpad/cci.20230127")
         self.requires("cpr/1.8.1")
         self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")

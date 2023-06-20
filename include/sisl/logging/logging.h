@@ -245,7 +245,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define _ABORT_OR_DUMP(is_log_assert)                                                                                  \
     assert(0);                                                                                                         \
     if (is_log_assert) {                                                                                               \
-        if (sisl::logging::is_crash_handler_installed()) { sisl::logging::log_stack_trace(false); }                    \
+        if (sisl::logging::is_crash_handler_installed()) { raise(SIGUSR3); }                    \
     } else {                                                                                                           \
         abort();                                                                                                       \
     }
