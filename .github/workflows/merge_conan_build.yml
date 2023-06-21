@@ -32,3 +32,9 @@ jobs:
       malloc-impl: ${{ matrix.malloc-impl }}
       prerelease: ${{ matrix.prerelease }}
       testing: 'True'
+  ChainBuild:
+    run: |
+      curl -XPOST -u "eBay:${{secrets.CHAIN_BUILD_TOKEN}}" -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" https://api.github.com/repos/eBay/iomanager/actions/workflows/merge_conan_build.yml/dispatches --data '{"ref": "stable/v3.x"}'
+      curl -XPOST -u "eBay:${{secrets.CHAIN_BUILD_TOKEN}}" -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" https://api.github.com/repos/eBay/nuraft_mesg/actions/workflows/merge_conan_build.yml/dispatches --data '{"ref": "stable/v3.x"}'
+      curl -XPOST -u "eBay:${{secrets.CHAIN_BUILD_TOKEN}}" -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" https://api.github.com/repos/eBay/homestore/actions/workflows/merge_conan_build.yml/dispatches --data '{"ref": "stable/v3.x"}'
+      curl -XPOST -u "eBay:${{secrets.CHAIN_BUILD_TOKEN}}" -H "Accept: application/vnd.github.everest-preview+json" -H "Content-Type: application/json" https://api.github.com/repos/eBay/homereplication/actions/workflows/merge_conan_build.yml/dispatches --data '{"ref": "stable/v3.x"}'
