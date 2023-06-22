@@ -1,0 +1,31 @@
+name: 'Setup Conan'
+description: 'Sets up Conan for Sisl Builds'
+inputs:
+  platform:
+    description: 'Platform conan will be building on'
+    required: true
+    default: 'ubuntu-22.04'
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.8"
+
+    - name: Setup Conan and Export Recipes
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install conan~=1.0
+        python -m pip install gcovr
+        conan user
+        conan profile new --detect default
+
+    - name: Fixup libstdc++
+      shell: bash
+      run: |
+        # Set std::string to non-CoW C++11 version
+        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
+      if: ${{ inputs.platform == 'ubuntu-22.04' }}
+
