@@ -23,11 +23,15 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - name: Calc Hash Key
-      id: hash-key
+    - id: hash-key-primary
       shell: bash
       run: |
-        echo "keys=[${{ inputs.path }}/conanfile.py, ${{ inputs.path }}/3rd_party/**/conanfile.py]" >> $GITHUB_OUTPUT
+        echo "key=${{ inputs.path }}/conanfile.py" >> $GITHUB_OUTPUT
+
+    - id: hash-key-3rd
+      shell: bash
+      run: |
+        echo "keys=${{ inputs.path }}/3rd_party/**/conanfile.py" >> $GITHUB_OUTPUT
 
     - name: Restore Cache
       id: restore-cache
@@ -35,7 +39,7 @@ runs:
       with:
         path: |
           ~/.conan/data
-        key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key.outputs.keys ) }}
+        key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key-primary.outputs.key, steps.hash-key-3rd.outputs.keys) }}
         fail-on-cache-miss: ${{ inputs.fail_on_cache_miss }}
 
     - name: Restore Testing Cache
