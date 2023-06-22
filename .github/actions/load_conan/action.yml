@@ -11,7 +11,7 @@ inputs:
   path:
     description: 'Recipe path'
     required: false
-    default: './'
+    default: '.'
 outputs:
   cache-hit:
     description: 'Cache match found'
@@ -25,7 +25,7 @@ runs:
       with:
         path: |
           ~/.conan/data
-        key: ${{ inputs.key_prefix }}-${{ hashFiles(inputs.path + '**/conanfile.py') }}
+        key: ${{ inputs.key_prefix }}-${{ hashFiles(join([inputs.path, '**/conanfile.py'], '/')) }}
 
     - name: Restore Testing Cache
       uses: actions/cache/restore@v3
