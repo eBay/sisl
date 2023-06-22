@@ -8,6 +8,10 @@ inputs:
     description: 'Cache prefix'
     required: true
     default: 'Deps'
+  fail_on_cache_miss:
+    description: 'Fail if key missing'
+    required: false
+    default: false
   path:
     description: 'Recipe path'
     required: false
@@ -32,6 +36,7 @@ runs:
         path: |
           ~/.conan/data
         key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key.outputs.hash-key ) }}
+        fail-on-cache-miss: ${{ inputs.fail_on_cache_miss }}
 
     - name: Restore Testing Cache
       uses: actions/cache/restore@v3
