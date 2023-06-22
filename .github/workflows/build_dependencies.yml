@@ -72,35 +72,14 @@ jobs:
   BuildSislDeps:
     runs-on: ${{ inputs.platform }}
     steps:
-    - name: Retrieve Code
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ inputs.branch }}
-      if: ${{ inputs.testing == 'True' }}
-
-    - name: Retrieve Recipe
-      uses: actions/checkout@v3
-      with:
-        repository: ebay/sisl
-        ref: ${{ inputs.branch }}
-      if: ${{ inputs.testing == 'False' }}
-
-    - name: Restore Sisl Cache
+    - name: Restore Cache
       id: restore-cache-sisl
-      uses: actions/cache/restore@v3
+      uses: ./.github/actions/load_conan
       with:
-        path: |
-          ~/.conan/data
-        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
-
-    - name: Restore Testing Cache
-      id: restore-cache-testing-sisl
-      uses: actions/cache/restore@v3
-      with:
-        path: |
-          ~/.conan/data
-        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-
-      if: ${{ github.event_name == 'pull_request' && inputs.testing == 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
+        parent_repo: eBay/sisl
+        ref: ${{ inputs.branch }}
+        support_test: ${{ inputs.testing }}
+        key_prefix: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Setup Conan
       uses: ./.github/actions/setup_conan
@@ -133,7 +112,7 @@ jobs:
     - name: Save Conan Cache
       uses: ./.github/actions/store_conan
       with:
-        key_prefix: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-
+        key_prefix: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Create and test Package
