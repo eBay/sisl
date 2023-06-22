@@ -75,14 +75,14 @@ jobs:
     - name: Retrieve Code
       uses: actions/checkout@v3
       with:
-        ref: ${{ inputs.ref }}
+        ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'True' }}
 
     - name: Retrieve Recipe
       uses: actions/checkout@v3
       with:
         repository: szmyd/sisl
-        ref: ${{ inputs.ref }}
+        ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'False' }}
 
     - name: Restore Cache
