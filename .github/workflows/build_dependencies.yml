@@ -145,14 +145,14 @@ jobs:
             --build missing \
             .
         conan build .
-      if: ${{ inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' && inputs.prerelease == 'False' }}
+      if: ${{ inputs.testing == 'True' && inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' && inputs.prerelease == 'False' }}
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         gcov: true
-      if: ${{ inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' && inputs.prerelease == 'False' }}
+      if: ${{ inputs.testing == 'True' && inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' && inputs.prerelease == 'False' }}
 
     - name: Create and Test Package
       run: |
@@ -167,4 +167,4 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             .
-      if: ${{ inputs.platform != 'ubuntu-22.04' || inputs.build-type != 'Debug' || inputs.malloc-impl != 'libc' || inputs.prerelease != 'False' }}
+      if: ${{ inputs.testing == 'True' && inputs.platform != 'ubuntu-22.04' || inputs.build-type != 'Debug' || inputs.malloc-impl != 'libc' || inputs.prerelease != 'False' }}
