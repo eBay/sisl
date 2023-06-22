@@ -75,7 +75,6 @@ jobs:
     - name: Retrieve Code
       uses: actions/checkout@v3
       with:
-        path: deps/sisl
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'True' }}
 
@@ -83,7 +82,6 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: ebay/sisl
-        path: deps/sisl
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'False' }}
 
@@ -105,19 +103,19 @@ jobs:
       if: ${{ github.event_name == 'pull_request' && inputs.testing == 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Setup Conan
-      uses: deps/sisl/.github/actions/setup_conan
+      uses: .github/actions/setup_conan
       with:
         platform: ${{ inputs.platform }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Export Recipes
       run: |
-        conan export deps/sisl/3rd_party/breakpad breakpad/cci.20230127@
-        conan export deps/sisl/3rd_party/folly folly/2022.01.31.00@
-        conan export deps/sisl/3rd_party/gperftools
-        conan export deps/sisl/3rd_party/jemalloc
-        conan export deps/sisl/3rd_party/prerelease_dummy
-        conan export deps/sisl/3rd_party/pistache pistache/cci.20201127@
+        conan export 3rd_party/breakpad breakpad/cci.20230127@
+        conan export 3rd_party/folly folly/2022.01.31.00@
+        conan export 3rd_party/gperftools
+        conan export 3rd_party/jemalloc
+        conan export 3rd_party/prerelease_dummy
+        conan export 3rd_party/pistache pistache/cci.20201127@
         cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
@@ -129,12 +127,12 @@ jobs:
             -o malloc_impl=${{ inputs.malloc-impl }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
-            deps/sisl
+            .
       if: ${{ steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Clean Package Cache
       run: |
-        dep_pkgs=$(ls -1d deps/sisl/3rd_party/* 2>/dev/null | cut -d'/' -f4 | paste -sd'|' - -)
+        dep_pkgs=$(ls -1d 3rd_party/* 2>/dev/null | cut -d'/' -f4 | paste -sd'|' - -)
         if [ -z "${dep_pkgs}" ]; then
            dep_pkgs="no_3rd_party"
         fi
@@ -167,8 +165,8 @@ jobs:
               -o coverage=True \
               -s build_type=${{ inputs.build-type }} \
               --build missing \
-              deps/sisl
-          conan build deps/sisl
+              .
+          conan build .
         else
           sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && "${{ inputs.malloc-impl }}" == "libc" && "${{ inputs.prerelease }}" == "True" ]] && echo "True" || echo "False")
           conan create \
@@ -177,7 +175,7 @@ jobs:
               -o sisl:sanitize=${sanitize} \
               -s build_type=${{ inputs.build-type }} \
               --build missing \
-              deps/sisl
+              .
         fi
       if: ${{ inputs.testing == 'True' }}
 
