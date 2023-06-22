@@ -1,12 +1,6 @@
 name: 'Load Conan Cache'
 description: 'Loads Local Conan Cache'
 inputs:
-  parent_repo:
-    description: 'Upstream repo'
-    required: true
-  ref:
-    description: 'Upstream ref'
-    required: true
   support_test:
     description: 'Support building tests'
     required: true
@@ -20,19 +14,6 @@ outputs:
     value: ${{ steps.restore-cache.outputs.cache-hit }}
 runs:
   using: "composite"
-    - name: Retrieve Code
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ inputs.ref }}
-      if: ${{ inputs.support_test == 'True' }}
-
-    - name: Retrieve Recipe
-      uses: actions/checkout@v3
-      with:
-        repository: ${{ inputs.parent_repo }}
-        ref: ${{ inputs.ref }}
-      if: ${{ inputs.support_test == 'False' }}
-
     - name: Restore Cache
       id: restore-cache
       uses: actions/cache/restore@v3
