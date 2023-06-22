@@ -30,5 +30,5 @@ runs:
       with:
         path: |
           ~/.conan/data
-        key: ${{ inputs.key_prefix }}-${{ hashFiles('**/conanfile.py') }}
+        key: ${{ inputs.key_prefix }}-${{ hashFiles('conanfile.py', '3rd_party/**/conanfile.py') }}
 
