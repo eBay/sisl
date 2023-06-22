@@ -27,8 +27,7 @@ runs:
       id: hash-key
       shell: bash
       run: |
-        echo "3rdparty=${{ inputs.path }}/3rd_party/**/conanfile.py" >> $GITHUB_OUTPUT
-        echo "primary=${{ inputs.path }}/conanfile.py" >> $GITHUB_OUTPUT
+        echo "keys=[${{ inputs.path }}/conanfile.py, ${{ inputs.path }}/3rd_party/**/conanfile.py]" >> $GITHUB_OUTPUT
 
     - name: Restore Cache
       id: restore-cache
@@ -36,7 +35,7 @@ runs:
       with:
         path: |
           ~/.conan/data
-        key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key.outputs.primary, steps.hash-key.outputs.3rdparty ) }}
+        key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key.outputs.keys ) }}
         fail-on-cache-miss: ${{ inputs.fail_on_cache_miss }}
 
     - name: Restore Testing Cache
