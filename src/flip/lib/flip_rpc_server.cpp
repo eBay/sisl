@@ -63,7 +63,7 @@ public:
 
 void FlipRPCServer::rpc_thread() {
     std::string server_address("0.0.0.0:50051");
-    FlipRPCServiceWrapper service;
+    FlipRPCServer service;
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
