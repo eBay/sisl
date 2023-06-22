@@ -1,26 +1,31 @@
 name: 'Load Conan Cache'
 description: 'Loads Local Conan Cache'
 inputs:
-  support_test:
+  testing:
     description: 'Support building tests'
     required: true
   key_prefix:
     description: 'Cache prefix'
     required: true
     default: 'Deps'
+  path:
+    description: 'Recipe path'
+    required: false
+    default: './'
 outputs:
   cache-hit:
     description: 'Cache match found'
     value: ${{ steps.restore-cache.outputs.cache-hit }}
 runs:
   using: "composite"
+  steps:
     - name: Restore Cache
       id: restore-cache
       uses: actions/cache/restore@v3
       with:
         path: |
           ~/.conan/data
-        key: ${{ inputs.key_prefix }}-${{ hashFiles('**/conanfile.py') }}
+        key: ${{ inputs.key_prefix }}-${{ hashFiles("${{ inputs.path }}**/conanfile.py") }}
 
     - name: Restore Testing Cache
       uses: actions/cache/restore@v3
@@ -28,5 +33,5 @@ runs:
         path: |
           ~/.conan/data
         key: ${{ inputs.key_prefix }}-
-      if: ${{ github.event_name == 'pull_request' && inputs.support_test == 'True' && steps.restore-cache.outputs.cache-hit != 'true' }}
+      if: ${{ github.event_name == 'pull_request' && inputs.testing == 'True' && steps.restore-cache.outputs.cache-hit != 'true' }}
 

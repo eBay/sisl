@@ -85,21 +85,11 @@ jobs:
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'False' }}
 
-    - name: Restore Cache
-      id: restore-cache
-      uses: actions/cache/restore@v3
+    - name: Load Conan Cache
+      uses: szmyd/sisl/.github/actions/load_conan@test_custom_action
       with:
-        path: |
-          ~/.conan/data
-        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
-
-    - name: Restore Testing Cache
-      uses: actions/cache/restore@v3
-      with:
-        path: |
-          ~/.conan/data
-        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-
-      if: ${{ github.event_name == 'pull_request' && inputs.support_test == 'True' && steps.restore-cache.outputs.cache-hit != 'true' }}
+        testing: ${{ inputs.testing }}
+        key_prefix: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Setup Conan
       uses: szmyd/sisl/.github/actions/setup_conan@test_custom_action
