@@ -167,4 +167,4 @@ jobs:
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             .
-      if: ${{ inputs.testing == 'True' && inputs.platform != 'ubuntu-22.04' || inputs.build-type != 'Debug' || inputs.malloc-impl != 'libc' || inputs.prerelease != 'False' }}
+      if: ${{ inputs.testing == 'True' && ( inputs.platform != 'ubuntu-22.04' || inputs.build-type != 'Debug' || inputs.malloc-impl != 'libc' || inputs.prerelease != 'False' ) }}
