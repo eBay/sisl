@@ -86,11 +86,20 @@ jobs:
       if: ${{ inputs.testing == 'False' }}
 
     - name: Restore Cache
-      id: restore-cache-sisl
-      uses: ./.github/actions/load_conan
+      id: restore-cache
+      uses: actions/cache/restore@v3
       with:
-        support_test: ${{ inputs.testing }}
-        key_prefix: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+        path: |
+          ~/.conan/data
+        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-${{ hashFiles('**/conanfile.py') }}
+
+    - name: Restore Testing Cache
+      uses: actions/cache/restore@v3
+      with:
+        path: |
+          ~/.conan/data
+        key: SislDeps8-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}-
+      if: ${{ github.event_name == 'pull_request' && inputs.support_test == 'True' && steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Setup Conan
       uses: ./.github/actions/setup_conan
