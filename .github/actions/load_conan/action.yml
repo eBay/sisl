@@ -25,7 +25,7 @@ runs:
       with:
         path: |
           ~/.conan/data
-        key: ${{ inputs.key_prefix }}-${{ hashFiles("${{ inputs.path }}**/conanfile.py") }}
+        key: ${{ inputs.key_prefix }}-${{ hashFiles(${{ inputs.path }} + '**/conanfile.py') }}
 
     - name: Restore Testing Cache
       uses: actions/cache/restore@v3
