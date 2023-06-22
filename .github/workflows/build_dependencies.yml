@@ -81,7 +81,7 @@ jobs:
     - name: Retrieve Recipe
       uses: actions/checkout@v3
       with:
-        repository: ${{ inputs.parent_repo }}
+        repository: szmyd/sisl
         ref: ${{ inputs.ref }}
       if: ${{ inputs.testing == 'False' }}
 
