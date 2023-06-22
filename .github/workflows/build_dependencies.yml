@@ -86,6 +86,7 @@ jobs:
       if: ${{ inputs.testing == 'False' }}
 
     - name: Load Conan Cache
+      id: restore-cache
       uses: szmyd/sisl/.github/actions/load_conan@test_custom_action
       with:
         testing: ${{ inputs.testing }}
