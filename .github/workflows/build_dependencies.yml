@@ -103,7 +103,7 @@ jobs:
       if: ${{ github.event_name == 'pull_request' && inputs.testing == 'True' && steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
 
     - name: Setup Conan
-      uses: .github/actions/setup_conan
+      uses: ./.github/actions/setup_conan
       with:
         platform: ${{ inputs.platform }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache-sisl.outputs.cache-hit != 'true' }}
