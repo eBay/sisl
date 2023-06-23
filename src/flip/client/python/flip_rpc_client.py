@@ -3,7 +3,6 @@ from __future__ import print_function
 import random
 import logging
 import sys
-sys.path.append("gen_src")
 
 import grpc
 import flip_spec_pb2 as fspec
@@ -15,7 +14,7 @@ class FlipRPCClient:
     def __init__(self, server_address):
         self.channel = grpc.insecure_channel(server_address)
         self.stub = flip_server_pb2_grpc.FlipServerStub(self.channel)
- 
+
     def inject_fault(self, name, freq, conds, action):
         self.stub.InjectFault(fspec.FlipSpec(flip_name=name, conditions=conds, flip_action=action, flip_frequency=freq))
 

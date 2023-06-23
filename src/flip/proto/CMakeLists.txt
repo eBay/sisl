@@ -16,3 +16,13 @@ target_link_libraries(flip_proto
       protobuf::libprotobuf
       gRPC::grpc++
   )
+
+add_custom_target(flip_py_proto ALL)
+protobuf_generate(LANGUAGE python TARGET flip_py_proto PROTOS flip_server.proto)
+protobuf_generate(LANGUAGE python TARGET flip_py_proto PROTOS flip_spec.proto)
+protobuf_generate(
+  TARGET flip_py_proto
+  PROTOS flip_server.proto flip_spec.proto
+  LANGUAGE grpc
+  GENERATE_EXTENSIONS _pb2_grpc.py
+  PLUGIN protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_python_plugin>)
