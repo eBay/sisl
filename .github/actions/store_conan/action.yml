@@ -11,7 +11,9 @@ runs:
     - name: Setup Conan and Export Recipes
       shell: bash
       run: |
-        dep_pkgs=$(ls -1d 3rd_party/* 2>/dev/null | cut -d'/' -f2 | paste -sd'|' - -)
+        if [ -d 3rd_party ]; then
+          dep_pkgs=$(ls -1d 3rd_party/* 2>/dev/null | cut -d'/' -f2 | paste -sd'|' - -)
+        fi
         if [ -z "${dep_pkgs}" ]; then
            dep_pkgs="no_3rd_party"
         fi
