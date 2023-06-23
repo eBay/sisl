@@ -53,5 +53,5 @@ runs:
           ~/.conan/data
         key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key-primary.outputs.key, steps.hash-key-3rd.outputs.keys) }}
         restore-keys: ${{ inputs.key_prefix }}-
-      if: ${{ (github.event_name == 'pull_request' || inputs.load_any == 'True') && inputs.testing == 'True' && steps.restore-cache.outputs.cache-hit != 'true' }}
+      if: ${{ steps.restore-cache.outputs.cache-hit != 'true' && (( github.event_name == 'pull_request' && inputs.testing == 'True' && ) || ( inputs.load_any == 'True' )) }}
 
