@@ -16,6 +16,10 @@ inputs:
     description: 'Recipe path'
     required: false
     default: '.'
+  load_any:
+    description: 'Load cache miss'
+    required: false
+    default: 'False'
 outputs:
   cache-hit:
     description: 'Cache match found'
@@ -49,5 +53,5 @@ runs:
           ~/.conan/data
         key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key-primary.outputs.key, steps.hash-key-3rd.outputs.keys) }}
         restore-keys: ${{ inputs.key_prefix }}-
-      if: ${{ inputs.testing == 'True' && steps.restore-cache.outputs.cache-hit != 'true' }}
+      if: ${{ (github.event_name == 'pull_request' || inputs.load_any == 'True') && inputs.testing == 'True' && steps.restore-cache.outputs.cache-hit != 'true' }}
 
