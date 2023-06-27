@@ -96,8 +96,8 @@ pipeline {
                 sh "conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG} ; \
                     conan remove -f ${PROJECT}/${TAG} ; \
                     conan create ${BUILD_MISSING} -pr debug . ${PROJECT}/${TAG} ; \
-                    conan create ${BUILD_MISSING} -o malloc_impl=tcmalloc -o sisl:prerelease=True -pr test . ${PROJECT}/${TAG} ; \
-                    conan create ${BUILD_MISSING} -o malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG} ; \
+                    conan create ${BUILD_MISSING} -o sisl:malloc_impl=tcmalloc -o sisl:prerelease=True -pr test . ${PROJECT}/${TAG} ; \
+                    conan create ${BUILD_MISSING} -o sisl:malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG} ; \
                     "
             }
         }
