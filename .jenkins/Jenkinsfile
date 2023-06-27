@@ -93,17 +93,10 @@ pipeline {
 */
         stage("Compile") {
             steps {
-                sh "# For Sanitized Unit Testing (no publish)
-                    conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG} ; \
+                sh "conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG} ; \
                     conan remove -f ${PROJECT}/${TAG} ; \
-                    # Debug/Release with libc for OM (disabled for now) \
-                    # conan create ${BUILD_MISSING} -pr debug . ${PROJECT}/${TAG} \
-                    # conan create ${BUILD_MISSING} -pr test . ${PROJECT}/${TAG} \
-                    # Debug w/ libc for downstream Sanitizer builds
                     conan create ${BUILD_MISSING} -pr debug . ${PROJECT}/${TAG} ; \
-                    # Pre-Release for Stability
                     conan create ${BUILD_MISSING} -o malloc_impl=tcmalloc -o sisl:prerelease=True -pr test . ${PROJECT}/${TAG} ; \
-                    # Release for Prod Build
                     conan create ${BUILD_MISSING} -o malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG} ; \
                     "
             }
