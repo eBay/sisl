@@ -132,19 +132,25 @@ std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
     return logger_thread_ctx.m_critical_logger;
 }
 
-static std::filesystem::path get_base_dir() {
-    const auto cwd{std::filesystem::current_path()};
-    auto p{cwd / "logs"};
-    // Construct a unique directory path based on the current time
-    auto const current_time{std::chrono::system_clock::now()};
-    auto const current_t{std::chrono::system_clock::to_time_t(current_time)};
-    auto const current_tm{std::localtime(&current_t)};
-    std::array< char, PATH_MAX > c_time;
-    if (std::strftime(c_time.data(), c_time.size(), "%F_%R", current_tm)) {
-        p /= c_time.data();
-        std::filesystem::create_directories(p);
-    }
-    return p;
+static std::filesystem::path g_base_dir;
+
+std::filesystem::path get_base_dir() {
+    static std::once_flag one_base_dir;
+    std::call_once(one_base_dir, [] {
+        const auto cwd{std::filesystem::current_path()};
+        g_base_dir = cwd / "logs";
+        // Construct a unique directory path based on the current time
+        auto const current_time{std::chrono::system_clock::now()};
+        auto const current_t{std::chrono::system_clock::to_time_t(current_time)};
+        auto const current_tm{std::localtime(&current_t)};
+        std::array< char, PATH_MAX > c_time;
+        if (std::strftime(c_time.data(), c_time.size(), "%F_%R", current_tm)) {
+            g_base_dir /= c_time.data();
+            std::filesystem::create_directories(g_base_dir);
+        }
+    });
+
+    return g_base_dir;
 }
 
 static std::filesystem::path log_path(std::string const& name) {
@@ -152,8 +158,7 @@ static std::filesystem::path log_path(std::string const& name) {
     if (0 < SISL_OPTIONS.count("logfile")) {
         p = std::filesystem::path{SISL_OPTIONS["logfile"].as< std::string >()};
     } else {
-        static std::filesystem::path base_dir{get_base_dir()};
-        p = base_dir / std::filesystem::path{name}.filename();
+        p = get_base_dir() / std::filesystem::path{name}.filename();
     }
     return p;
 }

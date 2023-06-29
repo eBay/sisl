@@ -126,7 +126,7 @@ static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, 
 }
 
 static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
-    google_breakpad::ExceptionHandler::WriteMinidump("./", dumpCallback, nullptr);
+    google_breakpad::ExceptionHandler::WriteMinidump(get_base_dir().string(), dumpCallback, nullptr);
 }
 
 static void crash_handler(const SignalType signal_number) {
