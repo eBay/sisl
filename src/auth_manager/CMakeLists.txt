@@ -26,17 +26,21 @@ settings_gen_cpp(
     security_config.fbs
   )
 
-add_executable(test_auth_mgr)
-target_sources(test_auth_mgr PRIVATE
-    tests/AuthTest.cpp
-  )
-target_link_libraries(test_auth_mgr
-    sisl
-    ${COMMON_DEPS}
-    cpr::cpr
-    Pistache::Pistache
-    flatbuffers::flatbuffers
-    jwt-cpp::jwt-cpp
-    GTest::gmock
-  )
-add_test(NAME AuthManager COMMAND test_auth_mgr)
+if (DEFINED ENABLE_TESTING)
+  if (${ENABLE_TESTING})
+    add_executable(test_auth_mgr)
+    target_sources(test_auth_mgr PRIVATE
+        tests/AuthTest.cpp
+      )
+    target_link_libraries(test_auth_mgr
+        sisl
+        ${COMMON_DEPS}
+        cpr::cpr
+        Pistache::Pistache
+        flatbuffers::flatbuffers
+        jwt-cpp::jwt-cpp
+        GTest::gmock
+      )
+    add_test(NAME AuthManager COMMAND test_auth_mgr)
+  endif()
+endif()

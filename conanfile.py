@@ -111,6 +111,7 @@ class SISLConan(ConanFile):
         cmake = CMake(self)
 
         definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
+                       'ENABLE_TESTING': 'OFF',
                        'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
                        'CONAN_CMAKE_SILENT_OUTPUT': 'ON',
                        'MEMORY_SANITIZER_ON': 'OFF',
@@ -122,11 +123,13 @@ class SISLConan(ConanFile):
             elif self.options.coverage:
                 definitions['CONAN_BUILD_COVERAGE'] = 'ON'
 
-        definitions['MALLOC_IMPL'] = self.options.malloc_impl
+        if self.options.testing:
+            definitions['ENABLE_TESTING'] = 'ON'
 
         cmake.configure(defs=definitions)
         cmake.build()
-        cmake.test(output_on_failure=True)
+        if self.options.testing:
+            cmake.test(output_on_failure=True)
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")

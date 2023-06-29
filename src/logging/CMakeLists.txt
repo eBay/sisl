@@ -7,8 +7,12 @@ target_sources(sisl_logging PRIVATE
   )
 target_link_libraries(sisl_logging ${COMMON_DEPS})
 
-add_executable(logging_example)
-target_sources(logging_example PRIVATE
-    test/example.cpp
-  )
-target_link_libraries(logging_example sisl ${COMMON_DEPS})
+if (DEFINED ENABLE_TESTING)
+  if (${ENABLE_TESTING})
+    add_executable(logging_example)
+    target_sources(logging_example PRIVATE
+        test/example.cpp
+      )
+    target_link_libraries(logging_example sisl ${COMMON_DEPS})
+  endif()
+endif()
