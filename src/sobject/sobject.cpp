@@ -32,13 +32,35 @@ void sobject::add_child(const sobject_ptr child) {
     std::unique_lock lock{m_mtx};
     LOGINFO("Parent {}/{} added child {}/{}", type(), name(), child->type(), child->name());
     m_children.emplace(child->name(), child);
-    m_mgr->add_object_type(type(), child->type());
+    auto res = m_mgr->add_object_type(type(), child->type());
+    if (res) { LOGINFO("Added type parent {} child {}", type(), child->type()); }
+}
+
+void sobject::remove_child(const sobject_ptr child) {
+    // remove a child from current object.
+    std::unique_lock lock{m_mtx};
+    auto it = m_children.find(child->name());
+    if (it != m_children.end()) {
+        LOGINFO("Parent {}/{} removed child {}/{}", type(), name(), child->type(), child->name());
+    } else {
+        LOGERROR("Parent {}/{} does not have child {}/{}", type(), name(), child->type(), child->name());
+        return;
+    }
+    m_children.erase(child->name());
+    auto res = m_mgr->remove_object_type(type(), child->type());
+    if (res) { LOGINFO("Removed type parent {} child {}", type(), child->type()); }
 }
 
 void sobject::add_child_type(const std::string& child_type) {
     std::unique_lock lock{m_mtx};
-    LOGINFO("Added type parent {} child {}", type(), child_type);
-    m_mgr->add_object_type(type(), child_type);
+    auto res = m_mgr->add_object_type(type(), child_type);
+    if (res) { LOGINFO("Added type parent {} child {}", type(), child_type); }
+}
+
+void sobject::remove_child_type(const std::string& child_type) {
+    std::unique_lock lock{m_mtx};
+    bool res = m_mgr->remove_object_type(type(), child_type);
+    if (res) { LOGINFO("Removed type parent {} child {}", type(), child_type); }
 }
 
 status_response sobject::run_callback(const status_request& request) const {
@@ -79,15 +101,43 @@ sobject_ptr sobject_manager::create_object(const std::string& type, const std::s
     return obj;
 }
 
-void sobject_manager::add_object_type(const std::string& parent_type, const std::string& child_type) {
+void sobject_manager::remove_object(const std::string& name) {
     std::unique_lock lock{m_mtx};
-    m_object_types[parent_type].insert(child_type);
+    m_object_store.erase(name);
+    m_object_types[name].clear();
+    LOGINFO("Removed status object name={}", name);
+}
+
+bool sobject_manager::add_object_type(const std::string& parent_type, const std::string& child_type) {
+    bool res = false;
+    std::unique_lock lock{m_mtx};
+    auto p_map = m_object_types[parent_type].find(child_type);
+    if (p_map == m_object_types[parent_type].end()) {
+        m_object_types[parent_type][child_type] = 1;
+        res = true;
+    } else {
+        ++m_object_types[parent_type][child_type];
+    }
+    return res;
+}
+
+bool sobject_manager::remove_object_type(const std::string& parent_type, const std::string& child_type) {
+    bool res = false;
+    std::unique_lock lock{m_mtx};
+    auto count = m_object_types[parent_type][child_type];
+    if (count <= 1) {
+        m_object_types[parent_type].erase(child_type);
+        res = true;
+    } else {
+        --m_object_types[parent_type][child_type];
+    }
+    return res;
 }
 
 status_response sobject_manager::get_object_types(const std::string& type) {
     status_response response;
     auto children = nlohmann::json::object();
-    for (const auto& child : m_object_types[type]) {
+    for (const auto& [child, count] : m_object_types[type]) {
         children.emplace(child, get_object_types(child).json);
     }
     response.json = children;
@@ -132,7 +182,7 @@ status_response sobject_manager::get_object_status(const std::string& name, cons
     return iter->second->run_callback(request);
 }
 
-status_response sobject_manager::get_child_type_status( const status_request& request) {
+status_response sobject_manager::get_child_type_status(const status_request& request) {
     status_response response;
     auto iter = m_object_store.find(request.obj_name);
     if (iter == m_object_store.end()) { return status_error("Object identifier not found"); }

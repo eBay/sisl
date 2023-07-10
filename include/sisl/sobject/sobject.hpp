@@ -72,7 +72,9 @@ public:
     status_response run_callback(const status_request& request) const;
     sobject_ptr get_child(const std::string& name);
     void add_child(const sobject_ptr child);
+    void remove_child(const sobject_ptr child);
     void add_child_type(const std::string& child_type);
+    void remove_child_type(const std::string& child_type);
 
     std::string name() const { return m_name; }
     std::string type() const { return m_type; }
@@ -92,21 +94,23 @@ class sobject_manager {
 private:
 public:
     sobject_ptr create_object(const std::string& type, const std::string& name, status_callback_type cb);
+    void remove_object(const std::string& name);
     status_response get_status(const status_request& request);
 
-    status_response get_child_type_status( const status_request& request);
+    status_response get_child_type_status(const status_request& request);
     status_response get_object_by_path(const status_request& request);
     status_response get_object_status(const std::string& name, const status_request& request);
     status_response get_objects(const status_request& request);
     status_response get_object_types(const std::string& type);
-    void add_object_type(const std::string& parent_type, const std::string& child_type);
+    bool add_object_type(const std::string& parent_type, const std::string& child_type);
+    bool remove_object_type(const std::string& parent_type, const std::string& child_type);
 
 private:
     // Mapping from object name to object metadata. Object names are required
     // to be unique.
     std::map< std::string, sobject_ptr, std::less<> > m_object_store;
     // Mapping from parent type to set of all children type to display the schema.
-    std::map< std::string, std::set< std::string > > m_object_types;
+    std::map< std::string, std::map< std::string, uint32_t > > m_object_types;
     std::shared_mutex m_mtx;
 };
 

@@ -61,6 +61,19 @@ TEST_F(SobjectTest, BasicTest) {
         }
         return res;
     };
+    auto remove_nodes = [this](sobject_ptr parent, string prefix, uint32_t start_idx, uint32_t end_idx) {
+        uint32_t removed_count = 0;
+        for (uint32_t i = start_idx; i <= end_idx; i++) {
+            auto n = prefix + "_" + to_string(i);
+            auto d = parent->get_child(n);
+            if (d) {
+                parent->remove_child(d);
+                ++removed_count;
+            }
+            mgr.remove_object(n);
+        }
+        return removed_count;
+    };
 
     // Create heirarchy of objects.
     auto module_vec = create_nodes(nullptr, "module", "module", 3);
@@ -73,7 +86,6 @@ TEST_F(SobjectTest, BasicTest) {
     auto c_sub_vec = create_nodes(c_vec[0], "C_sub", "C_sub", 2);
 
     auto c_child_child_vec = create_nodes(c_sub_vec[0], "C_sub_sub", "C_sub_sub", 2);
-
 
     {
         // Get all objects.
@@ -97,7 +109,9 @@ TEST_F(SobjectTest, BasicTest) {
         req.do_recurse = false;
         resp = mgr.get_status(req);
         LOGINFO("{}", resp.json.dump());
-        ASSERT_EQ(resp.json.dump(), R"({"children":{"A":["A_1","A_2"],"C":["C_1","C_2"]},"module_1_metric":1,"name":"module_1","type":"module"})");
+        ASSERT_EQ(
+            resp.json.dump(),
+            R"({"children":{"A":["A_1","A_2"],"C":["C_1","C_2"]},"module_1_metric":1,"name":"module_1","type":"module"})");
     }
 
     {
@@ -119,6 +133,28 @@ TEST_F(SobjectTest, BasicTest) {
         LOGINFO("Response {}", resp.json.dump(2));
         ASSERT_EQ(resp.json["name"], "C_sub_sub_1") << resp.json.dump();
         ASSERT_EQ(resp.json["type"], "C_sub_sub") << resp.json.dump();
+    }
+
+    {
+        // add children and then remove
+        auto d_vec = create_nodes(module_vec[2], "D", "D", 100);
+        status_request req;
+        status_response resp;
+        req.obj_type = "D";
+        req.batch_size = 100;
+
+        resp = mgr.get_status(req);
+        ASSERT_EQ(resp.json.size(), 100);
+
+        auto remove_count = remove_nodes(module_vec[2], "D", 1, 10);
+        resp = mgr.get_status(req);
+        ASSERT_EQ(remove_count, 10);
+        ASSERT_EQ(resp.json.size(), 90);
+
+        remove_count = remove_nodes(module_vec[2], "D", 1, 100);
+        resp = mgr.get_status(req);
+        ASSERT_EQ(remove_count, 90);
+        ASSERT_EQ(resp.json.size(), 0);
     }
 
     {
