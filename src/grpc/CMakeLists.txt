@@ -21,8 +21,7 @@ target_link_libraries(sisl_grpc
 
 if (DEFINED ENABLE_TESTING)
   if (${ENABLE_TESTING})
-    if(${Pistache_FOUND})
-      add_subdirectory(tests)
-    endif()
+    find_package(Pistache QUIET REQUIRED)
+    add_subdirectory(tests)
   endif()
 endif()
