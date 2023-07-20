@@ -1,7 +1,6 @@
 cmake_minimum_required (VERSION 3.11)
 
 find_package(flatbuffers QUIET REQUIRED)
-find_package(Pistache QUIET REQUIRED)
 
 if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
@@ -28,6 +27,7 @@ settings_gen_cpp(
 
 if (DEFINED ENABLE_TESTING)
   if (${ENABLE_TESTING})
+    find_package(Pistache QUIET REQUIRED)
     add_executable(test_auth_mgr)
     target_sources(test_auth_mgr PRIVATE
         tests/AuthTest.cpp
