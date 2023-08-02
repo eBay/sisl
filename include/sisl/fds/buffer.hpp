@@ -33,11 +33,8 @@
 
 namespace sisl {
 struct blob {
-    uint8_t* bytes;
-    uint32_t size;
-
-    blob() : blob{nullptr, 0} {}
-    blob(uint8_t* const b, const uint32_t s) : bytes{b}, size{s} {}
+    uint8_t* bytes{nullptr};
+    uint32_t size{0ul};
 };
 
 using sg_iovs_t = folly::small_vector< iovec, 4 >;
@@ -248,9 +245,13 @@ struct io_blob : public blob {
         buf_alloc(sz, align_size, tag);
     }
     io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size),
-            aligned{is_aligned} {}
+            blob{bytes, size}, aligned{is_aligned} {}
     ~io_blob() = default;
+
+    io_blob(io_blob const& rhs) = default;
+    io_blob& operator=(io_blob const& rhs) = default;
+    io_blob(io_blob&& rhs) = default;
+    io_blob& operator=(io_blob&& rhs) = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
         aligned = (align_size != 0);
@@ -302,11 +303,15 @@ struct io_blob : public blob {
  */
 struct byte_array_impl : public io_blob {
     byte_array_impl(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) :
-            io_blob(sz, alignment, tag),
-            m_tag{tag} {}
+            io_blob(sz, alignment, tag), m_tag{tag} {}
     byte_array_impl(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
             io_blob(bytes, size, is_aligned) {}
     ~byte_array_impl() { io_blob::buf_free(m_tag); }
+
+    byte_array_impl(byte_array_impl const& rhs) = default;
+    byte_array_impl& operator=(byte_array_impl const& rhs) = default;
+    byte_array_impl(byte_array_impl&& rhs) = default;
+    byte_array_impl& operator=(byte_array_impl&& rhs) = default;
 
     buftag m_tag;
 };
