@@ -60,7 +60,7 @@ protected:
 
         for (const auto& [key, val] : entries) {
             ASSERT_EQ(key.m_base_key, 1u) << "Expected base key is standard value 1";
-            uint8_t* got_bytes = val.bytes();
+            auto got_bytes = val.bytes();
             for (auto o{key.m_nth}; o < key.m_nth + key.m_count; ++o) {
                 auto it = m_shadow_map.find(o);
                 ASSERT_EQ(m_inserted_slots.is_bits_set(o, 1), true) << "Found a key " << o << " which was not inserted";
@@ -87,7 +87,7 @@ protected:
 
     sisl::io_blob create_data(const uint32_t start, const uint32_t end) {
         auto blob = sisl::io_blob{per_val_size * (end - start + 1), 0};
-        uint8_t* bytes = blob.bytes;
+        auto bytes = blob.bytes;
 
         for (auto i = start; i <= end; ++i) {
             auto arr = (std::array< uint32_t, per_val_size / sizeof(uint32_t) >*)bytes;
@@ -97,7 +97,7 @@ protected:
         return blob;
     }
 
-    void compare_data(const uint32_t offset, const uint8_t* l_bytes, const uint8_t* r_bytes) const {
+    void compare_data(const uint32_t offset, const std::byte* l_bytes, const std::byte* r_bytes) const {
         const auto l_arr = (std::array< uint32_t, per_val_size / sizeof(uint32_t) >*)l_bytes;
         const auto r_arr = (std::array< uint32_t, per_val_size / sizeof(uint32_t) >*)r_bytes;
 

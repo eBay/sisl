@@ -33,7 +33,7 @@
 
 namespace sisl {
 struct blob {
-    uint8_t* bytes{nullptr};
+    std::byte* bytes{nullptr};
     uint32_t size{0ul};
 };
 
@@ -140,10 +140,10 @@ public:
     AlignedAllocatorImpl& operator=(AlignedAllocatorImpl&&) noexcept = delete;
     virtual ~AlignedAllocatorImpl() = default;
 
-    virtual uint8_t* aligned_alloc(const size_t align, const size_t sz, const sisl::buftag tag);
-    virtual void aligned_free(uint8_t* const b, const sisl::buftag tag);
-    virtual uint8_t* aligned_realloc(uint8_t* const old_buf, const size_t align, const size_t new_sz,
-                                     const size_t old_sz = 0);
+    virtual std::byte* aligned_alloc(const size_t align, const size_t sz, const sisl::buftag tag);
+    virtual void aligned_free(std::byte* const b, const sisl::buftag tag);
+    virtual std::byte* aligned_realloc(std::byte* const old_buf, const size_t align, const size_t new_sz,
+                                       const size_t old_sz = 0);
 
     template < typename T >
     void aligned_delete(T* const p, const sisl::buftag tag) {
@@ -151,12 +151,12 @@ public:
         aligned_free(p, tag);
     }
 
-    virtual uint8_t* aligned_pool_alloc(const size_t align, const size_t sz, const sisl::buftag tag) {
+    virtual std::byte* aligned_pool_alloc(const size_t align, const size_t sz, const sisl::buftag tag) {
         return aligned_alloc(align, sz, tag);
     };
-    virtual void aligned_pool_free(uint8_t* const b, const size_t, const sisl::buftag tag) { aligned_free(b, tag); };
+    virtual void aligned_pool_free(std::byte* const b, const size_t, const sisl::buftag tag) { aligned_free(b, tag); };
 
-    virtual size_t buf_size(uint8_t* buf) const {
+    virtual size_t buf_size(std::byte* buf) const {
 #ifdef __linux__
         return ::malloc_usable_size(buf);
 #else
@@ -244,7 +244,7 @@ struct io_blob : public blob {
     io_blob(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
         buf_alloc(sz, align_size, tag);
     }
-    io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
+    io_blob(std::byte* const bytes, const uint32_t size, const bool is_aligned) :
             blob{bytes, size}, aligned{is_aligned} {}
     ~io_blob() = default;
 
@@ -256,7 +256,7 @@ struct io_blob : public blob {
     void buf_alloc(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
         aligned = (align_size != 0);
         blob::size = sz;
-        blob::bytes = aligned ? sisl_aligned_alloc(align_size, sz, tag) : (uint8_t*)malloc(sz);
+        blob::bytes = aligned ? sisl_aligned_alloc(align_size, sz, tag) : (std::byte*)malloc(sz);
     }
 
     void buf_free(const buftag tag = buftag::common) const {
@@ -265,19 +265,19 @@ struct io_blob : public blob {
 
     void buf_realloc(const size_t new_size, const uint32_t align_size = 512,
                      [[maybe_unused]] const buftag tag = buftag::common) {
-        uint8_t* new_buf{nullptr};
+        std::byte* new_buf{nullptr};
         if (aligned) {
             // aligned before, so do not need check for new align size, once aligned will be aligned on realloc also
             new_buf = sisl_aligned_realloc(blob::bytes, align_size, new_size, blob::size);
         } else if (align_size != 0) {
             // Not aligned before, but need aligned now
-            uint8_t* const new_buf{sisl_aligned_alloc(align_size, new_size, buftag::common)};
+            std::byte* const new_buf{sisl_aligned_alloc(align_size, new_size, buftag::common)};
             std::memcpy(static_cast< void* >(new_buf), static_cast< const void* >(blob::bytes),
                         std::min(new_size, static_cast< size_t >(blob::size)));
             std::free(blob::bytes);
         } else {
             // don't bother about alignment, just do standard realloc
-            new_buf = (uint8_t*)std::realloc(blob::bytes, new_size);
+            new_buf = (std::byte*)std::realloc(blob::bytes, new_size);
         }
 
         blob::size = new_size;
@@ -285,13 +285,13 @@ struct io_blob : public blob {
     }
 
     static io_blob from_string(const std::string& s) {
-        return io_blob{r_cast< uint8_t* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
+        return io_blob{r_cast< std::byte* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
     }
 
     static io_blob_list_t sg_list_to_ioblob_list(const sg_list& sglist) {
         io_blob_list_t ret_list;
         for (const auto& iov : sglist.iovs) {
-            ret_list.emplace_back(r_cast< uint8_t* >(const_cast< void* >(iov.iov_base)), uint32_cast(iov.iov_len),
+            ret_list.emplace_back(r_cast< std::byte* >(const_cast< void* >(iov.iov_base)), uint32_cast(iov.iov_len),
                                   false);
         }
         return ret_list;
@@ -299,12 +299,12 @@ struct io_blob : public blob {
 };
 
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
- * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
+ * reason why we have this instead of using vector< std::byte > is that this supports allocating in aligned memory
  */
 struct byte_array_impl : public io_blob {
     byte_array_impl(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) :
             io_blob(sz, alignment, tag), m_tag{tag} {}
-    byte_array_impl(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
+    byte_array_impl(std::byte* const bytes, const uint32_t size, const bool is_aligned) :
             io_blob(bytes, size, is_aligned) {}
     ~byte_array_impl() { io_blob::buf_free(m_tag); }
 
@@ -364,7 +364,7 @@ public:
     }
 
     blob get_blob() const { return m_view; }
-    uint8_t* bytes() const { return m_view.bytes; }
+    std::byte* bytes() const { return m_view.bytes; }
     uint32_t size() const { return m_view.size; }
     void move_forward(const uint32_t by) {
         assert(m_view.size >= by);

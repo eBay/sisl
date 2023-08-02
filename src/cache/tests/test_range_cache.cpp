@@ -73,7 +73,7 @@ protected:
 
     void write(const uint32_t chunk_num, const uint32_t start_blk, const uint32_t end_blk) {
         uint32_t size = (end_blk - start_blk + 1) * g_blk_size;
-        sisl::io_blob b{uintptr_cast(generate_data(size)), size, false};
+        sisl::io_blob b{static_cast< std::byte* >(generate_data(size)), size, false};
         file_write(chunk_num, start_blk, b);
         m_cache->insert(chunk_num, start_blk, end_blk - start_blk + 1, std::move(b));
     }
