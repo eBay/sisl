@@ -84,7 +84,7 @@ class SISLConan(ConanFile):
                 self.requires("pistache/0.0.5")
         
         self.requires("fmt/8.1.1",          override=True)
-        self.requires("libcurl/7.86.0",     override=True)
+        #LIBCURLFIXTOKEN
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1q",     override=True)
         self.requires("xz_utils/5.2.5",     override=True)

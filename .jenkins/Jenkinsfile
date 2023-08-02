@@ -16,6 +16,7 @@ pipeline {
             steps {
                 script {
                     sh(script: "sed -Ei 's, version = .*\"([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*, version = \"\\1-${env.BUILD_NUMBER}\",' conanfile.py")
+                    sh(script: "sed -Ei 's,#LIBCURLFIXTOKEN.*,self.requires(\"libcurl/7.86.0\"\\,     override=True),' conanfile.py")
                     BUILD_MISSING = "--build missing"
                 }
             }
