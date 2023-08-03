@@ -4,25 +4,16 @@ namespace securitycfg;
 attribute "hotswap";
 attribute "deprecated";
 
-table TrfClient {
-    // grant token mount directory
-    grant_path: string;
+table SecuritySettings {
+    // ssl cert related files
+    ssl_cert_file: string;
+    ssl_key_file: string;
+    ssl_ca_file: string;
 
-    // Server addr to download the token (default: https://trustfabric.vip.ebay.com/v2/token)
-    server: string;
-
-    // Pod env variables
-    app_name: string;
-    app_inst_name: string;
-    app_env: string;
-    pod_name: string;
-}
-
-table AuthManager {
     // , separated allowed applications (default all)
     auth_allowed_apps: string;
 
-    // Token issuer (default trustfabric)
+    // Token issuer
     issuer: string;
 
     // signing key domain
@@ -32,20 +23,7 @@ table AuthManager {
     leeway: uint32 = 0;
 
     // ssl verification for the signing key download url
-    verify: bool = true;
-}
-
-table SecuritySettings {
-    // ssl cert related files
-    ssl_cert_file: string;
-    ssl_key_file: string;
-    ssl_ca_file: string;
-
-    // Auth Manager to decode and verify the token
-    auth_manager: AuthManager;
-
-    // Trustfabric client settings
-    trf_client: TrfClient;    
+    verify: bool = true;    
 }
 
 root_type SecuritySettings;

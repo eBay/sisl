@@ -10,7 +10,6 @@ include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(sisl_auth_manager OBJECT)
 target_sources(sisl_auth_manager PRIVATE
     auth_manager.cpp
-    trf_client.cpp
   )
 target_link_libraries(sisl_auth_manager
     ${COMMON_DEPS}

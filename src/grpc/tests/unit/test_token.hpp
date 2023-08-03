@@ -14,6 +14,8 @@
  *********************************************************************************/
 #pragma once
 
+#include <jwt-cpp/jwt.h>
+
 namespace sisl::grpc::testing {
 // public and private keys for unit test
 
@@ -70,8 +72,8 @@ struct TestToken {
                       .set_issued_at(std::chrono::system_clock::now() - std::chrono::seconds(180))
                       .set_not_before(std::chrono::system_clock::now() - std::chrono::seconds(180))
                       .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds(180))
-                      .set_subject("uid=sdsapp,networkaddress=dummy_ip,ou=orchmanager+l="
-                                   "production,o=testapp,dc=tess,dc=ebay,dc=com")
+                      .set_subject("uid=app,networkaddress=dummy_ip,ou=dummy+l="
+                                   "production,o=testapp,dc=k8s,dc=dummy,dc=com")
                       .set_payload_claim("ver", jwt::claim(std::string{"2"}))
                       .set_payload_claim("vpc", jwt::claim(std::string{"production"}))
                       .set_payload_claim("instances", jwt::claim(std::string{"dummy_ip"}))} {}

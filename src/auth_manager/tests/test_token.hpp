@@ -1,5 +1,7 @@
 #pragma once
 
+#include <jwt-cpp/jwt.h>
+
 namespace sisl::testing {
 // public and private keys for unit test
 
@@ -57,27 +59,6 @@ static const std::string rsa_priv_key = "-----BEGIN PRIVATE KEY-----\n"
  * same attributes in heeader and payload claims. In some test cases if we want
  * to build a token with some invalid attributes, we must explicitly set those
  * attributes.
- *
- * A trustfabric token example:
- * Header claims <key-value pairs>
- *   alg: RS256
- *   kid: 779112af
- *   typ: JWT
- *   x5u: https://trustfabric.vip.ebay.com/v2/k/779112af
- *
- * Payload claims <key-value pairs>
- *   iss: trustfabric
- *   aud: [usersessionauthsvc, protegoreg, fountauth, monstor, ...]
- *   cluster: 92
- *   ns: sds-tess92-19
- *   iat: 1610081499
- *   exp: 1610083393
- *   nbf: 1610081499
- *   instances: 10.175.165.15
- *   sub:
- * uid=sdsapp,networkaddress=10.175.165.15,ou=orchmanager+l=production,o=sdstess9219,dc=tess,dc=ebay,dc=com
- *   ver: 2
- *   vpc: production
  */
 
 struct TestToken {
@@ -90,12 +71,12 @@ struct TestToken {
                       .set_key_id("abc123")
                       .set_issuer("trustfabric")
                       .set_header_claim("x5u", jwt::claim(std::string{"http://127.0.0.1:12346/download_key"}))
-                      .set_audience(std::set< std::string >{"test-sisl", "protegoreg"})
+                      .set_audience(std::set< std::string >{"test-sisl", "dummy1"})
                       .set_issued_at(std::chrono::system_clock::now() - std::chrono::seconds(180))
                       .set_not_before(std::chrono::system_clock::now() - std::chrono::seconds(180))
                       .set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds(180))
-                      .set_subject("uid=sdsapp,networkaddress=dummy_ip,ou=orchmanager+l="
-                                   "production,o=testapp,dc=tess,dc=ebay,dc=com")
+                      .set_subject("uid=app,networkaddress=dummy_ip,ou=dummy2+l="
+                                   "production,o=testapp,dc=k8,dc=dummy3,dc=com")
                       .set_payload_claim("ver", jwt::claim(std::string{"2"}))
                       .set_payload_claim("vpc", jwt::claim(std::string{"production"}))
                       .set_payload_claim("instances", jwt::claim(std::string{"dummy_ip"}))} {}

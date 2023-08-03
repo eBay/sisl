@@ -19,7 +19,7 @@
 
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
-#include <sisl/auth_manager/trf_client.hpp>
+#include <sisl/auth_manager/token_client.hpp>
 
 #include "basic_http_server.hpp"
 #include "sisl/grpc/rpc_client.hpp"
@@ -36,19 +36,9 @@ using namespace ::grpc_helper_test;
 using namespace ::testing;
 
 static const std::string grpc_server_addr{"0.0.0.0:12345"};
-static const std::string trf_token_server_ip{"127.0.0.1"};
-static const uint32_t trf_token_server_port{12346};
-static std::string token_response;
-static void set_token_response(const std::string& raw_token) {
-    token_response = "{\n"
-                     "  \"access_token\": \"" +
-        raw_token +
-        "\",\n"
-        "  \"token_type\": \"Bearer\",\n"
-        "  \"expires_in\": 2000,\n"
-        "  \"refresh_token\": \"dummy_refresh_token\"\n"
-        "}";
-}
+static const std::string token_server_ip{"127.0.0.1"};
+static const uint32_t token_server_port{12346};
+
 static const std::string GENERIC_METHOD{"generic_method"};
 
 static const std::vector< std::pair< std::string, std::string > > grpc_metadata{
@@ -236,26 +226,14 @@ TEST_F(AuthDisableTest, metadata) {
     EXPECT_TRUE(status.ok());
 }
 
-static auto const grant_path = std::string{"dummy_grant.cg"};
-
 static void load_auth_settings() {
-    std::ofstream outfile{grant_path};
-    outfile << "dummy cg contents\n";
-    outfile.close();
     SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) {
-        s.auth_manager->auth_allowed_apps = "app1, testapp, app2";
-        s.auth_manager->tf_token_url = "http://127.0.0.1";
-        s.auth_manager->leeway = 0;
-        s.auth_manager->issuer = "trustfabric";
-        s.trf_client->grant_path = grant_path;
-        s.trf_client->server = fmt::format("{}:{}/token", trf_token_server_ip, trf_token_server_port);
+        s.auth_allowed_apps = "all";
+        s.tf_token_url = "http://127.0.0.1";
+        s.leeway = 0;
+        s.issuer = "trustfabric";
     });
     SECURITY_SETTINGS_FACTORY().save();
-}
-
-static void remove_auth_settings() {
-    auto const grant_fs_path = std::filesystem::path{grant_path};
-    EXPECT_TRUE(std::filesystem::remove(grant_fs_path));
 }
 
 class AuthServerOnlyTest : public AuthBaseTest {
@@ -274,10 +252,7 @@ public:
         m_generic_stub = m_async_grpc_client->make_generic_stub("worker-2");
     }
 
-    void TearDown() override {
-        AuthBaseTest::TearDown();
-        remove_auth_settings();
-    }
+    void TearDown() override { AuthBaseTest::TearDown(); }
 };
 
 TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
@@ -298,15 +273,16 @@ TEST_F(AuthServerOnlyTest, fail_on_no_client_auth) {
 
 class TokenApiImpl : public TokenApi {
 public:
-    void get_token_impl(Pistache::Http::ResponseWriter& response) {
-        LOGINFO("Sending token to client");
-        response.send(Pistache::Http::Code::Ok, token_response);
-    }
-
     void get_key_impl(Pistache::Http::ResponseWriter& response) {
         LOGINFO("Download rsa key");
         response.send(Pistache::Http::Code::Ok, rsa_pub_key);
     }
+};
+
+class MockGrpcTokenClient : public GrpcTokenClient {
+public:
+    using GrpcTokenClient::GrpcTokenClient;
+    std::string get_token() override { return fmt::format("{} {}", "Bearer", TestToken().sign_rs256()); }
 };
 
 class AuthEnableTest : public AuthBaseTest {
@@ -318,14 +294,14 @@ public:
         grpc_server_start(grpc_server_addr, m_auth_mgr);
 
         // start token server
-        APIBase::init(Pistache::Address(fmt::format("{}:{}", trf_token_server_ip, trf_token_server_port)), 1);
+        APIBase::init(Pistache::Address(fmt::format("{}:{}", token_server_ip, token_server_port)), 1);
         m_token_server = std::unique_ptr< TokenApiImpl >(new TokenApiImpl());
         m_token_server->setupRoutes();
         APIBase::start();
 
         // Client with auth
-        m_trf_client = std::make_shared< TrfClient >();
-        m_async_grpc_client = std::make_unique< GrpcAsyncClient >(grpc_server_addr, m_trf_client, "", "");
+        m_token_client = std::make_shared< MockGrpcTokenClient >("authorization");
+        m_async_grpc_client = std::make_unique< GrpcAsyncClient >(grpc_server_addr, m_token_client, "", "");
         m_async_grpc_client->init();
         GrpcAsyncClientWorker::create_worker("worker-3", 4);
         m_echo_stub = m_async_grpc_client->make_stub< EchoService >("worker-3");
@@ -335,17 +311,14 @@ public:
     void TearDown() override {
         AuthBaseTest::TearDown();
         APIBase::stop();
-        remove_auth_settings();
     }
 
 protected:
     std::unique_ptr< TokenApiImpl > m_token_server;
-    std::shared_ptr< TrfClient > m_trf_client;
+    std::shared_ptr< MockGrpcTokenClient > m_token_client;
 };
 
 TEST_F(AuthEnableTest, allow_with_auth) {
-    auto raw_token = TestToken().sign_rs256();
-    set_token_response(raw_token);
     EchoRequest req;
     req.set_message("dummy_msg");
     EchoReply reply;
@@ -382,7 +355,7 @@ TEST_F(AuthEnableTest, allow_sync_client_with_auth) {
     EchoReply reply;
     req.set_message("dummy_sync_msg");
     ::grpc::ClientContext context;
-    context.AddMetadata("authorization", m_trf_client->get_typed_token());
+    context.AddMetadata(m_token_client->get_auth_header_key(), m_token_client->get_token());
     auto status = sync_client->echo_stub()->Echo(&context, req, &reply);
     EXPECT_TRUE(status.ok());
     EXPECT_EQ(req.message(), reply.message());

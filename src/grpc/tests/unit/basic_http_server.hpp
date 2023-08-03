@@ -50,26 +50,15 @@ Pistache::Rest::Router APIBase::m_router;
 class TokenApi : public APIBase {
 public:
     void setupRoutes() {
-        Pistache::Rest::Routes::Post(m_router, "/token",
-                                     Pistache::Rest::Routes::bind(&TokenApi::get_token_handler, this));
         Pistache::Rest::Routes::Get(m_router, "/download_key",
                                     Pistache::Rest::Routes::bind(&TokenApi::get_key_handler, this));
-    }
-
-    void get_token_handler(const Pistache::Rest::Request&, Pistache::Http::ResponseWriter response) {
-        this->get_token_impl(response);
     }
 
     void get_key_handler(const Pistache::Rest::Request&, Pistache::Http::ResponseWriter response) {
 
         this->get_key_impl(response);
     }
-
-    virtual void get_token_impl(Pistache::Http::ResponseWriter& response) = 0;
     virtual void get_key_impl(Pistache::Http::ResponseWriter& response) = 0;
 
-    virtual ~TokenApi() {
-        Pistache::Rest::Routes::Remove(m_router, Pistache::Http::Method::Post, "/token");
-        Pistache::Rest::Routes::Remove(m_router, Pistache::Http::Method::Get, "/download_key");
-    }
+    virtual ~TokenApi() { Pistache::Rest::Routes::Remove(m_router, Pistache::Http::Method::Get, "/download_key"); }
 };
