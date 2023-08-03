@@ -12,15 +12,6 @@ target_sources(sisl_grpc PRIVATE
   )
 target_link_libraries(sisl_grpc
     gRPC::grpc++
-    cpr::cpr
     flatbuffers::flatbuffers
-    jwt-cpp::jwt-cpp
     ${COMMON_DEPS}
   )
-
-if (DEFINED ENABLE_TESTING)
-  if (${ENABLE_TESTING})
-    find_package(Pistache QUIET REQUIRED)
-    add_subdirectory(tests)
-  endif()
-endif()

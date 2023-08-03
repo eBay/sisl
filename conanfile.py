@@ -68,21 +68,15 @@ class SISLConan(ConanFile):
 
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
-        self.requires("cpr/1.9.3")
         if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20230127")
         self.requires("cxxopts/2.2.1")
         self.requires("flatbuffers/1.12.0")
         self.requires("grpc/1.48.0")
-        self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.1.0")
         self.requires("spdlog/1.11.0")
         self.requires("zmarok-semver/1.1.0")
-        if self.options.testing:
-            if self.settings.compiler in ["gcc"]:
-                self.requires("pistache/0.0.5")
-        
         self.requires("fmt/8.1.1",          override=True)
         #LIBCURLFIXTOKEN
         self.requires("libevent/2.1.12",    override=True)

@@ -7,7 +7,6 @@ add_executable(auth_test
 target_link_libraries(auth_test
     sisl
     sisl_grpc
-    Pistache::Pistache
     GTest::gmock
     ${COMMON_DEPS}
   )
