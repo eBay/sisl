@@ -11,7 +11,6 @@ target_sources(sisl_grpc PRIVATE
     rpc_client.cpp
   )
 target_link_libraries(sisl_grpc
-    sisl_auth_manager
     gRPC::grpc++
     cpr::cpr
     flatbuffers::flatbuffers

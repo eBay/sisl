@@ -3,6 +3,8 @@
 
 namespace sisl {
 
+// Interface to get a token for authorization
+
 class TokenClient {
 public:
     virtual ~TokenClient() = default;
