@@ -15,3 +15,9 @@ target_link_libraries(sisl_grpc
     flatbuffers::flatbuffers
     ${COMMON_DEPS}
   )
+
+if (DEFINED ENABLE_TESTING)
+  if (${ENABLE_TESTING})
+    add_subdirectory(tests)
+  endif()
+endif()
