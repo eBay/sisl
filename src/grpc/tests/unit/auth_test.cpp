@@ -59,7 +59,7 @@ public:
             if (it == client_headers.end()) {
                 rpc_data->set_status(::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, ::grpc::string()));
             } else if (it->second != val) {
-                LOGERROR("wrong value, expected = {}, actual = {}", val, it->second)
+                LOGERROR("wrong value, expected = {}, actual = {}", val, it->second.data())
                 rpc_data->set_status(::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, ::grpc::string()));
             }
         }

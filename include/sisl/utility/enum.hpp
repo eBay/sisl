@@ -27,6 +27,8 @@
 #include <type_traits>
 #include <unordered_map>
 
+#include <fmt/format.h>
+
 template < typename EnumType >
 class EnumSupportBase {
 public:
@@ -117,6 +119,7 @@ private:
 
 #define BASE_ENUM(FQEnumName, EnumName, Underlying, ...)                                                               \
     enum class FQEnumName : Underlying { __VA_ARGS__ };                                                                \
+    inline auto format_as(FQEnumName e) { return fmt::underlying(e); }                                                 \
                                                                                                                        \
     struct FQEnumName##Support : EnumSupportBase< EnumName > {                                                         \
         typedef EnumName enum_type;                                                                                    \
