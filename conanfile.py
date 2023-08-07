@@ -48,6 +48,7 @@ class SISLConan(ConanFile):
 
     def build_requirements(self):
         self.build_requires("benchmark/1.7.1")
+        self.build_requires("cmake/3.27.0")
         self.build_requires("gtest/1.13.0")
 
     def requirements(self):
