@@ -33,6 +33,12 @@
 #include <sisl/utility/enum.hpp>
 #include <sisl/auth_manager/token_client.hpp>
 
+#include <fmt/format.h>
+
+namespace grpc {
+inline auto format_as(StatusCode s) { return fmt::underlying(s); }
+} // namespace grpc
+
 namespace sisl {
 
 /**
@@ -385,4 +391,4 @@ public:
     std::unique_ptr< GenericAsyncStub > make_generic_stub(const std::string& worker);
 };
 
-} // namespace sisl::grpc
+} // namespace sisl

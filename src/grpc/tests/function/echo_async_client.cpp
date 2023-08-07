@@ -306,7 +306,7 @@ public:
                 server->register_generic_rpc(GENERIC_METHOD, [this](boost::intrusive_ptr< GenericRpcData >& rpc_data) {
                     rpc_data->set_comp_cb([this](boost::intrusive_ptr< GenericRpcData >&) { num_completions++; });
                     if ((++num_calls % 2) == 0) {
-                        LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls);
+                        LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls.load());
                         std::thread([this, rpc = rpc_data] {
                             set_response(rpc->request(), rpc->response());
                             rpc->send_response();
@@ -321,7 +321,7 @@ public:
 
         bool compare_counters() {
             if (num_calls != num_completions) {
-                LOGERROR("num calls: {}, num_completions = {}", num_calls, num_completions);
+                LOGERROR("num calls: {}, num_completions = {}", num_calls.load(), num_completions.load());
                 return false;
             }
             return true;
