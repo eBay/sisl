@@ -16,7 +16,6 @@ pipeline {
             steps {
                 script {
                     sh(script: "sed -Ei 's, version = .*\"([[:digit:]]+\\.[[:digit:]]+\\.[[:digit:]]+).*, version = \"\\1-${env.BUILD_NUMBER}\",' conanfile.py")
-                    sh(script: "sed -Ei 's,#LIBCURLFIXTOKEN.*,self.requires(\"libcurl/7.86.0\"\\,     override=True),' conanfile.py")
                     BUILD_MISSING = "--build missing"
                 }
             }
@@ -94,11 +93,11 @@ pipeline {
 */
         stage("Compile") {
             steps {
-                sh "conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG} ; \
+                sh "conan create ${BUILD_MISSING} -o cmake:with_openssl=False -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG} ; \
                     conan remove -f ${PROJECT}/${TAG} ; \
-                    conan create ${BUILD_MISSING} -pr debug . ${PROJECT}/${TAG} ; \
-                    conan create ${BUILD_MISSING} -o sisl:malloc_impl=tcmalloc -o sisl:prerelease=True -pr test . ${PROJECT}/${TAG} ; \
-                    conan create ${BUILD_MISSING} -o sisl:malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG} ; \
+                    conan create ${BUILD_MISSING} -o cmake:with_openssl=False -pr debug . ${PROJECT}/${TAG} ; \
+                    conan create ${BUILD_MISSING} -o cmake:with_openssl=False -o sisl:malloc_impl=tcmalloc -o sisl:prerelease=True -pr test . ${PROJECT}/${TAG} ; \
+                    conan create ${BUILD_MISSING} -o cmake:with_openssl=False -o sisl:malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG} ; \
                     "
             }
         }
