@@ -143,9 +143,8 @@ class FollyConan(ConanFile):
         if self.options.get_safe("use_sse4_2") and str(self.settings.arch) not in ['x86', 'x86_64']:
             raise ConanInvalidConfiguration(f"{self.ref} can use the option use_sse4_2 only on x86 and x86_64 archs.")
 
-    # FIXME: Freeze max. CMake version at 3.16.2 to fix the Linux build
     def build_requirements(self):
-        self.build_requires("cmake/3.16.9")
+        self.build_requires("cmake/3.27.0")
 
     def source(self):
         files.get(self, **self.conan_data["sources"][self.version], destination=self._source_subfolder, strip_root=True)

@@ -154,7 +154,8 @@ static std::filesystem::path get_base_dir() {
             if (fs::is_symlink(sym_path)) { fs::remove(sym_path); }
             fs::create_directory_symlink(cur_log_dir, sym_path);
         } catch (std::exception& e) {
-            LOGINFO("Unable to create latest symlink={} to log dir={}, ignoring symlink creation\n", sym_path, log_dir);
+            LOGINFO("Unable to create latest symlink={} to log dir={}, ignoring symlink creation\n", sym_path.string(),
+                    log_dir.string());
         }
         return cur_log_dir;
     } else {

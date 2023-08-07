@@ -103,7 +103,7 @@ jobs:
     - name: Export Recipes
       run: |
         conan export 3rd_party/breakpad breakpad/cci.20230127@
-        conan export 3rd_party/folly folly/2022.01.31.00@
+        conan export 3rd_party/folly folly/nu2.2022.01.31.00@
         conan export 3rd_party/gperftools
         conan export 3rd_party/jemalloc
         conan export 3rd_party/prerelease_dummy
