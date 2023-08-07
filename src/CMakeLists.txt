@@ -9,12 +9,6 @@ add_subdirectory (sobject)
 # on Folly and pistache. It is unknown if Windows is supported...
 list(APPEND POSIX_LIBRARIES )
 list(APPEND SISL_DEPS  )
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
-    add_subdirectory (auth_manager)
-    list(APPEND POSIX_LIBRARIES
-        $<TARGET_OBJECTS:sisl_auth_manager>
-      )
-endif()
 if(${userspace-rcu_FOUND})
     add_subdirectory (grpc)
     list(APPEND POSIX_LIBRARIES

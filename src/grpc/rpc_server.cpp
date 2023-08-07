@@ -32,7 +32,7 @@ GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const s
         GrpcServer::GrpcServer(listen_addr, threads, ssl_key, ssl_cert, nullptr) {}
 
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-                       const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager >& auth_mgr) :
+                       const std::string& ssl_cert, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr) :
         m_num_threads{threads}, m_auth_mgr{auth_mgr} {
     if (listen_addr.empty() || threads == 0) { throw std::invalid_argument("Invalid parameter to start grpc server"); }
 
@@ -78,7 +78,7 @@ GrpcServer* GrpcServer::make(const std::string& listen_addr, uint32_t threads, c
     return GrpcServer::make(listen_addr, nullptr, threads, ssl_key, ssl_cert);
 }
 
-GrpcServer* GrpcServer::make(const std::string& listen_addr, const std::shared_ptr< sisl::AuthManager >& auth_mgr,
+GrpcServer* GrpcServer::make(const std::string& listen_addr, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr,
                              uint32_t threads, const std::string& ssl_key, const std::string& ssl_cert) {
     return new GrpcServer(listen_addr, threads, ssl_key, ssl_cert, auth_mgr);
 }
@@ -139,9 +139,7 @@ void GrpcServer::shutdown() {
 
 bool GrpcServer::is_auth_enabled() const { return m_auth_mgr != nullptr; }
 
-sisl::AuthVerifyStatus GrpcServer::auth_verify(const std::string& token, std::string& msg) const {
-    return m_auth_mgr->verify(token, msg);
-}
+grpc::Status GrpcServer::auth_verify(grpc::ServerContext const* srv_ctx) const { return m_auth_mgr->verify(srv_ctx); }
 
 bool GrpcServer::run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data) {
     generic_rpc_handler_cb_t cb;
@@ -216,42 +214,7 @@ bool RPCHelper::run_generic_handler_cb(GrpcServer* server, const std::string& me
 }
 
 grpc::Status RPCHelper::do_authorization(const GrpcServer* server, const grpc::ServerContext* srv_ctx) {
-    if (!server->is_auth_enabled()) { return grpc::Status(); }
-    auto& client_headers = srv_ctx->client_metadata();
-    if (auto it = client_headers.find("authorization"); it != client_headers.end()) {
-        const std::string bearer{"Bearer "};
-        if (it->second.starts_with(bearer)) {
-            auto token_ref = it->second.substr(bearer.size());
-            std::string msg;
-            return grpc::Status(RPCHelper::to_grpc_statuscode(
-                                    server->auth_verify(std::string(token_ref.begin(), token_ref.end()), msg)),
-                                msg);
-        } else {
-            return grpc::Status(grpc::StatusCode::UNAUTHENTICATED,
-                                grpc::string("authorization header value does not start with 'Bearer '"));
-        }
-    } else {
-        return grpc::Status(grpc::StatusCode::UNAUTHENTICATED, grpc::string("missing header authorization"));
-    }
-}
-
-grpc::StatusCode RPCHelper::to_grpc_statuscode(const sisl::AuthVerifyStatus status) {
-    grpc::StatusCode ret;
-    switch (status) {
-    case sisl::AuthVerifyStatus::OK:
-        ret = grpc::StatusCode::OK;
-        break;
-    case sisl::AuthVerifyStatus::UNAUTH:
-        ret = grpc::StatusCode::UNAUTHENTICATED;
-        break;
-    case sisl::AuthVerifyStatus::FORBIDDEN:
-        ret = grpc::StatusCode::PERMISSION_DENIED;
-        break;
-    default:
-        ret = grpc::StatusCode::UNKNOWN;
-        break;
-    }
-    return ret;
+    return (server->is_auth_enabled()) ? server->auth_verify(srv_ctx) : grpc::Status();
 }
 
 } // namespace sisl::grpc

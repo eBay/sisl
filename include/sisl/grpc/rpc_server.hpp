@@ -22,7 +22,7 @@
 #include <grpcpp/completion_queue.h>
 #include <sisl/logging/logging.h>
 #include <sisl/utility/enum.hpp>
-#include <sisl/auth_manager/auth_manager.hpp>
+#include <sisl/auth_manager/token_verifier.hpp>
 #include "rpc_call.hpp"
 
 namespace sisl {
@@ -40,7 +40,7 @@ public:
     GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                const std::string& ssl_cert);
     GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-               const std::string& ssl_cert, const std::shared_ptr< sisl::AuthManager >& auth_mgr);
+               const std::string& ssl_cert, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr);
     virtual ~GrpcServer();
 
     /**
@@ -48,7 +48,7 @@ public:
      */
     static GrpcServer* make(const std::string& listen_addr, uint32_t threads = 1, const std::string& ssl_key = "",
                             const std::string& ssl_cert = "");
-    static GrpcServer* make(const std::string& listen_addr, const std::shared_ptr< sisl::AuthManager >& auth_mgr,
+    static GrpcServer* make(const std::string& listen_addr, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr,
                             uint32_t threads = 1, const std::string& ssl_key = "", const std::string& ssl_cert = "");
 
     void run(const rpc_thread_start_cb_t& thread_start_cb = nullptr);
@@ -113,7 +113,7 @@ public:
     }
 
     bool is_auth_enabled() const;
-    sisl::AuthVerifyStatus auth_verify(const std::string& token, std::string& msg) const;
+    grpc::Status auth_verify(grpc::ServerContext const* srv_ctx) const;
 
     // generic service methods
     bool run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data);
@@ -136,7 +136,7 @@ private:
     std::unordered_map< const char*, ::grpc::Service* > m_services;
     std::mutex m_rpc_registry_mtx;
     std::vector< std::unique_ptr< RpcStaticInfoBase > > m_rpc_registry;
-    std::shared_ptr< sisl::AuthManager > m_auth_mgr;
+    std::shared_ptr< sisl::GrpcTokenVerifier > m_auth_mgr;
     std::unique_ptr< grpc::AsyncGenericService > m_generic_service;
     std::unique_ptr< GenericRpcStaticInfo > m_generic_rpc_static_info;
     bool m_generic_service_registered{false};

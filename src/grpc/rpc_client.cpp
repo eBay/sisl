@@ -21,9 +21,13 @@ GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string
                                const std::string& ssl_cert) :
         GrpcBaseClient::GrpcBaseClient(server_addr, nullptr, target_domain, ssl_cert) {}
 
-GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::shared_ptr< sisl::TrfClient >& trf_client,
+GrpcBaseClient::GrpcBaseClient(const std::string& server_addr,
+                               const std::shared_ptr< sisl::GrpcTokenClient >& token_client,
                                const std::string& target_domain, const std::string& ssl_cert) :
-        m_server_addr(server_addr), m_target_domain(target_domain), m_ssl_cert(ssl_cert), m_trf_client(trf_client) {}
+        m_server_addr(server_addr),
+        m_target_domain(target_domain),
+        m_ssl_cert(ssl_cert),
+        m_token_client(token_client) {}
 
 void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
@@ -132,7 +136,7 @@ void GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& reque
                                                    const generic_unary_callback_t& callback, uint32_t deadline) {
     auto data = new GenericClientRpcDataInternal(callback);
     data->set_deadline(deadline);
-    if (m_trf_client) { data->add_metadata("authorization", m_trf_client->get_typed_token()); }
+    if (m_token_client) { data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token()); }
     // Note that async unary RPCs don't post a CQ tag in call
     data->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&data->context(), method, request, cq());
     data->m_generic_resp_reader_ptr->StartCall();
@@ -146,7 +150,7 @@ void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t&
     auto cd = new GenericClientRpcData(done_cb);
     builder_cb(cd->m_req);
     cd->set_deadline(deadline);
-    if (m_trf_client) { cd->add_metadata("authorization", m_trf_client->get_typed_token()); }
+    if (m_token_client) { cd->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token()); }
     cd->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&cd->context(), method, cd->m_req, cq());
     cd->m_generic_resp_reader_ptr->StartCall();
     cd->m_generic_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
@@ -157,6 +161,6 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
     if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
 
     return std::make_unique< GrpcAsyncClient::GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w,
-                                                                 m_trf_client);
+                                                                 m_token_client);
 }
 } // namespace sisl::grpc
