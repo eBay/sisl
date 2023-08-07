@@ -35,6 +35,7 @@ class SISLConan(ConanFile):
                 'sanitize': False,
                 'prerelease': False,
                 'malloc_impl': 'libc',
+                'cmake:with_openssl': False,
             }
 
     generators = "cmake", "cmake_find_package"
@@ -47,8 +48,8 @@ class SISLConan(ConanFile):
             )
 
     def build_requirements(self):
-        self.build_requires("benchmark/1.7.1")
-        self.build_requires("gtest/1.13.0")
+        self.build_requires("benchmark/1.8.2")
+        self.build_requires("gtest/1.14.0")
 
     def requirements(self):
         # Custom packages
@@ -67,22 +68,19 @@ class SISLConan(ConanFile):
             self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
-        self.requires("boost/1.79.0")
+        self.requires("boost/1.82.0")
         if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20230127")
-        self.requires("cxxopts/2.2.1")
+        self.requires("cxxopts/3.1.1")
         self.requires("flatbuffers/1.12.0")
-        self.requires("grpc/1.48.0")
+        self.requires("grpc/1.50.1")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.1.0")
-        self.requires("spdlog/1.11.0")
+        self.requires("spdlog/1.12.0")
         self.requires("zmarok-semver/1.1.0")
-        self.requires("fmt/8.1.1",          override=True)
-        #LIBCURLFIXTOKEN
-        self.requires("libevent/2.1.12",    override=True)
-        self.requires("openssl/1.1.1q",     override=True)
-        self.requires("xz_utils/5.2.5",     override=True)
-        self.requires("zlib/1.2.12",        override=True)
+        self.requires("fmt/10.0.0",    override=True)
+        self.requires("openssl/3.1.1", override=True)
+        self.requires("zlib/1.2.13",   override=True)
 
     def validate(self):
         if self.info.settings.compiler.cppstd:
