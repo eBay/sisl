@@ -119,7 +119,6 @@ private:
 
 #define BASE_ENUM(FQEnumName, EnumName, Underlying, ...)                                                               \
     enum class FQEnumName : Underlying { __VA_ARGS__ };                                                                \
-    inline auto format_as(FQEnumName e) { return fmt::underlying(e); }                                                 \
                                                                                                                        \
     struct FQEnumName##Support : EnumSupportBase< EnumName > {                                                         \
         typedef EnumName enum_type;                                                                                    \
@@ -135,6 +134,9 @@ private:
             return s_instance;                                                                                         \
         };                                                                                                             \
     };                                                                                                                 \
+    [[nodiscard]] inline auto format_as(FQEnumName##Support::enum_type e) {                                            \
+        return FQEnumName##Support::instance().get_name(e);                                                            \
+    }                                                                                                                  \
     [[nodiscard]] inline FQEnumName##Support::enum_type operator|(const FQEnumName##Support::enum_type a,              \
                                                                   const FQEnumName##Support::enum_type b) {            \
         return static_cast< FQEnumName##Support::enum_type >(static_cast< FQEnumName##Support::underlying_type >(a) |  \
@@ -162,7 +164,7 @@ private:
                                                     const FQEnumName##Support::enum_type es) {                         \
         std::basic_ostringstream< charT, traits > out_stream_copy{};                                                   \
         out_stream_copy.copyfmt(out_stream);                                                                           \
-        out_stream_copy << FQEnumName##Support::instance().get_name(es);                                               \
+        out_stream_copy << fmt::format("{}", es);                                                                      \
         out_stream << out_stream_copy.str();                                                                           \
         return out_stream;                                                                                             \
     }                                                                                                                  \
