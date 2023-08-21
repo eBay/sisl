@@ -34,7 +34,7 @@ target_link_libraries(test_auth_mgr
     sisl
     ${COMMON_DEPS}
     cpr::cpr
-    pistache::pistache
+    Pistache::Pistache
     flatbuffers::flatbuffers
     jwt-cpp::jwt-cpp
     GTest::gmock
