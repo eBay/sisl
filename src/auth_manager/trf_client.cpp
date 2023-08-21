@@ -50,9 +50,9 @@ void TrfClient::request_with_grant_token() {
         auto ca_file{SECURITY_DYNAMIC_CONFIG(ssl_ca_file)};
         auto cert_file{SECURITY_DYNAMIC_CONFIG(ssl_cert_file)};
         auto key_file{SECURITY_DYNAMIC_CONFIG(ssl_key_file)};
-        auto sslOpts{cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)})};
-        sslOpts.SetOption(cpr::ssl::CertFile{std::move(cert_file)});
-        sslOpts.SetOption(cpr::ssl::KeyFile{std::move(key_file)});
+        auto sslOpts{cpr::Ssl(cpr::ssl::CaInfo{fmt::format("{}", ca_file)})};
+        sslOpts.SetOption(cpr::ssl::CertFile{fmt::format("{}", cert_file)});
+        sslOpts.SetOption(cpr::ssl::KeyFile{fmt::format("{}", key_file)});
         session.SetOption(sslOpts);
     }
 
