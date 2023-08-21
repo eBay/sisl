@@ -47,38 +47,33 @@ void TrfClient::request_with_grant_token() {
 
     cpr::Session session;
     if (SECURITY_DYNAMIC_CONFIG(auth_manager->verify)) {
-        auto ca_file{SECURITY_DYNAMIC_CONFIG(ssl_ca_file)};
-        auto cert_file{SECURITY_DYNAMIC_CONFIG(ssl_cert_file)};
-        auto key_file{SECURITY_DYNAMIC_CONFIG(ssl_key_file)};
+        std::string ca_file{SECURITY_DYNAMIC_CONFIG(ssl_ca_file)};
+        std::string cert_file{SECURITY_DYNAMIC_CONFIG(ssl_cert_file)};
+        std::string key_file{SECURITY_DYNAMIC_CONFIG(ssl_key_file)};
         auto sslOpts{cpr::Ssl(cpr::ssl::CaInfo{std::move(ca_file)})};
         sslOpts.SetOption(cpr::ssl::CertFile{std::move(cert_file)});
         sslOpts.SetOption(cpr::ssl::KeyFile{std::move(key_file)});
         session.SetOption(sslOpts);
     }
 
-    session.SetUrl(cpr::Url{SECURITY_DYNAMIC_CONFIG(trf_client->server)});
+    std::string token_server{SECURITY_DYNAMIC_CONFIG(trf_client->server)};
+
+    session.SetUrl(cpr::Url(token_server));
     std::vector< cpr::Pair > payload_data;
     payload_data.emplace_back("grant_type", "authorization_code");
     payload_data.emplace_back("code", grant_token);
     payload_data.emplace_back("client_id", client_id);
     session.SetPayload(cpr::Payload(payload_data.begin(), payload_data.end()));
     session.SetTimeout(std::chrono::milliseconds{5000});
-    const auto resp{session.Post()};
+
+    const cpr::Response resp{session.Post()};
     if (resp.error || resp.status_code != 200) {
         LOGERROR("request grant token from server failed, error: {}, status code: {}", resp.error.message,
                  resp.status_code);
         return;
     }
 
-    try {
-        const nlohmann::json resp_json = nlohmann::json::parse(resp.text);
-        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(resp_json["expires_in"]);
-        m_access_token = resp_json["access_token"];
-        m_token_type = resp_json["token_type"];
-    } catch ([[maybe_unused]] const nlohmann::detail::exception& e) {
-        LOGDEBUG("parsing token response using json failed, what: {}; trying to parse manually", e.what());
-        parse_response(resp.text);
-    }
+    parse_response(resp.text);
 }
 
 void TrfClient::parse_response(const std::string& resp) {

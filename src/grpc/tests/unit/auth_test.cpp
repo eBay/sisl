@@ -39,15 +39,10 @@ static const std::string grpc_server_addr{"0.0.0.0:12345"};
 static const std::string trf_token_server_ip{"127.0.0.1"};
 static const uint32_t trf_token_server_port{12346};
 static std::string token_response;
+
 static void set_token_response(const std::string& raw_token) {
-    token_response = "{\n"
-                     "  \"access_token\": \"" +
-        raw_token +
-        "\",\n"
-        "  \"token_type\": \"Bearer\",\n"
-        "  \"expires_in\": 2000,\n"
-        "  \"refresh_token\": \"dummy_refresh_token\"\n"
-        "}";
+    token_response = "{\"access_token\":\"" + raw_token +
+        "\",\"token_type\":\"Bearer\",\"expires_in\":2000,\"refresh_token\":\"dummy_refresh_token\"}\n";
 }
 static const std::string GENERIC_METHOD{"generic_method"};
 
