@@ -67,7 +67,6 @@ if (${MALLOC_IMPL} STREQUAL "jemalloc")
 endif()
 
 find_package(nlohmann_json QUIET REQUIRED)
-find_package(prerelease_dummy QUIET)
 find_package(prometheus-cpp QUIET REQUIRED)
 find_package(zmarok-semver QUIET REQUIRED)
 find_package(spdlog QUIET REQUIRED)
@@ -91,10 +90,6 @@ endif()
 if(${userspace-rcu_FOUND})
     list (APPEND COMMON_DEPS userspace-rcu::userspace-rcu)
 endif()
-
-if (${prerelease_dummy_FOUND})
-    list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
-endif ()
 
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "tcmalloc")

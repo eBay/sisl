@@ -73,7 +73,7 @@ pipeline {
                     steps {
                         slackSend channel: '#sds-ci', message: "*${PROJECT}:${TAG}* is undergoing Code Coverage."
                         sh "echo \"sonar.branch.name=${BRANCH_NAME}\" >> sonar-project.properties"
-                        sh "conan install -o sisl:prerelease=True -pr debug ${BUILD_MISSING} -o ${PROJECT}:coverage=True ."
+                        sh "conan install -pr debug ${BUILD_MISSING} -o ${PROJECT}:coverage=True ."
                         sh "build-wrapper-linux-x86-64 --out-dir /tmp/sonar conan build ."
                         sh "find . -name \"*.gcno\" -exec gcov {} \\;"
                         withSonarQubeEnv('sds-sonar')  {
@@ -97,7 +97,7 @@ pipeline {
                     conan create ${BUILD_MISSING} -o ${PROJECT}:sanitize=True -pr debug . ${PROJECT}/${TAG} ; \
                     conan remove -f ${PROJECT}/${TAG} ; \
                     conan create ${BUILD_MISSING} -pr debug . ${PROJECT}/${TAG} ; \
-                    conan create ${BUILD_MISSING} -o sisl:malloc_impl=tcmalloc -o sisl:prerelease=True -pr test . ${PROJECT}/${TAG} ; \
+                    conan create ${BUILD_MISSING} -o sisl:malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG} ; \
                     conan create ${BUILD_MISSING} -o sisl:malloc_impl=tcmalloc -pr test . ${PROJECT}/${TAG} ; \
                     "
             }

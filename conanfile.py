@@ -24,7 +24,6 @@ class SISLConan(ConanFile):
                 "coverage": ['True', 'False'],
                 'testing' : ['True', 'False'],
                 "sanitize": ['True', 'False'],
-                'prerelease' : ['True', 'False'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
               }
     default_options = {
@@ -33,7 +32,6 @@ class SISLConan(ConanFile):
                 'coverage': False,
                 'testing': True,
                 'sanitize': False,
-                'prerelease': False,
                 'malloc_impl': 'libc',
             }
 
@@ -52,10 +50,6 @@ class SISLConan(ConanFile):
         self.build_requires("gtest/1.14.0")
 
     def requirements(self):
-        # Custom packages
-        if self.options.prerelease:
-            self.requires("prerelease_dummy/1.0.1")
-
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
             self.requires("gperftools/2.7.0")

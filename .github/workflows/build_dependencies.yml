@@ -16,10 +16,6 @@ on:
       malloc-impl:
         required: true
         type: string
-      prerelease:
-        required: false
-        type: string
-        default: 'False'
       testing:
         required: false
         type: string
@@ -53,14 +49,6 @@ on:
           - libc
           - tcmalloc
           - jemalloc
-      prerelease:
-        description: 'Fault Instrumentation'
-        required: false
-        type: choice
-        options:
-          - 'True'
-          - 'False'
-        default: 'False'
       testing:
         description: 'Build and Run'
         required: true
@@ -92,7 +80,7 @@ jobs:
       uses: eBay/sisl/.github/actions/load_conan@stable/v8.x
       with:
         testing: ${{ inputs.testing }}
-        key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+        key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
 
     - name: Setup Conan
       uses: eBay/sisl/.github/actions/setup_conan@stable/v8.x
@@ -106,7 +94,6 @@ jobs:
         conan export 3rd_party/folly folly/nu2.2022.01.31.00@
         conan export 3rd_party/gperftools
         conan export 3rd_party/jemalloc
-        conan export 3rd_party/prerelease_dummy
         cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
@@ -114,7 +101,6 @@ jobs:
     - name: Build Cache
       run: |
         conan install \
-            -o prerelease=${{ inputs.prerelease }} \
             -o malloc_impl=${{ inputs.malloc-impl }} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
@@ -124,39 +110,36 @@ jobs:
     - name: Save Conan Cache
       uses: eBay/sisl/.github/actions/store_conan@stable/v8.x
       with:
-        key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+        key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Code Coverage Run
       run: |
         conan install \
-            -o prerelease=${{ inputs.prerelease }} \
             -o malloc_impl=${{ inputs.malloc-impl }} \
             -o coverage=True \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             .
         conan build .
-      if: ${{ inputs.testing == 'True' && inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' && inputs.prerelease == 'False' }}
+      if: ${{ inputs.testing == 'True' && inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' }}
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         gcov: true
-      if: ${{ inputs.testing == 'True' && inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' && inputs.prerelease == 'False' }}
+      if: ${{ inputs.testing == 'True' && inputs.platform == 'ubuntu-22.04' && inputs.build-type == 'Debug' && inputs.malloc-impl == 'libc' }}
 
     - name: Create and Test Package
       run: |
         sanitize=$([[ "${{ inputs.build-type }}" == "Debug" && \
-                      "${{ inputs.malloc-impl }}" == "libc" && \
-                      "${{ inputs.prerelease }}" == "True" ]] && \
+                      "${{ inputs.malloc-impl }}" == "libc" ]] && \
                           echo "True" || echo "False")
         conan create \
-            -o sisl:prerelease=${{ inputs.prerelease }} \
             -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
             -o sisl:sanitize=${sanitize} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             .
-      if: ${{ inputs.testing == 'True' && ( inputs.platform != 'ubuntu-22.04' || inputs.build-type != 'Debug' || inputs.malloc-impl != 'libc' || inputs.prerelease != 'False' ) }}
+      if: ${{ inputs.testing == 'True' && ( inputs.platform != 'ubuntu-22.04' || inputs.build-type != 'Debug' || inputs.malloc-impl != 'libc' ) }}

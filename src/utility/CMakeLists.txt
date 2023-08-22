@@ -32,13 +32,12 @@ if (DEFINED ENABLE_TESTING)
     target_link_libraries(test_enum ${COMMON_DEPS} GTest::gtest)
     add_test(NAME Enum COMMAND test_enum)
 
-    if (${prerelease_dummy_FOUND})
-      add_executable(test_objlife)
-      target_sources(test_objlife PRIVATE
-          tests/test_objlife_counter.cpp
-        )
-      target_link_libraries(test_objlife sisl ${COMMON_DEPS} GTest::gtest)
-      add_test(NAME ObjLife COMMAND test_objlife)
-    endif ()
+    add_flags('-D_PRERELEASE')
+    add_executable(test_objlife)
+    target_sources(test_objlife PRIVATE
+        tests/test_objlife_counter.cpp
+      )
+    target_link_libraries(test_objlife sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME ObjLife COMMAND test_objlife)
   endif()
 endif()
