@@ -28,6 +28,8 @@ jobs:
             prerelease: "False"
           - build-type: Debug
             tooling: None
+          - build-type: Debug
+            malloc-impl: tcmalloc
           - build-type: Release
             malloc-impl: libc
           - build-type: Release
