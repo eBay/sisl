@@ -46,6 +46,23 @@ class SISLConan(ConanFile):
                 "src/*",
             )
 
+    def validate(self):
+        if self.info.settings.compiler.cppstd:
+            check_min_cppstd(self, 20)
+
+    def configure(self):
+        if self.settings.compiler in ["gcc"]:
+            self.options['pistache'].with_ssl: True
+        if self.options.shared:
+            del self.options.fPIC
+        if self.settings.build_type == "Debug":
+            self.options.prerelease = True
+            if self.options.coverage and self.options.sanitize:
+                raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
+            if not self.options.testing:
+                if self.options.coverage or self.options.sanitize:
+                    raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
+
     def build_requirements(self):
         self.build_requires("benchmark/1.8.2")
         self.build_requires("cmake/3.27.0")
@@ -83,24 +100,6 @@ class SISLConan(ConanFile):
         self.requires("openssl/3.1.1",  override=True)
         self.requires("xz_utils/5.2.5", override=True)
         self.requires("zlib/1.2.13",    override=True)
-
-    def validate(self):
-        if self.info.settings.compiler.cppstd:
-            check_min_cppstd(self, 20)
-
-    def configure(self):
-        if self.settings.compiler in ["gcc"]:
-            self.options['pistache'].with_ssl: True
-        if self.options.shared:
-            del self.options.fPIC
-        if self.settings.build_type == "Debug":
-            if self.options.coverage and self.options.sanitize:
-                raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
-            if self.options.coverage or self.options.sanitize:
-                self.options.malloc_impl = 'libc'
-            if not self.options.testing:
-                if self.options.coverage or self.options.sanitize:
-                    raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build(self):
         cmake = CMake(self)
