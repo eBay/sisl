@@ -124,9 +124,11 @@ jobs:
 
     - name: Build Cache
       run: |
+        coverage=$([[ "${{ inputs.tooling }}" == "Coverage" ]] && echo "True" || echo "False")
         conan install \
             -o prerelease=${{ inputs.prerelease }} \
             -o malloc_impl=${{ inputs.malloc-impl }} \
+            -o coverage=True \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             .
@@ -140,13 +142,6 @@ jobs:
 
     - name: Code Coverage Run
       run: |
-        conan install \
-            -o prerelease=${{ inputs.prerelease }} \
-            -o malloc_impl=${{ inputs.malloc-impl }} \
-            -o coverage=True \
-            -s build_type=${{ inputs.build-type }} \
-            --build missing \
-            .
         conan build .
       if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
 
@@ -161,9 +156,9 @@ jobs:
       run: |
         sanitize=$([[ "${{ inputs.tooling }}" == "Sanitize" ]] && echo "True" || echo "False")
         conan create \
-            -o prerelease=${{ inputs.prerelease }} \
-            -o malloc_impl=${{ inputs.malloc-impl }} \
-            -o sanitize=${sanitize} \
+            -o sisl:prerelease=${{ inputs.prerelease }} \
+            -o sisl:malloc_impl=${{ inputs.malloc-impl }} \
+            -o sisl:sanitize=${sanitize} \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             .
