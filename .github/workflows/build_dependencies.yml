@@ -124,11 +124,9 @@ jobs:
 
     - name: Build Cache
       run: |
-        coverage=$([[ "${{ inputs.tooling }}" == "Coverage" ]] && echo "True" || echo "False")
         conan install \
             -o prerelease=${{ inputs.prerelease }} \
             -o malloc_impl=${{ inputs.malloc-impl }} \
-            -o coverage=True \
             -s build_type=${{ inputs.build-type }} \
             --build missing \
             .
@@ -139,18 +137,6 @@ jobs:
       with:
         key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
-
-    - name: Code Coverage Run
-      run: |
-        conan build .
-      if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
-
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        gcov: true
-      if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
 
     - name: Create and Test Package
       run: |
@@ -163,3 +149,22 @@ jobs:
             --build missing \
             .
       if: ${{ inputs.testing == 'True' && inputs.tooling != 'Coverage' }}
+
+    - name: Code Coverage Run
+      run: |
+        conan install \
+            -o prerelease=${{ inputs.prerelease }} \
+            -o malloc_impl=${{ inputs.malloc-impl }} \
+            -o coverage=True \
+            -s build_type=${{ inputs.build-type }} \
+            --build missing \
+            .
+        conan build .
+      if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        gcov: true
+      if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
