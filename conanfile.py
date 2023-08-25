@@ -68,7 +68,7 @@ class SISLConan(ConanFile):
         self.requires("fmt/8.1.1",          override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1s",     override=True)
-        self.requires("libcurl/7.86.0",  override=True)
+        self.requires("libcurl/8.0.1",      override=True)
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
         if self.options.malloc_impl == "jemalloc":
