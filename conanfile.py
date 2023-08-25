@@ -59,7 +59,6 @@ class SISLConan(ConanFile):
             self.requires("folly/2022.01.31.00")
         self.requires("grpc/1.48.0")
         self.requires("jwt-cpp/0.4.0")
-        self.requires("libcurl/7.86.0")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.0.1")
         self.requires("spdlog/1.11.0")
@@ -69,6 +68,7 @@ class SISLConan(ConanFile):
         self.requires("fmt/8.1.1",          override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1s",     override=True)
+        self.requires("libcurl/7.86.0",  override=True)
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
         if self.options.malloc_impl == "jemalloc":
