@@ -10,6 +10,7 @@ class GPerfToolsConan(ConanFile):
     license = "BSD"
 
     description = "A portable library to determine the call-chain of a C program"
+    url = "https://github.com/conan-io/conan-center-index"
     settings = "os", "arch", "compiler", "build_type"
 
     options = {"shared": [True, False], "fPIC": [True, False]}

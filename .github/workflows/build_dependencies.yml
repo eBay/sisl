@@ -111,13 +111,9 @@ jobs:
         platform: ${{ inputs.platform }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
 
-    - name: Export Recipes
+    - name: Prepare Recipes
       run: |
-        conan export 3rd_party/breakpad breakpad/cci.20230127@
-        conan export 3rd_party/folly folly/nu2.2022.01.31.00@
-        conan export 3rd_party/gperftools
-        conan export 3rd_party/jemalloc
-        conan export 3rd_party/prerelease_dummy
+        ./prepare.sh
         cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
