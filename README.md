@@ -72,6 +72,7 @@ to be built.
 Assuming the conan setup is already done
 
 ```
+$ ./prepare.sh # this will export some recipes to the conan cache
 $ mkdir build
 $ cd build
 
