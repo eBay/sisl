@@ -2,31 +2,26 @@
 #include <stdexcept>
 
 #include <fmt/format.h>
+extern "C" {
+#include <openssl/md5.h>
+}
 
 #include "sisl/auth_manager/auth_manager.hpp"
 
 namespace sisl {
 
-static std::string md5_sum(std::string const& b) {
-    std::array< unsigned char, MD5_DIGEST_LENGTH > result;
-    uint32_t md_len;
-    auto mdctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex2(mdctx, EVP_md5(), nullptr);
-    EVP_DigestUpdate(mdctx, b.c_str(), b.size());
-    EVP_DigestFinal_ex(mdctx, result.data(), &md_len);
-    EVP_MD_CTX_free(mdctx);
-    if (md_len != MD5_DIGEST_LENGTH) {
-        LOGERROR("Bad digest length, expected [{}] got [{}]!", MD5_DIGEST_LENGTH, md_len);
-        return std::string();
-    }
+static std::string md5_sum(std::string const& s) {
+    unsigned char digest[MD5_DIGEST_LENGTH];
 
-    // convert to hex
-    std::ostringstream ss;
-    ss << std::hex;
-    for (auto const c : result) {
-        ss << static_cast< unsigned >(c);
+    MD5(reinterpret_cast< unsigned char* >(const_cast< char* >(s.c_str())), s.length(),
+        reinterpret_cast< unsigned char* >(&digest));
+
+    std::ostringstream out;
+    out << std::hex;
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)digest[i];
     }
-    return ss.str();
+    return out.str();
 }
 
 struct incomplete_verification_error : std::exception {
@@ -36,6 +31,10 @@ struct incomplete_verification_error : std::exception {
 private:
     const std::string error_;
 };
+
+AuthManager::AuthManager() :
+        m_cached_tokens(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_token_cache_size)),
+        m_cached_keys(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_key_cache_size)) {}
 
 AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) const {
     // if we have it in cache, just use it to make the decision
@@ -58,7 +57,7 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
     std::string app_name;
     try {
         // this may throw if token is ill formed
-        const auto decoded{jwt::decode< traits >(token)};
+        const auto decoded{jwt::decode(token)};
 
         // for any reason that causes the verification failure, an
         // exception is thrown.
@@ -80,8 +79,8 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
 
     // check client application
 
-    if (AUTH_CONFIG(trf_verifier->auth_allowed_apps) != "all") {
-        if (AUTH_CONFIG(trf_verifier->auth_allowed_apps).find(app_name) == std::string::npos) {
+    if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps) != "all") {
+        if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps).find(app_name) == std::string::npos) {
             cached_token.set_invalid(AuthVerifyStatus::FORBIDDEN,
                                      fmt::format("application '{}' is not allowed to perform the request", app_name));
         }
@@ -116,7 +115,7 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
 
         auto key_url = decoded.get_header_claim("x5u").as_string();
 
-        if (key_url.rfind(AUTH_CONFIG(trf_verifier->tf_token_url), 0) != 0) {
+        if (key_url.rfind(SECURITY_DYNAMIC_CONFIG(auth_manager->tf_token_url), 0) != 0) {
             throw std::runtime_error(fmt::format("key url {} is not trusted", key_url));
         }
         signing_key = download_key(key_url);
@@ -124,7 +123,7 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
 
     if (should_cache_key) { m_cached_keys.put(key_id, signing_key); }
 
-    const auto verifier{jwt::verify< traits >()
+    const auto verifier{jwt::verify()
                             .with_issuer(SECURITY_DYNAMIC_CONFIG(auth_manager->issuer))
                             .allow_algorithm(jwt::algorithm::rs256(signing_key))
                             .expires_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))};
