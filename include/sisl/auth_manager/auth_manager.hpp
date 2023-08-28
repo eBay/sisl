@@ -18,6 +18,7 @@
 
 #include <sisl/utility/enum.hpp>
 #include "security_config.hpp"
+#include "LRUCache.h"
 
 namespace sisl {
 
@@ -50,7 +51,7 @@ struct CachedToken {
 
 class AuthManager {
 public:
-    AuthManager() {}
+    AuthManager();
     virtual ~AuthManager() = default;
     AuthVerifyStatus verify(const std::string& token, std::string& msg) const;
 

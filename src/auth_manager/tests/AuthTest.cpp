@@ -210,12 +210,12 @@ TEST_F(AuthTest, trf_allow_valid_token) {
     EXPECT_EQ(mock_auth_mgr->verify(mock_trf_client.get_token()), AuthVerifyStatus::OK);
 
     // use the acces_token saved from the previous call
-    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
     EXPECT_EQ(mock_auth_mgr->verify(mock_trf_client.get_token()), AuthVerifyStatus::OK);
 
     // set token to be expired invoking request_with_grant_token
     mock_trf_client.set_expiry(std::chrono::system_clock::now() - std::chrono::seconds(100));
-    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
     EXPECT_EQ(mock_auth_mgr->verify(mock_trf_client.get_token()), AuthVerifyStatus::OK);
 }
 
