@@ -7,46 +7,124 @@
 
 namespace sisl {
 
+static std::string md5_sum(std::string const& b) {
+    std::array< unsigned char, MD5_DIGEST_LENGTH > result;
+    uint32_t md_len;
+    auto mdctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex2(mdctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(mdctx, b.c_str(), b.size());
+    EVP_DigestFinal_ex(mdctx, result.data(), &md_len);
+    EVP_MD_CTX_free(mdctx);
+    if (md_len != MD5_DIGEST_LENGTH) {
+        LOGERROR("Bad digest length, expected [{}] got [{}]!", MD5_DIGEST_LENGTH, md_len);
+        return std::string();
+    }
+
+    // convert to hex
+    std::ostringstream ss;
+    ss << std::hex;
+    for (auto const c : result) {
+        ss << static_cast< unsigned >(c);
+    }
+    return ss.str();
+}
+
+struct incomplete_verification_error : std::exception {
+    explicit incomplete_verification_error(const std::string& error) : error_(error) {}
+    const char* what() const noexcept { return error_.c_str(); }
+
+private:
+    const std::string error_;
+};
+
 AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) const {
+    // if we have it in cache, just use it to make the decision
+    auto const token_hash = md5_sum(token);
+    if (auto const ct = m_cached_tokens.get(token_hash); ct) {
+        auto const& cached_token = ct->get();
+        if (cached_token.valid) {
+            auto now = std::chrono::system_clock::now();
+            if (now > cached_token.expires_at + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))) {
+                m_cached_tokens.put(
+                    token_hash, CachedToken{AuthVerifyStatus::UNAUTH, "token expired", false, cached_token.expires_at});
+            }
+        }
+        msg = cached_token.msg;
+        return cached_token.response_status;
+    }
+
+    // not found in cache
+    CachedToken cached_token;
     std::string app_name;
-    // TODO: cache tokens for better performance
     try {
         // this may throw if token is ill formed
-        const auto decoded{jwt::decode(token)};
+        const auto decoded{jwt::decode< traits >(token)};
 
         // for any reason that causes the verification failure, an
         // exception is thrown.
         verify_decoded(decoded);
         app_name = get_app(decoded);
-    } catch (const std::exception& e) {
+        cached_token.expires_at = decoded.get_expires_at();
+        cached_token.set_valid();
+    } catch (const incomplete_verification_error& e) {
+        // verification incomplete, the token validity is not determined, shouldn't
+        // cache
         msg = e.what();
         return AuthVerifyStatus::UNAUTH;
+    } catch (const std::exception& e) {
+        cached_token.set_invalid(AuthVerifyStatus::UNAUTH, e.what());
+        m_cached_tokens.put(token_hash, cached_token);
+        msg = cached_token.msg;
+        return cached_token.response_status;
     }
 
     // check client application
 
-    if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps) != "all") {
-        if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps).find(app_name) == std::string::npos) {
-            msg = fmt::format("application '{}' is not allowed to perform the request", app_name);
-            return AuthVerifyStatus::FORBIDDEN;
+    if (AUTH_CONFIG(trf_verifier->auth_allowed_apps) != "all") {
+        if (AUTH_CONFIG(trf_verifier->auth_allowed_apps).find(app_name) == std::string::npos) {
+            cached_token.set_invalid(AuthVerifyStatus::FORBIDDEN,
+                                     fmt::format("application '{}' is not allowed to perform the request", app_name));
         }
     }
 
-    return AuthVerifyStatus::OK;
+    m_cached_tokens.put(token_hash, cached_token);
+    msg = cached_token.msg;
+    return cached_token.response_status;
 }
+
 void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
     const auto alg{decoded.get_algorithm()};
     if (alg != "RS256") throw std::runtime_error(fmt::format("unsupported algorithm: {}", alg));
 
-    if (!decoded.has_header_claim("x5u")) throw std::runtime_error("no indication of verification key");
+    std::string signing_key;
+    std::string key_id;
+    auto should_cache_key = true;
 
-    auto key_url = decoded.get_header_claim("x5u").as_string();
-
-    if (key_url.rfind(SECURITY_DYNAMIC_CONFIG(auth_manager->tf_token_url), 0) != 0) {
-        throw std::runtime_error(fmt::format("key url {} is not trusted", key_url));
+    if (decoded.has_key_id()) {
+        key_id = decoded.get_key_id();
+        auto cached_key = m_cached_keys.get(key_id);
+        if (cached_key) {
+            signing_key = cached_key->get();
+            should_cache_key = false;
+        }
+    } else {
+        should_cache_key = false;
     }
-    const std::string signing_key{download_key(key_url)};
-    const auto verifier{jwt::verify()
+
+    if (signing_key.empty()) {
+        if (!decoded.has_header_claim("x5u")) throw std::runtime_error("no indication of verification key");
+
+        auto key_url = decoded.get_header_claim("x5u").as_string();
+
+        if (key_url.rfind(AUTH_CONFIG(trf_verifier->tf_token_url), 0) != 0) {
+            throw std::runtime_error(fmt::format("key url {} is not trusted", key_url));
+        }
+        signing_key = download_key(key_url);
+    }
+
+    if (should_cache_key) { m_cached_keys.put(key_id, signing_key); }
+
+    const auto verifier{jwt::verify< traits >()
                             .with_issuer(SECURITY_DYNAMIC_CONFIG(auth_manager->issuer))
                             .allow_algorithm(jwt::algorithm::rs256(signing_key))
                             .expires_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))};
