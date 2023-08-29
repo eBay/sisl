@@ -145,7 +145,8 @@ class FollyConan(ConanFile):
 
     # FIXME: Freeze max. CMake version at 3.16.2 to fix the Linux build
     def build_requirements(self):
-        self.build_requires("cmake/3.16.9")
+        pass
+        # self.build_requires("cmake/3.16.9")
 
     def source(self):
         files.get(self, **self.conan_data["sources"][self.version], destination=self._source_subfolder, strip_root=True)
