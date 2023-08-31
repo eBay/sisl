@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - stable/v8.x
+      - stable/v8.5.x
       - master
 
 jobs:
