@@ -18,15 +18,23 @@ namespace sisl {
 
 ENUM(VerifyCode, uint8_t, OK, UNAUTH, FORBIDDEN)
 
-struct TokenVerifyStatus {
+// This class represents the return value to the token verify call.
+// Derive from this class if the return value needs to contain some information from the decoded token.
+class TokenVerifyState {
+public:
+    TokenVerifyState() = default;
+    TokenVerifyState(VerifyCode const c, std::string const& m) : code(c), msg(m) {}
+    virtual ~TokenVerifyState() {}
     VerifyCode code;
     std::string msg;
 };
 
+using token_state_ptr = std::shared_ptr< TokenVerifyState >;
+
 class TokenVerifier {
 public:
     virtual ~TokenVerifier() = default;
-    virtual TokenVerifyStatus verify(std::string const& token) const = 0;
+    virtual token_state_ptr verify(std::string const& token) const = 0;
 };
 
 // extracts the key value pairs (m_auth_header_key, get_token()) from grpc client context and verifies the token

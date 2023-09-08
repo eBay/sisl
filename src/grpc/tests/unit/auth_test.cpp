@@ -104,7 +104,9 @@ public:
         return ::grpc::Status(::grpc::StatusCode::UNAUTHENTICATED, ::grpc::string("missing header authorization"));
     }
 
-    TokenVerifyStatus verify(std::string const&) const override { return TokenVerifyStatus(); }
+    sisl::token_state_ptr verify(std::string const&) const override {
+        return std::make_shared< sisl::TokenVerifyState >();
+    }
 };
 
 class AuthBaseTest : public ::testing::Test {
