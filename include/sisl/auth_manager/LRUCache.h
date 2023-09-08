@@ -52,7 +52,7 @@ public:
         }
     }
 
-    [[nodiscard]] const std::optional< std::reference_wrapper< value_t const > > get(const key_t& key) {
+    [[nodiscard]] std::optional< value_t > get(const key_t& key) {
         // we need unique lock for the splice operation
         std::unique_lock< std::shared_mutex > l{mtx_};
 
@@ -60,7 +60,7 @@ public:
         if (it == items_map_.end()) { return std::nullopt; }
 
         items_list_.splice(items_list_.begin(), items_list_, it->second);
-        return std::optional(std::cref(it->second->second));
+        return std::optional(it->second->second);
     }
 
     bool exists(const key_t& key) const {
