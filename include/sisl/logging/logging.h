@@ -31,6 +31,7 @@
 #include <string_view>
 #include <unordered_set>
 #include <vector>
+#include <filesystem>
 
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/control/if.hpp>
