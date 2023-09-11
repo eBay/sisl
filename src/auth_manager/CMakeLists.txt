@@ -40,3 +40,14 @@ target_link_libraries(test_auth_mgr
     GTest::gmock
   )
 add_test(NAME AuthManager COMMAND test_auth_mgr)
+
+add_executable(test_lru_cache)
+target_sources(test_lru_cache PRIVATE
+    tests/LRUCacheTest.cpp
+  )
+target_link_libraries(test_lru_cache
+    sisl
+    ${COMMON_DEPS}
+    GTest::gmock
+  )
+add_test(NAME LRUCache COMMAND test_lru_cache)

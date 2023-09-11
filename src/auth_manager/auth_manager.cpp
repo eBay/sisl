@@ -40,16 +40,15 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
     // if we have it in cache, just use it to make the decision
     auto const token_hash = md5_sum(token);
     if (auto const ct = m_cached_tokens.get(token_hash); ct) {
-        auto const& cached_token = ct->get();
-        if (cached_token.valid) {
+        if (ct->valid) {
             auto now = std::chrono::system_clock::now();
-            if (now > cached_token.expires_at + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))) {
-                m_cached_tokens.put(
-                    token_hash, CachedToken{AuthVerifyStatus::UNAUTH, "token expired", false, cached_token.expires_at});
+            if (now > ct->expires_at + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))) {
+                m_cached_tokens.put(token_hash,
+                                    CachedToken{AuthVerifyStatus::UNAUTH, "token expired", false, ct->expires_at});
             }
         }
-        msg = cached_token.msg;
-        return cached_token.response_status;
+        msg = ct->msg;
+        return ct->response_status;
     }
 
     // not found in cache
@@ -103,7 +102,7 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
         key_id = decoded.get_key_id();
         auto cached_key = m_cached_keys.get(key_id);
         if (cached_key) {
-            signing_key = cached_key->get();
+            signing_key = *cached_key;
             should_cache_key = false;
         }
     } else {
