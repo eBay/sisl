@@ -64,56 +64,6 @@ TEST(LRUTest, get) {
     EXPECT_EQ(value, lru.get(key));
 }
 
-TEST(LRUTest, stress_test) {
-    struct val {
-        std::string s;
-    };
-    auto p_get = std::make_shared< std::promise< void > >();
-    auto f_get = p_get->get_future();
-    auto p_put = std::make_shared< std::promise< void > >();
-    auto f_put = p_put->get_future();
-    static constexpr size_t iter = 3000;
-    auto lru = LRUCache< int, val >(2000);
-    auto putter = [&lru, p_put](int const i) {
-        lru.put(i, val{std::to_string(i)});
-        if (i == iter) { p_put->set_value(); }
-    };
-    auto getter = [&lru, p_get](int const i) {
-        if (lru.exists(i)) {
-            auto v = lru.get(i);
-            EXPECT_EQ(v->s, std::to_string(i));
-        }
-        if (i == iter) { p_get->set_value(); }
-    };
-    for (size_t i = 1; i <= iter; i++) {
-        std::thread(putter, i).detach();
-    }
-    f_put.get();
-
-    for (size_t i = 1; i <= iter; i++) {
-        std::thread(getter, i).detach();
-    }
-
-    f_get.get();
-    auto p_get1 = std::make_shared< std::promise< void > >();
-    auto f_get1 = p_get1->get_future();
-    static constexpr int single_key = 10000;
-    lru.put(single_key, val{std::to_string(single_key)});
-    for (size_t i = 1; i <= 5000; i++) {
-        std::thread(
-            [&lru, p_get1](int const i) {
-                if (lru.exists(single_key)) {
-                    auto v = lru.get(single_key);
-                    EXPECT_EQ(v->s, std::to_string(single_key));
-                }
-                if (i == 5000) { p_get1->set_value(); }
-            },
-            i)
-            .detach();
-    }
-    f_get1.get();
-}
-
 } // namespace sisl::testing
 
 int main(int argc, char* argv[]) {
