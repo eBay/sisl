@@ -205,6 +205,40 @@ public:
         return false;
     }
 
+    bool mutate(const K& input_key, const V& input_value, auto&& update_or_delete_cb) {
+#ifndef GLOBAL_HASHSET_LOCK
+        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+#endif
+        SingleEntryHashNode< V >* n = nullptr;
+
+        auto it = m_list.begin();
+        for (auto itend{m_list.end()}; it != itend; ++it) {
+            const K k = SimpleHashMap< K, V >::extractor_cb()(it->m_value);
+            if (input_key > k) {
+                break;
+            } else if (input_key == k) {
+                n = &*it;
+                break;
+            }
+        }
+
+        if (n == nullptr) {
+            n = new SingleEntryHashNode< V >(input_value);
+            m_list.insert(it, *n);
+            access_cb(*n, input_key, hash_op_t::CREATE);
+            return true;
+        } else {
+            if (update_or_delete_cb(n->m_value)) {
+                access_cb(*n, input_key, hash_op_t::DELETE);
+                m_list.erase(it);
+                delete n;
+            } else {
+                access_cb(*n, input_key, hash_op_t::ACCESS);
+            }
+        }
+        return false;
+    }
+
 private:
     static void access_cb(const SingleEntryHashNode< V >& node, const K& key, hash_op_t op) {
         SimpleHashMap< K, V >::call_access_cb((const ValueEntryBase&)node, key, op);
@@ -258,6 +292,26 @@ bool SimpleHashMap< K, V >::erase(const K& key, V& out_val) {
 #endif
     set_current_instance(this);
     return get_bucket(key).erase(key, out_val);
+}
+
+/// This is a special atomic operation where user can insert_or_update_or_erase based on condition atomically. It
+/// performs differently based on certain conditions.
+///
+/// * If the key does not exist, it will insert the value (works exactlylike insert operation) and the mutate_cb is
+/// not called
+/// * If the key exist, then insert_val is ignored and mutate_cb is called with current value
+///   Callback should so one of the following 2 operation
+///    a) The current value can be updated and return false from callback - it works like an update operation
+///    b) Return true from callback - in that case it will behave like erase operation of the KV
+///
+/// Returns true if the value was inserted
+template < typename K, typename V >
+bool SimpleHashMap< K, V >::mutate(const K& key, const V& insert_val, auto&& update_or_delete_cb) {
+#ifdef GLOBAL_HASHSET_LOCK
+    std::lock_guard< std::mutex > lk(m);
+#endif
+    set_current_instance(this);
+    return get_bucket(key).mutate(key, insert_val, std::move(update_or_delete_cb));
 }
 
 template < typename K, typename V >
