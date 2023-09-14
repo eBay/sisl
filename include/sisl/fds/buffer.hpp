@@ -304,9 +304,21 @@ struct byte_array_impl : public io_blob {
             io_blob(sz, alignment, tag), m_tag{tag} {}
     byte_array_impl(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
             io_blob(bytes, size, is_aligned) {}
-    byte_array_impl(byte_array_impl&&) = default;
-    byte_array_impl& operator=(byte_array_impl&&) = default;
-    ~byte_array_impl() { io_blob::buf_free(m_tag); }
+    byte_array_impl(byte_array_impl&& rhs) : io_blob(std::move(rhs)) {
+        m_tag = rhs.m_tag;
+        rhs.m_tag = buftag::sentinel;
+    }
+    byte_array_impl& operator=(byte_array_impl&& rhs){
+        if (&rhs != this) {
+            *((io_blob*)this) = std::move(*((io_blob*)&rhs));
+            m_tag = rhs.m_tag;
+            rhs.m_tag = buftag::sentinel;
+        }
+        return *this;
+    }
+    ~byte_array_impl() {
+        if (m_tag != buftag::sentinel) io_blob::buf_free(m_tag);
+    }
 
     buftag m_tag;
 };
