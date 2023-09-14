@@ -248,8 +248,7 @@ struct io_blob : public blob {
         buf_alloc(sz, align_size, tag);
     }
     io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size),
-            aligned{is_aligned} {}
+            blob(bytes, size), aligned{is_aligned} {}
     ~io_blob() = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
@@ -302,10 +301,11 @@ struct io_blob : public blob {
  */
 struct byte_array_impl : public io_blob {
     byte_array_impl(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) :
-            io_blob(sz, alignment, tag),
-            m_tag{tag} {}
+            io_blob(sz, alignment, tag), m_tag{tag} {}
     byte_array_impl(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
             io_blob(bytes, size, is_aligned) {}
+    byte_array_impl(byte_array_impl&&) = default;
+    byte_array_impl& operator=(byte_array_impl&&) = default;
     ~byte_array_impl() { io_blob::buf_free(m_tag); }
 
     buftag m_tag;
