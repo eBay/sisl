@@ -330,6 +330,7 @@ public:
 
         other.bytes = nullptr;
         other.size = 0;
+        return *this;
     }
 };
 
