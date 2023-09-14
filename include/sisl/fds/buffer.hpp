@@ -241,15 +241,16 @@ struct io_blob;
 using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
 
 struct io_blob : public blob {
+public:
     bool aligned{false};
 
+public:
     io_blob() = default;
     io_blob(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
         buf_alloc(sz, align_size, tag);
     }
     io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size),
-            aligned{is_aligned} {}
+            blob(bytes, size), aligned{is_aligned} {}
     ~io_blob() = default;
 
     void buf_alloc(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
@@ -300,24 +301,47 @@ struct io_blob : public blob {
 /* An extension to blob where the buffer it holds is allocated by constructor and freed during destruction. The only
  * reason why we have this instead of using vector< uint8_t > is that this supports allocating in aligned memory
  */
-struct byte_array_impl : public io_blob {
-    byte_array_impl(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) :
-            io_blob(sz, alignment, tag),
-            m_tag{tag} {}
-    byte_array_impl(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            io_blob(bytes, size, is_aligned) {}
-    ~byte_array_impl() { io_blob::buf_free(m_tag); }
-
+struct io_blob_safe : public io_blob {
+public:
     buftag m_tag;
+
+public:
+    io_blob_safe(uint32_t sz, uint32_t alignment = 0, buftag tag = buftag::common) :
+            io_blob(sz, alignment, tag), m_tag{tag} {}
+    io_blob_safe(uint8_t* bytes, uint32_t size, bool is_aligned) : io_blob(bytes, size, is_aligned) {}
+    virtual ~io_blob_safe() {
+        if (bytes != nullptr) { io_blob::buf_free(m_tag); }
+    }
+
+    io_blob_safe(io_blob_safe const& other) = delete;
+    io_blob_safe(io_blob_safe&& other) : io_blob{other.bytes, other.size, other.is_aligned} {
+        other.bytes = nullptr;
+        other.size = 0;
+    }
+
+    io_blob_safe& operator=(io_blob_safe const& other) = delete; // Delete copy constructor
+    io_blob_safe& operator=(io_blob_safe&& other) {
+        if (bytes != nullptr) { this->buf_free(m_tag); }
+
+        bytes = other.bytes;
+        size = other.size;
+        aligned = other.aligned;
+        m_tag = other.m_tag;
+
+        other.bytes = nullptr;
+        other.size = 0;
+    }
 };
 
-using byte_array = std::shared_ptr< byte_array_impl >;
+using byte_array_impl = io_blob_safe;
+
+using byte_array = std::shared_ptr< io_blob_safe >;
 inline byte_array make_byte_array(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) {
-    return std::make_shared< byte_array_impl >(sz, alignment, tag);
+    return std::make_shared< io_blob_safe >(sz, alignment, tag);
 }
 
 inline byte_array to_byte_array(const sisl::io_blob& blob) {
-    return std::make_shared< byte_array_impl >(blob.bytes, blob.size, blob.aligned);
+    return std::make_shared< io_blob_safe >(blob.bytes, blob.size, blob.aligned);
 }
 
 struct byte_view {
