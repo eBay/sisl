@@ -7,11 +7,6 @@ on:
       - stable/v8.x
       - stable/v9.x
       - master
-  pull_request:
-    branches:
-      - stable/v8.x
-      - stable/v9.x
-      - master
 
 jobs:
   Build:
