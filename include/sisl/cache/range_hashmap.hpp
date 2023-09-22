@@ -49,7 +49,6 @@ typedef std::pair< big_offset_t, big_offset_t > big_range_t;
 
 static constexpr big_count_t max_n_per_node = (s_cast< uint64_t >(1) << (sizeof(small_offset_t) * 8));
 static constexpr small_offset_t max_offset_in_node = std::numeric_limits< small_offset_t >::max();
-static constexpr size_t s_start_seed = 0; // TODO: Pickup a better seed
 
 // static uint32_t range_count(const small_range_t& range) { return range.second - range.first + 1; }
 
@@ -64,8 +63,7 @@ struct RangeKey {
     big_offset_t end_nth() const { return m_nth + m_count - 1; }
 
     std::size_t compute_hash() const {
-        size_t seed = s_start_seed;
-        boost::hash_combine(seed, m_base_key);
+        size_t seed = std::hash< K >{}(m_base_key);
         boost::hash_combine(seed, m_nth);
         return seed;
     }
@@ -137,8 +135,7 @@ private:
     HashBucket< K >& get_bucket(size_t hash_code) const;
 
     static size_t compute_hash(const K& base_key, const big_offset_t nth) {
-        size_t seed = s_start_seed;
-        boost::hash_combine(seed, base_key);
+        size_t seed = std::hash< K >{}(base_key);
         boost::hash_combine(seed, nth);
         return seed;
     }
