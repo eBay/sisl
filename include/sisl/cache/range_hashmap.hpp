@@ -17,6 +17,7 @@
 #pragma once
 
 #include <boost/intrusive/slist.hpp>
+#include <compare>
 #include <vector>
 #include <string>
 #include <folly/Traits.h>
@@ -69,21 +70,7 @@ struct RangeKey {
         return seed;
     }
 
-    bool operator==(const RangeKey& other) const {
-        return ((m_base_key == other.m_base_key) && (m_nth == other.m_nth) && (m_count == other.m_count));
-    }
-
-    bool operator<(const RangeKey& other) const {
-        if (m_base_key == other.m_base_key) {
-            if (m_nth == other.m_nth) {
-                return m_count < other.m_count;
-            } else {
-                return m_nth < other.m_nth;
-            }
-        } else {
-            return m_base_key < other.m_base_key;
-        }
-    }
+    auto operator<=>(RangeKey const&) const = default;
 };
 
 template < typename K >
