@@ -73,6 +73,8 @@ public:
     bool upsert(const K& key, const V& value);
     bool get(const K& input_key, V& out_val);
     bool erase(const K& key, V& out_val);
+    bool update(const K& key, auto&& update_cb);
+    bool upsert_or_delete(const K& key, auto&& update_or_delete_cb);
 
     static void set_current_instance(SimpleHashMap< K, V >* hmap) { s_cur_hash_map = hmap; }
     static SimpleHashMap< K, V >* get_current_instance() { return s_cur_hash_map; }
@@ -205,7 +207,7 @@ public:
         return false;
     }
 
-    bool mutate(const K& input_key, const V& input_value, auto&& update_or_delete_cb) {
+    bool upsert_or_delete(const K& input_key, auto&& update_or_delete_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
         folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
 #endif
@@ -222,21 +224,42 @@ public:
             }
         }
 
+        bool found{true};
         if (n == nullptr) {
-            n = new SingleEntryHashNode< V >(input_value);
+            n = new SingleEntryHashNode< V >(V{});
             m_list.insert(it, *n);
             access_cb(*n, input_key, hash_op_t::CREATE);
-            return true;
+            found = false;
+        }
+
+        if (update_or_delete_cb(n->m_value, found)) {
+            access_cb(*n, input_key, hash_op_t::DELETE);
+            m_list.erase(it);
+            delete n;
         } else {
-            if (update_or_delete_cb(n->m_value)) {
-                access_cb(*n, input_key, hash_op_t::DELETE);
-                m_list.erase(it);
-                delete n;
-            } else {
-                access_cb(*n, input_key, hash_op_t::ACCESS);
+            access_cb(*n, input_key, hash_op_t::ACCESS);
+        }
+
+        return false;
+    }
+
+    bool update(const K& input_key, auto&& update_cb) {
+#ifndef GLOBAL_HASHSET_LOCK
+        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+#endif
+        bool found{false};
+        for (auto& n : m_list) {
+            const K k = SimpleHashMap< K, V >::extractor_cb()(n.m_value);
+            if (input_key > k) {
+                break;
+            } else if (input_key == k) {
+                found = true;
+                access_cb(n, input_key, hash_op_t::ACCESS);
+                update_cb(n.m_value);
+                break;
             }
         }
-        return false;
+        return found;
     }
 
 private:
@@ -297,21 +320,31 @@ bool SimpleHashMap< K, V >::erase(const K& key, V& out_val) {
 /// This is a special atomic operation where user can insert_or_update_or_erase based on condition atomically. It
 /// performs differently based on certain conditions.
 ///
-/// * If the key does not exist, it will insert the value (works exactlylike insert operation) and the mutate_cb is
-/// not called
-/// * If the key exist, then insert_val is ignored and mutate_cb is called with current value
-///   Callback should so one of the following 2 operation
-///    a) The current value can be updated and return false from callback - it works like an update operation
+/// NOTE: This method works only if the Value is default constructible
+///
+/// * If the key does not exist, it will insert a default value and does the callback
+///
+/// * Callback should so one of the following 2 operation
+///    a) The current value can be updated and return false from callback - it works like an upsert operation
 ///    b) Return true from callback - in that case it will behave like erase operation of the KV
 ///
 /// Returns true if the value was inserted
 template < typename K, typename V >
-bool SimpleHashMap< K, V >::mutate(const K& key, const V& insert_val, auto&& update_or_delete_cb) {
+bool SimpleHashMap< K, V >::upsert_or_delete(const K& key, auto&& update_or_delete_cb) {
 #ifdef GLOBAL_HASHSET_LOCK
     std::lock_guard< std::mutex > lk(m);
 #endif
     set_current_instance(this);
-    return get_bucket(key).mutate(key, insert_val, std::move(update_or_delete_cb));
+    return get_bucket(key).upsert_or_delete(key, std::move(update_or_delete_cb));
+}
+
+template < typename K, typename V >
+bool SimpleHashMap< K, V >::update(const K& key, auto&& update_cb) {
+#ifdef GLOBAL_HASHSET_LOCK
+    std::lock_guard< std::mutex > lk(m);
+#endif
+    set_current_instance(this);
+    return get_bucket(key).update(key, std::move(update_cb));
 }
 
 template < typename K, typename V >
