@@ -240,7 +240,7 @@ public:
             access_cb(*n, input_key, hash_op_t::ACCESS);
         }
 
-        return false;
+        return !found;
     }
 
     bool update(const K& input_key, auto&& update_cb) {
