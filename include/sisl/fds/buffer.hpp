@@ -37,7 +37,7 @@ struct blob {
     uint32_t size;
 
     blob() : blob{nullptr, 0} {}
-    blob(uint8_t* const b, const uint32_t s) : bytes{b}, size{s} {}
+    blob(uint8_t* b, uint32_t s) : bytes{b}, size{s} {}
 };
 
 using sg_iovs_t = folly::small_vector< iovec, 4 >;
