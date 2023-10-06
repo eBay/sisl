@@ -1,12 +1,8 @@
-name: Sisl Build
+name: Sisl PR Build
 
 on:
-  workflow_dispatch:
+  merge_group:
   pull_request:
-    branches:
-      - stable/v8.x
-      - stable/v9.x
-      - master
 
 jobs:
   Build:
