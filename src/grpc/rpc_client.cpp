@@ -134,7 +134,7 @@ void GrpcAsyncClientWorker::shutdown_all() {
 
 void GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request, const std::string& method,
                                                    const generic_unary_callback_t& callback, uint32_t deadline) {
-    auto data = new GenericClientRpcDataInternal(callback);
+    auto data = new GenericClientRpcDataCallback(callback);
     data->set_deadline(deadline);
     if (m_token_client) { data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token()); }
     // Note that async unary RPCs don't post a CQ tag in call
@@ -156,6 +156,20 @@ void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t&
     cd->m_generic_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
 }
 
+generic_async_result_t GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
+                                                                     const std::string& method, uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< generic_result_t >();
+    auto data = new GenericClientRpcDataFuture(std::move(p));
+    data->set_deadline(deadline);
+    if (m_token_client) { data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token()); }
+    // Note that async unary RPCs don't post a CQ tag in call
+    data->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&data->context(), method, request, cq());
+    data->m_generic_resp_reader_ptr->StartCall();
+    // CQ tag posted here
+    data->m_generic_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
+    return std::move(sf);
+}
+
 std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_generic_stub(const std::string& worker) {
     auto w = GrpcAsyncClientWorker::get_worker(worker);
     if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
@@ -163,4 +177,4 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
     return std::make_unique< GrpcAsyncClient::GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w,
                                                                  m_token_client);
 }
-} // namespace sisl::grpc
+} // namespace sisl
