@@ -85,14 +85,14 @@ using generic_result_t = Result< grpc::ByteBuffer >;
 using generic_async_result_t = AsyncResult< grpc::ByteBuffer >;
 
 /**
- * The specialized 'ClientRpcDataInternal' per gRPC call, 
+ * The specialized 'ClientRpcDataInternal' per gRPC call,
  * Derive from this class to create Rpc Data that can hold
  * the response handler function or a promise
  */
 template < typename ReqT, typename RespT >
 class ClientRpcDataInternal : public ClientRpcDataAbstract {
 public:
-    using ResponseReaderPtr = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+    using ResponseReaderPtr = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
     using GenericResponseReaderPtr = std::unique_ptr< grpc::GenericClientAsyncResponseReader >;
 
     /* Allow GrpcAsyncClient and its inner classes to use
@@ -194,7 +194,7 @@ protected:
     const std::string m_target_domain;
     const std::string m_ssl_cert;
 
-    std::shared_ptr< ::grpc::ChannelInterface > m_channel;
+    std::shared_ptr<::grpc::ChannelInterface > m_channel;
     std::shared_ptr< sisl::GrpcTokenClient > m_token_client;
 
 public:
@@ -310,11 +310,28 @@ public:
 
         /* unary call helper */
         template < typename RespT >
-        using unary_call_return_t = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+        using unary_call_return_t = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
 
         template < typename ReqT, typename RespT >
         using unary_call_t = unary_call_return_t< RespT > (stub_t::*)(::grpc::ClientContext*, const ReqT&,
                                                                       ::grpc::CompletionQueue*);
+
+        template < typename ReqT, typename RespT >
+        void prepare_and_send_unary(ClientRpcDataInternal< ReqT, RespT >* data, const ReqT& request,
+                                    const unary_call_t< ReqT, RespT >& method, uint32_t deadline,
+                                    const std::vector< std::pair< std::string, std::string > >& metadata) {
+            data->set_deadline(deadline);
+            for (auto const& [key, value] : metadata) {
+                data->add_metadata(key, value);
+            }
+            if (m_token_client) {
+                data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token());
+            }
+            // Note that async unary RPCs don't post a CQ tag in call
+            data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->m_context, request, cq());
+            // CQ tag posted here
+            data->m_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
+        }
 
         // using unary_callback_t = std::function< void(RespT&, ::grpc::Status& status) >;
 
@@ -336,21 +353,21 @@ public:
          *     OK before handling the response. If call failed, `::grpc::Status`
          *     indicates the error code and error message.
          * @param deadline - deadline in seconds
+         * @param metadata - key value pair of the metadata to be sent with the request
          *
          */
         template < typename ReqT, typename RespT >
         void call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
-                        const unary_callback_t< RespT >& callback, uint32_t deadline) {
+                        const unary_callback_t< RespT >& callback, uint32_t deadline,
+                        const std::vector< std::pair< std::string, std::string > >& metadata) {
             auto data = new ClientRpcDataCallback< ReqT, RespT >(callback);
-            data->set_deadline(deadline);
-            if (m_token_client) {
-                data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token());
-            }
-            // Note that async unary RPCs don't post a CQ tag in call
-            data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
-            // CQ tag posted here
-            data->m_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
-            return;
+            prepare_and_send_unary(data, request, method, deadline, metadata);
+        }
+
+        template < typename ReqT, typename RespT >
+        void call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
+                        const unary_callback_t< RespT >& callback, uint32_t deadline) {
+            call_unary(request, method, callback, deadline, {});
         }
 
         template < typename ReqT, typename RespT >
@@ -358,67 +375,24 @@ public:
                       const rpc_comp_cb_t< ReqT, RespT >& done_cb, uint32_t deadline) {
             auto cd = new ClientRpcData< ReqT, RespT >(done_cb);
             builder_cb(cd->m_req);
-            cd->set_deadline(deadline);
-            if (m_token_client) {
-                cd->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token());
-            }
-            cd->m_resp_reader_ptr = (m_stub.get()->*method)(&cd->context(), cd->m_req, cq());
-            cd->m_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
-        }
-
-        template < typename ReqT, typename RespT >
-        void call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
-                        const unary_callback_t< RespT >& callback, uint32_t deadline,
-                        const std::vector< std::pair< std::string, std::string > >& metadata) {
-            auto data = new ClientRpcDataCallback< ReqT, RespT >(callback);
-            data->set_deadline(deadline);
-            for (auto const& [key, value] : metadata) {
-                data->add_metadata(key, value);
-            }
-            if (m_token_client) {
-                data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token());
-            }
-            // Note that async unary RPCs don't post a CQ tag in call
-            data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
-            // CQ tag posted here
-            data->m_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
+            prepare_and_send_unary(cd, cd->m_req, method, deadline, {});
         }
 
         // Futures version of call_unary
-        template < typename ReqT, typename RespT >
-        AsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
-                                        uint32_t deadline) {
-            auto [p, sf] = folly::makePromiseContract< Result< RespT > >();
-            auto data = new ClientRpcDataFuture< ReqT, RespT >(std::move(p));
-            data->set_deadline(deadline);
-            if (m_token_client) {
-                data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token());
-            }
-            // Note that async unary RPCs don't post a CQ tag in call
-            data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
-            // CQ tag posted here
-            data->m_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
-            return std::move(sf);
-        }
-
         template < typename ReqT, typename RespT >
         AsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
                                         uint32_t deadline,
                                         const std::vector< std::pair< std::string, std::string > >& metadata) {
             auto [p, sf] = folly::makePromiseContract< Result< RespT > >();
             auto data = new ClientRpcDataFuture< ReqT, RespT >(std::move(p));
-            data->set_deadline(deadline);
-            for (auto const& [key, value] : metadata) {
-                data->add_metadata(key, value);
-            }
-            if (m_token_client) {
-                data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token());
-            }
-            // Note that async unary RPCs don't post a CQ tag in call
-            data->m_resp_reader_ptr = (m_stub.get()->*method)(&data->context(), request, cq());
-            // CQ tag posted here
-            data->m_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
+            prepare_and_send_unary(data, request, method, deadline, metadata);
             return std::move(sf);
+        }
+
+        template < typename ReqT, typename RespT >
+        AsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
+                                        uint32_t deadline) {
+            return call_unary(request, method, deadline, {});
         }
 
         StubPtr< ServiceT > m_stub;
@@ -442,6 +416,9 @@ public:
         GenericAsyncStub(std::unique_ptr< grpc::GenericStub > stub, GrpcAsyncClientWorker* worker,
                          std::shared_ptr< sisl::GrpcTokenClient > token_client) :
                 m_generic_stub(std::move(stub)), m_worker(worker), m_token_client(token_client) {}
+
+        void prepare_and_send_unary_generic(ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer >* data,
+                                            const grpc::ByteBuffer& request, const std::string& method, uint32_t deadline);
 
         void call_unary(const grpc::ByteBuffer& request, const std::string& method,
                         const generic_unary_callback_t& callback, uint32_t deadline);
