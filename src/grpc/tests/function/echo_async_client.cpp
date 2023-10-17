@@ -89,7 +89,7 @@ public:
     static constexpr int GRPC_CALL_COUNT = 400;
     const std::string WORKER_NAME{"Worker-1"};
 
-    void validate_echo_reply(const EchoRequest& req, EchoReply& reply, ::grpc::Status& status) {
+    void validate_echo_reply(const EchoRequest& req, EchoReply& reply, ::grpc::Status const& status) {
         RELEASE_ASSERT_EQ(status.ok(), true, "echo request {} failed, status {}: {}", req.message(),
                           status.error_code(), status.error_message());
         LOGDEBUGMOD(grpc_server, "echo request {} reply {}", req.message(), reply.message());
@@ -100,7 +100,7 @@ public:
         }
     }
 
-    void validate_ping_reply(const PingRequest& req, PingReply& reply, ::grpc::Status& status) {
+    void validate_ping_reply(const PingRequest& req, PingReply& reply, ::grpc::Status const& status) {
         RELEASE_ASSERT_EQ(status.ok(), true, "ping request {} failed, status {}: {}", req.seqno(), status.error_code(),
                           status.error_message());
         LOGDEBUGMOD(grpc_server, "ping request {} reply {}", req.seqno(), reply.seqno());
@@ -111,7 +111,7 @@ public:
         }
     }
 
-    void validate_generic_reply(const DataMessage& req, grpc::ByteBuffer& reply, ::grpc::Status& status) {
+    void validate_generic_reply(const DataMessage& req, grpc::ByteBuffer& reply, ::grpc::Status const& status) {
         RELEASE_ASSERT_EQ(status.ok(), true, "generic request {} failed, status {}: {}", req.m_seqno,
                           status.error_code(), status.error_message());
         DataMessage svr_msg;
@@ -140,7 +140,7 @@ public:
 
         for (int i = 1; i <= GRPC_CALL_COUNT; ++i) {
             if ((i % 2) == 0) {
-                if ((i % 4) == 0) {
+                if ((i % 3) == 0) {
                     EchoRequest req;
                     req.set_message(std::to_string(i));
                     echo_stub->call_unary< EchoRequest, EchoReply >(
@@ -149,7 +149,7 @@ public:
                             validate_echo_reply(req, reply, status);
                         },
                         1);
-                } else {
+                } else if (i % 3 == 1) {
                     echo_stub->call_rpc< EchoRequest, EchoReply >(
                         [i](EchoRequest& req) { req.set_message(std::to_string(i)); },
                         &EchoService::StubInterface::AsyncEcho,
@@ -157,10 +157,22 @@ public:
                             validate_echo_reply(cd.req(), cd.reply(), cd.status());
                         },
                         1);
+                } else {
+                    EchoRequest req;
+                    req.set_message(std::to_string(i));
+                    echo_stub->call_unary< EchoRequest, EchoReply >(req, &EchoService::StubInterface::AsyncEcho, 1)
+                        .deferValue([req, this](auto e) {
+                            RELEASE_ASSERT(e.hasValue(), "echo request {} failed, status {}: {}", req.message(),
+                                           e.error().error_code(), e.error().error_message());
+                            validate_echo_reply(req, e.value(), grpc::Status::OK);
+                            return folly::Unit();
+                        })
+                        .get();
                 }
             } else if ((i % 3) == 0) {
-                // divide all numbers divisible by 3 and not by 2 into two equal buckets
-                if ((((i + 3) / 6) % 2) == 0) {
+                // divide all numbers divisible by 3 and not by 2 into three equal buckets
+                auto const j = (i + 3) / 6;
+                if (j % 3 == 0) {
                     PingRequest req;
                     req.set_seqno(i);
                     ping_stub->call_unary< PingRequest, PingReply >(
@@ -169,17 +181,29 @@ public:
                             validate_ping_reply(req, reply, status);
                         },
                         1);
-                } else {
+                } else if (j % 3 == 1) {
                     ping_stub->call_rpc< PingRequest, PingReply >(
                         [i](PingRequest& req) { req.set_seqno(i); }, &PingService::StubInterface::AsyncPing,
                         [this](ClientRpcData< PingRequest, PingReply >& cd) {
                             validate_ping_reply(cd.req(), cd.reply(), cd.status());
                         },
                         1);
+                } else {
+                    PingRequest req;
+                    req.set_seqno(i);
+                    ping_stub->call_unary< PingRequest, PingReply >(req, &PingService::StubInterface::AsyncPing, 1)
+                        .deferValue([req, this](auto e) {
+                            RELEASE_ASSERT(e.hasValue(), "ping request {} failed, status {}: {}", req.seqno(),
+                                           e.error().error_code(), e.error().error_message());
+                            validate_ping_reply(req, e.value(), grpc::Status::OK);
+                            return folly::Unit();
+                        })
+                        .get();
                 }
             } else {
-                // divide all numbers not divisible by 2 and 3 into two equal buckets
-                if (((i + 1) % 6) == 0) {
+                // divide all numbers not divisible by 2 and 3 into three equal buckets
+                static uint32_t j = 0u;
+                if ((j++ % 3) == 0) {
                     DataMessage req(i, GENERIC_CLIENT_MESSAGE);
                     grpc::ByteBuffer cli_buf;
                     SerializeToByteBuffer(cli_buf, req);
@@ -189,7 +213,7 @@ public:
                             validate_generic_reply(req, reply, status);
                         },
                         1);
-                } else {
+                } else if (((j++ % 3) == 1)) {
                     DataMessage data_msg(i, GENERIC_CLIENT_MESSAGE);
                     generic_stub->call_rpc([data_msg](grpc::ByteBuffer& req) { SerializeToByteBuffer(req, data_msg); },
                                            GENERIC_METHOD,
@@ -197,6 +221,18 @@ public:
                                                validate_generic_reply(data_msg, cd.reply(), cd.status());
                                            },
                                            1);
+                } else {
+                    DataMessage req(i, GENERIC_CLIENT_MESSAGE);
+                    grpc::ByteBuffer cli_buf;
+                    SerializeToByteBuffer(cli_buf, req);
+                    generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
+                        .deferValue([req, this](auto e) {
+                            RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
+                                           e.error().error_code(), e.error().error_message());
+                            validate_generic_reply(req, e.value(), grpc::Status::OK);
+                            return folly::Unit();
+                        })
+                        .get();
                 }
             }
         }
