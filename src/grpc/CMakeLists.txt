@@ -13,6 +13,7 @@ target_sources(sisl_grpc PRIVATE
 target_link_libraries(sisl_grpc
     gRPC::grpc++
     flatbuffers::flatbuffers
+    Folly::Folly
     ${COMMON_DEPS}
   )
 
