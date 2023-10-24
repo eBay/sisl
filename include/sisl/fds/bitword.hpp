@@ -398,6 +398,16 @@ public:
         }
     }
 
+    bool get_prev_set_bit(uint8_t start, uint8_t* p_set_bit) const {
+        const word_t e{extract(0, start + 1)};
+        if (e) {
+            *p_set_bit = logBase2(e);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     uint8_t get_next_reset_bits(const uint8_t start, uint8_t* const pcount) const {
         assert(start < bits());
         assert(pcount);
@@ -536,10 +546,9 @@ public:
 
     std::string to_string() const {
         std::ostringstream oSS{};
-        const word_t e{m_bits.get()};
-        word_t mask{static_cast< word_t >(bit_mask[bits() - 1])};
-        for (uint8_t bit{0}; bit < bits(); ++bit, mask >>= 1) {
-            oSS << (((e & mask) == mask) ? '1' : '0');
+        const word_t e = m_bits.get();
+        for (uint8_t bit{0}; bit < bits(); ++bit) {
+            oSS << (((e & bit_mask[bit]) == bit_mask[bit]) ? '1' : '0');
         }
         return oSS.str();
     }

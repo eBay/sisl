@@ -80,6 +80,29 @@ public:
     bit_count_t get_next_set_bit(bit_count_t start_bit) const { return get_next_set_or_reset_bit(start_bit, true); }
     bit_count_t get_next_reset_bit(bit_count_t start_bit) const { return get_next_set_or_reset_bit(start_bit, false); }
 
+    /// @brief This method gets the previous set bit from starting bit (including the start bit). So if start bit
+    /// is 1, it will return the start bit.
+    /// @param start_bit: Start bit should be > 0 and <= size()
+    /// @return Returns the previous set bit or inval_bit if nothing is set
+    bit_count_t get_prev_set_bit(bit_count_t start_bit) const {
+        // check first word which may be partial
+        uint8_t offset = get_word_offset(start_bit);
+        bit_count_t word_idx = get_word_index(start_bit);
+
+        do {
+            bitword_type const* word_ptr = &s_->words[word_idx];
+            if (!word_ptr) { return inval_bit; }
+
+            uint8_t nbit{0};
+            if (word_ptr->get_prev_set_bit(offset, &nbit)) { return start_bit - (offset - nbit); }
+
+            start_bit -= offset;
+            offset = bitword_type::bits();
+        } while (word_idx-- != 0);
+
+        return inval_bit;
+    }
+
     void set_reset_bit(bit_count_t bit, bool value) {
         bitword_type* word_ptr = get_word(bit);
         if (!word_ptr) { return; }
@@ -123,7 +146,7 @@ public:
 
     std::string to_string() const {
         std::string str;
-        auto const num_words = size() / word_size_bytes();
+        auto const num_words = size() / word_size_bits();
         for (uint32_t i{0}; i < num_words; ++i) {
             fmt::format_to(std::back_inserter(str), "{}", s_->words[i].to_string());
         }
@@ -137,6 +160,11 @@ private:
 
     bitword_type const* get_word_const(bit_count_t bit) const {
         return (sisl_unlikely(bit >= nbits_)) ? nullptr : &s_->words[bit / word_size_bits()];
+    }
+
+    bit_count_t get_word_index(bit_count_t bit) const {
+        DEBUG_ASSERT(s_, "compact bitset not initialized");
+        return bit / word_size_bits();
     }
 
     uint8_t get_word_offset(bit_count_t bit) const {

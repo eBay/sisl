@@ -108,6 +108,7 @@ TEST_F(CompactBitsetTest, RandomBitsWithReload) {
     }
 
     auto validate = [this, &shadow_bset]() {
+        CompactBitSet::bit_count_t prev_set_bit{CompactBitSet::inval_bit};
         for (uint64_t i{0}; i < m_bset->size(); ++i) {
             auto next_shadow_set_bit = (i == 0) ? shadow_bset.find_first() : shadow_bset.find_next(i - 1);
             CompactBitSet::bit_count_t next_set_bit = m_bset->get_next_set_bit(i);
@@ -115,6 +116,8 @@ TEST_F(CompactBitsetTest, RandomBitsWithReload) {
                 ASSERT_EQ(next_set_bit, CompactBitSet::inval_bit);
             } else {
                 ASSERT_EQ(next_set_bit, next_shadow_set_bit);
+                if (next_set_bit == i) { prev_set_bit = i; }
+                ASSERT_EQ(m_bset->get_prev_set_bit(i), prev_set_bit);
             }
         }
 
