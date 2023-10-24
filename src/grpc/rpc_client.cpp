@@ -132,28 +132,37 @@ void GrpcAsyncClientWorker::shutdown_all() {
     s_workers.clear();
 }
 
-void GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request, const std::string& method,
-                                                   const generic_unary_callback_t& callback, uint32_t deadline) {
-    auto data = new GenericClientRpcDataInternal(callback);
+void GrpcAsyncClient::GenericAsyncStub::prepare_and_send_unary_generic(
+    ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer >* data, const grpc::ByteBuffer& request,
+    const std::string& method, uint32_t deadline) {
     data->set_deadline(deadline);
     if (m_token_client) { data->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token()); }
     // Note that async unary RPCs don't post a CQ tag in call
-    data->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&data->context(), method, request, cq());
+    data->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&data->m_context, method, request, cq());
     data->m_generic_resp_reader_ptr->StartCall();
     // CQ tag posted here
     data->m_generic_resp_reader_ptr->Finish(&data->reply(), &data->status(), (void*)data);
-    return;
+}
+
+void GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request, const std::string& method,
+                                                   const generic_unary_callback_t& callback, uint32_t deadline) {
+    auto data = new GenericClientRpcDataCallback(callback);
+    prepare_and_send_unary_generic(data, request, method, deadline);
 }
 
 void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t& builder_cb, const std::string& method,
                                                  const generic_rpc_comp_cb_t& done_cb, uint32_t deadline) {
     auto cd = new GenericClientRpcData(done_cb);
     builder_cb(cd->m_req);
-    cd->set_deadline(deadline);
-    if (m_token_client) { cd->add_metadata(m_token_client->get_auth_header_key(), m_token_client->get_token()); }
-    cd->m_generic_resp_reader_ptr = m_generic_stub->PrepareUnaryCall(&cd->context(), method, cd->m_req, cq());
-    cd->m_generic_resp_reader_ptr->StartCall();
-    cd->m_generic_resp_reader_ptr->Finish(&cd->reply(), &cd->status(), (void*)cd);
+    prepare_and_send_unary_generic(cd, cd->m_req, method, deadline);
+}
+
+generic_async_result_t GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
+                                                                     const std::string& method, uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< generic_result_t >();
+    auto data = new GenericClientRpcDataFuture(std::move(p));
+    prepare_and_send_unary_generic(data, request, method, deadline);
+    return std::move(sf);
 }
 
 std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_generic_stub(const std::string& worker) {
@@ -163,4 +172,4 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
     return std::make_unique< GrpcAsyncClient::GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w,
                                                                  m_token_client);
 }
-} // namespace sisl::grpc
+} // namespace sisl

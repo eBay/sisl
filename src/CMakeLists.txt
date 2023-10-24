@@ -9,13 +9,14 @@ add_subdirectory (sobject)
 # on Folly and pistache. It is unknown if Windows is supported...
 list(APPEND POSIX_LIBRARIES )
 list(APPEND SISL_DEPS  )
-if(${userspace-rcu_FOUND})
-    add_subdirectory (grpc)
-    list(APPEND POSIX_LIBRARIES
-            $<TARGET_OBJECTS:sisl_grpc>
-    )
-endif()
+
 if(${folly_FOUND})
+    if(${userspace-rcu_FOUND})
+        add_subdirectory (grpc)
+        list(APPEND POSIX_LIBRARIES
+                $<TARGET_OBJECTS:sisl_grpc>
+    )
+    endif()
     add_subdirectory (cache)
     add_subdirectory (fds)
     add_subdirectory (file_watcher)
