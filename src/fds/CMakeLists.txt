@@ -38,6 +38,13 @@ if (DEFINED ENABLE_TESTING)
     target_link_libraries(test_bitword sisl ${COMMON_DEPS} GTest::gtest)
     add_test(NAME Bitword COMMAND test_bitset)
 
+    add_executable(test_compact_bitset)
+    target_sources(test_compact_bitset PRIVATE
+        tests/test_compact_bitset.cpp
+      )
+    target_link_libraries(test_compact_bitset sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME CompactBitset COMMAND test_compact_bitset)
+
     add_executable(obj_allocator_benchmark)
     target_sources(obj_allocator_benchmark PRIVATE
         tests/obj_allocator_benchmark.cpp
