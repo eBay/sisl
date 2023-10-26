@@ -45,6 +45,20 @@ if (DEFINED ENABLE_TESTING)
     target_link_libraries(test_compact_bitset sisl ${COMMON_DEPS} GTest::gtest)
     add_test(NAME CompactBitset COMMAND test_compact_bitset)
 
+    add_executable(test_concurrent_insert_vector)
+    target_sources(test_concurrent_insert_vector PRIVATE
+        tests/test_concurrent_insert_vector.cpp
+      )
+    target_link_libraries(test_concurrent_insert_vector sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME ConcurrentInsertVector COMMAND test_concurrent_insert_vector)
+
+    add_executable(concurrent_insert_vector_bench)
+    target_sources(concurrent_insert_vector_bench PRIVATE
+        tests/concurrent_insert_vector_bench.cpp
+      )
+    target_link_libraries(concurrent_insert_vector_bench sisl ${COMMON_DEPS} benchmark::benchmark)
+    add_test(NAME ConcurrentVectorBench COMMAND concurrent_insert_vector_bench)
+
     add_executable(obj_allocator_benchmark)
     target_sources(obj_allocator_benchmark PRIVATE
         tests/obj_allocator_benchmark.cpp
