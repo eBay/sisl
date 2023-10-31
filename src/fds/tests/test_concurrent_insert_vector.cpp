@@ -37,8 +37,7 @@ protected:
     std::vector< std::thread > m_threads;
 
 public:
-    ConcurrentInsertVectorTest() :
-            testing::Test(), m_cvec{s_cast< size_t >(SISL_OPTIONS["num_entries"].as< uint32_t >())} {}
+    ConcurrentInsertVectorTest() : testing::Test() {}
     ConcurrentInsertVectorTest(const ConcurrentInsertVectorTest&) = delete;
     ConcurrentInsertVectorTest(ConcurrentInsertVectorTest&&) noexcept = delete;
     ConcurrentInsertVectorTest& operator=(const ConcurrentInsertVectorTest&) = delete;
@@ -68,6 +67,7 @@ protected:
         sisl::Bitset bset{SISL_OPTIONS["num_entries"].as< uint32_t >()};
         m_cvec.foreach_entry([&bset](uint32_t const& e) { bset.set_bit(e); });
         ASSERT_EQ(bset.get_next_reset_bit(0), sisl::Bitset::npos) << "Access didn't receive all entries";
+        ASSERT_EQ(m_cvec.size(), bset.get_set_count(0)) << "Size doesn't match with number of entries";
     }
 
     void validate_all_by_iteration() {
@@ -76,6 +76,7 @@ protected:
             bset.set_bit(e);
         }
         ASSERT_EQ(bset.get_next_reset_bit(0), sisl::Bitset::npos) << "Access didn't receive all entries";
+        ASSERT_EQ(m_cvec.size(), bset.get_set_count(0)) << "Size doesn't match with number of entries";
     }
 };
 

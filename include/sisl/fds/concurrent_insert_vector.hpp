@@ -46,6 +46,7 @@ public:
         size_t next_id_in_thread{0};
         ConcurrentInsertVector const* vec{nullptr};
 
+        iterator() = default;
         iterator(ConcurrentInsertVector const& v) : vec{&v} {}
         iterator(ConcurrentInsertVector const& v, bool end_iterator) : vec{&v} {
             if (end_iterator) { next_thread = vec->per_thread_vec_ptrs_.size(); }
@@ -88,7 +89,7 @@ public:
 
     iterator begin() {
         tvector_.access_all_threads([this](std::vector< T > const* tvec, bool, bool) {
-            if (tvec) { per_thread_vec_ptrs_.push_back(tvec); }
+            if (tvec && tvec->size()) { per_thread_vec_ptrs_.push_back(tvec); }
             return false;
         });
         return iterator{*this};
@@ -107,11 +108,13 @@ public:
         });
     }
 
-    size_t size() {
+    size_t size() const {
         size_t sz{0};
-        tvector_.access_all_threads([this, &sz](std::vector< T > const* tvec, bool, bool) {
-            if (tvec) { sz += tvec->size; }
-        });
+        const_cast< ExitSafeThreadBuffer< std::vector< T >, size_t >& >(tvector_).access_all_threads(
+            [this, &sz](std::vector< T > const* tvec, bool, bool) {
+                if (tvec) { sz += tvec->size(); }
+                return false;
+            });
         return sz;
     }
 };
