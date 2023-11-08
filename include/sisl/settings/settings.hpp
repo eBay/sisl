@@ -308,7 +308,7 @@ public:
 
         std::string fname = filepath;
         boost::replace_all(fname, ".json", "");
-        if (!GenerateTextFile(parser, "", fname)) { return; }
+        if (!GenTextFile(parser, "", fname)) { return; }
     }
 
     const std::string& get_current_settings() const { return m_current_settings; }
@@ -325,7 +325,7 @@ public:
 
         parser.builder_.Finish(
             SettingsT::TableType::Pack(parser.builder_, m_rcu_data.get_node()->get().get(), nullptr));
-        if (!GenerateText(parser, parser.builder_.GetBufferPointer(), &json)) {
+        if (!GenText(parser, parser.builder_.GetBufferPointer(), &json)) {
             return "Error generating json from flatbuffer";
         }
         return json;
