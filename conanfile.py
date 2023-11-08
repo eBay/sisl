@@ -144,7 +144,6 @@ class SISLConan(ConanFile):
         copy(self, "*.pb.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
         copy(self, "*security_config_generated.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
-        copy(self, "flatbuffer_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
