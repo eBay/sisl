@@ -98,6 +98,8 @@ struct embedded_t : public T {
         *ret = *this;
         return static_cast< T* >(ret);
     }
+
+    void reset() noexcept { delete this; }
 };
 
 template < class T >

@@ -301,14 +301,17 @@ public:
         parser.opts.strict_json = true;
         parser.opts.output_default_scalars_in_json = true;
 
-        if (!parser.Parse(m_raw_schema.c_str())) { return; }
+        if (!parser.Parse(m_raw_schema.c_str())) {
+            LOGERROR("Error in parsing schema file to save");
+            return;
+        }
 
         parser.builder_.Finish(
             SettingsT::TableType::Pack(parser.builder_, m_rcu_data.get_node()->get().get(), nullptr));
 
         std::string fname = filepath;
         boost::replace_all(fname, ".json", "");
-        if (!GenerateTextFile(parser, "", fname)) { return; }
+        if (GenTextFile(parser, "", fname) == nullptr) { LOGERROR("Error in Saving json to file"); }
     }
 
     const std::string& get_current_settings() const { return m_current_settings; }
@@ -321,12 +324,15 @@ public:
         parser.opts.strict_json = true;
         parser.opts.output_default_scalars_in_json = true;
 
-        if (!parser.Parse(m_raw_schema.c_str())) { return "Error parsing flatbuffer settings schema"; }
+        if (!parser.Parse(m_raw_schema.c_str())) {
+            LOGERROR("Error parsing flatbuffer settings schema");
+            return json;
+        }
 
         parser.builder_.Finish(
             SettingsT::TableType::Pack(parser.builder_, m_rcu_data.get_node()->get().get(), nullptr));
-        if (!GenerateText(parser, parser.builder_.GetBufferPointer(), &json)) {
-            return "Error generating json from flatbuffer";
+        if (GenText(parser, parser.builder_.GetBufferPointer(), &json) == nullptr) {
+            LOGERROR("Error generating json from flatbuffer");
         }
         return json;
     }
@@ -464,7 +470,7 @@ private:
 #define WITH_SETTINGS_THIS_CAP1(var, cap1, ...) with_settings([ this, cap1 ](auto& var) __VA_ARGS__)
 #define WITH_SETTINGS_THIS_CAP2(var, cap1, cap2, ...) with_settings([ this, cap1, cap2 ](auto& var) __VA_ARGS__)
 
-//#define SETTINGS_FACTORY(SType) ::sisl::SettingsFactory< SType##T >::instance()
+// #define SETTINGS_FACTORY(SType) ::sisl::SettingsFactory< SType##T >::instance()
 
 /*
  * SETTINGS(var) invokes user supplied lamdba passing it a safe pointer to an instance of settings object
@@ -484,5 +490,5 @@ private:
 #define SETTINGS_THIS_CAP2(sname, var, cap1, cap2, ...)                                                                \
     SETTINGS_FACTORY(sname).WITH_SETTINGS_THIS_CAP2(var, cap1, cap2, __VA_ARGS__)
 
-//#define SETTINGS_VALUE(SType, path_expr) SETTINGS_FACTORY(SType).WITH_SETTINGS_VALUE(path_expr)
+// #define SETTINGS_VALUE(SType, path_expr) SETTINGS_FACTORY(SType).WITH_SETTINGS_VALUE(path_expr)
 #define SETTINGS_VALUE(sname, path_expr) SETTINGS_FACTORY(sname).WITH_SETTINGS_VALUE(path_expr)

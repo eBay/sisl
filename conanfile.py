@@ -8,7 +8,7 @@ required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "10.2.4"
+    version = "10.2.5"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -89,7 +89,7 @@ class SISLConan(ConanFile):
         if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20230127")
         self.requires("cxxopts/3.1.1")
-        self.requires("flatbuffers/1.12.0")
+        self.requires("flatbuffers/23.5.26")
         self.requires("grpc/1.50.1")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.1.0")
@@ -144,6 +144,7 @@ class SISLConan(ConanFile):
         copy(self, "*.pb.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
         copy(self, "*security_config_generated.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
+        copy(self, "flatbuffer_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
