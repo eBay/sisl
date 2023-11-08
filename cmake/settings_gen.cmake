@@ -58,7 +58,7 @@ macro(settings_gen_cpp flatbuffer_bin_path gen_out_path _target)
         add_custom_command(
                 OUTPUT ${_GEN_HEADERS}
                 COMMAND ${flatbuffer_bin_path}
-                ARGS -c -s -o ${gen_out_path}
+                ARGS -c -o ${gen_out_path}
                 --no-prefix
                 --scoped-enums
                 --gen-mutable
