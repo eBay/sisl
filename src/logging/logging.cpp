@@ -251,37 +251,37 @@ static std::string setup_modules() {
             fmt::vformat_to(std::back_inserter(out_str), fmt::string_view{"{}={}, "},
                             fmt::make_format_args(mod_name, lvl_str));
         }
-    } else {
-        if (SISL_OPTIONS.count("log_mods")) {
-            std::regex re{"[\\s,]+"};
-            const auto s{SISL_OPTIONS["log_mods"].as< std::string >()};
-            std::sregex_token_iterator it{std::cbegin(s), std::cend(s), re, -1};
-            std::sregex_token_iterator reg_end;
-            for (; it != reg_end; ++it) {
-                auto mod_stream{std::istringstream(it->str())};
-                std::string module_name, module_level;
-                std::getline(mod_stream, module_name, ':');
-                const auto sym{std::string{"module_level_"} + module_name};
-                if (auto* const mod_level{
-                        static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
-                    nullptr != mod_level) {
-                    if (std::getline(mod_stream, module_level, ':')) {
-                        *mod_level = (1 == module_level.size())
-                            ? static_cast< spdlog::level::level_enum >(std::strtol(module_level.data(), nullptr, 0))
-                            : spdlog::level::from_str(module_level.data());
-                    }
-                } else {
-                    LOGWARN("Could not load module logger: {}\n{}", module_name, dlerror());
+    }
+
+    if (SISL_OPTIONS.count("log_mods")) {
+        std::regex re{"[\\s,]+"};
+        const auto s{SISL_OPTIONS["log_mods"].as< std::string >()};
+        std::sregex_token_iterator it{std::cbegin(s), std::cend(s), re, -1};
+        std::sregex_token_iterator reg_end;
+        for (; it != reg_end; ++it) {
+            auto mod_stream{std::istringstream(it->str())};
+            std::string module_name, module_level;
+            std::getline(mod_stream, module_name, ':');
+            const auto sym{std::string{"module_level_"} + module_name};
+            if (auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
+                nullptr != mod_level) {
+                if (std::getline(mod_stream, module_level, ':')) {
+                    *mod_level = (1 == module_level.size())
+                        ? static_cast< spdlog::level::level_enum >(std::strtol(module_level.data(), nullptr, 0))
+                        : spdlog::level::from_str(module_level.data());
                 }
+            } else {
+                std::cout << fmt::format("Unable to locate the module {} in registered modules, error: {}\n",
+                                         module_name, dlerror());
             }
         }
+    }
 
-        for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
-            const std::string& mod_name{glob_enabled_mods[mod_num]};
-            fmt::vformat_to(
-                std::back_inserter(out_str), fmt::string_view{"{}={}, "},
-                fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data()));
-        }
+    for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
+        const std::string& mod_name{glob_enabled_mods[mod_num]};
+        fmt::vformat_to(
+            std::back_inserter(out_str), fmt::string_view{"{}={}, "},
+            fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data()));
     }
 
     return out_str;
