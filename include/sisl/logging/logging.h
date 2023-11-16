@@ -36,10 +36,7 @@
 #include <boost/preprocessor/control/if.hpp>
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/tuple/push_front.hpp>
-#include <boost/preprocessor/tuple/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
-#include <boost/preprocessor/variadic/to_tuple.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h> // NOTE: There is an ordering dependecy on this header and fmt headers below
 #include <spdlog/fmt/bin_to_hex.h>
@@ -450,7 +447,7 @@ MODLEVELDEC(_, _, base)
 
 #define SISL_LOGGING_DEF(...)                                                                                          \
     BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::info,                                                \
-                          BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__)))
+                          BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define SISL_LOGGING_INIT(...)                                                                                         \
     sisl::logging::InitModules s_init_enabled_mods{                                                                    \
