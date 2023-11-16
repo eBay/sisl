@@ -245,7 +245,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define _ABORT_OR_DUMP(is_log_assert)                                                                                  \
     assert(0);                                                                                                         \
     if (is_log_assert) {                                                                                               \
-        if (sisl::logging::is_crash_handler_installed()) { raise(SIGUSR3); }                    \
+        if (sisl::logging::is_crash_handler_installed()) { raise(SIGUSR3); }                                           \
     } else {                                                                                                           \
         abort();                                                                                                       \
     }
@@ -266,7 +266,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
  * LOGMSG_ASSERT:   If condition is not met: Logs the message with stack trace, aborts in debug build only.
  * DEBUG_ASSERT:    No-op in release build, for debug build, if condition is not met, logs the message and aborts
  */
-//#if __cplusplus > 201703L
+// #if __cplusplus > 201703L
 #if 0
 #define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
     [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }
@@ -448,9 +448,11 @@ MODLEVELDEC(_, _, base)
 #define SISL_LOGGING_DECL(...)                                                                                         \
     BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
-#define SISL_LOGGING_INIT(...)                                                                                         \
+#define SISL_LOGGING_DEF(...)                                                                                          \
     BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::info,                                                \
-                          BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__)))                              \
+                          BOOST_PP_TUPLE_TO_SEQ(BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__)))
+
+#define SISL_LOGGING_INIT(...)                                                                                         \
     sisl::logging::InitModules s_init_enabled_mods{                                                                    \
         BOOST_PP_SEQ_FOR_EACH(MOD_LEVEL_STRING, , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};
 

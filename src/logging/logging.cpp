@@ -57,10 +57,7 @@ SISL_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enabl
                           (version,    "V", "version", "Print the version and exist", ::cxxopts::value<bool>(), ""))
 // clang-format on
 
-// logger required define if not inited
-extern "C" {
-spdlog::level::level_enum module_level_base{spdlog::level::level_enum::info};
-}
+SISL_LOGGING_DEF(base)
 
 namespace sisl {
 namespace logging {

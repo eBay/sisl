@@ -24,6 +24,8 @@
 
 #include <sisl/logging/logging.h>
 
+SISL_LOGGING_DECL(my_module)
+SISL_LOGGING_DEF(my_module)
 SISL_LOGGING_INIT(my_module)
 
 void func() {
