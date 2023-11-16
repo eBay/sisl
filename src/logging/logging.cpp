@@ -251,7 +251,8 @@ static std::string setup_modules() {
             fmt::vformat_to(std::back_inserter(out_str), fmt::string_view{"{}={}, "},
                             fmt::make_format_args(mod_name, lvl_str));
         }
-    }
+    } else
+        set_module_log_level("base", spdlog::level::level_enum::info);
 
     if (SISL_OPTIONS.count("log_mods")) {
         std::regex re{"[\\s,]+"};

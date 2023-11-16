@@ -446,8 +446,7 @@ MODLEVELDEC(_, _, base)
     BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define SISL_LOGGING_DEF(...)                                                                                          \
-    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::info,                                                \
-                          BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
+    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::err, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define SISL_LOGGING_INIT(...)                                                                                         \
     sisl::logging::InitModules s_init_enabled_mods{                                                                    \
