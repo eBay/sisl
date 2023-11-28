@@ -146,27 +146,30 @@ class SISLConan(ConanFile):
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
     def package_info(self):
-        self.cpp_info.libs = ["sisl"]
-
-        if self.settings.compiler == "gcc":
-            self.cpp_info.cppflags.extend(["-fconcepts"])
+        self.cpp_info.names["cmake_find_package"] = "Sisl"
+        self.cpp_info.names["cmake_find_package_multi"] = "Sisl"
+        self.cpp_info.components["core"].libs = ["sisl"]
+        self.cpp_info.components["core"].requires = ["boost::boost", "grpc::grpc++", "flatbuffers::flatbuffers", "cxxopts::cxxopts", "spdlog::spdlog", "nlohmann_json::nlohmann_json", "breakpad::breakpad", "prometheus-cpp::prometheus-cpp", "zmarok-semver::zmarok-semver"]
+        self.cpp_info.components["flip"].libs = ["flip"]
+        self.cpp_info.components["flip"].requires = ["core"]
 
         if self.settings.os == "Linux":
-            self.cpp_info.libs.append("flip")
-            self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
-            self.cpp_info.cppflags.append("-D_FILE_OFFSET_BITS=64")
-            self.cpp_info.cppflags.append("-D_LARGEFILE64")
-            self.cpp_info.system_libs.extend(["dl", "pthread"])
-            self.cpp_info.exelinkflags.extend(["-export-dynamic"])
+            self.cpp_info.components["core"].system_libs.extend(["dl", "pthread"])
+            self.cpp_info.components["core"].cppflags.extend([
+                "-D_POSIX_C_SOURCE=200809L",
+                "-D_FILE_OFFSET_BITS=64",
+                "-D_LARGEFILE64",
+                ])
+            self.cpp_info.components["core"].exelinkflags.append("-export-dynamic")
+            self.cpp_info.components["flip"].system_libs.append("pthread")
 
         if  self.options.sanitize:
-            self.cpp_info.sharedlinkflags.append("-fsanitize=address")
-            self.cpp_info.exelinkflags.append("-fsanitize=address")
-            self.cpp_info.sharedlinkflags.append("-fsanitize=undefined")
-            self.cpp_info.exelinkflags.append("-fsanitize=undefined")
+            self.cpp_info.components["core"].sharedlinkflags.append("-fsanitize=address")
+            self.cpp_info.components["core"].exelinkflags.append("-fsanitize=address")
+            self.cpp_info.components["core"].sharedlinkflags.append("-fsanitize=undefined")
+            self.cpp_info.components["core"].exelinkflags.append("-fsanitize=undefined")
         if self.options.malloc_impl == 'jemalloc':
-            self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
+            self.cpp_info.components["core"].cppflags.append("-DUSE_JEMALLOC=1")
+            self.cpp_info.components["core"].requires.append("jemalloc")
         elif self.options.malloc_impl == 'tcmalloc':
-            self.cpp_info.cppflags.append("-DUSING_TCMALLOC=1")
-            self.cpp_info.libdirs += self.deps_cpp_info["gperftools"].lib_paths
-            self.cpp_info.libs += ["tcmalloc"]
+            self.cpp_info.components["core"].requires.append("tcmalloc")
