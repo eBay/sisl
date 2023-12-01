@@ -8,7 +8,7 @@ required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "10.2.5"
+    version = "11.0.1"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -170,6 +170,6 @@ class SISLConan(ConanFile):
             self.cpp_info.components["core"].exelinkflags.append("-fsanitize=undefined")
         if self.options.malloc_impl == 'jemalloc':
             self.cpp_info.components["core"].cppflags.append("-DUSE_JEMALLOC=1")
-            self.cpp_info.components["core"].requires.append("jemalloc")
+            self.cpp_info.components["core"].requires.append("jemalloc::jemalloc")
         elif self.options.malloc_impl == 'tcmalloc':
-            self.cpp_info.components["core"].requires.append("tcmalloc")
+            self.cpp_info.components["core"].requires.append("gperftools::gperftools")
