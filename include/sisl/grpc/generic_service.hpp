@@ -15,6 +15,7 @@
 #pragma once
 
 #include <grpcpp/generic/async_generic_service.h>
+#include "sisl/fds/buffer.hpp"
 #include "rpc_call.hpp"
 
 namespace sisl {
@@ -49,12 +50,35 @@ public:
     RpcDataAbstract* create_new() override { return new GenericRpcData(m_rpc_info, m_queue_idx); }
     void set_status(grpc::Status& status) { m_retstatus = status; }
 
-    ~GenericRpcData() override = default;
+    ~GenericRpcData() override {
+        if (m_request_blob_allocated) { m_request_blob.buf_free(); }
+    }
 
     // There is only one generic static rpc data for all rpcs.
     size_t get_rpc_idx() const override { return 0; }
 
     const grpc::ByteBuffer& request() const { return m_request; }
+    sisl::io_blob& request_blob() {
+        if (!m_request_blob.bytes) {
+            grpc::Slice slice;
+            auto status = m_request.TrySingleSlice(&slice);
+            if (status.ok()) {
+                m_request_blob.bytes = const_cast< uint8_t* >(slice.begin());
+                m_request_blob.size = slice.size();
+            } else if (status.error_code() == grpc::StatusCode::FAILED_PRECONDITION) {
+                // If the ByteBuffer is not made up of single slice, TrySingleSlice() will fail.
+                // DumpSingleSlice() should work in those cases but will incur a copy.
+                if (status = m_request.DumpToSingleSlice(&slice); status.ok()) {
+                    m_request_blob.buf_alloc(slice.size());
+                    m_request_blob_allocated = true;
+                    std::memcpy(static_cast< void* >(m_request_blob.bytes), static_cast< const void* >(slice.begin()),
+                                slice.size());
+                }
+            }
+        }
+        return m_request_blob;
+    }
+
     grpc::ByteBuffer& response() { return m_response; }
 
     void enqueue_call_request(::grpc::ServerCompletionQueue& cq) override {
@@ -78,6 +102,8 @@ private:
     grpc::GenericServerContext m_ctx;
     grpc::ByteBuffer m_request;
     grpc::ByteBuffer m_response;
+    sisl::io_blob m_request_blob;
+    bool m_request_blob_allocated{false};
     grpc::Status m_retstatus{grpc::Status::OK};
     // user can set and retrieve the context. Its life cycle is tied to that of rpc data.
     generic_rpc_ctx_ptr m_rpc_context;
@@ -104,7 +130,7 @@ private:
         return in_shutdown ? nullptr : create_new();
     }
 
-    RpcDataAbstract* on_buf_read(bool ) {
+    RpcDataAbstract* on_buf_read(bool) {
         auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
         // take a ref before the handler cb is called.
         // unref is called in send_response which is handled by us (in case of sync calls)
@@ -114,7 +140,7 @@ private:
         return nullptr;
     }
 
-    RpcDataAbstract* on_buf_write(bool ) {
+    RpcDataAbstract* on_buf_write(bool) {
         m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
         unref();
         return nullptr;
