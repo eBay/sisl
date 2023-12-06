@@ -157,11 +157,22 @@ void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t&
     prepare_and_send_unary_generic(cd, cd->m_req, method, deadline);
 }
 
-generic_async_result_t GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
-                                                                     const std::string& method, uint32_t deadline) {
-    auto [p, sf] = folly::makePromiseContract< generic_result_t >();
+AsyncResult< grpc::ByteBuffer > GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
+                                                                              const std::string& method,
+                                                                              uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< Result< grpc::ByteBuffer > >();
     auto data = new GenericClientRpcDataFuture(std::move(p));
     prepare_and_send_unary_generic(data, request, method, deadline);
+    return std::move(sf);
+}
+
+AsyncResult< io_blob > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
+                                                                     const std::string& method, uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< Result< io_blob > >();
+    auto data = new GenericRpcDataFutureBlob(std::move(p));
+    grpc::ByteBuffer cli_byte_buf;
+    serialize_to_byte_buffer(request, cli_byte_buf);
+    prepare_and_send_unary_generic(data, cli_byte_buf, method, deadline);
     return std::move(sf);
 }
 
@@ -172,4 +183,19 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
     return std::make_unique< GrpcAsyncClient::GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w,
                                                                  m_token_client);
 }
+
+GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(folly::Promise< Result< io_blob > >&& promise) :
+        m_promise{std::move(promise)} {}
+
+void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {
+    // For unary call, ok is always true, `status_` will indicate error if there are any.
+    if (this->m_status.ok()) {
+        auto cli_buf = deserialize_from_byte_buffer(this->m_reply);
+        this->m_reply.Release();
+        m_promise.setValue(std::move(cli_buf));
+    } else {
+        m_promise.setValue(folly::makeUnexpected(this->m_status));
+    }
+}
+
 } // namespace sisl

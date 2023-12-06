@@ -17,6 +17,7 @@
 #include <grpcpp/generic/async_generic_service.h>
 #include "sisl/fds/buffer.hpp"
 #include "rpc_call.hpp"
+#include "utils.hpp"
 
 namespace sisl {
 
@@ -60,6 +61,7 @@ public:
     const grpc::ByteBuffer& request() const { return m_request; }
     sisl::io_blob& request_blob() {
         if (m_request_blob.cbytes() == nullptr) {
+
             grpc::Slice slice;
             auto status = m_request.TrySingleSlice(&slice);
             if (status.ok()) {
@@ -71,8 +73,7 @@ public:
                 if (status = m_request.DumpToSingleSlice(&slice); status.ok()) {
                     m_request_blob.buf_alloc(slice.size());
                     m_request_blob_allocated = true;
-                    std::memcpy(voidptr_cast(m_request_blob.bytes()), c_voidptr_cast(slice.begin()),
-                                slice.size());
+                    std::memcpy(voidptr_cast(m_request_blob.bytes()), c_voidptr_cast(slice.begin()), slice.size());
                 }
             }
         }
