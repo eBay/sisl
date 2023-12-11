@@ -62,7 +62,7 @@ struct DataMessage {
     }
 };
 
-static void DeserializeFromByteBuffer(const grpc::ByteBuffer& buffer, DataMessage& msg) {
+static void DeserializeFromBuffer(const grpc::ByteBuffer& buffer, DataMessage& msg) {
     std::vector< grpc::Slice > slices;
     (void)buffer.Dump(&slices);
     std::string buf;
@@ -72,6 +72,14 @@ static void DeserializeFromByteBuffer(const grpc::ByteBuffer& buffer, DataMessag
     }
     msg.DeserializeFromString(buf);
 }
+
+static void DeserializeFromBuffer(sisl::io_blob const& buffer, DataMessage& msg) {
+    std::string buf;
+    buf.reserve(buffer.size);
+    buf.append(reinterpret_cast< const char* >(buffer.bytes), buffer.size);
+    msg.DeserializeFromString(buf);
+}
+
 static void SerializeToByteBuffer(grpc::ByteBuffer& buffer, const DataMessage& msg) {
     std::string buf;
     msg.SerializeToString(buf);
@@ -115,7 +123,7 @@ public:
         RELEASE_ASSERT_EQ(status.ok(), true, "generic request {} failed, status {}: {}", req.m_seqno,
                           status.error_code(), status.error_message());
         DataMessage svr_msg;
-        DeserializeFromByteBuffer(reply, svr_msg);
+        DeserializeFromBuffer(reply, svr_msg);
         RELEASE_ASSERT_EQ(req.m_seqno, svr_msg.m_seqno);
         RELEASE_ASSERT_EQ(req.m_buf, svr_msg.m_buf);
         {
@@ -323,9 +331,10 @@ public:
         std::atomic< uint32_t > num_calls = 0ul;
         std::atomic< uint32_t > num_completions = 0ul;
 
-        static void set_response(const grpc::ByteBuffer& req, grpc::ByteBuffer& resp) {
+        template < typename BufT >
+        static void set_response(BufT const& req, grpc::ByteBuffer& resp) {
             DataMessage cli_request;
-            DeserializeFromByteBuffer(req, cli_request);
+            DeserializeFromBuffer(req, cli_request);
             RELEASE_ASSERT((cli_request.m_buf == GENERIC_CLIENT_MESSAGE), "Could not parse response buffer");
             SerializeToByteBuffer(resp, cli_request);
         }
@@ -344,7 +353,7 @@ public:
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls.load());
                         std::thread([this, rpc = rpc_data] {
-                            set_response(rpc->request(), rpc->response());
+                            set_response(rpc->request_blob(), rpc->response());
                             rpc->send_response();
                         }).detach();
                         return false;
