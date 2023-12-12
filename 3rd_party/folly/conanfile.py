@@ -84,6 +84,7 @@ class FollyConan(ConanFile):
         self.requires("snappy/1.1.9")
         self.requires("zlib/1.2.13")
         self.requires("zstd/1.5.2")
+        self.requires("liburing/2.4")
         if not is_msvc(self):
             self.requires("libdwarf/20191104")
         self.requires("libsodium/1.0.18")
