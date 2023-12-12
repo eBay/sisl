@@ -250,7 +250,7 @@ private:
 
     K m_base_key;
     big_offset_t m_base_nth;
-    folly::small_vector< ValueEntryRange, 8, small_count_t > m_values;
+    folly::small_vector< ValueEntryRange, 8, folly::small_vector_policy::policy_size_type<small_count_t> > m_values;
 
 public:
     MultiEntryHashNode(const K& base_key, big_offset_t nth) : m_base_key{base_key}, m_base_nth{nth} {}

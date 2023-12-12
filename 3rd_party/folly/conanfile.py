@@ -73,16 +73,16 @@ class FollyConan(ConanFile):
             del self.options.fPIC
 
     def requirements(self):
-        self.requires("boost/1.78.0")
+        self.requires("boost/1.82.0")
         self.requires("bzip2/1.0.8")
         self.requires("double-conversion/3.2.0")
         self.requires("gflags/2.2.2")
         self.requires("glog/0.4.0")
         self.requires("libevent/2.1.12")
-        self.requires("openssl/1.1.1q")
+        self.requires("openssl/3.1.1")
         self.requires("lz4/1.9.3")
         self.requires("snappy/1.1.9")
-        self.requires("zlib/1.2.12")
+        self.requires("zlib/1.2.13")
         self.requires("zstd/1.5.2")
         if not is_msvc(self):
             self.requires("libdwarf/20191104")
@@ -93,7 +93,7 @@ class FollyConan(ConanFile):
             self.requires("libiberty/9.1.0")
             self.requires("libunwind/1.5.0")
         if Version(self.version) >= "2020.08.10.00":
-            self.requires("fmt/7.1.3")
+            self.requires("fmt/[>=10]")
 
     @property
     def _required_boost_components(self):

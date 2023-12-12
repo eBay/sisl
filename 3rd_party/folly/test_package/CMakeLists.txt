@@ -9,8 +9,4 @@ target_link_libraries(${PROJECT_NAME}
     Folly::follybenchmark)
 
 
-if (${FOLLY_VERSION} VERSION_LESS "2021.07.20.00")
-    set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
-else()
-    set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
-endif()
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
