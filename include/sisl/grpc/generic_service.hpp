@@ -59,19 +59,19 @@ public:
 
     const grpc::ByteBuffer& request() const { return m_request; }
     sisl::io_blob& request_blob() {
-        if (!m_request_blob.bytes) {
+        if (m_request_blob.cbytes() == nullptr) {
             grpc::Slice slice;
             auto status = m_request.TrySingleSlice(&slice);
             if (status.ok()) {
-                m_request_blob.bytes = const_cast< uint8_t* >(slice.begin());
-                m_request_blob.size = slice.size();
+                m_request_blob.set_bytes(slice.begin());
+                m_request_blob.set_size(slice.size());
             } else if (status.error_code() == grpc::StatusCode::FAILED_PRECONDITION) {
                 // If the ByteBuffer is not made up of single slice, TrySingleSlice() will fail.
                 // DumpSingleSlice() should work in those cases but will incur a copy.
                 if (status = m_request.DumpToSingleSlice(&slice); status.ok()) {
                     m_request_blob.buf_alloc(slice.size());
                     m_request_blob_allocated = true;
-                    std::memcpy(static_cast< void* >(m_request_blob.bytes), static_cast< const void* >(slice.begin()),
+                    std::memcpy(voidptr_cast(m_request_blob.bytes()), c_voidptr_cast(slice.begin()),
                                 slice.size());
                 }
             }

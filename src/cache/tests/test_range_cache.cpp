@@ -152,15 +152,15 @@ private:
         }
     }
 
-    void file_write(const uint32_t chunk_num, const uint32_t start_blk, const sisl::io_blob& b) {
-        const auto written = ::pwrite(m_fds[chunk_num], voidptr_cast(b.bytes), b.size, (start_blk * g_blk_size));
-        RELEASE_ASSERT_EQ(written, b.size, "Not entire data is written to file");
+    void file_write(const uint32_t chunk_num, const uint32_t start_blk, sisl::io_blob& b) {
+        const auto written = ::pwrite(m_fds[chunk_num], voidptr_cast(b.bytes()), b.size(), (start_blk * g_blk_size));
+        RELEASE_ASSERT_EQ(written, b.size(), "Not entire data is written to file");
     }
 
     sisl::io_blob file_read(const uint32_t chunk_num, const uint32_t blk, const uint32_t nblks) {
         sisl::io_blob b{nblks * g_blk_size, 0};
-        const auto read_size = ::pread(m_fds[chunk_num], voidptr_cast(b.bytes), b.size, (blk * g_blk_size));
-        RELEASE_ASSERT_EQ(uint32_cast(read_size), b.size, "Not entire data is read from file");
+        const auto read_size = ::pread(m_fds[chunk_num], voidptr_cast(b.bytes()), b.size(), (blk * g_blk_size));
+        RELEASE_ASSERT_EQ(uint32_cast(read_size), b.size(), "Not entire data is read from file");
         return b;
     }
 
@@ -168,7 +168,7 @@ private:
         auto b = file_read(chunk_num, data.first.m_nth, data.first.m_count);
         ASSERT_EQ(data.second.size(), data.first.m_count * g_blk_size)
             << "Mismatch of size between byte_view and RangeKey";
-        auto ret = ::memcmp(data.second.bytes(), b.bytes, b.size);
+        auto ret = ::memcmp(data.second.bytes(), b.bytes(), b.size());
         ASSERT_EQ(ret, 0) << "Data validation failed for Blk [" << data.first.m_nth << "-" << data.first.end_nth()
                           << "]";
         b.buf_free();
