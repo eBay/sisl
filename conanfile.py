@@ -8,7 +8,7 @@ required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "11.0.1"
+    version = "11.0.3"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -96,8 +96,8 @@ class SISLConan(ConanFile):
         self.requires("spdlog/1.12.0")
         self.requires("zmarok-semver/1.1.0")
         self.requires("fmt/10.0.0",     override=True)
-        self.requires("libcurl/8.0.1",  override=True)
-        self.requires("openssl/3.1.1",  override=True)
+        self.requires("libcurl/8.2.1",  override=True)
+        self.requires("openssl/3.1.3",  override=True)
         self.requires("xz_utils/5.2.5", override=True)
         self.requires("zlib/1.2.13",    override=True)
 

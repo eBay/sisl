@@ -55,11 +55,11 @@ public:
         allocated_ = true;
     }
 
-    CompactBitSet(sisl::blob const& buf, bool init_bits) : s_{r_cast< serialized* >(buf.bytes)} {
-        DEBUG_ASSERT_GT(buf.size, 0, "compact bitset initialized with empty buffer");
-        DEBUG_ASSERT_EQ(buf.size % word_size_bytes(), 0, "compact bitset buffer size must be multiple of word size");
-        nbits_ = buf.size * 8;
-        if (init_bits) { std::memset(buf.bytes, 0, buf.size); }
+    CompactBitSet(sisl::blob buf, bool init_bits) : s_{r_cast< serialized* >(buf.bytes())} {
+        DEBUG_ASSERT_GT(buf.size(), 0, "compact bitset initialized with empty buffer");
+        DEBUG_ASSERT_EQ(buf.size() % word_size_bytes(), 0, "compact bitset buffer size must be multiple of word size");
+        nbits_ = buf.size() * 8;
+        if (init_bits) { std::memset(buf.bytes(), 0, buf.size()); }
     }
 
     ~CompactBitSet() {

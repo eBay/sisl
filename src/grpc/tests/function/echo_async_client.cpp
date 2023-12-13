@@ -75,8 +75,8 @@ static void DeserializeFromBuffer(const grpc::ByteBuffer& buffer, DataMessage& m
 
 static void DeserializeFromBuffer(sisl::io_blob const& buffer, DataMessage& msg) {
     std::string buf;
-    buf.reserve(buffer.size);
-    buf.append(reinterpret_cast< const char* >(buffer.bytes), buffer.size);
+    buf.reserve(buffer.size());
+    buf.append(reinterpret_cast< const char* >(buffer.cbytes()), buffer.size());
     msg.DeserializeFromString(buf);
 }
 

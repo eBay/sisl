@@ -32,6 +32,11 @@ if (DEFINED CONAN_BUILD_COVERAGE)
   endif()
 endif()
 
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    message(STATUS "Debug build")
+    add_flags("-D_DEBUG")
+endif()
+
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "jemalloc")
         add_flags("-DUSE_JEMALLOC=1")
