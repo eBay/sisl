@@ -8,7 +8,7 @@ required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "11.0.2"
+    version = "11.0.3"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -147,9 +147,6 @@ class SISLConan(ConanFile):
 
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
-
-        if self.settings.compiler == "gcc":
-            self.cpp_info.cppflags.extend(["-fconcepts"])
 
         if self.settings.os == "Linux":
             self.cpp_info.libs.append("flip")
