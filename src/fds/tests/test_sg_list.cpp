@@ -140,9 +140,9 @@ TEST_F(SgListTestOffset, TestMoveOffsetAligned) {
         auto rand_num = r_cast< uint32_t* >(iovs[0].iov_base);
         EXPECT_EQ(*rand_num, data_vec[i]);
 
-        rand_num = r_cast< uint32_t* >(ioblob_list[i].bytes);
+        rand_num = r_cast< uint32_t* >(ioblob_list[i].bytes());
         EXPECT_EQ(*rand_num, data_vec[i]);
-        EXPECT_EQ(ioblob_list[i].size, SZ);
+        EXPECT_EQ(ioblob_list[i].size(), SZ);
     }
 
     sisl::sg_iterator sgitr1{sgl.iovs};

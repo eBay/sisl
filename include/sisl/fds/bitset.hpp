@@ -208,7 +208,7 @@ public:
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
         m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
-        m_s = new (m_buf->bytes) bitset_serialized{m_id, nbits, 0, alignment_size};
+        m_s = new (m_buf->bytes()) bitset_serialized{m_id, nbits, 0, alignment_size};
     }
 
     // this makes a shared copy of the rhs so that modifications of the shared version
@@ -224,18 +224,18 @@ public:
         // NOTE: This assumes that the passed byte_array already has an initialized bitset_serialized structure
         // Also assume that the words byte array contains packed word_t data since packed Word data is illegal
         // with any class besides POD
-        assert(b->size >= sizeof(bitset_serialized));
+        assert(b->size() >= sizeof(bitset_serialized));
         // get the header info
-        const bitset_serialized* const ptr{reinterpret_cast< const bitset_serialized* >(b->bytes)};
+        const bitset_serialized* const ptr{reinterpret_cast< const bitset_serialized* >(b->cbytes())};
         assert(ptr->m_word_bits == bitword_type::bits());
         const uint64_t nbits{ptr->m_nbits};
         const uint64_t total_bytes{bitset_serialized::nbytes(nbits)};
         const uint32_t alignment_size{opt_alignment_size ? (*opt_alignment_size) : ptr->m_alignment_size};
         const uint64_t size{(alignment_size > 0) ? round_up(total_bytes, alignment_size) : total_bytes};
-        assert(b->size >= total_bytes);
+        assert(b->size() >= total_bytes);
         m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
-        m_s = new (m_buf->bytes) bitset_serialized{ptr->m_id, nbits, ptr->m_skip_bits, alignment_size, false};
-        const word_t* b_words{reinterpret_cast< const word_t* >(b->bytes + sizeof(bitset_serialized))};
+        m_s = new (m_buf->bytes()) bitset_serialized{ptr->m_id, nbits, ptr->m_skip_bits, alignment_size, false};
+        const word_t* b_words{reinterpret_cast< const word_t* >(b->cbytes() + sizeof(bitset_serialized))};
         // copy the data
         std::uninitialized_copy(b_words, std::next(b_words, m_s->m_words_cap), m_s->get_words());
     }
@@ -248,7 +248,7 @@ public:
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
         m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
-        m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, alignment_size, false};
+        m_s = new (m_buf->bytes()) bitset_serialized{id, nbits, 0, alignment_size, false};
 
         // copy the data into the uninitialized bitset
         std::uninitialized_copy(start_ptr, end_ptr, m_s->get_words());
@@ -264,7 +264,7 @@ public:
         const uint64_t size{(alignment_size > 0) ? round_up(bitset_serialized::nbytes(nbits), alignment_size)
                                                  : bitset_serialized::nbytes(nbits)};
         m_buf = make_byte_array_with_deleter(static_cast< uint32_t >(size), alignment_size);
-        m_s = new (m_buf->bytes) bitset_serialized{id, nbits, 0, alignment_size, false};
+        m_s = new (m_buf->bytes()) bitset_serialized{id, nbits, 0, alignment_size, false};
 
         // copy the data into the unitialized bitset
         std::uninitialized_copy(start_itr, end_itr, m_s->get_words());
@@ -485,9 +485,9 @@ public:
             {
                 ReadLockGuard other_lock{&other};
                 // ensure distinct buffers
-                if ((m_buf->size != other.m_buf->size) || (m_buf == other.m_buf)) {
-                    m_buf = make_byte_array_with_deleter(other.m_buf->size, other.m_s->m_alignment_size);
-                    m_s = new (m_buf->bytes)
+                if ((m_buf->size() != other.m_buf->size()) || (m_buf == other.m_buf)) {
+                    m_buf = make_byte_array_with_deleter(other.m_buf->size(), other.m_s->m_alignment_size);
+                    m_s = new (m_buf->bytes())
                         bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits,
                                           other.m_s->m_alignment_size, false};
                     std::uninitialized_copy(other.m_s->get_words_const(), other.m_s->end_words_const(),
@@ -496,7 +496,7 @@ public:
                     // Word array is initialized here so std::copy suffices for some or all
                     const auto old_words_cap{m_s->m_words_cap};
                     if (other.m_s->m_words_cap > old_words_cap) {
-                        m_s = new (m_buf->bytes)
+                        m_s = new (m_buf->bytes())
                             bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits,
                                               other.m_s->m_alignment_size, false};
                         // copy into previously initialized spaces
@@ -513,7 +513,7 @@ public:
                                          std::next(m_s->get_words(), old_words_cap));
                         }
 
-                        m_s = new (m_buf->bytes)
+                        m_s = new (m_buf->bytes())
                             bitset_serialized{other.m_s->m_id, other.m_s->m_nbits, other.m_s->m_skip_bits,
                                               other.m_s->m_alignment_size, false};
                         std::copy(other.m_s->get_words_const(), other.m_s->end_words_const(), m_s->get_words());
@@ -536,11 +536,11 @@ public:
                 // ensure distinct buffers
                 bool uninitialized{false};
                 const auto old_words_cap{m_s->m_words_cap};
-                if ((m_buf->size != size) || (m_buf == other.m_buf)) {
+                if ((m_buf->size() != size) || (m_buf == other.m_buf)) {
                     m_buf = make_byte_array_with_deleter(size, alignment_size);
                     uninitialized = true;
                 }
-                m_s = new (m_buf->bytes) bitset_serialized{other.m_s->m_id, nbits, 0, alignment_size, false};
+                m_s = new (m_buf->bytes()) bitset_serialized{other.m_s->m_id, nbits, 0, alignment_size, false};
                 const auto new_words_cap{m_s->m_words_cap};
                 bitword_type* word_ptr{m_s->get_words()};
                 const uint8_t rhs_offset{other.get_word_offset(0)};
@@ -667,17 +667,17 @@ public:
                         delete ptr;
                     }
                 }}};
-            word_t* word_ptr{reinterpret_cast< word_t* >(buf->bytes + sizeof(bitset_serialized))};
+            word_t* word_ptr{reinterpret_cast< word_t* >(buf->bytes() + sizeof(bitset_serialized))};
             if (std::is_standard_layout_v< bitword_type > && std::is_trivial_v< value_type > &&
                 (sizeof(value_type) == sizeof(bitword_type))) {
                 const size_t num_words{static_cast< size_t >(m_s->end_words_const() - get_word_const(0))};
                 const uint64_t skip_bits{get_word_offset(0)};
-                new (buf->bytes) bitset_serialized{m_s->m_id, num_bits + skip_bits, skip_bits, alignment_size, false};
+                new (buf->bytes()) bitset_serialized{m_s->m_id, num_bits + skip_bits, skip_bits, alignment_size, false};
                 std::memcpy(static_cast< void* >(word_ptr), static_cast< const void* >(get_word_const(0)),
                             num_words * sizeof(word_t));
             } else {
                 // non trivial, word by word copy the unshifted data words
-                new (buf->bytes) bitset_serialized{m_s->m_id, num_bits, 0, alignment_size, false};
+                new (buf->bytes()) bitset_serialized{m_s->m_id, num_bits, 0, alignment_size, false};
                 uint64_t current_bit{0};
                 for (uint64_t word_num{0}; word_num < total_words; ++word_num, ++word_ptr, current_bit += word_size()) {
                     new (word_ptr) word_t{get_word_value(current_bit)};
@@ -1146,7 +1146,7 @@ private:
 
         const uint64_t new_nbits{nbits + new_skip_bits};
         auto new_buf{make_byte_array_with_deleter(bitset_serialized::nbytes(new_nbits), m_s->m_alignment_size)};
-        auto new_s{new (new_buf->bytes)
+        auto new_s{new (new_buf->bytes())
                        bitset_serialized{m_s->m_id, new_nbits, new_skip_bits, m_s->m_alignment_size, false}};
         const auto new_cap{new_s->m_words_cap};
 

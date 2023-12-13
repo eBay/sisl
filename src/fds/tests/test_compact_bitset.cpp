@@ -52,7 +52,7 @@ protected:
 };
 
 TEST_F(CompactBitsetTest, AlternateBits) {
-    ASSERT_EQ(m_bset->size(), m_buf.size * 8);
+    ASSERT_EQ(m_bset->size(), m_buf.size() * 8);
 
     for (CompactBitSet::bit_count_t i{0}; i < m_bset->size(); ++i) {
         ASSERT_EQ(m_bset->is_bit_set(i), false);

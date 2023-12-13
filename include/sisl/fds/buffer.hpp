@@ -31,13 +31,49 @@
 #include <sisl/utility/enum.hpp>
 #include "utils.hpp"
 
+#ifndef NDEBUG
+#ifndef _DEBUG
+#define _DEBUG
+#endif
+#endif
+
 namespace sisl {
 struct blob {
-    uint8_t* bytes;
-    uint32_t size;
+protected:
+    uint8_t* bytes_{nullptr};
+    uint32_t size_{0};
+#ifdef _DEBUG
+    bool is_const_{false};
+#endif
 
-    blob() : blob{nullptr, 0} {}
-    blob(uint8_t* b, uint32_t s) : bytes{b}, size{s} {}
+public:
+    blob() = default;
+    blob(uint8_t* b, uint32_t s) : bytes_{b}, size_{s} {}
+    blob(uint8_t const* b, uint32_t s) : bytes_{const_cast< uint8_t* >(b)}, size_{s} {
+#ifdef _DEBUG
+        is_const_ = true;
+#endif
+    }
+
+    uint8_t* bytes() {
+        DEBUG_ASSERT_EQ(is_const_, false, "Trying to access writeable bytes with const declaration");
+        return bytes_;
+    }
+    uint32_t size() const { return size_; }
+    uint8_t const* cbytes() const { return bytes_; }
+
+    void set_bytes(uint8_t* b) {
+        DEBUG_ASSERT_EQ(is_const_, false, "Trying to access writeable bytes with const declaration");
+        bytes_ = b;
+    }
+
+    void set_bytes(uint8_t const* b) {
+#ifdef _DEBUG
+        is_const_ = false;
+#endif
+        bytes_ = const_cast< uint8_t* >(b);
+    }
+    void set_size(uint32_t s) { size_ = s; }
 };
 
 using sg_iovs_t = folly::small_vector< iovec, 4 >;
@@ -241,49 +277,50 @@ struct io_blob;
 using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
 
 struct io_blob : public blob {
-    bool aligned{false};
+protected:
+    bool aligned_{false};
 
+public:
     io_blob() = default;
-    io_blob(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
-        buf_alloc(sz, align_size, tag);
-    }
-    io_blob(uint8_t* const bytes, const uint32_t size, const bool is_aligned) :
-            blob(bytes, size), aligned{is_aligned} {}
+    io_blob(size_t sz, uint32_t align_size = 512, buftag tag = buftag::common) { buf_alloc(sz, align_size, tag); }
+    io_blob(uint8_t* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned_{is_aligned} {}
+    io_blob(uint8_t const* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned_{is_aligned} {}
     ~io_blob() = default;
 
-    void buf_alloc(const size_t sz, const uint32_t align_size = 512, const buftag tag = buftag::common) {
-        aligned = (align_size != 0);
-        blob::size = sz;
-        blob::bytes = aligned ? sisl_aligned_alloc(align_size, sz, tag) : (uint8_t*)malloc(sz);
+    void buf_alloc(size_t sz, uint32_t align_size = 512, buftag tag = buftag::common) {
+        aligned_ = (align_size != 0);
+        blob::size_ = sz;
+        blob::bytes_ = aligned_ ? sisl_aligned_alloc(align_size, sz, tag) : (uint8_t*)malloc(sz);
     }
 
-    void buf_free(const buftag tag = buftag::common) const {
-        aligned ? sisl_aligned_free(blob::bytes, tag) : std::free(blob::bytes);
+    void buf_free(buftag tag = buftag::common) const {
+        aligned_ ? sisl_aligned_free(blob::bytes_, tag) : std::free(blob::bytes_);
     }
 
-    void buf_realloc(const size_t new_size, const uint32_t align_size = 512,
-                     [[maybe_unused]] const buftag tag = buftag::common) {
+    void buf_realloc(size_t new_size, uint32_t align_size = 512, [[maybe_unused]] buftag tag = buftag::common) {
         uint8_t* new_buf{nullptr};
-        if (aligned) {
+        if (aligned_) {
             // aligned before, so do not need check for new align size, once aligned will be aligned on realloc also
-            new_buf = sisl_aligned_realloc(blob::bytes, align_size, new_size, blob::size);
+            new_buf = sisl_aligned_realloc(blob::bytes_, align_size, new_size, blob::size_);
         } else if (align_size != 0) {
             // Not aligned before, but need aligned now
             uint8_t* const new_buf{sisl_aligned_alloc(align_size, new_size, buftag::common)};
-            std::memcpy(static_cast< void* >(new_buf), static_cast< const void* >(blob::bytes),
-                        std::min(new_size, static_cast< size_t >(blob::size)));
-            std::free(blob::bytes);
+            std::memcpy(static_cast< void* >(new_buf), static_cast< const void* >(blob::bytes_),
+                        std::min(new_size, static_cast< size_t >(blob::size_)));
+            std::free(blob::bytes_);
         } else {
             // don't bother about alignment, just do standard realloc
-            new_buf = (uint8_t*)std::realloc(blob::bytes, new_size);
+            new_buf = (uint8_t*)std::realloc(blob::bytes_, new_size);
         }
 
-        blob::size = new_size;
-        blob::bytes = new_buf;
+        blob::size_ = new_size;
+        blob::bytes_ = new_buf;
     }
 
+    bool is_aligned() const { return aligned_; }
+
     static io_blob from_string(const std::string& s) {
-        return io_blob{r_cast< uint8_t* >(const_cast< char* >(s.data())), uint32_cast(s.size()), false};
+        return io_blob{r_cast< const uint8_t* >(s.data()), uint32_cast(s.size()), false};
     }
 
     static io_blob_list_t sg_list_to_ioblob_list(const sg_list& sglist) {
@@ -304,28 +341,30 @@ public:
     buftag m_tag;
 
 public:
+    io_blob_safe() = default;
     io_blob_safe(uint32_t sz, uint32_t alignment = 0, buftag tag = buftag::common) :
             io_blob(sz, alignment, tag), m_tag{tag} {}
     io_blob_safe(uint8_t* bytes, uint32_t size, bool is_aligned) : io_blob(bytes, size, is_aligned) {}
+    io_blob_safe(uint8_t const* bytes, uint32_t size, bool is_aligned) : io_blob(bytes, size, is_aligned) {}
     ~io_blob_safe() {
-        if (bytes != nullptr) { io_blob::buf_free(m_tag); }
+        if (blob::bytes_ != nullptr) { io_blob::buf_free(m_tag); }
     }
 
     io_blob_safe(io_blob_safe const& other) = delete;
     io_blob_safe(io_blob_safe&& other) : io_blob(std::move(other)), m_tag(other.m_tag) {
-        other.bytes = nullptr;
-        other.size = 0;
+        other.bytes_ = nullptr;
+        other.size_ = 0;
     }
 
     io_blob_safe& operator=(io_blob_safe const& other) = delete; // Delete copy constructor
     io_blob_safe& operator=(io_blob_safe&& other) {
-        if (bytes != nullptr) { this->buf_free(m_tag); }
+        if (blob::bytes_ != nullptr) { this->buf_free(m_tag); }
 
         *((io_blob*)this) = std::move(*((io_blob*)&other));
         m_tag = other.m_tag;
 
-        other.bytes = nullptr;
-        other.size = 0;
+        other.bytes_ = nullptr;
+        other.size_ = 0;
         return *this;
     }
 };
@@ -333,36 +372,32 @@ public:
 using byte_array_impl = io_blob_safe;
 
 using byte_array = std::shared_ptr< io_blob_safe >;
-inline byte_array make_byte_array(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) {
+inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0, buftag tag = buftag::common) {
     return std::make_shared< io_blob_safe >(sz, alignment, tag);
-}
-
-inline byte_array to_byte_array(const sisl::io_blob& blob) {
-    return std::make_shared< io_blob_safe >(blob.bytes, blob.size, blob.aligned);
 }
 
 struct byte_view {
 public:
     byte_view() = default;
-    byte_view(const uint32_t sz, const uint32_t alignment = 0, const buftag tag = buftag::common) {
+    byte_view(uint32_t sz, uint32_t alignment = 0, buftag tag = buftag::common) {
         m_base_buf = make_byte_array(sz, alignment, tag);
-        m_view = *m_base_buf;
+        m_view.set_bytes(m_base_buf->cbytes());
+        m_view.set_size(m_base_buf->size());
     }
-    byte_view(byte_array buf) : byte_view(std::move(buf), 0, buf->size) {}
-    byte_view(byte_array buf, const uint32_t offset, const uint32_t sz) {
+    byte_view(byte_array buf) : byte_view(std::move(buf), 0u, buf->size()) {}
+    byte_view(byte_array buf, uint32_t offset, uint32_t sz) {
         m_base_buf = std::move(buf);
-        m_view.bytes = m_base_buf->bytes + offset;
-        m_view.size = sz;
+        m_view.set_bytes(m_base_buf->cbytes() + offset);
+        m_view.set_size(sz);
     }
 
-    byte_view(const byte_view& v, const uint32_t offset, const uint32_t sz) {
-        DEBUG_ASSERT_GE(v.m_view.size, sz + offset);
+    byte_view(const byte_view& v, uint32_t offset, uint32_t sz) {
+        DEBUG_ASSERT_GE(v.m_view.size(), sz + offset);
         m_base_buf = v.m_base_buf;
-        m_view.bytes = v.m_view.bytes + offset;
-        m_view.size = sz;
+        m_view.set_bytes(v.m_view.cbytes() + offset);
+        m_view.set_size(sz);
     }
-    byte_view(const sisl::io_blob& blob) :
-            byte_view(std::make_shared< byte_array_impl >(blob.bytes, blob.size, blob.aligned)) {}
+    byte_view(const sisl::io_blob& b) : byte_view(b.size(), b.is_aligned()) {}
 
     ~byte_view() = default;
     byte_view(const byte_view& other) = default;
@@ -380,33 +415,36 @@ public:
     }
 
     blob get_blob() const { return m_view; }
-    uint8_t* bytes() const { return m_view.bytes; }
-    uint32_t size() const { return m_view.size; }
-    void move_forward(const uint32_t by) {
-        assert(m_view.size >= by);
-        m_view.bytes += by;
-        m_view.size -= by;
+    uint8_t const* bytes() const { return m_view.cbytes(); }
+    uint32_t size() const { return m_view.size(); }
+    void move_forward(uint32_t by) {
+        DEBUG_ASSERT_GE(m_view.size(), by, "Size greater than move forward request by");
+        m_view.set_bytes(m_view.cbytes() + by);
+        m_view.set_size(m_view.size() - by);
         validate();
     }
 
     // Extract the byte_array so that caller can safely use the underlying byte_array. If the view represents the
     // entire array, it will not do any copy. If view represents only portion of array, create a copy of the byte array
     // and returns that value
-    byte_array extract(const uint32_t alignment = 0) const {
+    byte_array extract(uint32_t alignment = 0) const {
         if (can_do_shallow_copy()) {
             return m_base_buf;
         } else {
-            auto base_buf = make_byte_array(m_view.size, alignment, m_base_buf->m_tag);
-            std::memcpy(base_buf->bytes, m_view.bytes, m_view.size);
+            auto base_buf = make_byte_array(m_view.size(), alignment, m_base_buf->m_tag);
+            std::memcpy(base_buf->bytes(), m_view.cbytes(), m_view.size());
             return base_buf;
         }
     }
 
     bool can_do_shallow_copy() const {
-        return (m_view.bytes == m_base_buf->bytes) && (m_view.size == m_base_buf->size);
+        return (m_view.cbytes() == m_base_buf->cbytes()) && (m_view.size() == m_base_buf->size());
     }
-    void set_size(const uint32_t sz) { m_view.size = sz; }
-    void validate() { assert((m_base_buf->bytes + m_base_buf->size) >= (m_view.bytes + m_view.size)); }
+    void set_size(uint32_t sz) { m_view.set_size(sz); }
+    void validate() const {
+        DEBUG_ASSERT_LE((void*)(m_base_buf->cbytes() + m_base_buf->size()), (void*)(m_view.cbytes() + m_view.size()),
+                        "Invalid byte_view");
+    }
 
     std::string get_string() const { return std::string(r_cast< const char* >(bytes()), uint64_cast(size())); }
 
