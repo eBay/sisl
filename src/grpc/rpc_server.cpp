@@ -26,6 +26,8 @@ extern "C" {
 
 #include <grpcpp/impl/codegen/service_type.h>
 
+SISL_LOGGING_DEF(grpc_server)
+
 namespace sisl {
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                        const std::string& ssl_cert) :
