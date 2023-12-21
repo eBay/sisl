@@ -225,7 +225,7 @@ public:
         return m_client_req_context; */
         return fmt::format("{}_{}", m_ctx.peer(), request_id());
     }
-    size_t get_rpc_idx() const { return m_rpc_info->m_rpc_idx; }
+    size_t get_rpc_idx() const override { return m_rpc_info->m_rpc_idx; }
 
     RpcData(rpc_call_static_info_t* rpc_info, size_t queue_idx) :
             RpcDataAbstract{queue_idx},

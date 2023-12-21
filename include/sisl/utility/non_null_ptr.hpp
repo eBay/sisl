@@ -103,12 +103,12 @@ struct embedded_t : public T {
 };
 
 template < class T >
-constexpr bool operator==(const embedded_t< T >& x, std::nullptr_t) noexcept {
+constexpr bool operator==(const embedded_t< T >&, std::nullptr_t) noexcept {
     return false;
 }
 
 template < class T >
-constexpr bool operator!=(const embedded_t< T >& x, std::nullptr_t) noexcept {
+constexpr bool operator!=(const embedded_t< T >&, std::nullptr_t) noexcept {
     return true;
 }
 } // namespace sisl

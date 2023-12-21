@@ -39,7 +39,7 @@ static constexpr size_t INITIAL_THREADS{8};
 static constexpr size_t ADDLN_THREADS{4};
 static constexpr size_t ENTRIES_PER_THREAD{10000};
 static constexpr size_t TOTAL_THREADS{INITIAL_THREADS + ADDLN_THREADS};
-static constexpr size_t TOTAL_ENTRIES{ENTRIES_PER_THREAD * TOTAL_THREADS};
+[[maybe_unused]] static constexpr size_t TOTAL_ENTRIES{ENTRIES_PER_THREAD * TOTAL_THREADS};
 
 struct WaitFreeWriteVectorTest : public testing::Test {
 public:

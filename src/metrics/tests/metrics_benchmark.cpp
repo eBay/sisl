@@ -339,7 +339,7 @@ void test_histogram_write_locked(benchmark::State& state) {
 }
 
 void test_counters_read_atomic(benchmark::State& state) {
-    auto val = 0;
+    [[maybe_unused]] auto val = 0;
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
         for (auto i = 0; i < NCOUNTERS; i++) {
@@ -349,7 +349,7 @@ void test_counters_read_atomic(benchmark::State& state) {
 }
 
 void test_gauge_read_atomic(benchmark::State& state) {
-    uint64_t val = 0;
+    [[maybe_unused]] uint64_t val = 0;
     // Actual test
     for (auto _ : state) { // Loops upto iteration count
         for (auto i = 0; i < NGAUGES; i++) {

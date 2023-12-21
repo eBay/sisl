@@ -95,7 +95,7 @@ struct flip_instance {
 /****************************** Proto Param to Value converter ******************************/
 template < typename T >
 struct val_converter {
-    T operator()(const ParamValue& val) { return 0; }
+    T operator()(const ParamValue&) { return 0; }
 };
 
 template <>
@@ -162,7 +162,7 @@ struct delayed_return_param {
 
 template < typename T >
 struct val_converter< delayed_return_param< T > > {
-    delayed_return_param< T > operator()(const ParamValue& val) {
+    delayed_return_param< T > operator()(const ParamValue&) {
         delayed_return_param< T > dummy;
         return dummy;
     }
@@ -171,7 +171,7 @@ struct val_converter< delayed_return_param< T > > {
 /******************************************** Value to Proto converter ****************************************/
 template < typename T >
 struct to_proto_converter {
-    void operator()(const T& val, ParamValue* out_pval) {}
+    void operator()(const T& , ParamValue*) {}
 };
 
 template <>
@@ -393,7 +393,7 @@ public:
         m_timer_instances.insert(std::make_pair(timer_name, std::move(t)));
     }
 
-    void cancel(const std::string& timer_name) { remove_timer(timer_name, nullptr); }
+    void cancel(const std::string& timer_name) override { remove_timer(timer_name, nullptr); }
 
     void timer_thr() {
         size_t executed = 0;
@@ -632,6 +632,7 @@ private:
             auto i = 0U;
             bool matched = true;
             for_each(arglist, [this, fspec, &i, &matched](auto& v) {
+                (void)this;
                 if (!condition_matches(v, fspec.conditions()[i++])) { matched = false; }
             });
 

@@ -67,10 +67,6 @@ private:
 
     public:
         LRUPartition() = default;
-        LRUPartition(const LRUPartition&) = delete;
-        LRUPartition& operator=(const LRUPartition&) = delete;
-        LRUPartition(LRUPartition&&) = default;
-        LRUPartition& operator=(LRUPartition&&) = default;
 
         void init(LRUEvictor* evictor, const uint32_t partition_num, const uint64_t max_size) {
             m_evictor = evictor;

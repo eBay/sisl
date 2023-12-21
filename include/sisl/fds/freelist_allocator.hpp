@@ -167,7 +167,7 @@ public:
         }
     }
 
-    bool owns(uint8_t* const mem) const { return true; }
+    bool owns(uint8_t* const) const { return true; }
     bool is_thread_safe_allocator() const { return true; }
 };
 } // namespace sisl

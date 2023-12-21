@@ -36,7 +36,7 @@
 #define SETTINGS_INIT(schema_type, schema_name)                                                                        \
     extern unsigned char schema_name##_fbs[];                                                                          \
     extern unsigned int schema_name##_fbs_len;                                                                         \
-    class schema_name##_factory : public ::sisl::SettingsFactory< schema_type##T > {                                   \
+    class schema_name##_factory final : public ::sisl::SettingsFactory< schema_type##T > {                             \
     public:                                                                                                            \
         static schema_name##_factory& instance() {                                                                     \
             static schema_name##_factory s_instance;                                                                   \

@@ -35,6 +35,7 @@ public:
     WisrBufferMetricsGroup(const char* grp_name, const char* inst_name) : MetricsGroupImpl(grp_name, inst_name) {}
     WisrBufferMetricsGroup(const std::string& grp_name, const std::string& inst_name) :
             MetricsGroupImpl(grp_name, inst_name) {}
+    ~WisrBufferMetricsGroup() override = default;
 
     void counter_increment(uint64_t index, int64_t val = 1) override;
     void counter_decrement(uint64_t index, int64_t val = 1) override;

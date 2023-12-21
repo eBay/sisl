@@ -352,8 +352,8 @@ public:
                     rpc_data->set_comp_cb([this](boost::intrusive_ptr< GenericRpcData >&) { num_completions++; });
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls.load());
-                        std::thread([this, rpc = rpc_data] {
-                            set_response(rpc->request_blob(), rpc->response());
+                        std::thread([rpc = rpc_data] {
+                            GenericServiceImpl::set_response(rpc->request_blob(), rpc->response());
                             rpc->send_response();
                         }).detach();
                         return false;

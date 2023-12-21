@@ -350,7 +350,7 @@ private:
 
 public:
     MetricsGroupImpl(const std::string& grp_name, const std::string& inst_name);
-    ~MetricsGroupImpl();
+    virtual ~MetricsGroupImpl();
 
     MetricsGroupImpl(const MetricsGroupImpl&) = delete;
     MetricsGroupImpl(MetricsGroupImpl&&) noexcept = delete;

@@ -86,13 +86,11 @@ protected:
 
         std::vector< std::thread > threads;
         for (uint32_t i{0}; i < unique_threads; ++i) {
-            threads.emplace_back(
-                std::move(std::thread(bind_this(CBMutexTest::thread_unique_fn, 1), num_iters / num_threads)));
+            threads.emplace_back(std::thread(bind_this(CBMutexTest::thread_unique_fn, 1), num_iters / num_threads));
         }
 
         for (uint32_t i{0}; i < shared_threads; ++i) {
-            threads.emplace_back(
-                std::move(std::thread(bind_this(CBMutexTest::thread_shared_fn<>, 1), num_iters / num_threads)));
+            threads.emplace_back(std::thread(bind_this(CBMutexTest::thread_shared_fn<>, 1), num_iters / num_threads));
         }
         for (auto& t : threads) {
             t.join();

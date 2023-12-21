@@ -320,7 +320,7 @@ private:
 
     void _foreach_all(int64_t start_idx, bool completed_only, const auto& cb) {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
-        auto search_bit = std::max(0l, (start_idx - m_slot_ref_idx));
+        auto search_bit = std::max(0ul, (uint64_t)(start_idx - m_slot_ref_idx));
         do {
             search_bit = completed_only ? m_comp_slot_bits.get_next_set_bit(search_bit)
                                         : m_active_slot_bits.get_next_set_bit(search_bit);
