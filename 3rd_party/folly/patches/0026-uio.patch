@@ -1,0 +1,17 @@
+diff -Naur a/folly/portability/SysUio.h b/folly/portability/SysUio.h
+--- a/folly/portability/SysUio.h	2023-12-08 20:38:13
++++ b/folly/portability/SysUio.h	2023-12-14 14:16:12
+@@ -27,13 +27,9 @@
+ namespace folly {
+ #if !FOLLY_HAVE_PREADV
+ ssize_t preadv(int fd, const iovec* iov, int count, off_t offset);
+-#else
+-using ::preadv;
+ #endif
+ #if !FOLLY_HAVE_PWRITEV
+ ssize_t pwritev(int fd, const iovec* iov, int count, off_t offset);
+-#else
+-using ::pwritev;
+ #endif
+ } // namespace folly
+ 
