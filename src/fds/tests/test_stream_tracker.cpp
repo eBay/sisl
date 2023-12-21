@@ -28,8 +28,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_stream_tracker)
-
 namespace {
 struct TestData {
     TestData(int val) : m_value(val) {}

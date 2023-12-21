@@ -298,7 +298,7 @@ private:
     }
 
     int64_t _upto(bool completed, int64_t search_hint_idx) const {
-        auto search_start_bit = std::max((int64_t)0l, (search_hint_idx - m_slot_ref_idx));
+        auto search_start_bit = (unsigned long)std::max(0l, (long)(search_hint_idx - m_slot_ref_idx));
         auto first_incomplete_bit = completed ? m_comp_slot_bits.get_next_reset_bit(search_start_bit)
                                               : m_active_slot_bits.get_next_reset_bit(search_start_bit);
         if (first_incomplete_bit == AtomicBitset::npos) {
@@ -320,7 +320,7 @@ private:
 
     void _foreach_all(int64_t start_idx, bool completed_only, const auto& cb) {
         folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
-        auto search_bit = std::max(0ul, (unsigned long)(start_idx - m_slot_ref_idx));
+        auto search_bit = (unsigned long)std::max(0l, (long)(start_idx - m_slot_ref_idx));
         do {
             search_bit = completed_only ? m_comp_slot_bits.get_next_set_bit(search_bit)
                                         : m_active_slot_bits.get_next_set_bit(search_bit);
