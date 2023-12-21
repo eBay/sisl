@@ -124,7 +124,7 @@ endif ()
 # add warning options
 add_flags("-Wall -Wextra -Werror -Wpedantic")
 
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang" OR ${CMAKE_CXX_COMPILER_ID} STREQUAL "AppleClang")
 add_flags("-Wno-gnu-zero-variadic-macro-arguments -Wno-braced-scalar-init -Wno-gnu-string-literal-operator-template")
 endif()
 

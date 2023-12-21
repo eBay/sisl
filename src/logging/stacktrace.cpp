@@ -53,12 +53,12 @@ typedef struct SignalHandlerData {
 
 static bool exit_in_progress() {
     static std::atomic< pthread_t > tracing_thread_id{0};
-    auto& logger{GetLogger()};
-    auto& critical_logger{GetCriticalLogger()};
     pthread_t current_id{tracing_thread_id.load()};
     pthread_t new_id{pthread_self()};
 
 #ifndef __APPLE__
+    auto& logger{GetLogger()};
+    auto& critical_logger{GetCriticalLogger()};
     if (logger) { logger->critical("Thread num: {} entered exit handler\n", new_id); }
     if (critical_logger) { critical_logger->critical("Thread num: {} entered exit handler\n", new_id); }
 #endif
