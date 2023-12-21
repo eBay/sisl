@@ -164,8 +164,8 @@ public:
 
     GaugeStaticInfo(const GaugeStaticInfo&) = default;
     GaugeStaticInfo(GaugeStaticInfo&&) noexcept = default;
-    GaugeStaticInfo& operator=(const GaugeStaticInfo&) = default;
-    GaugeStaticInfo& operator=(GaugeStaticInfo&&) noexcept = default;
+    GaugeStaticInfo& operator=(const GaugeStaticInfo&) = delete;
+    GaugeStaticInfo& operator=(GaugeStaticInfo&&) noexcept = delete;
 
     [[nodiscard]] const std::string& name() const { return m_name; }
     [[nodiscard]] const std::string& desc() const { return m_desc; }
@@ -241,8 +241,8 @@ public:
 
     HistogramStaticInfo(const HistogramStaticInfo&) = default;
     HistogramStaticInfo(HistogramStaticInfo&&) noexcept = default;
-    HistogramStaticInfo& operator=(const HistogramStaticInfo&) = default;
-    HistogramStaticInfo& operator=(HistogramStaticInfo&&) noexcept = default;
+    HistogramStaticInfo& operator=(const HistogramStaticInfo&) = delete;
+    HistogramStaticInfo& operator=(HistogramStaticInfo&&) noexcept = delete;
 
     [[nodiscard]] const std::string& name() const { return m_name; }
     [[nodiscard]] const std::string& desc() const { return m_desc; }

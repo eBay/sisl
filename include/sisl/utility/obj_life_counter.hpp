@@ -145,7 +145,7 @@ struct ObjLifeCounter {
         s_alive.fetch_sub(1, std::memory_order_relaxed);
     }
 
-    ObjLifeCounter(const ObjLifeCounter& o) noexcept { s_alive.fetch_add(1, std::memory_order_relaxed); }
+    ObjLifeCounter(const ObjLifeCounter&) noexcept { s_alive.fetch_add(1, std::memory_order_relaxed); }
     static std::atomic< int64_t > s_created;
     static std::atomic< int64_t > s_alive;
     static ObjTypeWrapper< T > s_type;

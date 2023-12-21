@@ -200,7 +200,7 @@ private:
 };
 
 template < char... elements >
-struct NamedHistogram< tstring< elements... > > {
+class NamedHistogram< tstring< elements... > > {
 public:
     NamedHistogram(const NamedHistogram&) = delete;
     NamedHistogram(NamedHistogram&&) noexcept = delete;

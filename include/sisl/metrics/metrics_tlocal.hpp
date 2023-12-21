@@ -91,10 +91,10 @@ public:
 
     static void flush_core_cache();
 
-    group_impl_type_t impl_type() const { return group_impl_type_t::thread_buf_signal; }
+    group_impl_type_t impl_type() const override { return group_impl_type_t::thread_buf_signal; }
 
 private:
-    void on_register();
+    void on_register() override;
     void gather_result(const bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
                        const histogram_gather_cb_t& histogram_cb) override;
 

@@ -41,10 +41,10 @@ public:
     void histogram_observe(uint64_t index, int64_t val) override;
     void histogram_observe(uint64_t index, int64_t val, uint64_t count) override;
 
-    group_impl_type_t impl_type() const { return group_impl_type_t::rcu; }
+    group_impl_type_t impl_type() const override { return group_impl_type_t::rcu; }
 
 private:
-    void on_register();
+    void on_register() override;
     void gather_result(bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
                        const histogram_gather_cb_t& histogram_cb) override;
 

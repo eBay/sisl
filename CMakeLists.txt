@@ -121,12 +121,11 @@ if (CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif ()
 
-if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
-    # add compiler options
-    add_flags("-fconcepts" Languages "CXX")
-    
-    # add warning options
-    add_flags("-Wall -Wextra -Werror -Wpedantic")
+# add warning options
+add_flags("-Wall -Wextra -Werror -Wpedantic")
+
+if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
+add_flags("-Wno-gnu-zero-variadic-macro-arguments -Wno-braced-scalar-init -Wno-gnu-string-literal-operator-template")
 endif()
 
 # add conan information 

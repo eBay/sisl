@@ -42,6 +42,7 @@ public:
     PrometheusReportCounter(prometheus::Family< prometheus::Counter >& family,
                             const std::map< std::string, std::string >& label_pairs) :
             m_counter(family.Add(label_pairs)) {}
+    ~PrometheusReportCounter() override = default;
 
     virtual void set_value(double value) override {
         double counter_value = m_counter.Value();
@@ -60,6 +61,7 @@ public:
     PrometheusReportGauge(prometheus::Family< prometheus::Gauge >& family,
                           const std::map< std::string, std::string >& label_pairs) :
             m_gauge(family.Add(label_pairs)) {}
+    ~PrometheusReportGauge() override = default;
 
     virtual void set_value(double value) override { m_gauge.Set(value); };
 
@@ -73,7 +75,9 @@ public:
                               const hist_bucket_boundaries_t& bkt_boundaries) :
             m_histogram(family.Add(label_pairs, bkt_boundaries)), m_bkt_boundaries{bkt_boundaries} {}
 
-    virtual void set_value(std::vector< double >& bucket_values, double sum) {
+    ~PrometheusReportHistogram() override = default;
+
+    void set_value(std::vector< double >& bucket_values, double sum) override {
         // Since histogram doesn't have reset facility (PR is yet to be accepted in the main repo),
         // we are doing a placement new to reconstruct the entire object to force to call its constructor. This
         // way we don't need to register histogram again to family.
@@ -97,11 +101,11 @@ public:
         m_cur_serializer_format = kTextFormat;
     }
 
-    virtual ~PrometheusReporter() = default;
+    ~PrometheusReporter() override = default;
 
     std::shared_ptr< ReportCounter > add_counter(const std::string& name, const std::string& desc,
                                                  const std::string& instance_name,
-                                                 const metric_label& label_pair = {"", ""}) {
+                                                 const metric_label& label_pair = {"", ""}) override {
         prometheus::Family< prometheus::Counter >* family_ptr;
 
         std::unique_lock lk(m_mutex);
@@ -126,7 +130,7 @@ public:
 
     std::shared_ptr< ReportGauge > add_gauge(const std::string& name, const std::string& desc,
                                              const std::string& instance_name,
-                                             const metric_label& label_pair = {"", ""}) {
+                                             const metric_label& label_pair = {"", ""}) override {
         prometheus::Family< prometheus::Gauge >* family_ptr;
 
         std::unique_lock lk(m_mutex);
@@ -152,7 +156,7 @@ public:
     std::shared_ptr< ReportHistogram > add_histogram(const std::string& name, const std::string& desc,
                                                      const std::string& instance_name,
                                                      const hist_bucket_boundaries_t& bkt_boundaries,
-                                                     const metric_label& label_pair = {"", ""}) {
+                                                     const metric_label& label_pair = {"", ""}) override {
         prometheus::Family< prometheus::Histogram >* family_ptr = nullptr;
 
         std::unique_lock lk(m_mutex);
@@ -188,7 +192,7 @@ public:
         family_ptr->Remove(&prc->m_counter);
     }
 
-    virtual void remove_gauge(const std::string& name, const std::shared_ptr< ReportGauge >& rg) {
+    void remove_gauge(const std::string& name, const std::shared_ptr< ReportGauge >& rg) override {
         std::unique_lock lk(m_mutex);
         auto it = m_gauge_families.find(name);
         if (it == m_gauge_families.end()) {
@@ -201,7 +205,7 @@ public:
         family_ptr->Remove(&prg->m_gauge);
     }
 
-    virtual void remove_histogram(const std::string& name, const std::shared_ptr< ReportHistogram >& rh) {
+    void remove_histogram(const std::string& name, const std::shared_ptr< ReportHistogram >& rh) override {
         std::unique_lock lk(m_mutex);
         auto it = m_histogram_families.find(name);
         if (it == m_histogram_families.end()) {
@@ -214,7 +218,7 @@ public:
         family_ptr->Remove(&prh->m_histogram);
     }
 
-    std::string serialize(ReportFormat format) {
+    std::string serialize(ReportFormat format) override {
         if (format != m_cur_serializer_format) {
             // If user wants different formatter now, change the serializer
             switch (format) {

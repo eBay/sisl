@@ -100,10 +100,10 @@ public:
     void histogram_observe(const uint64_t index, const int64_t val) override;
     void histogram_observe(const uint64_t index, const int64_t val, const uint64_t count) override;
 
-    [[nodiscard]] group_impl_type_t impl_type() const { return group_impl_type_t::atomic; }
+    [[nodiscard]] group_impl_type_t impl_type() const override { return group_impl_type_t::atomic; }
 
 private:
-    void on_register();
+    void on_register() override;
     void gather_result(bool need_latest, const counter_gather_cb_t& counter_cb, const gauge_gather_cb_t& gauge_cb,
                        const histogram_gather_cb_t& histogram_cb) override;
 

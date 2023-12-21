@@ -55,7 +55,7 @@ status_response sobject::run_callback(const status_request& request) const {
         if (response.json["children"] == nullptr) { response.json["children"] = nlohmann::json::object(); }
 
         if (response.json["children"][child_type] == nullptr) {
-            response.json["children"][child_type] == nlohmann::json::array();
+            response.json["children"][child_type] = nlohmann::json::array();
         }
 
         if (request.do_recurse) {
