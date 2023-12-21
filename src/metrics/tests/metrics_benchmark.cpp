@@ -385,9 +385,14 @@ BENCHMARK(test_metrics_read_atomic)->Iterations(ITERATIONS)->Threads(1);
 BENCHMARK(test_metrics_read_tbuffer)->Iterations(ITERATIONS)->Threads(1);
 BENCHMARK(test_metrics_read_rcu)->Iterations(ITERATIONS)->Threads(1);
 
-int main(int argc, char** argv) {
+SISL_OPTIONS_ENABLE(logging)
+
+int main(int argc, char* argv[]) {
+    int parsed_argc{argc};
+    ::benchmark::Initialize(&parsed_argc, argv);
+    SISL_OPTIONS_LOAD(parsed_argc, argv, logging);
+    sisl::logging::SetLogger("metrics_test");
     setup();
-    ::benchmark::Initialize(&argc, argv);
     ::benchmark::RunSpecifiedBenchmarks();
     teardown();
 }

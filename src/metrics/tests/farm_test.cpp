@@ -24,6 +24,7 @@
 
 #include <gtest/gtest.h>
 #include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include "sisl/metrics/metrics.hpp"
 
@@ -144,7 +145,12 @@ TEST(farmTest, gather) {
     th3.join();
 }
 
+SISL_OPTIONS_ENABLE(logging)
+
 int main(int argc, char* argv[]) {
-    ::testing::InitGoogleTest(&argc, argv);
+    int parsed_argc{argc};
+    ::testing::InitGoogleTest(&parsed_argc, argv);
+    SISL_OPTIONS_LOAD(parsed_argc, argv, logging);
+    sisl::logging::SetLogger("farm_test");
     return RUN_ALL_TESTS();
 }

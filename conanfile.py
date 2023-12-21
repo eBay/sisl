@@ -79,15 +79,15 @@ class SISLConan(ConanFile):
         elif self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
 
+        self.requires("folly/nu2.2023.12.11.00")
+        self.requires("userspace-rcu/0.11.4")
+
         # Linux Specific Support
         if self.settings.os in ["Linux"]:
-            self.requires("folly/nu2.2023.12.11.00")
-            self.requires("userspace-rcu/0.11.4")
+            self.requires("breakpad/cci.20230127")
 
         # Generic packages (conan-center)
         self.requires("boost/1.82.0")
-        if self.settings.os in ["Linux"]:
-            self.requires("breakpad/cci.20230127")
         self.requires("cxxopts/3.1.1")
         self.requires("flatbuffers/23.5.26")
         self.requires("grpc/1.50.1")

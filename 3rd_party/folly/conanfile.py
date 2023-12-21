@@ -79,12 +79,13 @@ class FollyConan(ConanFile):
         self.requires("gflags/2.2.2")
         self.requires("glog/0.4.0")
         self.requires("libevent/2.1.12")
-        self.requires("openssl/3.1.1")
+        self.requires("openssl/3.1.3")
         self.requires("lz4/1.9.3")
         self.requires("snappy/1.1.9")
         self.requires("zlib/1.2.13")
         self.requires("zstd/1.5.2")
-        self.requires("liburing/2.4")
+        if self.settings.os in ["Linux"]:
+            self.requires("liburing/2.4")
         if not is_msvc(self):
             self.requires("libdwarf/20191104")
         self.requires("libsodium/1.0.18")
@@ -114,8 +115,8 @@ class FollyConan(ConanFile):
         if Version(self.version) < "2022.01.31.00" and self.settings.os != "Linux":
             raise ConanInvalidConfiguration("Conan support for non-Linux platforms starts with Folly version 2022.01.31.00")
 
-        if self.settings.os == "Macos" and self.settings.arch != "x86_64":
-            raise ConanInvalidConfiguration("Conan currently requires a 64bit target architecture for Folly on Macos")
+#        if self.settings.os == "Macos" and self.settings.arch != "x86_64":
+#            raise ConanInvalidConfiguration("Conan currently requires a 64bit target architecture for Folly on Macos")
 
         if self.settings.os == "Windows" and self.settings.arch != "x86_64":
             raise ConanInvalidConfiguration("Folly requires a 64bit target architecture on Windows")

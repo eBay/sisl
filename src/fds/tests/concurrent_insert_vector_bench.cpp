@@ -21,6 +21,7 @@
 
 #include <benchmark/benchmark.h>
 #include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include <sisl/fds/concurrent_insert_vector.hpp>
 
 using namespace sisl;
@@ -58,9 +59,13 @@ void test_concurrent_vector_insert(benchmark::State& state) {
 BENCHMARK(test_locked_vector_insert)->Threads(NUM_THREADS);
 BENCHMARK(test_concurrent_vector_insert)->Threads(NUM_THREADS);
 
-int main(int argc, char** argv) {
+SISL_OPTIONS_ENABLE(logging)
+
+int main(int argc, char* argv[]) {
     int parsed_argc{argc};
     ::benchmark::Initialize(&parsed_argc, argv);
+    SISL_OPTIONS_LOAD(parsed_argc, argv, logging);
+    sisl::logging::SetLogger("insert_vector_bench");
 
     // setup();
     ::benchmark::RunSpecifiedBenchmarks();

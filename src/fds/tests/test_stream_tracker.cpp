@@ -20,6 +20,8 @@
 
 #include <nlohmann/json.hpp>
 #include <gtest/gtest.h>
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include "sisl/fds/thread_vector.hpp"
 #include "sisl/fds/stream_tracker.hpp"
@@ -166,8 +168,13 @@ TEST_F(StreamTrackerTest, Rollback) {
     EXPECT_EQ(exception_hit, true);
 }
 
+SISL_OPTIONS_ENABLE(logging)
+
 int main(int argc, char* argv[]) {
-    ::testing::InitGoogleTest(&argc, argv);
+    int parsed_argc{argc};
+    ::testing::InitGoogleTest(&parsed_argc, argv);
+    SISL_OPTIONS_LOAD(parsed_argc, argv, logging);
+    sisl::logging::SetLogger("test_stream_tracker");
     auto ret = RUN_ALL_TESTS();
     return ret;
 }

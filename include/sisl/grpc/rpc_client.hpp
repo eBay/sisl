@@ -27,6 +27,13 @@
 #include <grpcpp/impl/codegen/async_unary_call.h>
 #include <grpcpp/generic/generic_stub.h>
 #include <grpc/support/log.h>
+
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+#ifndef u_short
+using u_short = unsigned short;
+#endif
 #include <folly/futures/Future.h>
 
 #include <sisl/logging/logging.h>

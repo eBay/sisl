@@ -19,8 +19,6 @@ if(${folly_FOUND})
     endif()
     add_subdirectory (cache)
     add_subdirectory (fds)
-    add_subdirectory (file_watcher)
-    add_subdirectory (flip)
     add_subdirectory (metrics)
     add_subdirectory (settings)
     add_subdirectory (utility)
@@ -29,12 +27,22 @@ if(${folly_FOUND})
     list(APPEND POSIX_LIBRARIES
         $<TARGET_OBJECTS:sisl_buffer>
         $<TARGET_OBJECTS:sisl_cache>
-        $<TARGET_OBJECTS:sisl_file_watcher>
         $<TARGET_OBJECTS:sisl_metrics>
         $<TARGET_OBJECTS:sisl_settings>
     )
     list(APPEND SISL_DEPS
         Folly::Folly
+    )
+endif()
+if(NOT APPLE)
+    add_subdirectory (flip)
+    add_subdirectory (file_watcher)
+    list(APPEND POSIX_LIBRARIES
+        $<TARGET_OBJECTS:sisl_file_watcher>
+    )
+endif()
+if(${breakpad_FOUND})
+    list(APPEND SISL_DEPS
         breakpad::breakpad
     )
 endif()

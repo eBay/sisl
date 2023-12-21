@@ -42,7 +42,10 @@ private:
 };
 } // namespace
 
-int main() {
+SISL_OPTIONS_ENABLE(logging)
+
+int main(int argc, char* argv[]) {
+    SISL_OPTIONS_LOAD(argc, argv, logging);
     Node< uint64_t >* const ptr1{sisl::ObjectAllocator< Node< uint64_t > >::make_object(~static_cast< uint64_t >(0))};
     std::cout << "ptr1 = " << static_cast< const void* >(ptr1) << " Id = " << ptr1->get_id() << std::endl;
     sisl::ObjectAllocator< Node< uint64_t > >::deallocate(ptr1);

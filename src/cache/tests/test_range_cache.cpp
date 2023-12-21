@@ -21,9 +21,18 @@
 #include <filesystem>
 #include <cstdint>
 
-#ifdef __linux__
+#ifdef __WIN32
+#elif __WIN32
+#elif __linux__
 #include <fcntl.h>
 #include <unistd.h>
+#else
+#define PSOURCE _POSIX_C_SOURCE
+#undef _POSIX_C_SOURCE
+#include <fcntl.h>
+#include <unistd.h>
+#define _POSIX_C_SOURCE PSOURCE
+#undef PSOURCE
 #endif
 
 #include <sisl/logging/logging.h>
@@ -102,7 +111,7 @@ protected:
     }
 
 private:
-    void file_init(const uint32_t nchunks, const uint64_t chunk_size) {
+    void file_init(const uint32_t nchunks, const int64_t chunk_size) {
         for (uint32_t i{1}; i <= nchunks; ++i) {
             int fd;
             auto fname = fmt::format("/tmp/cache_test_file_chunk_{}", i);
@@ -110,15 +119,24 @@ private:
                 LOGINFO("File {} doesn't exists, creating a file for size {}", fname, chunk_size);
                 fd = ::open(fname.c_str(), O_RDWR | O_CREAT, 0666);
                 ASSERT_NE(fd, -1) << "Open of file " << fname << " failed";
+#ifdef __linux__
                 const auto ret{fallocate(fd, 0, 0, chunk_size)};
                 ASSERT_EQ(ret, 0) << "fallocate of file " << fname << " for size " << chunk_size << " failed";
+#elif _WIN32
+#elif _WIN64
+#else // Assume MacOS
+                fstore_t store = {F_ALLOCATECONTIG, F_PEOFPOSMODE, 0, chunk_size, 0};
+                int ret = fcntl(fd, F_PREALLOCATE, &store);
+                ASSERT_NE(ret, -1) << "Could not allocate file of size" << chunk_size;
+                ftruncate(fd, chunk_size);
+#endif
             } else {
                 fd = ::open(fname.c_str(), O_RDWR | O_CREAT, 0666);
                 ASSERT_NE(fd, -1) << "Open of file " << fname << " failed";
             }
             m_fds.push_back(fd);
 
-            uint64_t filled_size{0};
+            int64_t filled_size{0};
             static constexpr uint32_t max_blk_size = (1 * 1024 * 1024);
             LOGINFO("File {} being filled with random bytes for size={}", fname, chunk_size);
             while (filled_size < chunk_size) {

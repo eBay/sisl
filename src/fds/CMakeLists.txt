@@ -21,7 +21,11 @@ if (DEFINED ENABLE_TESTING)
     target_sources(test_atomic_status_counter PRIVATE
         tests/test_atomic_status_counter.cpp
       )
+if(NOT APPLE)
     target_link_libraries(test_atomic_status_counter sisl ${COMMON_DEPS} GTest::gtest atomic)
+else()
+    target_link_libraries(test_atomic_status_counter sisl ${COMMON_DEPS} GTest::gtest)
+endif()
     add_test(NAME AtomicStatusCounter COMMAND test_atomic_status_counter)
 
     add_executable(test_bitset)

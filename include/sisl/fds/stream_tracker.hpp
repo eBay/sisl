@@ -15,6 +15,7 @@
  *
  *********************************************************************************/
 #pragma once
+#include <algorithm>
 
 #include <folly/SharedMutex.h>
 #include <sisl/metrics/metrics_group_impl.hpp>
@@ -297,7 +298,7 @@ private:
     }
 
     int64_t _upto(bool completed, int64_t search_hint_idx) const {
-        auto search_start_bit = std::max(0l, (search_hint_idx - m_slot_ref_idx));
+        auto search_start_bit = std::max(0ll, (search_hint_idx - m_slot_ref_idx));
         auto first_incomplete_bit = completed ? m_comp_slot_bits.get_next_reset_bit(search_start_bit)
                                               : m_active_slot_bits.get_next_reset_bit(search_start_bit);
         if (first_incomplete_bit == AtomicBitset::npos) {

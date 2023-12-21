@@ -82,9 +82,9 @@ public:
                       const metric_label& label_pair = {"", ""});
 
     CounterStaticInfo(const CounterStaticInfo&) = default;
-    CounterStaticInfo(CounterStaticInfo&&) noexcept = delete;
-    CounterStaticInfo& operator=(const CounterStaticInfo&) = delete;
-    CounterStaticInfo& operator=(CounterStaticInfo&&) noexcept = delete;
+    CounterStaticInfo(CounterStaticInfo&&) noexcept = default;
+    CounterStaticInfo& operator=(const CounterStaticInfo&) = default;
+    CounterStaticInfo& operator=(CounterStaticInfo&&) noexcept = default;
 
     [[nodiscard]] const std::string& name() const { return m_name; }
     [[nodiscard]] const std::string& desc() const { return m_desc; }
@@ -106,9 +106,9 @@ public:
                        _publish_as ptype = _publish_as::publish_as_counter);
 
     CounterDynamicInfo(const CounterDynamicInfo&) = default;
-    CounterDynamicInfo(CounterDynamicInfo&&) noexcept = delete;
-    CounterDynamicInfo& operator=(const CounterDynamicInfo&) = delete;
-    CounterDynamicInfo& operator=(CounterDynamicInfo&&) noexcept = delete;
+    CounterDynamicInfo(CounterDynamicInfo&&) noexcept = default;
+    CounterDynamicInfo& operator=(const CounterDynamicInfo&) = default;
+    CounterDynamicInfo& operator=(CounterDynamicInfo&&) noexcept = default;
 
     void publish(const CounterValue& value);
     void unregister(const CounterStaticInfo& static_info);
@@ -163,9 +163,9 @@ public:
                     const metric_label& label_pair = {"", ""});
 
     GaugeStaticInfo(const GaugeStaticInfo&) = default;
-    GaugeStaticInfo(GaugeStaticInfo&&) noexcept = delete;
-    GaugeStaticInfo& operator=(const GaugeStaticInfo&) = delete;
-    GaugeStaticInfo& operator=(GaugeStaticInfo&&) noexcept = delete;
+    GaugeStaticInfo(GaugeStaticInfo&&) noexcept = default;
+    GaugeStaticInfo& operator=(const GaugeStaticInfo&) = default;
+    GaugeStaticInfo& operator=(GaugeStaticInfo&&) noexcept = default;
 
     [[nodiscard]] const std::string& name() const { return m_name; }
     [[nodiscard]] const std::string& desc() const { return m_desc; }
@@ -186,9 +186,9 @@ public:
     GaugeDynamicInfo(const GaugeStaticInfo& static_info, const std::string& instance_name);
 
     GaugeDynamicInfo(const GaugeDynamicInfo&) = default;
-    GaugeDynamicInfo(GaugeDynamicInfo&&) noexcept = delete;
-    GaugeDynamicInfo& operator=(const GaugeDynamicInfo&) = delete;
-    GaugeDynamicInfo& operator=(GaugeDynamicInfo&&) noexcept = delete;
+    GaugeDynamicInfo(GaugeDynamicInfo&&) noexcept = default;
+    GaugeDynamicInfo& operator=(const GaugeDynamicInfo&) = default;
+    GaugeDynamicInfo& operator=(GaugeDynamicInfo&&) noexcept = default;
 
     void publish(const GaugeValue& value);
     void unregister(const GaugeStaticInfo& static_info);
@@ -240,9 +240,9 @@ public:
                         const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets));
 
     HistogramStaticInfo(const HistogramStaticInfo&) = default;
-    HistogramStaticInfo(HistogramStaticInfo&&) noexcept = delete;
-    HistogramStaticInfo& operator=(const HistogramStaticInfo&) = delete;
-    HistogramStaticInfo& operator=(HistogramStaticInfo&&) noexcept = delete;
+    HistogramStaticInfo(HistogramStaticInfo&&) noexcept = default;
+    HistogramStaticInfo& operator=(const HistogramStaticInfo&) = default;
+    HistogramStaticInfo& operator=(HistogramStaticInfo&&) noexcept = default;
 
     [[nodiscard]] const std::string& name() const { return m_name; }
     [[nodiscard]] const std::string& desc() const { return m_desc; }

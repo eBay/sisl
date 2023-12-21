@@ -250,10 +250,12 @@ TEST(counterTest, wrapperTest) {
     // std::cout << "Prometheus serialized format: " << prometheus_bytes << "\n";
 }
 
-// SISL_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
+
 int main(int argc, char* argv[]) {
-    ::testing::InitGoogleTest(&argc, argv);
-    // sisl::logging::SetLogger("metrics_wrapper_test");
-    // spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
+    int parsed_argc{argc};
+    ::testing::InitGoogleTest(&parsed_argc, argv);
+    SISL_OPTIONS_LOAD(parsed_argc, argv, logging);
+    sisl::logging::SetLogger("metrics_test");
     return RUN_ALL_TESTS();
 }

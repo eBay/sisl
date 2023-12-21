@@ -21,11 +21,13 @@
 #include <cassert>
 #include <type_traits>
 
-#include <boost/preprocessor/stringize.hpp>
-#ifdef __linux__
-#include <malloc.h>
+extern "C" {
+#include <sys/types.h>
 #include <sys/uio.h>
-#endif
+#include <unistd.h>
+}
+
+#include <boost/preprocessor/stringize.hpp>
 #include <folly/small_vector.h>
 #include <sisl/metrics/metrics.hpp>
 #include <sisl/utility/enum.hpp>
