@@ -24,7 +24,7 @@
 #include "sisl/grpc/rpc_server.hpp"
 #include "grpc_helper_test.grpc.pb.h"
 
-SISL_LOGGING_INIT(logging, grpc_server)
+SISL_LOGGING_INIT(grpc_server)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace sisl::grpc::testing {
@@ -356,9 +356,15 @@ TEST(GenericServiceDeathTest, basic_test) {
     auto g_grpc_server = GrpcServer::make("0.0.0.0:56789", nullptr, 1, "", "");
     // register rpc before generic service is registered
 #ifndef NDEBUG
+#ifdef __linux__
     ASSERT_DEATH(g_grpc_server->register_generic_rpc(
                      "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
                  "Assertion .* failed");
+#else
+    ASSERT_DEATH(g_grpc_server->register_generic_rpc(
+                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
+                 ".*Assertion failed: .*");
+#endif
 #else
     EXPECT_FALSE(g_grpc_server->register_generic_rpc(
         "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
@@ -369,9 +375,15 @@ TEST(GenericServiceDeathTest, basic_test) {
     EXPECT_FALSE(g_grpc_server->register_async_generic_service());
     // register rpc before server is run
 #ifndef NDEBUG
+#ifdef __linux__
     ASSERT_DEATH(g_grpc_server->register_generic_rpc(
                      "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
                  "Assertion .* failed");
+#else
+    ASSERT_DEATH(g_grpc_server->register_generic_rpc(
+                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
+                 "Assertion failed: .*");
+#endif
 #else
     EXPECT_FALSE(g_grpc_server->register_generic_rpc(
         "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));

@@ -30,8 +30,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_bitset)
-
 namespace {
 uint64_t g_total_bits;
 uint32_t g_num_threads;

@@ -31,8 +31,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_jemalloc)
-
 namespace {
 uint32_t g_num_threads;
 
@@ -80,7 +78,7 @@ SISL_OPTION_GROUP(test_tcmalloc,
 int main(int argc, char* argv[]) {
     SISL_OPTIONS_LOAD(argc, argv, logging, test_tcmalloc);
     ::testing::InitGoogleTest(&argc, argv);
-    sisl::logging::SetLogger("test_bitset");
+    sisl::logging::SetLogger("test_tcmalloc");
     spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
 
     g_num_threads = SISL_OPTIONS["num_threads"].as< uint32_t >();
