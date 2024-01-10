@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - stable/v8.x
-      - stable/v9.x
       - stable/v10.x
       - master
 
@@ -41,26 +40,3 @@ jobs:
       prerelease: ${{ matrix.prerelease }}
       tooling: ${{ matrix.tooling }}
       testing: 'True'
-  ChainBuild:
-    runs-on: "ubuntu-22.04"
-    steps:
-    - name: Start IOManager Build
-      run: |
-        curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/eBay/iomanager/actions/workflows/merge_build.yml/dispatches \
-          -d '{"ref":"master","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}
-    - name: Start NuraftMesg Build
-      run: |
-        curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/eBay/nuraft_mesg/actions/workflows/conan_build.yml/dispatches \
-          -d '{"ref":"main","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}
