@@ -119,9 +119,11 @@ bool FileWatcher::unregister_listener(const std::string& file_path, const std::s
 }
 
 bool FileWatcher::remove_watcher(FileInfo& file_info) {
-    if (auto err = inotify_rm_watch(m_inotify_fd, file_info.m_wd); err != 0) { return false; }
+    bool success = true;
+    if (auto err = inotify_rm_watch(m_inotify_fd, file_info.m_wd); err != 0) { success = false; }
+    // remove the file from the map regardless of the inotify_rm_watch result
     m_files.erase(file_info.m_filepath);
-    return true;
+    return success;
 }
 
 bool FileWatcher::stop() {
