@@ -5,7 +5,7 @@ on:
   pull_request:
     branches:
       - stable/v8.x
-      - stable/v9.x
+      - stable/v10.x
       - master
 
 jobs:
