@@ -31,6 +31,7 @@
 #include <string_view>
 #include <unordered_set>
 #include <vector>
+#include <filesystem>
 
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/control/if.hpp>
@@ -482,6 +483,7 @@ extern bool is_crash_handler_installed();
 extern bool restore_signal_handler(const SignalType sig_num);
 extern bool restore_signal_handlers();
 extern bool send_thread_signal(const pthread_t thr, const SignalType sig_num);
+extern std::filesystem::path get_base_dir();
 
 template < typename... Args >
 std::string format_log_msg(const char* const msg, Args&&... args) {

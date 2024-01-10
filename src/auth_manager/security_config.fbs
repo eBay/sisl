@@ -33,6 +33,10 @@ table AuthManager {
 
     // ssl verification for the signing key download url
     verify: bool = true;
+
+    // LRUCache sizes
+    auth_token_cache_size: uint32 = 2000;
+    auth_key_cache_size: uint32 = 100;
 }
 
 table SecuritySettings {
