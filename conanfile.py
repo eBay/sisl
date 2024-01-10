@@ -8,7 +8,7 @@ required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "9.4.5"
+    version = "9.4.6"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -87,6 +87,7 @@ class SISLConan(ConanFile):
         #LIBCURLFIXTOKEN
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1q",     override=True)
+        self.requires("libcurl/7.86.0")
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
 

@@ -13,32 +13,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-22.04", "ubuntu-20.04", "macos-13"]
+        platform: ["ubuntu-22.04"]
         build-type: ["Debug", "Release"]
-        malloc-impl: ["libc", "tcmalloc", "jemalloc"]
+        malloc-impl: ["libc", "tcmalloc"]
         prerelease: ["True", "False"]
+        tooling: ["Sanitize", "Coverage", "None"]
         exclude:
           - build-type: Debug
-            platform: ubuntu-20.04
-          - malloc-impl: tcmalloc
-            platform: ubuntu-20.04
-          - malloc-impl: jemalloc
-            platform: ubuntu-20.04
-          - build-type: Debug
-            platform: macos-13
-          - malloc-impl: tcmalloc
-            platform: macos-13
-          - malloc-impl: jemalloc
-            platform: macos-13
-          - malloc-impl: jemalloc
-            build-type: Debug
-          - malloc-impl: jemalloc
             prerelease: "False"
-          - malloc-impl: libc
-            build-type: Release
-            platform: ubuntu-22.04
-          - prerelease: "True"
-            platform: ubuntu-20.04
+          - build-type: Debug
+            tooling: None
+          - build-type: Debug
+            malloc-impl: tcmalloc
+          - build-type: Release
+            malloc-impl: libc
+          - build-type: Release
+            tooling: Sanitize
+          - build-type: Release
+            tooling: Coverage
     uses: ./.github/workflows/build_dependencies.yml
     with:
       platform: ${{ matrix.platform }}
@@ -47,26 +39,3 @@ jobs:
       malloc-impl: ${{ matrix.malloc-impl }}
       prerelease: ${{ matrix.prerelease }}
       testing: 'True'
-  ChainBuild:
-    runs-on: "ubuntu-22.04"
-    steps:
-    - name: Start IOManager Build
-      run: |
-        curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/eBay/iomanager/actions/workflows/merge_conan_build.yml/dispatches \
-          -d '{"ref":"master","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}
-    - name: Start NuraftMesg Build
-      run: |
-        curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/eBay/nuraft_mesg/actions/workflows/merge_conan_build.yml/dispatches \
-          -d '{"ref":"main","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}

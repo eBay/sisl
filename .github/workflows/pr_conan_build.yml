@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - stable/v8.x
+      - stable/v9.x
       - master
 
 jobs:
@@ -11,32 +12,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-22.04", "ubuntu-20.04", "macos-13"]
+        platform: ["ubuntu-22.04"]
         build-type: ["Debug", "Release"]
-        malloc-impl: ["libc", "tcmalloc", "jemalloc"]
+        malloc-impl: ["libc", "tcmalloc"]
         prerelease: ["True", "False"]
+        tooling: ["Sanitize", "Coverage", "None"]
         exclude:
           - build-type: Debug
-            platform: ubuntu-20.04
-          - malloc-impl: tcmalloc
-            platform: ubuntu-20.04
-          - malloc-impl: jemalloc
-            platform: ubuntu-20.04
-          - build-type: Debug
-            platform: macos-13
-          - malloc-impl: tcmalloc
-            platform: macos-13
-          - malloc-impl: jemalloc
-            platform: macos-13
-          - malloc-impl: jemalloc
-            build-type: Debug
-          - malloc-impl: jemalloc
             prerelease: "False"
-          - malloc-impl: libc
-            build-type: Release
-            platform: ubuntu-22.04
-          - prerelease: "True"
-            platform: ubuntu-20.04
+          - build-type: Debug
+            tooling: None
+          - build-type: Debug
+            malloc-impl: tcmalloc
+          - build-type: Release
+            malloc-impl: libc
+          - build-type: Release
+            tooling: Sanitize
+          - build-type: Release
+            tooling: Coverage
     uses: ./.github/workflows/build_dependencies.yml
     with:
       platform: ${{ matrix.platform }}
