@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - stable/v8.x
+      - stable/v9.x
       - master
 
 jobs:
