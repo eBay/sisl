@@ -438,8 +438,15 @@ public:
     }
 
     void start_rpc_server() {
-        m_flip_server_thread = std::unique_ptr< std::thread >(new std::thread(FlipRPCServer::rpc_thread));
+        m_flip_server = std::make_unique< FlipRPCServer >();
+        m_flip_server_thread =
+            std::unique_ptr< std::thread >(new std::thread([this]() { m_flip_server->rpc_thread(); }));
         m_flip_server_thread->detach();
+    }
+
+    void stop_rpc_server() {
+        m_flip_server->shutdown();
+        m_flip_server.reset();
     }
 
     bool add(const FlipSpec& fspec) {
@@ -667,6 +674,7 @@ private:
     bool m_flip_enabled;
     std::unique_ptr< FlipTimerBase > m_timer;
     std::unique_ptr< std::thread > m_flip_server_thread;
+    std::unique_ptr< FlipRPCServer > m_flip_server;
 };
 
 } // namespace flip
