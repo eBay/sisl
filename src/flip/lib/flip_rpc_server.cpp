@@ -70,9 +70,9 @@ void FlipRPCServer::rpc_thread() {
     grpc::ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     builder.RegisterService((FlipRPCServer::Service*)&service);
-    std::unique_ptr< grpc::Server > server(builder.BuildAndStart());
+    m_server = builder.BuildAndStart();
     LOGINFOMOD(flip, "Flip GRPC Server listening on {}", server_address);
-    server->Wait();
+    m_server->Wait();
 }
 
 } // namespace flip

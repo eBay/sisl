@@ -15,6 +15,7 @@
  *
  *********************************************************************************/
 #pragma once
+#include <grpcpp/grpcpp.h>
 
 #include "proto/flip_spec.pb.h"
 #include "proto/flip_server.grpc.pb.h"
@@ -22,11 +23,18 @@
 namespace flip {
 class FlipRPCServer final : public FlipServer::Service {
 public:
+    FlipRPCServer() = default;
     grpc::Status InjectFault(grpc::ServerContext* context, const FlipSpec* request, FlipResponse* response) override;
     grpc::Status GetFaults(grpc::ServerContext* context, const FlipNameRequest* request,
                            FlipListResponse* response) override;
     grpc::Status RemoveFault(grpc::ServerContext*, const FlipRemoveRequest* request,
                              FlipRemoveResponse* response) override;
-    static void rpc_thread();
+    void rpc_thread();
+    void shutdown() {
+        if (m_server) { m_server->Shutdown(); }
+    }
+
+private:
+    std::unique_ptr< grpc::Server > m_server;
 };
 } // namespace flip
