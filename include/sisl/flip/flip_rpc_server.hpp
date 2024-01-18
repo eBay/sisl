@@ -29,12 +29,5 @@ public:
                            FlipListResponse* response) override;
     grpc::Status RemoveFault(grpc::ServerContext*, const FlipRemoveRequest* request,
                              FlipRemoveResponse* response) override;
-    void rpc_thread();
-    void shutdown() {
-        if (m_server) { m_server->Shutdown(); }
-    }
-
-private:
-    std::unique_ptr< grpc::Server > m_server;
 };
 } // namespace flip
