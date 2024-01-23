@@ -29,6 +29,11 @@
 #include <cstdlib>
 #include <string>
 #include <regex>
+#include <grpc/grpc.h>
+#include <grpcpp/server.h>
+#include <grpcpp/server_builder.h>
+#include <grpcpp/server_context.h>
+#include <grpcpp/security/server_credentials.h>
 
 #include "proto/flip_spec.pb.h"
 #include "flip_rpc_server.hpp"
@@ -431,6 +436,9 @@ static constexpr int DELAYED_RETURN = 3;
 class Flip {
 public:
     Flip() : m_flip_enabled(false) {}
+    ~Flip() {
+        if (m_flip_server) { stop_rpc_server(); }
+    }
 
     static Flip& instance() {
         static Flip s_instance;
@@ -438,8 +446,24 @@ public:
     }
 
     void start_rpc_server() {
-        m_flip_server_thread = std::unique_ptr< std::thread >(new std::thread(FlipRPCServer::rpc_thread));
-        m_flip_server_thread->detach();
+        if (m_flip_server) { stop_rpc_server(); }
+
+        m_flip_server = std::make_unique< FlipRPCServer >();
+        std::string server_address("0.0.0.0:50051");
+        grpc::ServerBuilder builder;
+        builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+        builder.RegisterService((FlipRPCServer::Service*)m_flip_server.get());
+        m_grpc_server = builder.BuildAndStart();
+        LOGINFOMOD(flip, "Flip GRPC Server listening on {}", server_address);
+        m_flip_server_thread = std::unique_ptr< std::thread >(
+            new std::thread([grpc_server = m_grpc_server.get()]() { grpc_server->Wait(); }));
+    }
+
+    void stop_rpc_server() {
+        if (m_grpc_server) { m_grpc_server->Shutdown(); }
+        m_flip_server_thread->join();
+        m_flip_server_thread.reset();
+        m_flip_server.reset();
     }
 
     bool add(const FlipSpec& fspec) {
@@ -668,6 +692,8 @@ private:
     bool m_flip_enabled;
     std::unique_ptr< FlipTimerBase > m_timer;
     std::unique_ptr< std::thread > m_flip_server_thread;
+    std::unique_ptr< FlipRPCServer > m_flip_server;
+    std::unique_ptr< grpc::Server > m_grpc_server;
 };
 
 } // namespace flip

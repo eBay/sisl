@@ -63,16 +63,4 @@ public:
     }
 };
 
-void FlipRPCServer::rpc_thread() {
-    std::string server_address("0.0.0.0:50051");
-    FlipRPCServer service;
-
-    grpc::ServerBuilder builder;
-    builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-    builder.RegisterService((FlipRPCServer::Service*)&service);
-    std::unique_ptr< grpc::Server > server(builder.BuildAndStart());
-    LOGINFOMOD(flip, "Flip GRPC Server listening on {}", server_address);
-    server->Wait();
-}
-
 } // namespace flip
