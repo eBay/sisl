@@ -8,7 +8,7 @@ required_conan_version = ">=1.52.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.6.6"
+    version = "8.6.7"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -68,7 +68,7 @@ class SISLConan(ConanFile):
         self.requires("fmt/8.1.1",          override=True)
         self.requires("libevent/2.1.12",    override=True)
         self.requires("openssl/1.1.1s",     override=True)
-        self.requires("libcurl/7.86.0")
+        self.requires("libcurl/8.4.0",      override=True)
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
         if self.options.malloc_impl == "jemalloc":

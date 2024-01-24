@@ -106,7 +106,6 @@ jobs:
         conan export 3rd_party/jemalloc
         conan export 3rd_party/prerelease_dummy
         conan export 3rd_party/pistache pistache/cci.20201127@
-        conan export 3rd_party/date date/3.0.1@
         cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
         echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
