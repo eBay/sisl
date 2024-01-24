@@ -7,7 +7,6 @@ from os.path import join
 
 required_conan_version = ">=1.60.0"
 
-
 class SISLConan(ConanFile):
     name = "sisl"
     version = "11.1.5"
@@ -61,7 +60,7 @@ class SISLConan(ConanFile):
             raise ConanInvalidConfiguration("gRPC support requires metrics option!")
 
         if self.settings.compiler in ["gcc"]:
-            self.options["pistache"].with_ssl: True
+            self.options['pistache'].with_ssl: True
         if self.options.shared:
             self.options.rm_safe("fPIC")
         if self.settings.build_type == "Debug":
@@ -70,9 +69,7 @@ class SISLConan(ConanFile):
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if self.conf.get("tools.build:skip_test", default=False):
                 if self.options.coverage or self.options.sanitize:
-                    raise ConanInvalidConfiguration(
-                        "Coverage/Sanitizer requires Testing!"
-                    )
+                    raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build_requirements(self):
         self.test_requires("gtest/1.14.0")
@@ -144,71 +141,23 @@ class SISLConan(ConanFile):
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
-        copy(
-            self,
-            "LICENSE",
-            self.source_folder,
-            join(self.package_folder, "licenses"),
-            keep_path=False,
-        )
+        copy(self, "LICENSE", self.source_folder, join(self.package_folder, "licenses"), keep_path=False)
         copy(self, "*.lib", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.a", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
         copy(self, "*.dylib*", self.build_folder, lib_dir, keep_path=False)
-        copy(
-            self,
-            "*.dll*",
-            self.build_folder,
-            join(self.package_folder, "bin"),
-            keep_path=False,
-        )
+        copy(self, "*.dll*", self.build_folder, join(self.package_folder, "bin"), keep_path=False)
         copy(self, "*.so*", self.build_folder, lib_dir, keep_path=False)
-        copy(
-            self,
-            "*.proto",
-            join(self.source_folder, "src", "flip", "proto"),
-            join(self.package_folder, "proto", "flip"),
-            keep_path=False,
-        )
-        copy(
-            self,
-            "*",
-            join(self.source_folder, "src", "flip", "client", "python"),
-            join(self.package_folder, "bindings", "flip", "python"),
-            keep_path=False,
-        )
-        copy(
-            self,
-            "*.py",
-            join(self.build_folder, "src", "flip", "proto"),
-            join(self.package_folder, "bindings", "flip", "python"),
-            keep_path=False,
-        )
+        copy(self, "*.proto", join(self.source_folder, "src", "flip", "proto"), join(self.package_folder, "proto", "flip"), keep_path=False)
+        copy(self, "*", join(self.source_folder, "src", "flip", "client", "python"), join(self.package_folder, "bindings", "flip", "python"), keep_path=False)
+        copy(self, "*.py", join(self.build_folder, "src", "flip", "proto"), join(self.package_folder, "bindings", "flip", "python"), keep_path=False)
 
-        copy(
-            self,
-            "*.h*",
-            join(self.source_folder, "include"),
-            join(self.package_folder, "include"),
-            keep_path=True,
-        )
+        copy(self, "*.h*", join(self.source_folder, "include"), join(self.package_folder, "include"), keep_path=True)
 
         gen_dir = join(self.package_folder, "include", "sisl")
         copy(self, "*.pb.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
-        copy(
-            self,
-            "*security_config_generated.h",
-            join(self.build_folder, "src"),
-            gen_dir,
-            keep_path=True,
-        )
-        copy(
-            self,
-            "settings_gen.cmake",
-            join(self.source_folder, "cmake"),
-            join(self.package_folder, "cmake"),
-            keep_path=False,
-        )
+        copy(self, "*security_config_generated.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
+        copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
     def package_info(self):
         self.cpp_info.components["options"].libs = ["sisl_options"]

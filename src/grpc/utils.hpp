@@ -19,7 +19,7 @@
 
 namespace sisl {
 
-static bool get_file_contents(const std::string& file_name, std::string& contents) {
+[[maybe_unused]] static bool get_file_contents(const std::string& file_name, std::string& contents) {
     try {
         std::ifstream f(file_name);
         std::string buffer(std::istreambuf_iterator< char >{f}, std::istreambuf_iterator< char >{});
@@ -59,15 +59,6 @@ static bool get_file_contents(const std::string& file_name, std::string& content
         std::memcpy(voidptr_cast(cli_buf.bytes()), c_voidptr_cast(slice.begin()), slice.size());
     }
     return status;
-}
-
-[[maybe_unused]] static sisl::io_blob_safe deserialize_from_byte_buffer(grpc::ByteBuffer const& cli_byte_buf) {
-    grpc::Slice slice;
-    auto status = cli_byte_buf.TrySingleSlice(&slice);
-    if (status.ok()) { return sisl::io_blob_safe(slice.begin(), slice.size(), false /* is alligned*/); }
-    auto cli_buf = sisl::io_blob_safe(slice.size());
-    std::memcpy(voidptr_cast(cli_buf.bytes()), c_voidptr_cast(slice.begin()), slice.size());
-    return cli_buf;
 }
 
 } // namespace sisl

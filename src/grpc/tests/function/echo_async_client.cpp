@@ -89,6 +89,14 @@ static void SerializeToByteBuffer(grpc::ByteBuffer& buffer, const DataMessage& m
     buffer.Swap(&tmp);
 }
 
+static void SerializeToBlob(sisl::io_blob_list_t& buffer, const DataMessage& msg) {
+    std::string str_msg;
+    msg.SerializeToString(str_msg);
+    auto buf = sisl::io_blob(str_msg.size());
+    std::memcpy(voidptr_cast(buf.bytes()), c_voidptr_cast(str_msg.data()), str_msg.size());
+    buffer.emplace_back(buf);
+}
+
 static const std::string GENERIC_CLIENT_MESSAGE{"I am a super client!"};
 static const std::string GENERIC_METHOD{"SendData"};
 
@@ -129,6 +137,23 @@ public:
         {
             std::unique_lock lk(m_wait_mtx);
             if (--m_generic_counter == 0) { m_cv.notify_all(); }
+        }
+    }
+
+    void validate_generic_reply(const DataMessage& req, sisl::client_response_ptr reply, ::grpc::Status const& status,
+                                sisl::io_blob_list_t cli_buf) {
+        RELEASE_ASSERT_EQ(status.ok(), true, "generic request {} failed, status {}: {}", req.m_seqno,
+                          status.error_code(), status.error_message());
+        DataMessage svr_msg;
+        DeserializeFromBuffer(reply->response_blob(), svr_msg);
+        RELEASE_ASSERT_EQ(req.m_seqno, svr_msg.m_seqno);
+        RELEASE_ASSERT_EQ(req.m_buf, svr_msg.m_buf);
+        {
+            std::unique_lock lk(m_wait_mtx);
+            if (--m_generic_counter == 0) { m_cv.notify_all(); }
+        }
+        for (auto& buf : cli_buf) {
+            buf.buf_free();
         }
     }
 
@@ -211,7 +236,7 @@ public:
             } else {
                 // divide all numbers not divisible by 2 and 3 into three equal buckets
                 static uint32_t j = 0u;
-                if ((j++ % 3) == 0) {
+                if ((j++ % 4) == 0) {
                     DataMessage req(i, GENERIC_CLIENT_MESSAGE);
                     grpc::ByteBuffer cli_buf;
                     SerializeToByteBuffer(cli_buf, req);
@@ -221,7 +246,7 @@ public:
                             validate_generic_reply(req, reply, status);
                         },
                         1);
-                } else if (((j++ % 3) == 1)) {
+                } else if (((j++ % 4) == 1)) {
                     DataMessage data_msg(i, GENERIC_CLIENT_MESSAGE);
                     generic_stub->call_rpc([data_msg](grpc::ByteBuffer& req) { SerializeToByteBuffer(req, data_msg); },
                                            GENERIC_METHOD,
@@ -229,7 +254,7 @@ public:
                                                validate_generic_reply(data_msg, cd.reply(), cd.status());
                                            },
                                            1);
-                } else {
+                } else if (((j++ % 4) == 2)) {
                     DataMessage req(i, GENERIC_CLIENT_MESSAGE);
                     grpc::ByteBuffer cli_buf;
                     SerializeToByteBuffer(cli_buf, req);
@@ -238,6 +263,18 @@ public:
                             RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
                                            e.error().error_code(), e.error().error_message());
                             validate_generic_reply(req, e.value(), grpc::Status::OK);
+                            return folly::Unit();
+                        })
+                        .get();
+                } else {
+                    DataMessage req(i, GENERIC_CLIENT_MESSAGE);
+                    sisl::io_blob_list_t cli_buf;
+                    SerializeToBlob(cli_buf, req);
+                    generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
+                        .deferValue([req, cli_buf, this](auto e) {
+                            RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
+                                           e.error().error_code(), e.error().error_message());
+                            validate_generic_reply(req, std::move(e.value()), grpc::Status::OK, cli_buf);
                             return folly::Unit();
                         })
                         .get();

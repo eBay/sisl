@@ -166,17 +166,35 @@ public:
     folly::Promise< Result< RespT > > m_promise;
 };
 
+class GenericClientResponse {
+public:
+    GenericClientResponse() = default;
+    GenericClientResponse(const grpc::ByteBuffer& buf);
+    ~GenericClientResponse();
+
+    io_blob& response_blob();
+    void set_allocation_flag() { m_response_blob_allocated = true; }
+
+private:
+    grpc::ByteBuffer m_response_buf;
+    io_blob m_response_blob;
+    bool m_response_blob_allocated{false};
+};
+using client_response_ptr = std::unique_ptr< GenericClientResponse >;
+
 /**
  * futures version of ClientRpcDataInternal
- * that returns sisl::io_blob
+ * This class holds the promise end of the grpc response
+ * that returns a client_response_ptr. The sisl::io_blob version of the response
+ * can be accessed via the response_blob() method.
  */
 class GenericRpcDataFutureBlob : public ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer > {
 public:
-    GenericRpcDataFutureBlob(folly::Promise< Result< sisl::io_blob > >&& promise);
+    GenericRpcDataFutureBlob(folly::Promise< Result< client_response_ptr > >&& promise);
     virtual void handle_response([[maybe_unused]] bool ok = true) override;
 
 private:
-    folly::Promise< Result< sisl::io_blob > > m_promise;
+    folly::Promise< Result< client_response_ptr > > m_promise;
 };
 
 template < typename ReqT, typename RespT >
@@ -446,8 +464,8 @@ public:
         AsyncResult< grpc::ByteBuffer > call_unary(const grpc::ByteBuffer& request, const std::string& method,
                                                    uint32_t deadline);
 
-        AsyncResult< sisl::io_blob > call_unary(const io_blob_list_t& request, const std::string& method,
-                                                uint32_t deadline);
+        AsyncResult< client_response_ptr > call_unary(const io_blob_list_t& request, const std::string& method,
+                                                      uint32_t deadline);
 
         std::unique_ptr< grpc::GenericStub > m_generic_stub;
         GrpcAsyncClientWorker* m_worker;
