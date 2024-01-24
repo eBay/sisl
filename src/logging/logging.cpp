@@ -112,9 +112,9 @@ void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
 
 std::shared_ptr< spdlog::logger >& GetLogger() {
 #if __cplusplus > 201703L
-    [[unlikely]] if (!(logger_thread_ctx.m_logger)) {
+    if (!(logger_thread_ctx.m_logger)) {
 #else
-    if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_logger))) {
+    [[unlikely]] if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_logger))) {
 #endif
         logger_thread_ctx.m_logger = glob_spdlog_logger;
     }
@@ -123,9 +123,9 @@ std::shared_ptr< spdlog::logger >& GetLogger() {
 
 std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
 #if __cplusplus > 201703L
-    [[unlikely]] if (!(logger_thread_ctx.m_critical_logger)) {
+    if (!(logger_thread_ctx.m_critical_logger)) {
 #else
-    if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_critical_logger))) {
+    [[unlikely]] if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_critical_logger))) {
 #endif
         logger_thread_ctx.m_critical_logger = glob_critical_logger;
     }
@@ -160,7 +160,6 @@ std::filesystem::path get_base_dir() {
         return log_dir;
     }
 }
-
 
 static std::filesystem::path log_path(std::string const& name) {
     std::filesystem::path p;
