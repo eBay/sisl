@@ -111,24 +111,12 @@ void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
 }
 
 std::shared_ptr< spdlog::logger >& GetLogger() {
-#if __cplusplus > 201703L
-    if (!(logger_thread_ctx.m_logger)) {
-#else
-    [[unlikely]] if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_logger))) {
-#endif
-        logger_thread_ctx.m_logger = glob_spdlog_logger;
-    }
+    [[unlikely]] if (!(logger_thread_ctx.m_logger)) logger_thread_ctx.m_logger = glob_spdlog_logger;
     return logger_thread_ctx.m_logger;
 }
 
 std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
-#if __cplusplus > 201703L
-    if (!(logger_thread_ctx.m_critical_logger)) {
-#else
-    [[unlikely]] if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_critical_logger))) {
-#endif
-        logger_thread_ctx.m_critical_logger = glob_critical_logger;
-    }
+    [[unlikely]] if (!(logger_thread_ctx.m_critical_logger)) logger_thread_ctx.m_critical_logger = glob_critical_logger;
     return logger_thread_ctx.m_critical_logger;
 }
 
