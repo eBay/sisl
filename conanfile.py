@@ -1,10 +1,8 @@
-from os.path import join
 from conan import ConanFile
-from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
-from conans import CMake
-
-required_conan_version = ">=1.52.0"
+from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
+from conan.tools.files import copy
+from os.path import join
 
 class SISLConan(ConanFile):
     name = "sisl"
@@ -47,7 +45,7 @@ class SISLConan(ConanFile):
             )
 
     def validate(self):
-        if self.info.settings.compiler.cppstd:
+        if self.settings.compiler.cppstd:
             check_min_cppstd(self, 20)
 
     def configure(self):
@@ -64,9 +62,8 @@ class SISLConan(ConanFile):
                     raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build_requirements(self):
-        self.build_requires("benchmark/1.8.2")
-        self.build_requires("cmake/3.27.0")
-        self.build_requires("gtest/1.14.0")
+        self.test_requires("benchmark/1.8.2")
+        self.test_requires("gtest/1.14.0")
 
     def requirements(self):
         # Custom packages
@@ -80,9 +77,9 @@ class SISLConan(ConanFile):
             self.requires("jemalloc/5.2.1")
 
         # Linux Specific Support
-        if self.settings.os in ["Linux"]:
-            self.requires("folly/nu2.2023.12.11.00")
-            self.requires("userspace-rcu/0.11.4")
+        #if self.settings.os in ["Linux"]:
+            #self.requires("folly/nu2.2023.12.11.00")
+            #self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
         self.requires("boost/1.82.0")
@@ -101,29 +98,29 @@ class SISLConan(ConanFile):
         self.requires("xz_utils/5.2.5", override=True)
         self.requires("zlib/1.2.13",    override=True)
 
+    def layout(self):
+        cmake_layout(self)
+
+    def generate(self):
+        # This generates "conan_toolchain.cmake" in self.generators_folder
+        tc = CMakeToolchain(self)
+        tc.variables["CONAN_CMAKE_SILENT_OUTPUT"] = "ON"
+        tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
+        tc.variables["BUILD_COVERAGE"] = "OFF"
+        tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
+        if self.settings.build_type == "Debug":
+            if self.options.coverage:
+                tc.variables['BUILD_COVERAGE'] = 'ON'
+            elif self.options.sanitize:
+                tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
+        tc.generate()
+
     def build(self):
         cmake = CMake(self)
-
-        definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
-                       'ENABLE_TESTING': 'OFF',
-                       'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
-                       'CONAN_CMAKE_SILENT_OUTPUT': 'ON',
-                       'MEMORY_SANITIZER_ON': 'OFF',
-                       'MALLOC_IMPL': self.options.malloc_impl}
-
-        if self.settings.build_type == "Debug":
-            if self.options.sanitize:
-                definitions['MEMORY_SANITIZER_ON'] = 'ON'
-            elif self.options.coverage:
-                definitions['CONAN_BUILD_COVERAGE'] = 'ON'
-
-        if self.options.testing:
-            definitions['ENABLE_TESTING'] = 'ON'
-
-        cmake.configure(defs=definitions)
+        cmake.configure()
         cmake.build()
-        if self.options.testing:
-            cmake.test(output_on_failure=True)
+        if not self.conf.get("tools.build:skip_test", default=False):
+            cmake.test()
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
