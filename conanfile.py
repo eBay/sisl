@@ -1,10 +1,10 @@
-from os.path import join
 from conan import ConanFile
-from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
-from conans import CMake
+from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
+from conan.tools.files import copy
+from os.path import join
 
-required_conan_version = ">=1.52.0"
+required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
@@ -37,7 +37,6 @@ class SISLConan(ConanFile):
                 'malloc_impl': 'libc',
             }
 
-    generators = "cmake", "cmake_find_package"
     exports = ["LICENSE"]
     exports_sources = (
                 "CMakeLists.txt",
@@ -47,16 +46,16 @@ class SISLConan(ConanFile):
             )
 
     def validate(self):
-        if self.info.settings.compiler.cppstd:
+        if self.settings.compiler.cppstd:
             check_min_cppstd(self, 20)
 
     def configure(self):
         if self.settings.compiler in ["gcc"]:
             self.options['pistache'].with_ssl: True
         if self.options.shared:
-            del self.options.fPIC
+            self.options.safe_remove("fPIC")
         if self.settings.build_type == "Debug":
-            self.options.prerelease = True
+            self.options["sisl/*"].prerelease = True
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if not self.options.testing:
@@ -64,66 +63,66 @@ class SISLConan(ConanFile):
                     raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build_requirements(self):
-        self.build_requires("benchmark/1.8.2")
-        self.build_requires("cmake/3.27.0")
-        self.build_requires("gtest/1.14.0")
+        self.test_requires("benchmark/1.8.2")
+        self.test_requires("gtest/1.14.0")
 
     def requirements(self):
-        # Custom packages
-        if self.options.prerelease:
-            self.requires("prerelease_dummy/1.0.1")
-
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
-            self.requires("gperftools/2.7.0")
+            self.requires("gperftools/2.15")
         elif self.options.malloc_impl == "jemalloc":
-            self.requires("jemalloc/5.2.1")
+            self.requires("jemalloc/5.3.0")
 
         # Linux Specific Support
         if self.settings.os in ["Linux"]:
-            self.requires("folly/nu2.2023.12.11.00")
+            self.requires("folly/nu2.2023.12.18.00")
             self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
-        self.requires("boost/1.82.0")
+        self.requires("boost/1.83.0")
         if self.settings.os in ["Linux"]:
-            self.requires("breakpad/cci.20230127")
+            self.requires("breakpad/cci.20210521")
         self.requires("cxxopts/3.1.1")
         self.requires("flatbuffers/23.5.26")
-        self.requires("grpc/1.50.1")
+        self.requires("grpc/1.54.3")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.1.0")
         self.requires("spdlog/1.12.0")
         self.requires("zmarok-semver/1.1.0")
-        self.requires("fmt/10.0.0",     override=True)
+        self.requires("fmt/10.0.0",  override=True)
         self.requires("libcurl/8.4.0",  override=True)
-        self.requires("openssl/3.1.3",  override=True)
-        self.requires("xz_utils/5.2.5", override=True)
-        self.requires("zlib/1.2.13",    override=True)
+        self.requires("xz_utils/5.4.5",  override=True)
+
+    def layout(self):
+        cmake_layout(self)
+
+    def generate(self):
+        # This generates "conan_toolchain.cmake" in self.generators_folder
+        tc = CMakeToolchain(self)
+        tc.variables["CONAN_CMAKE_SILENT_OUTPUT"] = "ON"
+        tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
+        tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
+        tc.variables["BUILD_COVERAGE"] = "OFF"
+        tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
+        tc.variables["ENABLE_TESTING"] = 'ON'
+        tc.variables["PACKAGE_VERSION"] = self.version
+        if self.settings.build_type == "Debug":
+            if self.options.coverage:
+                tc.variables['BUILD_COVERAGE'] = 'ON'
+            elif self.options.sanitize:
+                tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
+        tc.generate()
+
+        # This generates "boost-config.cmake" and "grpc-config.cmake" etc in self.generators_folder
+        deps = CMakeDeps(self)
+        deps.generate()
 
     def build(self):
         cmake = CMake(self)
-
-        definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
-                       'ENABLE_TESTING': 'OFF',
-                       'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
-                       'CONAN_CMAKE_SILENT_OUTPUT': 'ON',
-                       'MEMORY_SANITIZER_ON': 'OFF',
-                       'MALLOC_IMPL': self.options.malloc_impl}
-
-        if self.settings.build_type == "Debug":
-            if self.options.sanitize:
-                definitions['MEMORY_SANITIZER_ON'] = 'ON'
-            elif self.options.coverage:
-                definitions['CONAN_BUILD_COVERAGE'] = 'ON'
-
-        if self.options.testing:
-            definitions['ENABLE_TESTING'] = 'ON'
-
-        cmake.configure(defs=definitions)
+        cmake.configure()
         cmake.build()
-        if self.options.testing:
-            cmake.test(output_on_failure=True)
+        if not self.conf.get("tools.build:skip_test", default=False):
+            cmake.test()
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
@@ -148,6 +147,9 @@ class SISLConan(ConanFile):
     def package_info(self):
         self.cpp_info.libs = ["sisl"]
 
+        if self.options.prerelease:
+            self.cpp_info.cxxflags.append("-D_PRERELEASE=1")
+
         if self.settings.os == "Linux":
             self.cpp_info.libs.append("flip")
             self.cpp_info.cppflags.append("-D_POSIX_C_SOURCE=200809L")
@@ -165,5 +167,3 @@ class SISLConan(ConanFile):
             self.cpp_info.cppflags.append("-DUSE_JEMALLOC=1")
         elif self.options.malloc_impl == 'tcmalloc':
             self.cpp_info.cppflags.append("-DUSING_TCMALLOC=1")
-            self.cpp_info.libdirs += self.deps_cpp_info["gperftools"].lib_paths
-            self.cpp_info.libs += ["tcmalloc"]

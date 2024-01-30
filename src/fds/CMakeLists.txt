@@ -6,7 +6,7 @@ add_library(sisl_buffer OBJECT)
 target_sources(sisl_buffer PRIVATE
     buffer.cpp
   )
-target_link_libraries(sisl_buffer Folly::Folly ${COMMON_DEPS})
+target_link_libraries(sisl_buffer folly::folly ${COMMON_DEPS})
 
 if (DEFINED ENABLE_TESTING)
   if (${ENABLE_TESTING})

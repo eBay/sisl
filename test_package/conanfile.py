@@ -1,15 +1,23 @@
-from conans import ConanFile
+from conan import ConanFile
 from conan.tools.build import cross_building
-from conans import CMake
+from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake
 import os
 
 class TestPackageConan(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
-    generators = "cmake", "cmake_find_package_multi"
+
+    def generate(self):
+        # This generates "conan_toolchain.cmake" in self.generators_folder
+        tc = CMakeToolchain(self)
+        tc.generate()
+
+        # This generates "boost-config.cmake" and "grpc-config.cmake" etc in self.generators_folder
+        deps = CMakeDeps(self)
+        deps.generate()
 
     def build(self):
         cmake = CMake(self)
-        cmake.configure(defs={'CONAN_CMAKE_SILENT_OUTPUT': 'ON'})
+        cmake.configure()
         cmake.build()
 
     def test(self):

@@ -12,7 +12,7 @@ target_sources(sisl_metrics PRIVATE
   )
 target_link_libraries(sisl_metrics
     ${COMMON_DEPS}
-    Folly::Folly
+    folly::folly
   )
 
 if (DEFINED ENABLE_TESTING)
