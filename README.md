@@ -73,18 +73,14 @@ Assuming the conan setup is already done
 
 ```
 $ ./prepare.sh # this will export some recipes to the conan cache
-$ mkdir build
-$ cd build
+$ // ./prepare_v2.sh for conan >= 2.0
 
 # Install all dependencies
-$ conan install ..
+$ conan install .
 
-# Build the libsisl.a
-$ conan build ..
+# Build and Run Tests
+$ conan build .
 ```
-
-### Without conan
-To be Added
 
 ## Contributing to This Project
 We welcome contributions. If you find any bugs, potential flaws and edge cases, improvements, new feature suggestions or discussions, please submit issues or pull requests.

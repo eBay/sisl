@@ -34,7 +34,7 @@ if(${folly_FOUND})
         $<TARGET_OBJECTS:sisl_settings>
     )
     list(APPEND SISL_DEPS
-        Folly::Folly
+        folly::folly
         breakpad::breakpad
     )
 endif()

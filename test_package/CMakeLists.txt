@@ -3,10 +3,7 @@ project(test_package)
 
 set(CMAKE_CXX_STANDARD 20)
 
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup(TARGETS)
-
-find_package(sisl CONFIG QUIET REQUIRED)
+find_package(sisl QUIET REQUIRED)
 
 add_executable(${PROJECT_NAME} test_package.cpp example_decl.cpp)
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
