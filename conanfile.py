@@ -37,7 +37,6 @@ class SISLConan(ConanFile):
                 'malloc_impl': 'libc',
             }
 
-    generators = "cmake", "cmake_find_package"
     exports = ["LICENSE"]
     exports_sources = (
                 "CMakeLists.txt",
@@ -81,7 +80,7 @@ class SISLConan(ConanFile):
         # Linux Specific Support
         if self.settings.os in ["Linux"]:
             self.requires("folly/2023.12.18.00")
-            #self.requires("userspace-rcu/0.11.4")
+            self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
         self.requires("boost/1.83.0")
