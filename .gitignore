@@ -107,3 +107,5 @@ CMakeSettings.json
 
 # Clangd
 .cache/clangd
+
+CMakeUserPresets.json

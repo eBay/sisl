@@ -17,11 +17,9 @@ else ()
     message("The file conanbuildinfo.cmake doesn't exist, some properties will be unavailable")
 endif ()
 
-if (DEFINED ENABLE_TESTING)
-  if (${ENABLE_TESTING})
-    enable_testing()
-    find_package(GTest QUIET REQUIRED)
-  endif()
+if (NOT BUILD_TESTING STREQUAL OFF)
+  enable_testing()
+  find_package(GTest QUIET REQUIRED)
 endif()
 
 if (DEFINED CONAN_BUILD_COVERAGE)
@@ -64,7 +62,7 @@ if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 endif()
 
-find_package(benchmark QUIET REQUIRED)
+find_package(Benchmark QUIET REQUIRED)
 find_package(Boost QUIET REQUIRED)
 find_package(cxxopts QUIET REQUIRED)
 if (${MALLOC_IMPL} STREQUAL "tcmalloc")
@@ -83,7 +81,7 @@ find_package(spdlog QUIET REQUIRED)
 find_package(Threads QUIET REQUIRED)
 
 # Linux Specific dependencies
-find_package(folly QUIET)
+find_package(Folly QUIET)
 find_package(userspace-rcu QUIET)
 find_package(breakpad QUIET)
 

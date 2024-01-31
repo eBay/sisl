@@ -75,11 +75,11 @@ class SISLConan(ConanFile):
         if self.options.malloc_impl == "tcmalloc":
             self.requires("gperftools/2.7.0")
         elif self.options.malloc_impl == "jemalloc":
-            self.requires("jemalloc/5.2.1")
+            self.requires("jemalloc/5.3.0")
 
         # Linux Specific Support
         if self.settings.os in ["Linux"]:
-            self.requires("folly/2023.12.18.00")
+            self.requires("folly/nu2.2023.12.18.00")
             self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
@@ -93,6 +93,7 @@ class SISLConan(ConanFile):
         self.requires("prometheus-cpp/1.1.0")
         self.requires("spdlog/1.12.0")
         self.requires("zmarok-semver/1.1.0")
+        self.requires("fmt/10.0.0",  override=True)
         self.requires("libcurl/8.4.0",  override=True)
         self.requires("xz_utils/5.4.5",  override=True)
 
@@ -106,12 +107,17 @@ class SISLConan(ConanFile):
         tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
+        tc.variables["ENABLE_TESTING"] = 'ON'
         if self.settings.build_type == "Debug":
             if self.options.coverage:
                 tc.variables['BUILD_COVERAGE'] = 'ON'
             elif self.options.sanitize:
                 tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
         tc.generate()
+
+        # This generates "boost-config.cmake" and "grpc-config.cmake" etc in self.generators_folder
+        deps = CMakeDeps(self)
+        deps.generate()
 
     def build(self):
         cmake = CMake(self)
