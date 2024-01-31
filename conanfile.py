@@ -4,6 +4,8 @@ from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
 from conan.tools.files import copy
 from os.path import join
 
+required_conan_version = ">=1.60.0"
+
 class SISLConan(ConanFile):
     name = "sisl"
     version = "11.0.6"
@@ -77,12 +79,12 @@ class SISLConan(ConanFile):
             self.requires("jemalloc/5.2.1")
 
         # Linux Specific Support
-        #if self.settings.os in ["Linux"]:
+        if self.settings.os in ["Linux"]:
             self.requires("folly/nu2.2023.12.11.00")
             #self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
-        self.requires("boost/1.82.0")
+        self.requires("boost/1.83.0")
         if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20230127")
         self.requires("cxxopts/3.1.1")

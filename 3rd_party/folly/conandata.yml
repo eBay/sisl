@@ -38,7 +38,6 @@ patches:
     - patch_file: "patches/0022-fix-windows-minmax.patch"
   "nu2.2023.12.11.00":
     - patch_file: "patches/0016-find-packages.patch"
-    - patch_file: "patches/0017-compiler-flags.patch"
     - patch_file: "patches/0018-find-glog.patch"
     - patch_file: "patches/0019-exclude-example.patch"
     - patch_file: "patches/0022-fix-windows-minmax.patch"
