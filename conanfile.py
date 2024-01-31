@@ -76,7 +76,7 @@ class SISLConan(ConanFile):
         # Linux Specific Support
         if self.settings.os in ["Linux"]:
             self.requires("folly/nu2.2023.12.18.00")
-            self.requires("userspace-rcu/0.11.4")
+            self.requires("userspace-rcu/nu2.0.14.0")
 
         # Generic packages (conan-center)
         self.requires("boost/1.83.0")
