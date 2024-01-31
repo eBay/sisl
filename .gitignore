@@ -109,3 +109,4 @@ CMakeSettings.json
 .cache/clangd
 
 CMakeUserPresets.json
+logs/
