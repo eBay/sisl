@@ -4,7 +4,7 @@ echo -n "Exporting custom recipes..."
 echo -n "breakpad."
 conan export 3rd_party/breakpad --name breakpad --version cci.20230127 >/dev/null
 echo -n "folly."
-conan export 3rd_party/folly --name folly --version nu2.2023.12.11.00 >/dev/null
+conan export 3rd_party/folly --name folly --version 2023.12.18.00 >/dev/null
 #echo -n "gperftools."
 #conan export 3rd_party/gperftools >/dev/null
 #echo -n "jemalloc."

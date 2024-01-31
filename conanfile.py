@@ -80,7 +80,7 @@ class SISLConan(ConanFile):
 
         # Linux Specific Support
         if self.settings.os in ["Linux"]:
-            self.requires("folly/nu2.2023.12.11.00")
+            self.requires("folly/2023.12.18.00")
             #self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)
@@ -89,16 +89,13 @@ class SISLConan(ConanFile):
             self.requires("breakpad/cci.20230127")
         self.requires("cxxopts/3.1.1")
         self.requires("flatbuffers/23.5.26")
-        self.requires("grpc/1.50.1")
+        self.requires("grpc/1.54.3")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.1.0")
         self.requires("spdlog/1.12.0")
         self.requires("zmarok-semver/1.1.0")
-        self.requires("fmt/10.0.0",     override=True)
         self.requires("libcurl/8.4.0",  override=True)
-        self.requires("openssl/3.1.3",  override=True)
-        self.requires("xz_utils/5.2.5", override=True)
-        self.requires("zlib/1.2.13",    override=True)
+        self.requires("xz_utils/5.4.5",  override=True)
 
     def layout(self):
         cmake_layout(self)
