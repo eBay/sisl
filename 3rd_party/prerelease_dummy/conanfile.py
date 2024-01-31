@@ -1,4 +1,4 @@
-from conans import ConanFile, CMake, tools
+from conan import ConanFile
 
 class PrereleaseConan(ConanFile):
     name = "prerelease_dummy"

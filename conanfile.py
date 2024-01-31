@@ -52,9 +52,9 @@ class SISLConan(ConanFile):
         if self.settings.compiler in ["gcc"]:
             self.options['pistache'].with_ssl: True
         if self.options.shared:
-            del self.options.fPIC
+            self.options.safe_remove("fPIC")
         if self.settings.build_type == "Debug":
-            self.options.prerelease = True
+            self.options["sisl/*"].prerelease = True
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if not self.options.testing:
@@ -78,7 +78,7 @@ class SISLConan(ConanFile):
 
         # Linux Specific Support
         #if self.settings.os in ["Linux"]:
-            #self.requires("folly/nu2.2023.12.11.00")
+            self.requires("folly/nu2.2023.12.11.00")
             #self.requires("userspace-rcu/0.11.4")
 
         # Generic packages (conan-center)

@@ -32,7 +32,6 @@ class BreakpadConan(ConanFile):
 
     def requirements(self):
         self.requires("linux-syscall-support/cci.20200813")
-        self.requires("zlib/1.2.13")
 
     def validate(self):
         if self.settings.os != "Linux":
