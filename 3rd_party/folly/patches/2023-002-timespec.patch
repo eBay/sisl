@@ -1,0 +1,38 @@
+diff -Naur a/folly/io/async/AsyncSocket.cpp b/folly/io/async/AsyncSocket.cpp
+--- a/folly/io/async/AsyncSocket.cpp	2023-12-08 20:38:13.000000000 -0700
++++ b/folly/io/async/AsyncSocket.cpp	2023-12-12 10:15:06.023030521 -0700
+@@ -18,6 +18,9 @@
+ 
+ #include <sys/types.h>
+ 
++/* for struct sock_extended_err*/
++#include <linux/errqueue.h>
++
+ #include <cerrno>
+ #include <climits>
+ #include <sstream>
+diff -Naur a/folly/io/async/AsyncUDPSocket.cpp b/folly/io/async/AsyncUDPSocket.cpp
+--- a/folly/io/async/AsyncUDPSocket.cpp	2023-12-08 20:38:13.000000000 -0700
++++ b/folly/io/async/AsyncUDPSocket.cpp	2023-12-12 10:19:06.419424565 -0700
+@@ -17,6 +17,9 @@
+ #include <folly/io/SocketOptionMap.h>
+ #include <folly/io/async/AsyncUDPSocket.h>
+ 
++/* for struct sock_extended_err*/
++#include <linux/errqueue.h>
++
+ #include <cerrno>
+ 
+ #include <boost/preprocessor/control/if.hpp>
+diff -Naur a/folly/net/NetOps.h b/folly/net/NetOps.h
+--- a/folly/net/NetOps.h	2023-12-12 10:16:10.675139766 -0700
++++ b/folly/net/NetOps.h	2023-12-12 10:15:55.087113425 -0700
+@@ -114,7 +114,7 @@
+ #endif
+ #endif
+ /* for struct sock_extended_err*/
+-#include <linux/errqueue.h>
++#include <linux/types.h>
+ #endif
+ #endif
+ 
