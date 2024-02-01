@@ -78,7 +78,6 @@ find_package(userspace-rcu)
 find_package(spdlog)
 find_package(zmarok-semver)
 find_package(benchmark)
-find_package(GTest)
 
 list (APPEND COMMON_DEPS
     Boost::headers
