@@ -1,4 +1,5 @@
 from conan import ConanFile
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import check_min_cppstd
 from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
 from conan.tools.files import copy
@@ -59,7 +60,7 @@ class SISLConan(ConanFile):
             self.options.rm_safe("prerelease")
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
-            if not self.conf.get("tools.build:skip_test", default=False):
+            if self.conf.get("tools.build:skip_test", default=False):
                 if self.options.coverage or self.options.sanitize:
                     raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
@@ -105,7 +106,6 @@ class SISLConan(ConanFile):
         tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
-        tc.variables["ENABLE_TESTING"] = 'ON'
         tc.variables["PACKAGE_VERSION"] = self.version
         if self.options.get_safe("prerelease"):
             tc.preprocessor_definitions["_PRERELEASE"] = "1"
