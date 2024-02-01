@@ -1,5 +1,6 @@
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
+#include <sisl/settings/settings.hpp>
 #include <sisl/utility/thread_factory.hpp>
 
 SISL_LOGGING_DECL(my_module)

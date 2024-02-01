@@ -148,10 +148,9 @@ class SISLConan(ConanFile):
         copy(self, "*security_config_generated.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
-    def _add_component(self, lib, requirelist=[]):
+    def _add_component(self, lib):
         self.cpp_info.components[lib].libs = [lib]
         self.cpp_info.components[lib].set_property("pkg_config_name", f"lib{lib}")
-        self.cpp_info.components[lib].requires.extend(requirelist)
 
     def package_info(self):
         self._add_component("sisl")
@@ -163,6 +162,7 @@ class SISLConan(ConanFile):
                 "breakpad::breakpad",
                 "cxxopts::cxxopts",
                 "folly::folly",
+                "flatbuffers::flatbuffers",
                 "spdlog::spdlog",
                 "grpc::grpc++",
                 "nlohmann_json::nlohmann_json",
