@@ -10,6 +10,9 @@ patches:
     - patch_file: "patches/2023-001-compiler-flags.patch"
       patch_description: "Do not hard-code debug flag for all build types"
       patch_type: "conan"
+    - patch_file: "patches/2023-002-timespec.patch"
+      patch_description: "Fix liburing inclusion of timespec"
+      patch_type: "conan"
   "2022.10.31.00":
     - patch_file: "patches/2022-001-compiler-flags.patch"
       patch_description: "Do not hard-code debug flag for all build types"

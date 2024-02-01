@@ -74,6 +74,7 @@ class FollyConan(ConanFile):
         self.requires("lz4/1.9.4", transitive_libs=True)
         self.requires("snappy/1.1.10")
         self.requires("zlib/[>=1.2.11 <2]")
+        self.requires("liburing/[>=2.1]")
         self.requires("zstd/1.5.5", transitive_libs=True)
         if not is_msvc(self):
             self.requires("libdwarf/20191104")
@@ -220,7 +221,7 @@ class FollyConan(ConanFile):
         deps.set_property("libiberty", "cmake_file_name", "Libiberty")
         deps.set_property("libsodium", "cmake_file_name", "Libsodium")
         deps.set_property("libunwind", "cmake_file_name", "LibUnwind")
-        # deps.set_property("liburing", "cmake_file_name", "LibUring")
+        deps.set_property("liburing", "cmake_file_name", "LibUring")
         deps.set_property("lz4", "cmake_file_name", "LZ4")
         deps.set_property("openssl", "cmake_file_name", "OpenSSL")
         deps.set_property("snappy", "cmake_file_name", "Snappy")
