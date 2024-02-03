@@ -269,6 +269,7 @@ class FollyConan(ConanFile):
             "openssl::openssl",
             "bzip2::bzip2",
             "snappy::snappy",
+            "liburing::liburing",
             "zlib::zlib",
             "zstd::zstd",
             "libsodium::libsodium",

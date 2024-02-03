@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "11.1.2"
+    version = "11.1.3"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -49,7 +49,7 @@ class SISLConan(ConanFile):
 
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
-            check_min_cppstd(self, self._min_cppstd)
+            check_min_cppstd(self, self._min_cppstd())
 
     def configure(self):
         if self.settings.compiler in ["gcc"]:
@@ -71,26 +71,27 @@ class SISLConan(ConanFile):
     def requirements(self):
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
-            self.requires("gperftools/2.15")
+            self.requires("gperftools/2.15", transitive_headers=True)
         elif self.options.malloc_impl == "jemalloc":
-            self.requires("jemalloc/5.3.0")
+            self.requires("jemalloc/5.3.0", transitive_headers=True)
 
         # Linux Specific Support
         if self.settings.os in ["Linux"]:
-            self.requires("folly/nu2.2023.12.18.00")
-            self.requires("userspace-rcu/nu2.0.14.0")
+            self.requires("folly/nu2.2023.12.18.00", transitive_headers=True)
+            self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
 
         # Generic packages (conan-center)
-        self.requires("boost/1.83.0")
+        self.requires("boost/1.83.0", transitive_headers=True)
+        self.requires("cxxopts/3.1.1", transitive_headers=True)
+        self.requires("flatbuffers/23.5.26", transitive_headers=True)
+        self.requires("grpc/1.54.3", transitive_headers=True)
+        self.requires("nlohmann_json/3.11.2", transitive_headers=True)
+        self.requires("prometheus-cpp/1.1.0", transitive_headers=True)
+        self.requires("spdlog/1.12.0", transitive_headers=True)
+        self.requires("zmarok-semver/1.1.0", transitive_headers=True)
+
         if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20210521")
-        self.requires("cxxopts/3.1.1")
-        self.requires("flatbuffers/23.5.26")
-        self.requires("grpc/1.54.3")
-        self.requires("nlohmann_json/3.11.2")
-        self.requires("prometheus-cpp/1.1.0")
-        self.requires("spdlog/1.12.0")
-        self.requires("zmarok-semver/1.1.0")
         self.requires("fmt/10.0.0",  override=True)
         self.requires("libcurl/8.4.0",  override=True)
         self.requires("xz_utils/5.4.5",  override=True)
@@ -164,7 +165,7 @@ class SISLConan(ConanFile):
                 "folly::folly",
                 "flatbuffers::flatbuffers",
                 "spdlog::spdlog",
-                "grpc::grpc++",
+                "grpc::grpc",
                 "nlohmann_json::nlohmann_json",
                 "prometheus-cpp::prometheus-cpp",
                 "userspace-rcu::userspace-rcu",
