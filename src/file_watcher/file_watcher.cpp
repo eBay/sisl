@@ -6,8 +6,8 @@
 #include <unistd.h>
 #include <sys/inotify.h>
 
-#include "file_watcher.hpp"
-#include "utility/thread_factory.hpp"
+#include "sisl/file_watcher/file_watcher.hpp"
+#include "sisl/utility/thread_factory.hpp"
 
 namespace sisl {
 namespace fs = std::filesystem;
@@ -69,7 +69,7 @@ bool FileWatcher::register_listener(const std::string& file_path, const std::str
     {
         auto lk = std::unique_lock< std::mutex >(m_files_lock);
         if (const auto it{m_files.find(file_path)}; it != m_files.end()) {
-            auto file_info = it->second;
+            auto& file_info = it->second;
             file_info.m_handlers.emplace(listener_id, file_event_handler);
             LOGDEBUG("File path {} exists, adding the handler cb for the listener {}", file_path, listener_id);
             return true;
@@ -110,19 +110,26 @@ bool FileWatcher::unregister_listener(const std::string& file_path, const std::s
 
     file_info.m_handlers.erase(listener_id);
     if (file_info.m_handlers.empty()) {
-        if (auto err = inotify_rm_watch(m_inotify_fd, file_info.m_wd); err != 0) {
-            LOGERROR("inotify rm failed for file path {}, listener id {} errno: {}", file_path, listener_id, errno);
+        if (!remove_watcher(file_info)) {
+            LOGDEBUG("inotify rm failed for file path {}, listener id {} errno: {}", file_path, listener_id, errno);
             return false;
         }
-        m_files.erase(file_path);
     }
     return true;
+}
+
+bool FileWatcher::remove_watcher(FileInfo& file_info) {
+    bool success = true;
+    if (auto err = inotify_rm_watch(m_inotify_fd, file_info.m_wd); err != 0) { success = false; }
+    // remove the file from the map regardless of the inotify_rm_watch result
+    m_files.erase(file_info.m_filepath);
+    return success;
 }
 
 bool FileWatcher::stop() {
     // signal event loop to break and wait for the thread to join
     // event value does not matter, this is just generating an event at the read end of the pipe
-    LOGINFO("Stopping file watcher event loop.");
+    LOGDEBUG("Stopping file watcher event loop.");
     int event = 1;
     int ret;
     do {
@@ -134,7 +141,7 @@ bool FileWatcher::stop() {
         return false;
     }
 
-    LOGINFO("Waiting for file watcher thread to join..");
+    LOGDEBUG("Waiting for file watcher thread to join..");
     if (m_fw_thread && m_fw_thread->joinable()) {
         try {
             m_fw_thread->join();
@@ -143,7 +150,7 @@ bool FileWatcher::stop() {
             return false;
         }
     }
-    LOGINFO("file watcher thread joined.");
+    LOGINFO("file watcher stopped.");
     return true;
 }
 
@@ -186,16 +193,18 @@ void FileWatcher::handle_events() {
 }
 
 void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
-    auto lk = std::unique_lock< std::mutex >(m_files_lock);
     FileInfo file_info;
     get_fileinfo(wd, file_info);
     if (is_deleted) {
+        // There is a corner case (very unlikely) where a new listener
+        // regestered for this filepath  after the current delete event was triggered.
+        {
+            auto lk = std::unique_lock< std::mutex >(m_files_lock);
+            remove_watcher(file_info);
+        }
         for (const auto& [id, handler] : file_info.m_handlers) {
             handler(file_info.m_filepath, true);
         }
-        // There is a corner case (very unlikely) where a new listener
-        // regestered for this filepath  after the current delete event was triggered.
-        m_files.erase(file_info.m_filepath);
         return;
     }
 
@@ -243,8 +252,8 @@ bool FileWatcher::get_file_contents(const std::string& file_name, std::string& c
     return false;
 }
 
-// Hold the m_files_lock before calling this method.
 void FileWatcher::get_fileinfo(const int wd, FileInfo& file_info) const {
+    auto lk = std::unique_lock< std::mutex >(m_files_lock);
     for (const auto& [file_path, file] : m_files) {
         if (file.m_wd == wd) {
             file_info = file;

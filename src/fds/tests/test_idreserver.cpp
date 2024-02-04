@@ -18,10 +18,10 @@
 #include <thread>
 #include <vector>
 
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
-#include "id_reserver.hpp"
+#include "sisl/fds/id_reserver.hpp"
 
 #include <gtest/gtest.h>
 

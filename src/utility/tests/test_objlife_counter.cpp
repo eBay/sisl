@@ -7,12 +7,11 @@
 #include <cstdlib>
 
 #include <gtest/gtest.h>
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
-#include "fds/buffer.hpp"
-
-#include "obj_life_counter.hpp"
+#include "sisl/fds/buffer.hpp"
+#include "sisl/utility/obj_life_counter.hpp"
 
 SISL_LOGGING_INIT(test_objlife)
 

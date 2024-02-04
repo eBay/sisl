@@ -13,7 +13,7 @@
 
 #include <gtest/gtest.h>
 
-#include "utility/thread_buffer.hpp"
+#include "sisl/utility/thread_buffer.hpp"
 
 THREAD_BUFFER_INIT
 RCU_REGISTER_INIT

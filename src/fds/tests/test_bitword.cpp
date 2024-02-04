@@ -20,12 +20,12 @@
 #include <limits>
 #include <type_traits>
 
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include <gtest/gtest.h>
 
-#include "bitword.hpp"
+#include "sisl/fds/bitword.hpp"
 
 using namespace sisl;
 

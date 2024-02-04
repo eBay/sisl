@@ -5,12 +5,12 @@
 #include <cstdint>
 #include <thread>
 
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include <gtest/gtest.h>
 
-#include "atomic_counter.hpp"
+#include "sisl/utility/atomic_counter.hpp"
 
 using namespace sisl;
 

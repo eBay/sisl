@@ -14,12 +14,12 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
-#include "logging/logging.h"
-#include "options/options.h"
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 
 #include <gtest/gtest.h>
 
-#include "atomic_status_counter.hpp"
+#include "sisl/fds/atomic_status_counter.hpp"
 
 using namespace sisl;
 

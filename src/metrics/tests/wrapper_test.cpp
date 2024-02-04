@@ -18,9 +18,11 @@
 #include <thread>
 #include <chrono>
 #include <fstream>
-#include "metrics.hpp"
+
 #include <gtest/gtest.h>
-#include "options/options.h"
+#include <sisl/options/options.h>
+
+#include "sisl/metrics/metrics.hpp"
 
 SISL_LOGGING_INIT(vmod_metrics_framework)
 
@@ -216,7 +218,7 @@ nlohmann::json expected = {
                 {"Total memory utilization", 980}
             }},
             {"Histograms percentiles (usecs) avg/50/95/99", {
-                {"Distribution of request per transactions", "18.25 / 15.0 / 31.0 / 31.0"}
+                {"Distribution of request per transactions", "18.2 / 15.0 / 31.0 / 31.0"}
             }}
         }}
     }}

@@ -1,7 +1,7 @@
 /*********************************************************************************
  * Modifications Copyright 2017-2019 eBay Inc.
  *
- * Author/Developer(s): Brian Szymd
+ * Author/Developer(s): Brian Szmyd
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "options.h"
+#include <sisl/options/options.h>
 
 SISL_OPTION_GROUP(logging,
                   (verbosity, "v", "verbosity", "Verbosity  level (0-5)",

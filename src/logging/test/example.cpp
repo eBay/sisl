@@ -1,7 +1,7 @@
 /*********************************************************************************
  * Modifications Copyright 2017-2019 eBay Inc.
  *
- * Author/Developer(s): Brian Szymd
+ * Author/Developer(s): Brian Szmyd
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,12 @@
 #include <iostream>
 #include <thread>
 
-#include "options/options.h"
+#include <sisl/options/options.h>
 
-#include "logging.h"
+#include <sisl/logging/logging.h>
 
+SISL_LOGGING_DECL(my_module)
+SISL_LOGGING_DEF(my_module)
 SISL_LOGGING_INIT(my_module)
 
 void func() {

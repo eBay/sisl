@@ -23,9 +23,9 @@
 #include <thread>
 
 #include <gtest/gtest.h>
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 
-#include "metrics.hpp"
+#include "sisl/metrics/metrics.hpp"
 
 constexpr size_t ITERATIONS{3};
 

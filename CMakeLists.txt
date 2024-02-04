@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 project (sisl)
 
 option(DEBUG_CMAKE "Debug CMake messages option" OFF)
@@ -9,17 +9,24 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON) # turn on folder hierarchies
 include (cmake/Flags.cmake)
 
 set(CMAKE_CXX_STANDARD 20)
-enable_testing()
 
-if(EXISTS ${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-    conan_basic_setup(TARGETS)
-else ()
-    message("The file conanbuildinfo.cmake doesn't exist, some properties will be unavailable")
-endif ()
+if (NOT BUILD_TESTING STREQUAL OFF)
+  set(ENABLE_TESTING ON)
+  enable_testing()
+  find_package(GTest QUIET REQUIRED)
+endif()
 
-if (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    include (cmake/debug_flags.cmake)
+if (DEFINED BUILD_COVERAGE)
+  if (${BUILD_COVERAGE})
+    include (cmake/CodeCoverage.cmake)
+    APPEND_COVERAGE_COMPILER_FLAGS()
+    SETUP_TARGET_FOR_COVERAGE_GCOVR_XML(NAME coverage EXECUTABLE ctest DEPENDENCIES )
+  endif()
+endif()
+
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    message(STATUS "Debug build")
+    add_flags("-D_DEBUG")
 endif()
 
 if (DEFINED MALLOC_IMPL)
@@ -49,20 +56,29 @@ if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 endif()
 
-find_package(benchmark REQUIRED)
-find_package(Boost REQUIRED)
-find_package(cpr REQUIRED)
-find_package(cxxopts REQUIRED)
-find_package(folly REQUIRED)
-find_package(GTest REQUIRED)
-find_package(jwt-cpp REQUIRED)
-find_package(nlohmann_json REQUIRED)
-find_package(prerelease_dummy QUIET)
-find_package(prometheus-cpp REQUIRED)
-find_package(zmarok-semver REQUIRED)
-find_package(spdlog REQUIRED)
-find_package(Threads REQUIRED)
-find_package(userspace-rcu REQUIRED)
+find_package(Benchmark QUIET REQUIRED)
+find_package(Boost QUIET REQUIRED)
+find_package(cxxopts QUIET REQUIRED)
+if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+  find_package(gperftools QUIET REQUIRED)
+endif()
+
+if (${MALLOC_IMPL} STREQUAL "jemalloc")
+  find_package(jemalloc QUIET REQUIRED)
+endif()
+
+find_package(folly)
+find_package(Boost)
+find_package(breakpad)
+find_package(cxxopts)
+find_package(flatbuffers)
+find_package(gRPC)
+find_package(nlohmann_json)
+find_package(prometheus-cpp)
+find_package(userspace-rcu)
+find_package(spdlog)
+find_package(zmarok-semver)
+find_package(benchmark)
 
 list (APPEND COMMON_DEPS
     Boost::headers
@@ -70,11 +86,27 @@ list (APPEND COMMON_DEPS
     nlohmann_json::nlohmann_json
     prometheus-cpp::prometheus-cpp
     spdlog::spdlog
-    userspace-rcu::userspace-rcu
   )
+if(${breakpad_FOUND})
+    list (APPEND COMMON_DEPS breakpad::breakpad)
+endif()
+if(${userspace-rcu_FOUND})
+    list (APPEND COMMON_DEPS userspace-rcu::userspace-rcu)
+endif()
+
 if (${prerelease_dummy_FOUND})
     list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
 endif ()
+
+if (DEFINED MALLOC_IMPL)
+    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
+        list(APPEND COMMON_DEPS gperftools::gperftools)
+    endif()
+
+    if (${MALLOC_IMPL} STREQUAL "jemalloc")
+        list(APPEND COMMON_DEPS jemalloc::jemalloc)
+    endif()
+endif()
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
@@ -92,12 +124,12 @@ endif()
 
 # add conan information 
 add_flags("-DPACKAGE_NAME=sisl")
-if (DEFINED CONAN_PACKAGE_VERSION)
-  message("Package Version: [${CONAN_PACKAGE_VERSION}]")
-  add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
+if (DEFINED PACKAGE_VERSION)
+  message("Package Version: [${PACKAGE_VERSION}]")
+  add_flags("-DPACKAGE_VERSION=\\\"${PACKAGE_VERSION}\\\"")
 else ()
   message("Unknown Package Version")
-  add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
+  add_flags("-DPACKAGE_VERSION=\\\"unknown\\\"")
 endif ()
 
 if(UNIX)
@@ -105,43 +137,11 @@ if(UNIX)
     add_flags("-D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
 endif()
 
-include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/auth_manager)
-include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/src/settings)
+include_directories(BEFORE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 
-if (DEFINED EVHTP_ON)
-  if (${EVHTP_ON})
-    add_subdirectory (src/async_http)
-  endif()
-endif()
-
-#add_subdirectory (src/btree)
-add_subdirectory (src/cache)
-add_subdirectory (src/logging)
-add_subdirectory (src/options)
-add_subdirectory (src/wisr)
-add_subdirectory (src/metrics)
-add_subdirectory (src/fds)
-add_subdirectory (src/settings)
-add_subdirectory (src/utility)
-add_subdirectory (src/sisl_version)
-add_subdirectory (src/auth_manager)
-add_subdirectory (src/file_watcher)
-
-add_library(sisl
-            $<TARGET_OBJECTS:sisl_metrics>
-            $<TARGET_OBJECTS:sisl_cache>
-            $<TARGET_OBJECTS:sisl_logging>
-            $<TARGET_OBJECTS:sisl_options>
-            $<TARGET_OBJECTS:sisl_version>
-            $<TARGET_OBJECTS:sisl_settings>
-            $<TARGET_OBJECTS:sisl_buffer>
-            $<TARGET_OBJECTS:sisl_auth_manager>
-            $<TARGET_OBJECTS:sisl_trf_client>
-            $<TARGET_OBJECTS:sisl_file_watcher>
-           )
-target_link_libraries(sisl
-    Folly::Folly
-  )
+add_subdirectory(src)
 
 # build info
 string(TOUPPER "${CMAKE_BUILD_TYPE}" UC_CMAKE_BUILD_TYPE)

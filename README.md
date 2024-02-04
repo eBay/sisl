@@ -1,5 +1,6 @@
 # SymbiosisLib (sisl)
-[![Conan Build](https://github.com/eBay/sisl/actions/workflows/build_with_conan.yml/badge.svg?branch=master)](https://github.com/eBay/sisl/actions/workflows/build_with_conan.yml)
+[![Conan Build](https://github.com/eBay/sisl/actions/workflows/merge_build.yml/badge.svg?branch=master)](https://github.com/eBay/sisl/actions/workflows/merge_build.yml)
+[![CodeCov](https://codecov.io/gh/eBay/sisl/branch/master/graph/badge.svg)](https://codecov.io/gh/eBay/Sisl)
 
 This repo provides a symbiosis of libraries (thus named sisl - pronounced like sizzle) mostly for very high performance data 
 structures and utilities. This is mostly on top of folly, boost, STL and other good well known libraries. Thus its not trying 
@@ -12,17 +13,14 @@ to replace these libraries, but provide a layer on top of it. In general there a
 Following are the tools it provides so far
 
 ## Whats in this library
-### Async HTTP Server
-
-Provides an HTTP REST Server for asynchronous programming model. It works on top of evhtp library, but wraps threading model
-C++ methods for evhtp C library.
-
 ### Metrics
 
 A very high performance metrics collection (counters, histograms and gauges) and report the results in form of json or 
 sent to prometheus whichever caller choose from. It is meant to scale with multiple threads and huge amount of performance
 metrics. The collection is extremely fast <<5ns per metric, but pay penalty during metrics result gathering which is rare. It
 uses Wisr framework which will be detailed next
+
+*Lacks MacOS support*
 
 ### Wisr
 
@@ -36,7 +34,9 @@ More details in the Wisr README under [src/wisr/README.md]
 
 ### FDS
 This is a bunch of data structures meant for high performance or specific use cases. Each of these structures are detailed in their 
-corresponding source files. Some of the major data structures are
+corresponding source files. Some of the major data structures are listed below:
+
+*Lacks MacOS support*
 
 #### Bitset
 A high performance bitset to have various functionalities to scan the contiguous 1s, 0s, set/reset multiple bits without iterating over
@@ -61,6 +61,9 @@ Capture the vector in a pool in thread local fashion, so that vectors are not bu
 ### Settings Framework
 Please refer to the README under [src/settings/README.md]
 
+### Flip
+Flip is fault injection framework, Please refer to the README under [src/flip/README.md]
+
 ## Installation
 This is mostly header only library and can be just compiled into your code. There are some of the pieces which needs a library (libsisl)
 to be built. 
@@ -69,18 +72,15 @@ to be built.
 Assuming the conan setup is already done
 
 ```
-$ mkdir build
-$ cd build
+$ ./prepare.sh # this will export some recipes to the conan cache
+$ // ./prepare_v2.sh for conan >= 2.0
 
 # Install all dependencies
-$ conan install ..
+$ conan install .
 
-# Build the libsisl.a
-$ conan build ..
+# Build and Run Tests
+$ conan build .
 ```
-
-### Without conan
-To be Added
 
 ## Contributing to This Project
 We welcome contributions. If you find any bugs, potential flaws and edge cases, improvements, new feature suggestions or discussions, please submit issues or pull requests.
@@ -92,7 +92,8 @@ Harihara Kadayam hkadayam@ebay.com
 Copyright 2021 eBay Inc.
 
 Primary Author: Harihara Kadayam
-Primary Developers: Harihara Kadayam, Rishabh Mittal, Bryan Zimmerman, Brian Szymd
+
+Primary Developers: Harihara Kadayam, Rishabh Mittal, Bryan Zimmerman, Brian Szmyd
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
 

@@ -1,83 +1,109 @@
-cmake_minimum_required (VERSION 3.10)
+cmake_minimum_required (VERSION 3.11)
 
-if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
-    add_flags("-Wno-unused-parameter -Wno-cast-function-type")
-endif()
+include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
 
-include_directories(BEFORE ..)
-include_directories(BEFORE .)
-
-set(BUFFER_SOURCE_FILES 
+add_library(sisl_buffer OBJECT)
+target_sources(sisl_buffer PRIVATE
     buffer.cpp
-   )
-add_library(sisl_buffer OBJECT ${BUFFER_SOURCE_FILES})
-target_link_libraries(sisl_buffer ${COMMON_DEPS})
+  )
+target_link_libraries(sisl_buffer folly::folly ${COMMON_DEPS})
 
-set(TEST_STREAM_TRACKER_SOURCES 
-    tests/test_stream_tracker.cpp
-   )
-add_executable(test_stream_tracker ${TEST_STREAM_TRACKER_SOURCES})
-target_link_libraries(test_stream_tracker sisl ${COMMON_DEPS} GTest::gtest)
-#add_test(NAME HttpServerTest COMMAND test_http_server)
+if (DEFINED ENABLE_TESTING)
+  if (${ENABLE_TESTING})
+    add_executable(test_stream_tracker)
+    target_sources(test_stream_tracker PRIVATE
+        tests/test_stream_tracker.cpp
+      )
+    target_link_libraries(test_stream_tracker sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME StreamTracker COMMAND test_stream_tracker)
 
-set(GROUP_COMMIT_SOURCES
-    tests/group_commit.cpp
-   )
-add_executable(group_commit ${GROUP_COMMIT_SOURCES})
-target_link_libraries(group_commit sisl ${COMMON_DEPS})
+    add_executable(test_atomic_status_counter)
+    target_sources(test_atomic_status_counter PRIVATE
+        tests/test_atomic_status_counter.cpp
+      )
+    target_link_libraries(test_atomic_status_counter sisl ${COMMON_DEPS} GTest::gtest atomic)
+    add_test(NAME AtomicStatusCounter COMMAND test_atomic_status_counter)
 
-set(TEST_ATOMIC_STATUS_COUNTER_SOURCES 
-    tests/test_atomic_status_counter.cpp
-   )
-add_executable(test_atomic_status_counter ${TEST_ATOMIC_STATUS_COUNTER_SOURCES})
-target_link_libraries(test_atomic_status_counter sisl ${COMMON_DEPS} GTest::gtest atomic)
-add_test(NAME atomic_status_counter COMMAND test_atomic_status_counter)
+    add_executable(test_bitset)
+    target_sources(test_bitset PRIVATE
+        tests/test_bitset.cpp
+      )
+    target_link_libraries(test_bitset sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME Bitset COMMAND test_bitset)
 
-set(TEST_BITSET_SOURCES 
-    tests/test_bitset.cpp
-   )
-add_executable(test_bitset ${TEST_BITSET_SOURCES})
-target_link_libraries(test_bitset sisl ${COMMON_DEPS} GTest::gtest)
-add_test(NAME bitset COMMAND test_bitset)
+    add_executable(test_bitword)
+    target_sources(test_bitword PRIVATE
+        tests/test_bitword.cpp
+      )
+    target_link_libraries(test_bitword sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME Bitword COMMAND test_bitset)
 
-set(TEST_BITWORD_SOURCES
-    tests/test_bitword.cpp
-   )
-add_executable(test_bitword ${TEST_BITWORD_SOURCES})
-target_link_libraries(test_bitword sisl ${COMMON_DEPS} GTest::gtest)
+    add_executable(test_compact_bitset)
+    target_sources(test_compact_bitset PRIVATE
+        tests/test_compact_bitset.cpp
+      )
+    target_link_libraries(test_compact_bitset sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME CompactBitset COMMAND test_compact_bitset)
 
-if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
-    add_flags("-Wno-attributes") # needed for C++ 20 folly compilation
-endif()
+    add_executable(test_concurrent_insert_vector)
+    target_sources(test_concurrent_insert_vector PRIVATE
+        tests/test_concurrent_insert_vector.cpp
+      )
+    target_link_libraries(test_concurrent_insert_vector sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME ConcurrentInsertVector COMMAND test_concurrent_insert_vector)
 
-set(OBJ_ALLOCATOR_BENCHMARK_FILES 
-    tests/obj_allocator_benchmark.cpp
-   )
-add_executable(obj_allocator_benchmark ${OBJ_ALLOCATOR_BENCHMARK_FILES})
-target_link_libraries(obj_allocator_benchmark sisl ${COMMON_DEPS} benchmark::benchmark)
-add_test(NAME ObjAllocatorBenchmark COMMAND obj_allocator_benchmark)
+    add_executable(concurrent_insert_vector_bench)
+    target_sources(concurrent_insert_vector_bench PRIVATE
+        tests/concurrent_insert_vector_bench.cpp
+      )
+    target_link_libraries(concurrent_insert_vector_bench sisl ${COMMON_DEPS} benchmark::benchmark)
+    add_test(NAME ConcurrentVectorBench COMMAND concurrent_insert_vector_bench)
 
-set(TEST_OBJALLOCATOR_SOURCE_FILES
-    tests/test_obj_allocator.cpp
-   )
-add_executable(test_obj_allocator ${TEST_OBJALLOCATOR_SOURCE_FILES})
-target_link_libraries(test_obj_allocator sisl ${COMMON_DEPS})
-add_test(NAME ObjAlloc COMMAND test_obj_allocator)
+    add_executable(obj_allocator_benchmark)
+    target_sources(obj_allocator_benchmark PRIVATE
+        tests/obj_allocator_benchmark.cpp
+      )
+    target_link_libraries(obj_allocator_benchmark sisl ${COMMON_DEPS} benchmark::benchmark)
+    add_test(NAME ObjAllocatorBenchmark COMMAND obj_allocator_benchmark)
 
-set(TEST_CBMUTEX_SOURCE_FILES
-    tests/test_cb_mutex.cpp
-   )
-add_executable(test_cb_mutex ${TEST_CBMUTEX_SOURCE_FILES})
-target_link_libraries(test_cb_mutex sisl ${COMMON_DEPS} GTest::gtest)
-add_test(NAME TestCBMutex COMMAND test_cb_mutex)
+    add_executable(test_obj_allocator)
+    target_sources(test_obj_allocator PRIVATE
+        tests/test_obj_allocator.cpp
+      )
+    target_link_libraries(test_obj_allocator sisl ${COMMON_DEPS})
+    add_test(NAME ObjAlloc COMMAND test_obj_allocator)
 
-if (DEFINED MALLOC_IMPL)
-    if (${MALLOC_IMPL} STREQUAL "jemalloc")
-        set(TEST_JEMALLOC_SOURCE_FILES
-            tests/test_jemalloc_helper.cpp
-           )
-        add_executable(test_jemalloc ${TEST_JEMALLOC_SOURCE_FILES})
-        target_link_libraries(test_jemalloc sisl jemalloc)
-        add_test(NAME TestJemalloc COMMAND test_jemalloc)
+    add_executable(test_cb_mutex)
+    target_sources(test_cb_mutex PRIVATE
+        tests/test_cb_mutex.cpp
+      )
+    target_link_libraries(test_cb_mutex sisl ${COMMON_DEPS} GTest::gtest)
+    #add_test(NAME TestCBMutex COMMAND test_cb_mutex)
+
+    add_executable(test_sg_list)
+    target_sources(test_sg_list PRIVATE
+        tests/test_sg_list.cpp
+      )
+    target_link_libraries(test_sg_list sisl ${COMMON_DEPS} GTest::gtest)
+    add_test(NAME SgList COMMAND test_sg_list)
+
+
+    if (DEFINED MALLOC_IMPL)
+        if (${MALLOC_IMPL} STREQUAL "jemalloc")
+            add_executable(test_jemalloc)
+            target_sources(test_jemalloc PRIVATE
+                tests/test_jemalloc_helper.cpp
+              )
+            target_link_libraries(test_jemalloc sisl ${COMMON_DEPS} GTest::gtest)
+            add_test(NAME TestJemalloc COMMAND test_jemalloc)
+        elseif (${MALLOC_IMPL} STREQUAL "tcmalloc")
+            add_executable(test_tcmalloc)
+            target_sources(test_tcmalloc PRIVATE
+                tests/test_tcmalloc_helper.cpp
+              )
+            target_link_libraries(test_tcmalloc sisl ${COMMON_DEPS} GTest::gtest)
+            add_test(NAME TestTcmalloc COMMAND test_tcmalloc)
+        endif()
     endif()
+  endif()
 endif()

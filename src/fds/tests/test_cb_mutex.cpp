@@ -17,8 +17,9 @@
 #include <iostream>
 #include <thread>
 #include <vector>
-#include "logging/logging.h"
-#include "options/options.h"
+#include <shared_mutex>
+#include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include <gtest/gtest.h>
 
 #pragma GCC diagnostic push
@@ -27,7 +28,7 @@
 #pragma GCC diagnostic pop
 
 #include "callback_mutex.hpp"
-#include "utils.hpp"
+#include "sisl/fds/utils.hpp"
 
 SISL_LOGGING_INIT(test_cb_mutex)
 
@@ -68,8 +69,7 @@ protected:
     }
 
     template < typename I = MutexImpl >
-    typename std::enable_if< !sisl::CallbackMutex< I >::shared_mode_supported, void >::type
-    thread_shared_fn(uint64_t count_per_thread) {
+    typename std::enable_if< !sisl::CallbackMutex< I >::shared_mode_supported, void >::type thread_shared_fn(uint64_t) {
         assert(0);
     }
 
@@ -84,24 +84,27 @@ protected:
             shared_threads = std::max(1u, num_threads - unique_threads);
         }
 
-        std::vector< std::thread* > threads;
+        std::vector< std::thread > threads;
         for (uint32_t i{0}; i < unique_threads; ++i) {
-            threads.push_back(new std::thread(bind_this(CBMutexTest::thread_unique_fn, 1), num_iters / num_threads));
+            threads.emplace_back(
+                std::move(std::thread(bind_this(CBMutexTest::thread_unique_fn, 1), num_iters / num_threads)));
         }
 
         for (uint32_t i{0}; i < shared_threads; ++i) {
-            threads.push_back(new std::thread(bind_this(CBMutexTest::thread_shared_fn<>, 1), num_iters / num_threads));
+            threads.emplace_back(
+                std::move(std::thread(bind_this(CBMutexTest::thread_shared_fn<>, 1), num_iters / num_threads)));
         }
-        for (auto t : threads) {
-            t->join();
-            delete (t);
+        for (auto& t : threads) {
+            t.join();
+            // delete (t);
         }
     }
 };
 
 using testing::Types;
-// typedef Types< std::mutex, std::shared_mutex, folly::SharedMutex > Implementations;
-typedef Types< std::mutex > Implementations;
+typedef Types< std::mutex, std::shared_mutex, folly::SharedMutex > Implementations;
+//  typedef Types< std::mutex > Implementations;
+// typedef Types< std::mutex, folly::SharedMutex > Implementations;
 TYPED_TEST_SUITE(CBMutexTest, Implementations);
 
 TYPED_TEST(CBMutexTest, LockUnlockTest) { this->run_lock_unlock(); }

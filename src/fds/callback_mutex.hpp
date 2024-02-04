@@ -17,7 +17,8 @@
 #include <mutex>
 #include <functional>
 #include <vector>
-#include "vector_pool.hpp"
+#include "sisl/fds/vector_pool.hpp"
+#include <folly/SharedMutex.h>
 #include <boost/tti/has_member_function.hpp>
 
 // Generate the metafunction
@@ -38,8 +39,8 @@ public:
     _cb_wait_q() = default;
     ~_cb_wait_q() = default;
 
-    void add_cb(const post_lock_cb_t& cb) {
-        std::unique_lock< std::mutex > l(m_waitq_mutex);
+    void add_cb(post_lock_cb_t&& cb) {
+        folly::SharedMutexWritePriority::WriteHolder holder{m_waitq_lock};
         if (m_wait_q == nullptr) { m_wait_q = sisl::VectorPool< post_lock_cb_t >::alloc(); }
         m_wait_q->emplace_back(std::move(cb));
     }
@@ -47,12 +48,12 @@ public:
     bool drain_cb() {
         std::vector< post_lock_cb_t >* wait_q{nullptr};
         {
-            std::unique_lock< std::mutex > l(m_waitq_mutex);
+            folly::SharedMutexWritePriority::WriteHolder holder{m_waitq_lock};
             std::swap(wait_q, m_wait_q);
         }
 
         if (wait_q) {
-            for (auto& cb : *wait_q) {
+            for (const auto& cb : *wait_q) {
                 cb();
             }
             sisl::VectorPool< post_lock_cb_t >::free(wait_q);
@@ -60,8 +61,13 @@ public:
         return (wait_q != nullptr);
     }
 
+    bool empty() const {
+        folly::SharedMutexWritePriority::ReadHolder holder{m_waitq_lock};
+        return ((m_wait_q == nullptr) || (m_wait_q->empty()));
+    }
+
 private:
-    std::mutex m_waitq_mutex;
+    mutable folly::SharedMutexWritePriority m_waitq_lock;
     std::vector< post_lock_cb_t >* m_wait_q{nullptr};
 };
 
@@ -71,7 +77,7 @@ public:
     explicit CallbackMutex() = default;
     ~CallbackMutex() = default;
 
-    bool try_lock(const post_lock_cb_t& cb) {
+    bool try_lock(post_lock_cb_t&& cb) {
         if (m_base_mutex.try_lock()) {
             cb();
             return true;
@@ -81,7 +87,7 @@ public:
     }
 
     template < class I = MutexImpl >
-    typename std::enable_if< try_lock_shared_check< I >, bool >::type try_lock_shared(const post_lock_cb_t& cb) {
+    typename std::enable_if< try_lock_shared_check< I >, bool >::type try_lock_shared(post_lock_cb_t&& cb) {
         if (m_base_mutex.try_lock_shared()) {
             cb();
             return true;
@@ -99,6 +105,15 @@ public:
     template < class I = MutexImpl >
     typename std::enable_if< unlock_shared_check< I >, void >::type unlock_shared() {
         m_base_mutex.unlock_shared();
+        if (!m_q.empty()) {
+            // If Q is not empty, try to lock the base mutex (which callers wait on) and if successful,
+            // we can drain the q. If unsuccessful, ignore it, because next unlock on elements in the q
+            // will do the same
+            if (m_base_mutex.try_lock()) {
+                m_q.drain_cb();
+                m_base_mutex.unlock();
+            }
+        }
     }
 
     template < class I = MutexImpl >
@@ -127,8 +142,8 @@ private:
 template < typename MutexImpl >
 class CBUniqueLock {
 public:
-    CBUniqueLock(CallbackMutex< MutexImpl >& cb_mtx, const post_lock_cb_t& cb) : m_cb_mtx{cb_mtx} {
-        m_locked = m_cb_mtx.try_lock(cb);
+    CBUniqueLock(CallbackMutex< MutexImpl >& cb_mtx, post_lock_cb_t&& cb) : m_cb_mtx{cb_mtx} {
+        m_locked = m_cb_mtx.try_lock(std::move(cb));
     }
 
     ~CBUniqueLock() {
@@ -143,8 +158,8 @@ private:
 template < typename MutexImpl >
 class CBSharedLock {
 public:
-    CBSharedLock(CallbackMutex< MutexImpl >& cb_mtx, const post_lock_cb_t& cb) : m_cb_mtx{cb_mtx} {
-        m_locked = m_cb_mtx.try_lock_shared(cb);
+    CBSharedLock(CallbackMutex< MutexImpl >& cb_mtx, post_lock_cb_t&& cb) : m_cb_mtx{cb_mtx} {
+        m_locked = m_cb_mtx.try_lock_shared(std::move(cb));
     }
 
     ~CBSharedLock() {

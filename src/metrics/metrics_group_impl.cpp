@@ -26,11 +26,11 @@
 #endif
 
 #include <fmt/format.h>
-#include "logging/logging.h"
+#include <sisl/logging/logging.h>
 
-#include "metrics_group_impl.hpp"
-#include "metrics.hpp"
-#include "metrics_tlocal.hpp"
+#include "sisl/metrics/metrics_group_impl.hpp"
+#include "sisl/metrics/metrics.hpp"
+#include "sisl/metrics/metrics_tlocal.hpp"
 
 namespace sisl {
 
@@ -240,7 +240,7 @@ nlohmann::json MetricsGroupImpl::get_result_in_json(bool need_latest) {
             HistogramDynamicInfo& h = hist_dynamic_info(idx);
             if (h.is_histogram_reporter()) {
                 hist_entries[hist_static_info(idx).desc()] =
-                    fmt::format("{:#} / {:#} / {:#} / {:#}", h.average(result),
+                    fmt::format("{:.1f} / {:.1f} / {:.1f} / {:.1f}", h.average(result),
                                 h.percentile(result, hist_static_info(idx).get_boundaries(), 50),
                                 h.percentile(result, hist_static_info(idx).get_boundaries(), 95),
                                 h.percentile(result, hist_static_info(idx).get_boundaries(), 99));

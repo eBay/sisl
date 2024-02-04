@@ -1,0 +1,36 @@
+name: 'Store Conan Cache'
+description: 'Cleans Local Conan Cache and Persists Dirty Packages'
+inputs:
+  key_prefix:
+    description: 'Cache prefix'
+    required: true
+    default: 'Deps'
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Conan and Export Recipes
+      shell: bash
+      run: |
+        if [ -d 3rd_party ]; then
+          dep_pkgs=$(ls -1d 3rd_party/* 2>/dev/null | cut -d'/' -f2 | paste -sd'|' - -)
+        fi
+        if [ -z "${dep_pkgs}" ]; then
+           dep_pkgs="no_3rd_party"
+        fi
+        dirty_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/build 2>/dev/null | sed 's,.*data/,,')
+        if [ -z "${dirty_pkgs}" ]; then
+           dirty_pkgs="no_public/0"
+        fi
+        dirty_pkgs_d=$(echo "${dirty_pkgs}" | cut -d'/' -f1 | paste -sd'|' - -)
+        echo "::info:: Caching: ${dirty_pkgs_d}|${dep_pkgs}"
+        ls -1d ~/.conan/data/* | grep -Ev "(${dirty_pkgs_d}|${dep_pkgs})" | xargs rm -rf
+        rm -rf ~/.conan/data/*/*/*/*/build
+        rm -rf ~/.conan/data/*/*/*/*/source
+
+    - name: Save Cache
+      uses: actions/cache/save@v3
+      with:
+        path: |
+          ~/.conan/data
+        key: ${{ inputs.key_prefix }}-${{ hashFiles('conanfile.py', '3rd_party/**/conanfile.py') }}
+
