@@ -166,10 +166,10 @@ AsyncResult< grpc::ByteBuffer > GrpcAsyncClient::GenericAsyncStub::call_unary(co
     return std::move(sf);
 }
 
-AsyncResult< client_response_ptr > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
-                                                                                 const std::string& method,
-                                                                                 uint32_t deadline) {
-    auto [p, sf] = folly::makePromiseContract< Result< client_response_ptr > >();
+AsyncResult< GenericClientResponse > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
+                                                                                   const std::string& method,
+                                                                                   uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< Result< GenericClientResponse > >();
     auto data = new GenericRpcDataFutureBlob(std::move(p));
     grpc::ByteBuffer cli_byte_buf;
     serialize_to_byte_buffer(request, cli_byte_buf);
@@ -185,7 +185,26 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
                                                                  m_token_client);
 }
 
-GenericClientResponse::GenericClientResponse(const grpc::ByteBuffer& buf) : m_response_buf(buf) {}
+GenericClientResponse::GenericClientResponse(grpc::ByteBuffer const& buf) : m_response_buf(buf) {}
+
+GenericClientResponse::GenericClientResponse(GenericClientResponse&& other) :
+        m_response_buf(other.m_response_buf),
+        m_response_blob(other.m_response_blob),
+        m_response_blob_allocated(other.m_response_blob_allocated) {
+    other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
+    other.m_response_blob.set_size(0);
+}
+
+GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse&& other) {
+    if (m_response_blob_allocated) { m_response_blob.buf_free(); }
+    m_response_buf = other.m_response_buf;
+    m_response_blob = other.m_response_blob;
+    m_response_blob_allocated = other.m_response_blob_allocated;
+    other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
+    other.m_response_blob.set_size(0);
+
+    return *this;
+}
 
 GenericClientResponse::~GenericClientResponse() {
     if (m_response_blob_allocated) { m_response_blob.buf_free(); }
@@ -203,13 +222,13 @@ io_blob& GenericClientResponse::response_blob() {
     return m_response_blob;
 }
 
-GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(folly::Promise< Result< client_response_ptr > >&& promise) :
+GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(folly::Promise< Result< GenericClientResponse > >&& promise) :
         m_promise{std::move(promise)} {}
 
 void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {
     // For unary call, ok is always true, `status_` will indicate error if there are any.
     if (this->m_status.ok()) {
-        auto future_resp = std::make_unique< GenericClientResponse >(this->m_reply);
+        auto future_resp = GenericClientResponse(this->m_reply);
         m_promise.setValue(std::move(future_resp));
     } else {
         m_promise.setValue(folly::makeUnexpected(this->m_status));

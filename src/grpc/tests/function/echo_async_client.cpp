@@ -140,12 +140,12 @@ public:
         }
     }
 
-    void validate_generic_reply(const DataMessage& req, sisl::client_response_ptr reply, ::grpc::Status const& status,
+    void validate_generic_reply(const DataMessage& req, sisl::GenericClientResponse reply, ::grpc::Status const& status,
                                 sisl::io_blob_list_t cli_buf) {
         RELEASE_ASSERT_EQ(status.ok(), true, "generic request {} failed, status {}: {}", req.m_seqno,
                           status.error_code(), status.error_message());
         DataMessage svr_msg;
-        DeserializeFromBuffer(reply->response_blob(), svr_msg);
+        DeserializeFromBuffer(reply.response_blob(), svr_msg);
         RELEASE_ASSERT_EQ(req.m_seqno, svr_msg.m_seqno);
         RELEASE_ASSERT_EQ(req.m_buf, svr_msg.m_buf);
         {
