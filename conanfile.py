@@ -163,6 +163,7 @@ class SISLConan(ConanFile):
         self.cpp_info.components["logging"].requires.extend([
                 "options",
                 "boost::boost",
+                "breakpad::breakpad",
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
@@ -194,7 +195,6 @@ class SISLConan(ConanFile):
         self.cpp_info.components["sisl"].set_property("pkg_config_name", f"libsisl_core")
         self.cpp_info.components["sisl"].requires.extend([
                 "settings",
-                "breakpad::breakpad",
                 "folly::folly",
                 "prometheus-cpp::prometheus-cpp",
                 "userspace-rcu::userspace-rcu",
