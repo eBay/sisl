@@ -36,6 +36,7 @@ list(APPEND CORE_DEPS
   sisl_options
   prometheus-cpp::prometheus-cpp
   userspace-rcu::userspace-rcu
+  folly::folly
   )
 
 if(${breakpad_FOUND})
@@ -48,17 +49,13 @@ add_subdirectory(metrics)
 add_subdirectory(utility)
 add_subdirectory(wisr)
 
-list(APPEND CORE_LIBS
+add_library(sisl_core
   $<TARGET_OBJECTS:sisl_buffer>
   $<TARGET_OBJECTS:sisl_metrics>
   )
-list(APPEND CORE_DEPS
-  folly::folly
-  breakpad::breakpad
+target_link_libraries(sisl_core PUBLIC
+  ${CORE_DEPS}
   )
-
-add_library(sisl_core ${CORE_LIBS})
-target_link_libraries(sisl_core PUBLIC sisl_metrics ${CORE_DEPS})
 
 # Extensions
 add_subdirectory(cache)
