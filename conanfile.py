@@ -25,6 +25,8 @@ class SISLConan(ConanFile):
                 "coverage": ['True', 'False'],
                 "sanitize": ['True', 'False'],
                 'prerelease' : ['True', 'False'],
+                'metrics': ['False', 'True'],
+                'grpc': ['False', 'True'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
               }
     default_options = {
@@ -33,6 +35,8 @@ class SISLConan(ConanFile):
                 'coverage': False,
                 'sanitize': False,
                 'prerelease': False,
+                'metrics': True,
+                'grpc': True,
                 'malloc_impl': 'libc',
             }
 
@@ -52,6 +56,9 @@ class SISLConan(ConanFile):
             check_min_cppstd(self, self._min_cppstd())
 
     def configure(self):
+        if not self.options.metrics and self.options.grpc:
+            raise ConanInvalidConfiguration("gRPC support requires metrics option!")
+
         if self.settings.compiler in ["gcc"]:
             self.options['pistache'].with_ssl: True
         if self.options.shared:
@@ -65,36 +72,37 @@ class SISLConan(ConanFile):
                     raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build_requirements(self):
-        self.test_requires("benchmark/1.8.2")
         self.test_requires("gtest/1.14.0")
+        if self.options.metrics:
+            self.test_requires("benchmark/1.8.2")
 
     def requirements(self):
+        # Required
+        self.requires("boost/1.83.0", transitive_headers=True)
+        self.requires("cxxopts/3.1.1", transitive_headers=True)
+        self.requires("nlohmann_json/3.11.2", transitive_headers=True)
+        self.requires("spdlog/1.12.0", transitive_headers=True)
+        self.requires("zmarok-semver/1.1.0", transitive_headers=True)
+        if self.settings.os in ["Linux"]:
+            self.requires("breakpad/cci.20210521")
+        self.requires("fmt/10.0.0",  override=True)
+
+        if self.options.metrics:
+            self.requires("flatbuffers/23.5.26", transitive_headers=True)
+            self.requires("folly/nu2.2023.12.18.00", transitive_headers=True)
+            self.requires("prometheus-cpp/1.1.0", transitive_headers=True)
+            self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
+            self.requires("libcurl/8.4.0",  override=True)
+            self.requires("xz_utils/5.4.5",  override=True)
+
+        if self.options.grpc:
+            self.requires("grpc/1.54.3", transitive_headers=True)
+
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
             self.requires("gperftools/2.15", transitive_headers=True)
         elif self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.3.0", transitive_headers=True)
-
-        # Linux Specific Support
-        if self.settings.os in ["Linux"]:
-            self.requires("folly/nu2.2023.12.18.00", transitive_headers=True)
-            self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
-
-        # Generic packages (conan-center)
-        self.requires("boost/1.83.0", transitive_headers=True)
-        self.requires("cxxopts/3.1.1", transitive_headers=True)
-        self.requires("flatbuffers/23.5.26", transitive_headers=True)
-        self.requires("grpc/1.54.3", transitive_headers=True)
-        self.requires("nlohmann_json/3.11.2", transitive_headers=True)
-        self.requires("prometheus-cpp/1.1.0", transitive_headers=True)
-        self.requires("spdlog/1.12.0", transitive_headers=True)
-        self.requires("zmarok-semver/1.1.0", transitive_headers=True)
-
-        if self.settings.os in ["Linux"]:
-            self.requires("breakpad/cci.20210521")
-        self.requires("fmt/10.0.0",  override=True)
-        self.requires("libcurl/8.4.0",  override=True)
-        self.requires("xz_utils/5.4.5",  override=True)
 
     def layout(self):
         cmake_layout(self)
@@ -168,18 +176,16 @@ class SISLConan(ConanFile):
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
-        self.cpp_info.components["settings"].libs = ["sisl_settings"]
-        self.cpp_info.components["settings"].set_property("pkg_config_name", f"libsisl_settings")
-        self.cpp_info.components["settings"].requires.extend([
+        self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
+        self.cpp_info.components["sobject"].set_property("pkg_config_name", f"libsisl_sobject")
+        self.cpp_info.components["sobject"].requires.extend([
                 "logging",
-                "flatbuffers::flatbuffers",
-                "userspace-rcu::userspace-rcu",
+                "nlohmann_json::nlohmann_json",
                 ])
-        self.cpp_info.components["metrics"].libs = ["sisl_metrics"]
-        self.cpp_info.components["metrics"].set_property("pkg_config_name", f"libsisl_metrics")
-        self.cpp_info.components["metrics"].requires.extend([
+        self.cpp_info.components["file_watcher"].libs = ["sisl_file_watcher"]
+        self.cpp_info.components["file_watcher"].set_property("pkg_config_name", f"libsisl_file_watcher")
+        self.cpp_info.components["file_watcher"].requires.extend([
                 "logging",
-                "folly::folly",
                 ])
         self.cpp_info.components["version"].libs = ["sisl_version"]
         self.cpp_info.components["version"].set_property("pkg_config_name", f"libsisl_version")
@@ -187,52 +193,61 @@ class SISLConan(ConanFile):
                 "logging",
                 "zmarok-semver::zmarok-semver",
                 ])
-        self.cpp_info.components["buffer"].libs = ["sisl_buffer"]
-        self.cpp_info.components["buffer"].set_property("pkg_config_name", f"libsisl_buffer")
-        self.cpp_info.components["buffer"].requires.extend([
-                "metrics",
-                "folly::folly",
-                "prometheus-cpp::prometheus-cpp",
-                "userspace-rcu::userspace-rcu",
-                ])
-
-        self.cpp_info.components["cache"].libs = ["sisl_cache"]
-        self.cpp_info.components["cache"].set_property("pkg_config_name", f"libsisl_cache")
-        self.cpp_info.components["cache"].requires.extend([
-                "buffer",
-                ])
-        self.cpp_info.components["file_watcher"].libs = ["sisl_file_watcher"]
-        self.cpp_info.components["file_watcher"].set_property("pkg_config_name", f"libsisl_file_watcher")
-        self.cpp_info.components["file_watcher"].requires.extend([
-                "logging",
-                ])
-        self.cpp_info.components["grpc"].libs = ["sisl_grpc"]
-        self.cpp_info.components["grpc"].set_property("pkg_config_name", f"libsisl_grpc")
-        self.cpp_info.components["grpc"].requires.extend([
-                "buffer",
-                "grpc::grpc",
-                ])
-        self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
-        self.cpp_info.components["sobject"].set_property("pkg_config_name", f"libsisl_sobject")
-        self.cpp_info.components["sobject"].requires.extend([
-                "logging",
-                "nlohmann_json::nlohmann_json",
-                ])
         self.cpp_info.components["sisl"].libs = [""]
         self.cpp_info.components["sisl"].requires.extend([
-                "cache",
                 "file_watcher",
-                "grpc",
-                "settings",
                 "sobject",
                 "version",
                 ])
-        self.cpp_info.components["flip"].libs = ["flip"]
-        self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
-        self.cpp_info.components["flip"].requires.extend([
-                "logging",
-                "grpc::grpc",
-                ])
+        if self.options.metrics:
+            self.cpp_info.components["settings"].libs = ["sisl_settings"]
+            self.cpp_info.components["settings"].set_property("pkg_config_name", f"libsisl_settings")
+            self.cpp_info.components["settings"].requires.extend([
+                    "logging",
+                    "flatbuffers::flatbuffers",
+                    "userspace-rcu::userspace-rcu",
+                    ])
+            self.cpp_info.components["metrics"].libs = ["sisl_metrics"]
+            self.cpp_info.components["metrics"].set_property("pkg_config_name", f"libsisl_metrics")
+            self.cpp_info.components["metrics"].requires.extend([
+                    "logging",
+                    "folly::folly",
+                    ])
+            self.cpp_info.components["buffer"].libs = ["sisl_buffer"]
+            self.cpp_info.components["buffer"].set_property("pkg_config_name", f"libsisl_buffer")
+            self.cpp_info.components["buffer"].requires.extend([
+                    "metrics",
+                    "folly::folly",
+                    "prometheus-cpp::prometheus-cpp",
+                    "userspace-rcu::userspace-rcu",
+                    ])
+
+            self.cpp_info.components["cache"].libs = ["sisl_cache"]
+            self.cpp_info.components["cache"].set_property("pkg_config_name", f"libsisl_cache")
+            self.cpp_info.components["cache"].requires.extend([
+                    "buffer",
+                    ])
+            self.cpp_info.components["sisl"].requires.extend([
+                    "cache",
+                    "settings",
+                    ])
+
+        if self.options.grpc:
+            self.cpp_info.components["grpc"].libs = ["sisl_grpc"]
+            self.cpp_info.components["grpc"].set_property("pkg_config_name", f"libsisl_grpc")
+            self.cpp_info.components["grpc"].requires.extend([
+                    "buffer",
+                    "grpc::grpc",
+                    ])
+            self.cpp_info.components["flip"].libs = ["flip"]
+            self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
+            self.cpp_info.components["flip"].requires.extend([
+                    "logging",
+                    "grpc::grpc",
+                    ])
+            self.cpp_info.components["sisl"].requires.extend([
+                    "grpc",
+                    ])
 
         for component in self.cpp_info.components.values():
             if self.settings.os in ["Linux", "FreeBSD"]:
