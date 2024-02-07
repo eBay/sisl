@@ -187,9 +187,9 @@ class SISLConan(ConanFile):
                 "logging",
                 "zmarok-semver::zmarok-semver",
                 ])
-        self.cpp_info.components["sisl_buffer"].libs = ["sisl_buffer"]
-        self.cpp_info.components["sisl_buffer"].set_property("pkg_config_name", f"libsisl_buffer")
-        self.cpp_info.components["sisl_buffer"].requires.extend([
+        self.cpp_info.components["buffer"].libs = ["sisl_buffer"]
+        self.cpp_info.components["buffer"].set_property("pkg_config_name", f"libsisl_buffer")
+        self.cpp_info.components["buffer"].requires.extend([
                 "metrics",
                 "folly::folly",
                 "prometheus-cpp::prometheus-cpp",
