@@ -264,8 +264,8 @@ class SISLConan(ConanFile):
                 component.sharedlinkflags.append("-fsanitize=undefined")
                 component.exelinkflags.append("-fsanitize=undefined")
             if self.options.malloc_impl == 'jemalloc':
-                self.cpp_info.defines.append("USE_JEMALLOC=1")
-                self.cpp_info.components["sisl"].requires.extend(["jemalloc::jemalloc"])
+                component.defines.append("USE_JEMALLOC=1")
+                component.requires.extend(["jemalloc::jemalloc"])
             elif self.options.malloc_impl == 'tcmalloc':
-                self.cpp_info.defines.append("USING_TCMALLOC=1")
-                self.cpp_info.components["sisl"].requires.extend(["gperftools::gperftools"])
+                component.defines.append("USING_TCMALLOC=1")
+                component.requires.extend(["gperftools::gperftools"])
