@@ -209,7 +209,7 @@ class SISLConan(ConanFile):
         self.cpp_info.components["grpc"].libs = ["sisl_grpc"]
         self.cpp_info.components["grpc"].set_property("pkg_config_name", f"libsisl_grpc")
         self.cpp_info.components["grpc"].requires.extend([
-                "metrics",
+                "buffer",
                 "grpc::grpc",
                 ])
         self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
@@ -221,9 +221,11 @@ class SISLConan(ConanFile):
         self.cpp_info.components["sisl"].libs = [""]
         self.cpp_info.components["sisl"].requires.extend([
                 "cache",
-                "grpc",
                 "file_watcher",
+                "grpc",
+                "settings",
                 "sobject",
+                "version",
                 ])
         self.cpp_info.components["flip"].libs = ["flip"]
         self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
