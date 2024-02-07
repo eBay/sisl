@@ -24,42 +24,20 @@ find_package(zmarok-semver REQUIRED)
 find_package(benchmark)
 find_package(breakpad)
 
-# Self contained libraries which ::core depends on
+# Common components
 add_subdirectory(logging)
+add_subdirectory(metrics)
 add_subdirectory(options)
 add_subdirectory(settings)
 add_subdirectory(version)
 
-list(APPEND CORE_DEPS
-  sisl_version
-  sisl_logging
-  sisl_options
-  prometheus-cpp::prometheus-cpp
-  userspace-rcu::userspace-rcu
-  folly::folly
-  )
-
-if(${breakpad_FOUND})
-  list(APPEND CORE_DEPS breakpad::breakpad)
-endif()
-
-# SISL::core
-add_subdirectory(fds)
-add_subdirectory(metrics)
-add_subdirectory(utility)
-add_subdirectory(wisr)
-
-add_library(sisl_core
-  $<TARGET_OBJECTS:sisl_buffer>
-  $<TARGET_OBJECTS:sisl_metrics>
-  )
-target_link_libraries(sisl_core PUBLIC
-  ${CORE_DEPS}
-  )
-
 # Extensions
 add_subdirectory(cache)
+add_subdirectory(fds)
 add_subdirectory(file_watcher)
 add_subdirectory(flip)
 add_subdirectory(grpc)
 add_subdirectory(sobject)
+
+add_subdirectory(utility)
+add_subdirectory(wisr)

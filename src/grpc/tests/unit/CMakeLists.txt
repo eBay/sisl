@@ -6,7 +6,6 @@ add_executable(auth_test
   )
 target_link_libraries(auth_test
     sisl_grpc
-    sisl_core
     GTest::gmock
   )
 add_test(NAME Auth_Test COMMAND auth_test)

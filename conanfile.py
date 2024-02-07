@@ -111,6 +111,7 @@ class SISLConan(ConanFile):
         tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
         if self.options.get_safe("prerelease"):
             tc.preprocessor_definitions["_PRERELEASE"] = "1"
+            tc.variables["_PRERELEASE"] = "ON"
         if self.settings.build_type == "Debug":
             tc.preprocessor_definitions["_PRERELEASE"] = "1"
             if self.options.get_safe("coverage"):
@@ -174,16 +175,22 @@ class SISLConan(ConanFile):
                 "flatbuffers::flatbuffers",
                 "userspace-rcu::userspace-rcu",
                 ])
+        self.cpp_info.components["metrics"].libs = ["sisl_metrics"]
+        self.cpp_info.components["metrics"].set_property("pkg_config_name", f"libsisl_metrics")
+        self.cpp_info.components["metrics"].requires.extend([
+                "logging",
+                "folly::folly",
+                ])
         self.cpp_info.components["version"].libs = ["sisl_version"]
         self.cpp_info.components["version"].set_property("pkg_config_name", f"libsisl_version")
         self.cpp_info.components["version"].requires.extend([
                 "logging",
                 "zmarok-semver::zmarok-semver",
                 ])
-        self.cpp_info.components["sisl_core"].libs = ["sisl_core"]
-        self.cpp_info.components["sisl_core"].set_property("pkg_config_name", f"libsisl_core")
-        self.cpp_info.components["sisl_core"].requires.extend([
-                "settings",
+        self.cpp_info.components["sisl_buffer"].libs = ["sisl_buffer"]
+        self.cpp_info.components["sisl_buffer"].set_property("pkg_config_name", f"libsisl_buffer")
+        self.cpp_info.components["sisl_buffer"].requires.extend([
+                "metrics",
                 "folly::folly",
                 "prometheus-cpp::prometheus-cpp",
                 "userspace-rcu::userspace-rcu",
@@ -192,7 +199,7 @@ class SISLConan(ConanFile):
         self.cpp_info.components["cache"].libs = ["sisl_cache"]
         self.cpp_info.components["cache"].set_property("pkg_config_name", f"libsisl_cache")
         self.cpp_info.components["cache"].requires.extend([
-                "sisl_core",
+                "buffer",
                 ])
         self.cpp_info.components["file_watcher"].libs = ["sisl_file_watcher"]
         self.cpp_info.components["file_watcher"].set_property("pkg_config_name", f"libsisl_file_watcher")
@@ -202,7 +209,7 @@ class SISLConan(ConanFile):
         self.cpp_info.components["grpc"].libs = ["sisl_grpc"]
         self.cpp_info.components["grpc"].set_property("pkg_config_name", f"libsisl_grpc")
         self.cpp_info.components["grpc"].requires.extend([
-                "sisl_core",
+                "metrics",
                 "grpc::grpc",
                 ])
         self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
@@ -221,7 +228,7 @@ class SISLConan(ConanFile):
         self.cpp_info.components["flip"].libs = ["flip"]
         self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
         self.cpp_info.components["flip"].requires.extend([
-                "sisl_core",
+                "logging",
                 "grpc::grpc",
                 ])
 

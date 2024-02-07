@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.11)
 
-add_library(sisl_metrics OBJECT)
+add_library(sisl_metrics)
 target_sources(sisl_metrics PRIVATE
     metrics.cpp
     metrics_atomic.cpp
@@ -23,21 +23,21 @@ if (DEFINED ENABLE_TESTING)
     target_sources(metrics_farm_test PRIVATE
         tests/farm_test.cpp
       )
-    target_link_libraries(metrics_farm_test sisl_core GTest::gtest)
+    target_link_libraries(metrics_farm_test sisl_metrics GTest::gtest)
     add_test(NAME MetricsFarm COMMAND metrics_farm_test)
 
     add_executable(metrics_wrapper_test)
     target_sources(metrics_wrapper_test PRIVATE
         tests/wrapper_test.cpp
       )
-    target_link_libraries(metrics_wrapper_test sisl_core GTest::gtest)
+    target_link_libraries(metrics_wrapper_test sisl_metrics GTest::gtest)
     add_test(NAME MetricsWrapper COMMAND metrics_wrapper_test)
 
     add_executable(metrics_benchmark)
     target_sources(metrics_benchmark PRIVATE
         tests/metrics_benchmark.cpp
       )
-    target_link_libraries(metrics_benchmark sisl_core benchmark::benchmark)
+    target_link_libraries(metrics_benchmark sisl_metrics benchmark::benchmark)
     add_test(NAME MetricsBenchmark COMMAND metrics_benchmark)
   endif()
 endif()

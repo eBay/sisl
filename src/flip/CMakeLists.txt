@@ -13,7 +13,7 @@ target_sources(flip PRIVATE
           $<TARGET_OBJECTS:flip_proto>
         )
 target_link_libraries(flip PUBLIC
-          sisl_core
+          sisl_logging
           gRPC::grpc++
           spdlog::spdlog
           nlohmann_json::nlohmann_json

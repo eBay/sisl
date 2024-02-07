@@ -8,7 +8,8 @@ target_sources(sisl_grpc PRIVATE
   rpc_client.cpp
   )
 target_link_libraries(sisl_grpc PUBLIC
-  sisl_core
+  sisl_buffer
+  sisl_buffer
   gRPC::grpc++
   )
 
