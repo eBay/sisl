@@ -97,14 +97,14 @@ if (DEFINED ENABLE_TESTING)
         target_sources(test_jemalloc PRIVATE
           tests/test_jemalloc_helper.cpp
           )
-        target_link_libraries(test_jemalloc sisl_logging GTest::gtest)
+        target_link_libraries(test_jemalloc sisl_buffer GTest::gtest)
         add_test(NAME TestJemalloc COMMAND test_jemalloc)
       elseif (${MALLOC_IMPL} STREQUAL "tcmalloc")
         add_executable(test_tcmalloc)
         target_sources(test_tcmalloc PRIVATE
           tests/test_tcmalloc_helper.cpp
           )
-        target_link_libraries(test_tcmalloc sisl_logging GTest::gtest)
+        target_link_libraries(test_tcmalloc sisl_buffer GTest::gtest)
         add_test(NAME TestTcmalloc COMMAND test_tcmalloc)
       endif()
     endif()
