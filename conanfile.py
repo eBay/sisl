@@ -107,7 +107,8 @@ class SISLConan(ConanFile):
         tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
-        tc.variables["PACKAGE_VERSION"] = self.version
+        tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
+        tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
         if self.options.get_safe("prerelease"):
             tc.preprocessor_definitions["_PRERELEASE"] = "1"
         if self.settings.build_type == "Debug":
@@ -149,28 +150,74 @@ class SISLConan(ConanFile):
         copy(self, "*security_config_generated.h", join(self.build_folder, "src"), gen_dir, keep_path=True)
         copy(self, "settings_gen.cmake", join(self.source_folder, "cmake"), join(self.package_folder, "cmake"), keep_path=False)
 
-    def _add_component(self, lib):
-        self.cpp_info.components[lib].libs = [lib]
-        self.cpp_info.components[lib].set_property("pkg_config_name", f"lib{lib}")
-
     def package_info(self):
-        self._add_component("sisl")
-        self._add_component("flip")
-
-        for component in self.cpp_info.components.values():
-            component.requires.extend([
+        self.cpp_info.components["options"].libs = ["sisl_options"]
+        self.cpp_info.components["options"].set_property("pkg_config_name", f"libsisl_options")
+        self.cpp_info.components["options"].requires.extend([
                 "boost::boost",
-                "breakpad::breakpad",
                 "cxxopts::cxxopts",
-                "folly::folly",
-                "flatbuffers::flatbuffers",
-                "spdlog::spdlog",
-                "grpc::grpc",
+                ])
+
+        self.cpp_info.components["logging"].libs = ["sisl_logging"]
+        self.cpp_info.components["logging"].set_property("pkg_config_name", f"libsisl_logging")
+        self.cpp_info.components["logging"].requires.extend([
+                "options",
+                "boost::boost",
                 "nlohmann_json::nlohmann_json",
-                "prometheus-cpp::prometheus-cpp",
+                "spdlog::spdlog",
+                ])
+        self.cpp_info.components["file_watcher"].libs = ["sisl_file_watcher"]
+        self.cpp_info.components["file_watcher"].set_property("pkg_config_name", f"libsisl_file_watcher")
+        self.cpp_info.components["file_watcher"].requires.extend([
+                "logging",
+                ])
+        self.cpp_info.components["settings"].libs = ["sisl_settings"]
+        self.cpp_info.components["settings"].set_property("pkg_config_name", f"libsisl_settings")
+        self.cpp_info.components["settings"].requires.extend([
+                "logging",
+                "flatbuffers::flatbuffers",
                 "userspace-rcu::userspace-rcu",
+                ])
+        self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
+        self.cpp_info.components["sobject"].set_property("pkg_config_name", f"libsisl_sobject")
+        self.cpp_info.components["sobject"].requires.extend([
+                "logging",
+                "nlohmann_json::nlohmann_json",
+                ])
+        self.cpp_info.components["version"].libs = ["sisl_version"]
+        self.cpp_info.components["version"].set_property("pkg_config_name", f"libsisl_version")
+        self.cpp_info.components["version"].requires.extend([
+                "logging",
                 "zmarok-semver::zmarok-semver",
                 ])
+        self.cpp_info.components["sisl"].libs = ["sisl_core"]
+        self.cpp_info.components["sisl"].set_property("pkg_config_name", f"libsisl_core")
+        self.cpp_info.components["sisl"].requires.extend([
+                "settings",
+                "breakpad::breakpad",
+                "folly::folly",
+                "prometheus-cpp::prometheus-cpp",
+                "userspace-rcu::userspace-rcu",
+                ])
+        self.cpp_info.components["cache"].libs = ["sisl_cache"]
+        self.cpp_info.components["cache"].set_property("pkg_config_name", f"libsisl_cache")
+        self.cpp_info.components["cache"].requires.extend([
+                "sisl",
+                ])
+        self.cpp_info.components["flip"].libs = ["flip"]
+        self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
+        self.cpp_info.components["flip"].requires.extend([
+                "sisl",
+                "grpc::grpc",
+                ])
+        self.cpp_info.components["grpc"].libs = ["sisl_grpc"]
+        self.cpp_info.components["grpc"].set_property("pkg_config_name", f"libsisl_grpc")
+        self.cpp_info.components["grpc"].requires.extend([
+                "sisl",
+                "grpc::grpc",
+                ])
+
+        for component in self.cpp_info.components.values():
             if self.settings.os in ["Linux", "FreeBSD"]:
                 component.defines.append("_POSIX_C_SOURCE=200809L")
                 component.defines.append("_FILE_OFFSET_BITS=64")
@@ -186,5 +233,7 @@ class SISLConan(ConanFile):
                 component.exelinkflags.append("-fsanitize=undefined")
             if self.options.malloc_impl == 'jemalloc':
                 self.cpp_info.defines.append("USE_JEMALLOC=1")
+                self.cpp_info.components["sisl"].requires.extend(["jemalloc"])
             elif self.options.malloc_impl == 'tcmalloc':
                 self.cpp_info.defines.append("USING_TCMALLOC=1")
+                self.cpp_info.components["sisl"].requires.extend(["gperftools"])

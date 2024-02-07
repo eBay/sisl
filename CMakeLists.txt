@@ -1,7 +1,5 @@
 cmake_minimum_required (VERSION 3.11)
-project (sisl)
-
-option(DEBUG_CMAKE "Debug CMake messages option" OFF)
+project (sisl CXX)
 
 # Set Global CMake Options
 set_property(GLOBAL PROPERTY USE_FOLDERS ON) # turn on folder hierarchies
@@ -56,58 +54,6 @@ if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
     set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 endif()
 
-find_package(Benchmark QUIET REQUIRED)
-find_package(Boost QUIET REQUIRED)
-find_package(cxxopts QUIET REQUIRED)
-if (${MALLOC_IMPL} STREQUAL "tcmalloc")
-  find_package(gperftools QUIET REQUIRED)
-endif()
-
-if (${MALLOC_IMPL} STREQUAL "jemalloc")
-  find_package(jemalloc QUIET REQUIRED)
-endif()
-
-find_package(folly)
-find_package(Boost)
-find_package(breakpad)
-find_package(cxxopts)
-find_package(flatbuffers)
-find_package(gRPC)
-find_package(nlohmann_json)
-find_package(prometheus-cpp)
-find_package(userspace-rcu)
-find_package(spdlog)
-find_package(zmarok-semver)
-find_package(benchmark)
-
-list (APPEND COMMON_DEPS
-    Boost::headers
-    cxxopts::cxxopts
-    nlohmann_json::nlohmann_json
-    prometheus-cpp::prometheus-cpp
-    spdlog::spdlog
-  )
-if(${breakpad_FOUND})
-    list (APPEND COMMON_DEPS breakpad::breakpad)
-endif()
-if(${userspace-rcu_FOUND})
-    list (APPEND COMMON_DEPS userspace-rcu::userspace-rcu)
-endif()
-
-if (${prerelease_dummy_FOUND})
-    list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
-endif ()
-
-if (DEFINED MALLOC_IMPL)
-    if (${MALLOC_IMPL} STREQUAL "tcmalloc")
-        list(APPEND COMMON_DEPS gperftools::gperftools)
-    endif()
-
-    if (${MALLOC_IMPL} STREQUAL "jemalloc")
-        list(APPEND COMMON_DEPS jemalloc::jemalloc)
-    endif()
-endif()
-
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -122,18 +68,8 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQU
     add_flags("-Wall -Wextra -Werror -Wpedantic")
 endif()
 
-# add conan information 
-add_flags("-DPACKAGE_NAME=sisl")
-if (DEFINED PACKAGE_VERSION)
-  message("Package Version: [${PACKAGE_VERSION}]")
-  add_flags("-DPACKAGE_VERSION=\\\"${PACKAGE_VERSION}\\\"")
-else ()
-  message("Unknown Package Version")
-  add_flags("-DPACKAGE_VERSION=\\\"unknown\\\"")
-endif ()
-
 if(UNIX)
-    # enable proper memstream flags
+    # enable proper GNU extensions
     add_flags("-D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
 endif()
 
