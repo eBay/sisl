@@ -167,11 +167,6 @@ class SISLConan(ConanFile):
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
-        self.cpp_info.components["file_watcher"].libs = ["sisl_file_watcher"]
-        self.cpp_info.components["file_watcher"].set_property("pkg_config_name", f"libsisl_file_watcher")
-        self.cpp_info.components["file_watcher"].requires.extend([
-                "logging",
-                ])
         self.cpp_info.components["settings"].libs = ["sisl_settings"]
         self.cpp_info.components["settings"].set_property("pkg_config_name", f"libsisl_settings")
         self.cpp_info.components["settings"].requires.extend([
@@ -179,41 +174,54 @@ class SISLConan(ConanFile):
                 "flatbuffers::flatbuffers",
                 "userspace-rcu::userspace-rcu",
                 ])
-        self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
-        self.cpp_info.components["sobject"].set_property("pkg_config_name", f"libsisl_sobject")
-        self.cpp_info.components["sobject"].requires.extend([
-                "logging",
-                "nlohmann_json::nlohmann_json",
-                ])
         self.cpp_info.components["version"].libs = ["sisl_version"]
         self.cpp_info.components["version"].set_property("pkg_config_name", f"libsisl_version")
         self.cpp_info.components["version"].requires.extend([
                 "logging",
                 "zmarok-semver::zmarok-semver",
                 ])
-        self.cpp_info.components["sisl"].libs = ["sisl_core"]
-        self.cpp_info.components["sisl"].set_property("pkg_config_name", f"libsisl_core")
-        self.cpp_info.components["sisl"].requires.extend([
+        self.cpp_info.components["sisl_core"].libs = ["sisl_core"]
+        self.cpp_info.components["sisl_core"].set_property("pkg_config_name", f"libsisl_core")
+        self.cpp_info.components["sisl_core"].requires.extend([
                 "settings",
                 "folly::folly",
                 "prometheus-cpp::prometheus-cpp",
                 "userspace-rcu::userspace-rcu",
                 ])
+
         self.cpp_info.components["cache"].libs = ["sisl_cache"]
         self.cpp_info.components["cache"].set_property("pkg_config_name", f"libsisl_cache")
         self.cpp_info.components["cache"].requires.extend([
-                "sisl",
+                "sisl_core",
                 ])
-        self.cpp_info.components["flip"].libs = ["flip"]
-        self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
-        self.cpp_info.components["flip"].requires.extend([
-                "sisl",
-                "grpc::grpc",
+        self.cpp_info.components["file_watcher"].libs = ["sisl_file_watcher"]
+        self.cpp_info.components["file_watcher"].set_property("pkg_config_name", f"libsisl_file_watcher")
+        self.cpp_info.components["file_watcher"].requires.extend([
+                "logging",
                 ])
         self.cpp_info.components["grpc"].libs = ["sisl_grpc"]
         self.cpp_info.components["grpc"].set_property("pkg_config_name", f"libsisl_grpc")
         self.cpp_info.components["grpc"].requires.extend([
-                "sisl",
+                "sisl_core",
+                "grpc::grpc",
+                ])
+        self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
+        self.cpp_info.components["sobject"].set_property("pkg_config_name", f"libsisl_sobject")
+        self.cpp_info.components["sobject"].requires.extend([
+                "logging",
+                "nlohmann_json::nlohmann_json",
+                ])
+        self.cpp_info.components["sisl"].libs = [""]
+        self.cpp_info.components["sisl"].requires.extend([
+                "cache",
+                "grpc",
+                "file_watcher",
+                "sobject",
+                ])
+        self.cpp_info.components["flip"].libs = ["flip"]
+        self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
+        self.cpp_info.components["flip"].requires.extend([
+                "sisl_core",
                 "grpc::grpc",
                 ])
 
