@@ -10,7 +10,7 @@
 using namespace sisl;
 
 SISL_OPTIONS_ENABLE(logging)
-SISL_LOGGING_INIT(test_version)
+SISL_LOGGING_INIT()
 
 void entry() {
     auto ver{version::Semver200_version(BOOST_PP_STRINGIZE(PACKAGE_VERSION))};
