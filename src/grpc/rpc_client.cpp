@@ -188,17 +188,16 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
 GenericClientResponse::GenericClientResponse(grpc::ByteBuffer const& buf) : m_response_buf(buf) {}
 
 GenericClientResponse::GenericClientResponse(GenericClientResponse&& other) :
-        m_response_buf(other.m_response_buf),
-        m_response_blob(other.m_response_blob),
-        m_response_blob_allocated(other.m_response_blob_allocated) {
+        m_response_blob(other.m_response_blob), m_response_blob_allocated(other.m_response_blob_allocated) {
+    m_response_buf.Swap(&(other.m_response_buf));
     other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
     other.m_response_blob.set_size(0);
 }
 
 GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse&& other) {
     if (m_response_blob_allocated) { m_response_blob.buf_free(); }
-    m_response_buf = other.m_response_buf;
-    m_response_blob = other.m_response_blob;
+    m_response_buf.Clear();
+    m_response_buf.Swap(&(other.m_response_buf));
     m_response_blob_allocated = other.m_response_blob_allocated;
     other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
     other.m_response_blob.set_size(0);
@@ -209,6 +208,8 @@ GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse&& 
 GenericClientResponse::~GenericClientResponse() {
     if (m_response_blob_allocated) { m_response_blob.buf_free(); }
 }
+
+grpc::ByteBuffer GenericClientResponse::response_buf() { return m_response_buf; }
 
 io_blob& GenericClientResponse::response_blob() {
     if (m_response_blob.cbytes() == nullptr) {

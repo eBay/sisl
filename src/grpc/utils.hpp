@@ -44,8 +44,16 @@ namespace sisl {
     grpc::Slice slice;
     auto status = cli_byte_buf.TrySingleSlice(&slice);
     if (status.ok()) {
-        cli_buf.set_bytes(slice.begin());
-        cli_buf.set_size(slice.size());
+        // if slice is inlined, we can not use the reference to the slice
+        auto raw_slice = slice.c_slice();
+        if ((raw_slice).refcount) {
+            cli_buf.set_bytes(slice.begin());
+            cli_buf.set_size(slice.size());
+        } else {
+            status = grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
+                                  "Inlined slice, can not use the reference to the slice.");
+        }
+        grpc_slice_unref(raw_slice);
     }
     return status;
 }

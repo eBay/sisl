@@ -175,6 +175,7 @@ public:
     ~GenericClientResponse();
 
     io_blob& response_blob();
+    grpc::ByteBuffer response_buf();
 
 private:
     grpc::ByteBuffer m_response_buf;

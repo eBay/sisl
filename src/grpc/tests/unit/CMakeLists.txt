@@ -9,3 +9,14 @@ target_link_libraries(auth_test
     GTest::gmock
   )
 add_test(NAME Auth_Test COMMAND auth_test)
+
+add_executable(client_test
+      client_test.cpp
+  )
+target_link_libraries(client_test
+    sisl
+    sisl_grpc
+    GTest::gmock
+    ${COMMON_DEPS}
+  )
+  add_test(NAME Client_Test COMMAND client_test)
