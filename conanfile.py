@@ -212,13 +212,13 @@ class SISLConan(ConanFile):
             self.cpp_info.components["metrics"].requires.extend([
                     "logging",
                     "folly::folly",
+                    "prometheus-cpp::prometheus-cpp",
                     ])
             self.cpp_info.components["buffer"].libs = ["sisl_buffer"]
             self.cpp_info.components["buffer"].set_property("pkg_config_name", f"libsisl_buffer")
             self.cpp_info.components["buffer"].requires.extend([
                     "metrics",
                     "folly::folly",
-                    "prometheus-cpp::prometheus-cpp",
                     "userspace-rcu::userspace-rcu",
                     ])
 
