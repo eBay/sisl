@@ -14,7 +14,7 @@ target_sources(sisl_logging PRIVATE
   logging.cpp
   stacktrace.cpp
   )
-target_link_libraries(sisl_logging PUBLIC ${LOGGING_DEPS})
+target_link_libraries(sisl_logging PUBLIC ${LOGGING_DEPS} -rdynamic)
 
 if (DEFINED ENABLE_TESTING)
   if (${ENABLE_TESTING})

@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "11.1.4"
+    version = "11.1.5"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -176,6 +176,9 @@ class SISLConan(ConanFile):
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
+        self.cpp_info.components["logging"].sharedlinkflags.append("-rdynamic")
+        self.cpp_info.components["logging"].exelinkflags.append("-rdynamic")
+
         self.cpp_info.components["sobject"].libs = ["sisl_sobject"]
         self.cpp_info.components["sobject"].set_property("pkg_config_name", f"libsisl_sobject")
         self.cpp_info.components["sobject"].requires.extend([

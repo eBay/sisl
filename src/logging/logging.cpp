@@ -106,6 +106,7 @@ LoggerThreadContext::~LoggerThreadContext() { m_logger_thread_registry->remove_l
 void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
     assert(glob_num_mods + mods_list.size() <= MAX_MODULES);
     for (const auto& mod : mods_list) {
+        if (std::string(mod).empty()) continue;
         glob_enabled_mods[glob_num_mods++] = mod;
     }
 }
@@ -232,7 +233,7 @@ static spdlog::level::level_enum* to_mod_log_level_ptr(const std::string& module
     const auto sym = std::string{"module_level_"} + module_name;
     auto* mod_level = static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()));
     if (mod_level == nullptr) {
-        std::cout << fmt::format("Unable to locate the module {} in registered modules, error: {}\n", module_name,
+        std::cout << fmt::format("Unable to locate the module [{}] in registered modules, error: {}\n", module_name,
                                  dlerror());
     }
     return mod_level;
@@ -272,6 +273,7 @@ static std::string setup_modules() {
             auto mod_stream{std::istringstream(it->str())};
             std::string module_name, module_level;
             std::getline(mod_stream, module_name, ':');
+            if (module_name.empty()) continue;
             const auto sym{std::string{"module_level_"} + module_name};
             if (auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
                 nullptr != mod_level) {
@@ -281,7 +283,7 @@ static std::string setup_modules() {
                         : spdlog::level::from_str(module_level.data());
                 }
             } else {
-                std::cout << fmt::format("Unable to locate the module {} in registered modules, error: {}\n",
+                std::cout << fmt::format("Unable to setup the module [{}] in registered modules, error: {}\n",
                                          module_name, dlerror());
             }
         }
