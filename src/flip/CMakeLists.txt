@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
 
-find_package(gRPC QUIET REQUIRED)
-
 add_subdirectory (proto)
 
 if(NOT ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
@@ -14,8 +12,8 @@ target_sources(flip PRIVATE
           lib/flip_rpc_server.cpp
           $<TARGET_OBJECTS:flip_proto>
         )
-target_link_libraries(flip
-          sisl
+target_link_libraries(flip PUBLIC
+          sisl_logging
           gRPC::grpc++
           spdlog::spdlog
           nlohmann_json::nlohmann_json
