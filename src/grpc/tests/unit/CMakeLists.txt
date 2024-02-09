@@ -14,7 +14,6 @@ add_executable(client_test
       client_test.cpp
   )
 target_link_libraries(client_test
-    sisl
     sisl_grpc
     GTest::gmock
     ${COMMON_DEPS}
