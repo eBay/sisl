@@ -16,6 +16,8 @@
 #include "sisl/grpc/generic_service.hpp"
 #include "utils.hpp"
 
+SISL_LOGGING_DECL(grpc_server)
+
 namespace sisl {
 
 GenericRpcStaticInfo::GenericRpcStaticInfo(GrpcServer* server, grpc::AsyncGenericService* service) :
@@ -43,7 +45,13 @@ sisl::io_blob& GenericRpcData::request_blob() {
             status.error_code() == grpc::StatusCode::FAILED_PRECONDITION) {
             if (status = deserialize_from_byte_buffer(m_request, m_request_blob); status.ok()) {
                 m_request_blob_allocated = true;
+            } else {
+                LOGERRORMOD(grpc_server, "Failed to deserialize request: code: {}. msg: {}",
+                            static_cast< int >(status.error_code()), status.error_message());
             }
+        } else if (!status.ok()) {
+            LOGERRORMOD(grpc_server, "Failed to try deserialize request: code: {}. msg: {}",
+                        static_cast< int >(status.error_code()), status.error_message());
         }
     }
     return m_request_blob;

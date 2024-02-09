@@ -15,6 +15,8 @@
 #include "sisl/grpc/rpc_client.hpp"
 #include "utils.hpp"
 
+SISL_LOGGING_DECL(grpc_server)
+
 namespace sisl {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
@@ -217,7 +219,13 @@ io_blob& GenericClientResponse::response_blob() {
             status.error_code() == grpc::StatusCode::FAILED_PRECONDITION) {
             if (status = deserialize_from_byte_buffer(m_response_buf, m_response_blob); status.ok()) {
                 m_response_blob_allocated = true;
+            } else {
+                LOGERRORMOD(grpc_server, "Failed to deserialize response: code: {}. msg: {}",
+                            static_cast< int >(status.error_code()), status.error_message());
             }
+        } else if (!status.ok()) {
+            LOGERRORMOD(grpc_server, "Failed to try deserialize response: code: {}. msg: {}",
+                        static_cast< int >(status.error_code()), status.error_message());
         }
     }
     return m_response_blob;
