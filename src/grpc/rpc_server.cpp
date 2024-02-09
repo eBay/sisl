@@ -219,4 +219,4 @@ grpc::Status RPCHelper::do_authorization(const GrpcServer* server, const grpc::S
     return (server->is_auth_enabled()) ? server->auth_verify(srv_ctx) : grpc::Status();
 }
 
-} // namespace sisl::grpc
+} // namespace sisl

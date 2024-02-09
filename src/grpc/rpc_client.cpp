@@ -15,6 +15,8 @@
 #include "sisl/grpc/rpc_client.hpp"
 #include "utils.hpp"
 
+SISL_LOGGING_DECL(grpc_server)
+
 namespace sisl {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
@@ -157,11 +159,23 @@ void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t&
     prepare_and_send_unary_generic(cd, cd->m_req, method, deadline);
 }
 
-generic_async_result_t GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
-                                                                     const std::string& method, uint32_t deadline) {
-    auto [p, sf] = folly::makePromiseContract< generic_result_t >();
+AsyncResult< grpc::ByteBuffer > GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
+                                                                              const std::string& method,
+                                                                              uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< Result< grpc::ByteBuffer > >();
     auto data = new GenericClientRpcDataFuture(std::move(p));
     prepare_and_send_unary_generic(data, request, method, deadline);
+    return std::move(sf);
+}
+
+AsyncResult< GenericClientResponse > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
+                                                                                   const std::string& method,
+                                                                                   uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< Result< GenericClientResponse > >();
+    auto data = new GenericRpcDataFutureBlob(std::move(p));
+    grpc::ByteBuffer cli_byte_buf;
+    serialize_to_byte_buffer(request, cli_byte_buf);
+    prepare_and_send_unary_generic(data, cli_byte_buf, method, deadline);
     return std::move(sf);
 }
 
@@ -172,4 +186,62 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
     return std::make_unique< GrpcAsyncClient::GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w,
                                                                  m_token_client);
 }
+
+GenericClientResponse::GenericClientResponse(grpc::ByteBuffer const& buf) : m_response_buf(buf) {}
+
+GenericClientResponse::GenericClientResponse(GenericClientResponse&& other) :
+        m_response_blob(other.m_response_blob), m_response_blob_allocated(other.m_response_blob_allocated) {
+    m_response_buf.Swap(&(other.m_response_buf));
+    other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
+    other.m_response_blob.set_size(0);
+}
+
+GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse&& other) {
+    if (m_response_blob_allocated) { m_response_blob.buf_free(); }
+    m_response_buf.Clear();
+    m_response_buf.Swap(&(other.m_response_buf));
+    m_response_blob_allocated = other.m_response_blob_allocated;
+    other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
+    other.m_response_blob.set_size(0);
+
+    return *this;
+}
+
+GenericClientResponse::~GenericClientResponse() {
+    if (m_response_blob_allocated) { m_response_blob.buf_free(); }
+}
+
+grpc::ByteBuffer GenericClientResponse::response_buf() { return m_response_buf; }
+
+io_blob& GenericClientResponse::response_blob() {
+    if (m_response_blob.cbytes() == nullptr) {
+        if (auto status = try_deserialize_from_byte_buffer(m_response_buf, m_response_blob);
+            status.error_code() == grpc::StatusCode::FAILED_PRECONDITION) {
+            if (status = deserialize_from_byte_buffer(m_response_buf, m_response_blob); status.ok()) {
+                m_response_blob_allocated = true;
+            } else {
+                LOGERRORMOD(grpc_server, "Failed to deserialize response: code: {}. msg: {}",
+                            static_cast< int >(status.error_code()), status.error_message());
+            }
+        } else if (!status.ok()) {
+            LOGERRORMOD(grpc_server, "Failed to try deserialize response: code: {}. msg: {}",
+                        static_cast< int >(status.error_code()), status.error_message());
+        }
+    }
+    return m_response_blob;
+}
+
+GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(folly::Promise< Result< GenericClientResponse > >&& promise) :
+        m_promise{std::move(promise)} {}
+
+void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {
+    // For unary call, ok is always true, `status_` will indicate error if there are any.
+    if (this->m_status.ok()) {
+        auto future_resp = GenericClientResponse(this->m_reply);
+        m_promise.setValue(std::move(future_resp));
+    } else {
+        m_promise.setValue(folly::makeUnexpected(this->m_status));
+    }
+}
+
 } // namespace sisl

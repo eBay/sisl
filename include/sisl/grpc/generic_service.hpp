@@ -28,8 +28,7 @@ namespace sisl {
 
 class GenericRpcStaticInfo : public RpcStaticInfoBase {
 public:
-    GenericRpcStaticInfo(GrpcServer* server, grpc::AsyncGenericService* service) :
-            m_server{server}, m_generic_service{service} {}
+    GenericRpcStaticInfo(GrpcServer* server, grpc::AsyncGenericService* service);
 
     GrpcServer* m_server;
     grpc::AsyncGenericService* m_generic_service;
@@ -43,58 +42,31 @@ using generic_rpc_ctx_ptr = std::unique_ptr< GenericRpcContextBase >;
 
 class GenericRpcData : public RpcDataAbstract, sisl::ObjLifeCounter< GenericRpcData > {
 public:
-    static RpcDataAbstract* make(GenericRpcStaticInfo* rpc_info, size_t queue_idx) {
-        return new GenericRpcData(rpc_info, queue_idx);
-    }
+    static RpcDataAbstract* make(GenericRpcStaticInfo* rpc_info, size_t queue_idx);
 
-    RpcDataAbstract* create_new() override { return new GenericRpcData(m_rpc_info, m_queue_idx); }
-    void set_status(grpc::Status& status) { m_retstatus = status; }
+    RpcDataAbstract* create_new() override;
+    void set_status(grpc::Status& status);
 
-    ~GenericRpcData() override {
-        if (m_request_blob_allocated) { m_request_blob.buf_free(); }
-    }
+    ~GenericRpcData() override;
 
     // There is only one generic static rpc data for all rpcs.
-    size_t get_rpc_idx() const override { return 0; }
+    size_t get_rpc_idx() const override;
 
-    const grpc::ByteBuffer& request() const { return m_request; }
-    sisl::io_blob& request_blob() {
-        if (m_request_blob.cbytes() == nullptr) {
-            grpc::Slice slice;
-            auto status = m_request.TrySingleSlice(&slice);
-            if (status.ok()) {
-                m_request_blob.set_bytes(slice.begin());
-                m_request_blob.set_size(slice.size());
-            } else if (status.error_code() == grpc::StatusCode::FAILED_PRECONDITION) {
-                // If the ByteBuffer is not made up of single slice, TrySingleSlice() will fail.
-                // DumpSingleSlice() should work in those cases but will incur a copy.
-                if (status = m_request.DumpToSingleSlice(&slice); status.ok()) {
-                    m_request_blob.buf_alloc(slice.size());
-                    m_request_blob_allocated = true;
-                    std::memcpy(voidptr_cast(m_request_blob.bytes()), c_voidptr_cast(slice.begin()),
-                                slice.size());
-                }
-            }
-        }
-        return m_request_blob;
-    }
+    const grpc::ByteBuffer& request() const;
+    sisl::io_blob& request_blob();
 
-    grpc::ByteBuffer& response() { return m_response; }
+    grpc::ByteBuffer& response();
 
-    void enqueue_call_request(::grpc::ServerCompletionQueue& cq) override {
-        m_rpc_info->m_generic_service->RequestCall(&m_ctx, &m_stream, &cq, &cq,
-                                                   static_cast< void* >(m_request_received_tag.ref()));
-    }
+    void enqueue_call_request(::grpc::ServerCompletionQueue& cq) override;
 
-    void send_response() { m_stream.Write(m_response, static_cast< void* >(m_buf_write_tag.ref())); }
+    void send_response();
 
-    void set_context(generic_rpc_ctx_ptr ctx) { m_rpc_context = std::move(ctx); }
-    GenericRpcContextBase* get_context() { return m_rpc_context.get(); }
+    void set_context(generic_rpc_ctx_ptr ctx);
+    GenericRpcContextBase* get_context();
 
-    void set_comp_cb(generic_rpc_completed_cb_t const& comp_cb) { m_comp_cb = comp_cb; }
+    void set_comp_cb(generic_rpc_completed_cb_t const& comp_cb);
 
-    GenericRpcData(GenericRpcStaticInfo* rpc_info, size_t queue_idx) :
-            RpcDataAbstract{queue_idx}, m_rpc_info{rpc_info}, m_stream(&m_ctx) {}
+    GenericRpcData(GenericRpcStaticInfo* rpc_info, size_t queue_idx);
 
 private:
     GenericRpcStaticInfo* m_rpc_info;
@@ -111,54 +83,18 @@ private:
     generic_rpc_completed_cb_t m_comp_cb{nullptr};
 
 private:
-    bool do_authorization() {
-        m_retstatus = RPCHelper::do_authorization(m_rpc_info->m_server, &m_ctx);
-        return m_retstatus.error_code() == grpc::StatusCode::OK;
-    }
+    bool do_authorization();
 
-    RpcDataAbstract* on_request_received(bool ok) {
-        bool in_shutdown = RPCHelper::has_server_shutdown(m_rpc_info->m_server);
-
-        if (ok) {
-            if (!do_authorization()) {
-                m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
-            } else {
-                m_stream.Read(&m_request, static_cast< void* >(m_buf_read_tag.ref()));
-            }
-        }
-
-        return in_shutdown ? nullptr : create_new();
-    }
-
-    RpcDataAbstract* on_buf_read(bool) {
-        auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
-        // take a ref before the handler cb is called.
-        // unref is called in send_response which is handled by us (in case of sync calls)
-        // or by the handler (for async calls)
-        ref();
-        if (RPCHelper::run_generic_handler_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data)) { send_response(); }
-        return nullptr;
-    }
-
-    RpcDataAbstract* on_buf_write(bool) {
-        m_stream.Finish(m_retstatus, static_cast< void* >(m_request_completed_tag.ref()));
-        unref();
-        return nullptr;
-    }
-
-    RpcDataAbstract* on_request_completed(bool) {
-        auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
-        if (m_comp_cb) { m_comp_cb(this_rpc_data); }
-        return nullptr;
-    }
+    RpcDataAbstract* on_request_received(bool ok);
+    RpcDataAbstract* on_buf_read(bool);
+    RpcDataAbstract* on_buf_write(bool);
+    RpcDataAbstract* on_request_completed(bool);
 
     struct RpcTagImpl : public RpcTag {
         using callback_type = RpcDataAbstract* (GenericRpcData::*)(bool);
-        RpcTagImpl(GenericRpcData* rpc, callback_type cb) : RpcTag{rpc}, m_callback{cb} {}
+        RpcTagImpl(GenericRpcData* rpc, callback_type cb);
 
-        RpcDataAbstract* do_process(bool ok) override {
-            return (static_cast< GenericRpcData* >(m_rpc_data)->*m_callback)(ok);
-        }
+        RpcDataAbstract* do_process(bool ok) override;
 
         callback_type m_callback;
     };
