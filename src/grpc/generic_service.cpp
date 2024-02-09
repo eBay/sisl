@@ -65,6 +65,10 @@ void GenericRpcData::enqueue_call_request(::grpc::ServerCompletionQueue& cq) {
 }
 
 void GenericRpcData::send_response() { m_stream.Write(m_response, static_cast< void* >(m_buf_write_tag.ref())); }
+void GenericRpcData::send_response(io_blob_list_t const& response_blob_list) {
+    serialize_to_byte_buffer(response_blob_list, m_response);
+    send_response();
+}
 
 void GenericRpcData::set_context(generic_rpc_ctx_ptr ctx) { m_rpc_context = std::move(ctx); }
 

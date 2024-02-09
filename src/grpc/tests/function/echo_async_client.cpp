@@ -369,11 +369,11 @@ public:
         std::atomic< uint32_t > num_completions = 0ul;
 
         template < typename BufT >
-        static void set_response(BufT const& req, grpc::ByteBuffer& resp) {
+        static void set_response(BufT const& req, grpc::ByteBuffer& resp, bool set_buf) {
             DataMessage cli_request;
             DeserializeFromBuffer(req, cli_request);
             RELEASE_ASSERT((cli_request.m_buf == GENERIC_CLIENT_MESSAGE), "Could not parse response buffer");
-            SerializeToByteBuffer(resp, cli_request);
+            if (set_buf) { SerializeToByteBuffer(resp, cli_request); }
         }
 
     public:
@@ -390,12 +390,17 @@ public:
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls.load());
                         std::thread([this, rpc = rpc_data] {
-                            set_response(rpc->request_blob(), rpc->response());
-                            rpc->send_response();
+                            if ((num_calls % 3) == 0) {
+                                set_response(rpc->request_blob(), rpc->response(), false);
+                                rpc->send_response(io_blob_list_t{rpc->request_blob()});
+                            } else {
+                                set_response(rpc->request_blob(), rpc->response(), true);
+                                rpc->send_response();
+                            }
                         }).detach();
                         return false;
                     }
-                    set_response(rpc_data->request(), rpc_data->response());
+                    set_response(rpc_data->request(), rpc_data->response(), true);
                     return true;
                 });
             RELEASE_ASSERT(res, "register generic rpc failed");
