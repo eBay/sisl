@@ -60,6 +60,7 @@ public:
     void enqueue_call_request(::grpc::ServerCompletionQueue& cq) override;
 
     void send_response();
+    void send_response(io_blob_list_t const& response_blob_list);
 
     void set_context(generic_rpc_ctx_ptr ctx);
     GenericRpcContextBase* get_context();
