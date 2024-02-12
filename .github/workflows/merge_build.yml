@@ -4,10 +4,36 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - stable/v8.x
       - master
 
 jobs:
+  BuildConan2:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["ubuntu-22.04"]
+        build-type: ["Release"]
+        malloc-impl: ["tcmalloc"]
+        tooling: ["None"]
+        exclude:
+          - build-type: Debug
+            tooling: None
+          - build-type: Debug
+            malloc-impl: tcmalloc
+          - build-type: Release
+            malloc-impl: libc
+          - build-type: Release
+            tooling: Sanitize
+          - build-type: Release
+            tooling: Coverage
+    uses: ./.github/workflows/build_dependencies2.yml
+    with:
+      platform: ${{ matrix.platform }}
+      branch: ${{ github.ref }}
+      build-type: ${{ matrix.build-type }}
+      malloc-impl: ${{ matrix.malloc-impl }}
+      tooling: ${{ matrix.tooling }}
+      testing: 'True'
   Build:
     strategy:
       fail-fast: false

@@ -1,0 +1,128 @@
+name: Conan2 Build
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: false
+        default: 'ubuntu-22.04'
+        type: string
+      branch:
+        required: true
+        type: string
+      build-type:
+        required: true
+        type: string
+      malloc-impl:
+        required: true
+        type: string
+      tooling:
+        required: false
+        type: string
+        default: 'None'
+      testing:
+        required: false
+        type: string
+        default: 'False'
+  workflow_dispatch:
+    inputs:
+      platform:
+        required: true
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-20.04
+          - macos-13
+          - macos-12
+        default: 'ubuntu-22.04'
+      branch:
+        required: true
+        type: string
+      build-type:
+        required: true
+        type: choice
+        options:
+          - Debug
+          - Release
+          - RelWithDebInfo
+      malloc-impl:
+        description: 'Allocation Library'
+        required: true
+        type: choice
+        options:
+          - libc
+          - tcmalloc
+          - jemalloc
+      tooling:
+        required: false
+        type: choice
+          - 'Sanitize'
+          - 'Coverage'
+          - 'None'
+        default: 'None'
+      testing:
+        description: 'Build and Run'
+        required: true
+        type: choice
+        options:
+          - 'True'
+          - 'False'
+        default: 'True'
+
+jobs:
+  BuildSislDeps:
+    runs-on: ${{ inputs.platform }}
+    steps:
+    - name: Retrieve Code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.branch }}
+      if: ${{ inputs.testing == 'True' }}
+
+    - name: Retrieve Recipe
+      uses: actions/checkout@v3
+      with:
+        repository: eBay/sisl
+        ref: ${{ inputs.branch }}
+      if: ${{ inputs.testing == 'False' }}
+
+    - name: Setup Conan
+      uses: eBay/sisl/.github/actions/setup_conan2@conan2
+      with:
+        platform: ${{ inputs.platform }}
+      if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
+
+    - name: Prepare Recipes
+      run: |
+        ./prepare_v2.sh
+        cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
+        echo "::info:: Pre-cached: ${cached_pkgs}"
+      if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
+
+    - name: Create and Test Package
+      run: |
+        sanitize=$([[ "${{ inputs.tooling }}" == "Sanitize" ]] && echo "True" || echo "False")
+        conan create \
+            -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
+            -o sisl/*:sanitize=${sanitize} \
+            -s:h build_type=${{ inputs.build-type }} \
+            --build missing \
+            .
+      if: ${{ inputs.testing == 'True' && inputs.tooling != 'Coverage' }}
+
+    - name: Code Coverage Run
+      run: |
+        conan build
+            -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
+            -o sisl/*:coverage=True \
+            -s:h build_type=${{ inputs.build-type }} \
+            --build missing \
+            .
+      if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        gcov: true
+      if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
