@@ -14,7 +14,7 @@ jobs:
 
       - name: Check if file is modified
         run: |
-          if git diff --unified=0 ${{ github.base_ref }}..${{ github.sha }} *conanfile.py* | grep -q "^+.*version"; then
+          if git diff --unified=0 ${{ github.base_ref }}..${{ github.sha }} -- *conanfile.py* | grep -q "^+.*version"; then
             echo "Version is updated with this PR, OK"
           else
             echo "Conan version is not updated with this PR. Please update that to allow PR merge"
