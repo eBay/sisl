@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "11.1.7"
+    version = "11.1.8"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -117,7 +117,7 @@ class SISLConan(ConanFile):
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
         tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
         tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
-        if self.options.get_safe("prerelease"):
+        if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
             tc.preprocessor_definitions["_PRERELEASE"] = "1"
             tc.variables["_PRERELEASE"] = "ON"
         if self.settings.build_type == "Debug":
@@ -259,7 +259,7 @@ class SISLConan(ConanFile):
                 component.defines.append("_LARGEFILE64")
                 component.system_libs.extend(["dl", "pthread"])
                 component.exelinkflags.extend(["-export-dynamic"])
-            if self.options.get_safe("prerelease"):
+            if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
                 component.defines.append("_PRERELEASE=1")
             if  self.options.get_safe("sanitize"):
                 component.sharedlinkflags.append("-fsanitize=address")
