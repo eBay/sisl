@@ -31,12 +31,17 @@ SISL_LOGGING_DEF(grpc_server)
 namespace sisl {
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                        const std::string& ssl_cert) :
-        GrpcServer::GrpcServer(listen_addr, threads, ssl_key, ssl_cert, nullptr) {}
-
+        GrpcServer::GrpcServer(listen_addr, threads, 0, ssl_key, ssl_cert, nullptr) {}
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                        const std::string& ssl_cert, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr) :
+        GrpcServer::GrpcServer(listen_addr, threads, 0, ssl_key, ssl_cert, auth_mgr) {}
+GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, int max_receive_msg_size,
+                       const std::string& ssl_key, const std::string& ssl_cert,
+                       const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr) :
         m_num_threads{threads}, m_auth_mgr{auth_mgr} {
     if (listen_addr.empty() || threads == 0) { throw std::invalid_argument("Invalid parameter to start grpc server"); }
+
+    if (max_receive_msg_size != 0) { m_builder.SetMaxReceiveMessageSize(max_receive_msg_size); }
 
     if (!ssl_cert.empty() && !ssl_key.empty()) {
         std::string key_contents;
@@ -76,13 +81,14 @@ GrpcServer::~GrpcServer() {
 }
 
 GrpcServer* GrpcServer::make(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
-                             const std::string& ssl_cert) {
-    return GrpcServer::make(listen_addr, nullptr, threads, ssl_key, ssl_cert);
+                             const std::string& ssl_cert, int max_receive_msg_size) {
+    return GrpcServer::make(listen_addr, nullptr, threads, ssl_key, ssl_cert, max_receive_msg_size);
 }
 
 GrpcServer* GrpcServer::make(const std::string& listen_addr, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr,
-                             uint32_t threads, const std::string& ssl_key, const std::string& ssl_cert) {
-    return new GrpcServer(listen_addr, threads, ssl_key, ssl_cert, auth_mgr);
+                             uint32_t threads, const std::string& ssl_key, const std::string& ssl_cert,
+                             int max_receive_msg_size) {
+    return new GrpcServer(listen_addr, threads, max_receive_msg_size, ssl_key, ssl_cert, auth_mgr);
 }
 
 void GrpcServer::run(const rpc_thread_start_cb_t& thread_start_cb) {
