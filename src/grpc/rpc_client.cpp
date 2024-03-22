@@ -187,48 +187,36 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
                                                                  m_token_client);
 }
 
-GenericClientResponse::GenericClientResponse(grpc::ByteBuffer const& buf) : m_response_buf(buf) {}
-
-GenericClientResponse::GenericClientResponse(GenericClientResponse&& other) :
-        m_response_blob(other.m_response_blob), m_response_blob_allocated(other.m_response_blob_allocated) {
+GenericClientResponse::GenericClientResponse(GenericClientResponse&& other) {
     m_response_buf.Swap(&(other.m_response_buf));
-    other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
-    other.m_response_blob.set_size(0);
+    m_single_slice = std::move(other.m_single_slice);
+    other.m_response_buf.Release();
 }
 
 GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse&& other) {
-    if (m_response_blob_allocated) { m_response_blob.buf_free(); }
-    m_response_buf.Clear();
     m_response_buf.Swap(&(other.m_response_buf));
-    m_response_blob_allocated = other.m_response_blob_allocated;
-    other.m_response_blob.set_bytes(static_cast< uint8_t* >(nullptr));
-    other.m_response_blob.set_size(0);
-
+    m_single_slice = std::move(other.m_single_slice);
+    other.m_response_buf.Release();
     return *this;
 }
 
-GenericClientResponse::~GenericClientResponse() {
-    if (m_response_blob_allocated) { m_response_blob.buf_free(); }
+grpc::ByteBuffer const& GenericClientResponse::response_buf(bool need_contiguous) {
+    if (!need_contiguous || m_single_slice.size() || !m_response_buf.Valid()) { return m_response_buf; }
+
+    auto status = m_response_buf.TrySingleSlice(&m_single_slice);
+    if (status.ok()) { return m_response_buf; }
+
+    status = m_response_buf.DumpToSingleSlice(&m_single_slice);
+    RELEASE_ASSERT(status.ok(), "Failed to deserialize response: code: {}. msg: {}",
+                   static_cast< int >(status.error_code()), status.error_message());
+
+    return m_response_buf;
 }
 
-grpc::ByteBuffer GenericClientResponse::response_buf() { return m_response_buf; }
-
-io_blob& GenericClientResponse::response_blob() {
-    if (m_response_blob.cbytes() == nullptr) {
-        if (auto status = try_deserialize_from_byte_buffer(m_response_buf, m_response_blob);
-            status.error_code() == grpc::StatusCode::FAILED_PRECONDITION) {
-            if (status = deserialize_from_byte_buffer(m_response_buf, m_response_blob); status.ok()) {
-                m_response_blob_allocated = true;
-            } else {
-                LOGERRORMOD(grpc_server, "Failed to deserialize response: code: {}. msg: {}",
-                            static_cast< int >(status.error_code()), status.error_message());
-            }
-        } else if (!status.ok()) {
-            LOGERRORMOD(grpc_server, "Failed to try deserialize response: code: {}. msg: {}",
-                        static_cast< int >(status.error_code()), status.error_message());
-        }
-    }
-    return m_response_blob;
+io_blob GenericClientResponse::response_blob() {
+    response_buf(true /* need_contiguous */);
+    auto const size = uint32_cast(m_single_slice.size());
+    return size ? io_blob{m_single_slice.begin(), size, false /* is_aligned */} : io_blob{};
 }
 
 GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(folly::Promise< Result< GenericClientResponse > >&& promise) :

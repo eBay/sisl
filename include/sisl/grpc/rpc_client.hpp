@@ -91,7 +91,7 @@ using GenericClientRpcDataFuture = ClientRpcDataFuture< grpc::ByteBuffer, grpc::
 template < typename ReqT, typename RespT >
 class ClientRpcDataInternal : public ClientRpcDataAbstract {
 public:
-    using ResponseReaderPtr = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+    using ResponseReaderPtr = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
     using GenericResponseReaderPtr = std::unique_ptr< grpc::GenericClientAsyncResponseReader >;
 
     /* Allow GrpcAsyncClient and its inner classes to use
@@ -166,21 +166,20 @@ public:
 class GenericClientResponse {
 public:
     GenericClientResponse() = default;
-    GenericClientResponse(grpc::ByteBuffer const& buf);
+    GenericClientResponse(grpc::ByteBuffer const& buf) : m_response_buf{buf} {}
 
     GenericClientResponse(GenericClientResponse&& other);
     GenericClientResponse& operator=(GenericClientResponse&& other);
-    GenericClientResponse(GenericClientResponse const& other) = delete;
-    GenericClientResponse& operator=(GenericClientResponse const& other) = delete;
-    ~GenericClientResponse();
+    GenericClientResponse(GenericClientResponse const& other) = default;
+    GenericClientResponse& operator=(GenericClientResponse const& other) = default;
+    ~GenericClientResponse() = default;
 
-    io_blob& response_blob();
-    grpc::ByteBuffer response_buf();
+    io_blob response_blob();
+    grpc::ByteBuffer const& response_buf(bool need_contiguous = true);
 
 private:
     grpc::ByteBuffer m_response_buf;
-    io_blob m_response_blob;
-    bool m_response_blob_allocated{false};
+    grpc::Slice m_single_slice;
 };
 
 /**
@@ -228,7 +227,7 @@ protected:
     const std::string m_target_domain;
     const std::string m_ssl_cert;
 
-    std::shared_ptr<::grpc::ChannelInterface > m_channel;
+    std::shared_ptr< ::grpc::ChannelInterface > m_channel;
     std::shared_ptr< sisl::GrpcTokenClient > m_token_client;
 
 public:
@@ -344,7 +343,7 @@ public:
 
         /* unary call helper */
         template < typename RespT >
-        using unary_call_return_t = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+        using unary_call_return_t = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
 
         template < typename ReqT, typename RespT >
         using unary_call_t = unary_call_return_t< RespT > (stub_t::*)(::grpc::ClientContext*, const ReqT&,
