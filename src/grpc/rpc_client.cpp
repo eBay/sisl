@@ -33,21 +33,17 @@ GrpcBaseClient::GrpcBaseClient(const std::string& server_addr,
 
 void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
+    ::grpc::ChannelArguments channel_args;
+    channel_args.SetMaxReceiveMessageSize(-1);
     if (!m_ssl_cert.empty()) {
         if (load_ssl_cert(m_ssl_cert, ssl_opts.pem_root_certs)) {
-            if (!m_target_domain.empty()) {
-                ::grpc::ChannelArguments channel_args;
-                channel_args.SetSslTargetNameOverride(m_target_domain);
-                m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts), channel_args);
-            } else {
-                m_channel = ::grpc::CreateChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts));
-            }
-
+            if (!m_target_domain.empty()) { channel_args.SetSslTargetNameOverride(m_target_domain); }
+            m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts), channel_args);
         } else {
             throw std::runtime_error("Unable to load ssl certification for grpc client");
         }
     } else {
-        m_channel = ::grpc::CreateChannel(m_server_addr, ::grpc::InsecureChannelCredentials());
+        m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::InsecureChannelCredentials(), channel_args);
     }
 }
 
