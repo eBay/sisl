@@ -163,7 +163,7 @@ public:
     folly::Promise< Result< RespT > > m_promise;
 };
 
-class GenericClientResponse {
+class GenericClientResponse : public ObjLifeCounter< GenericClientResponse > {
 public:
     GenericClientResponse() = default;
     GenericClientResponse(grpc::ByteBuffer const& buf) : m_response_buf{buf} {}
@@ -171,11 +171,10 @@ public:
     GenericClientResponse(GenericClientResponse&& other);
     GenericClientResponse& operator=(GenericClientResponse&& other);
     GenericClientResponse(GenericClientResponse const& other) = default;
-    GenericClientResponse& operator=(GenericClientResponse const& other) = default;
+    GenericClientResponse& operator=(GenericClientResponse const& other);
     ~GenericClientResponse() = default;
 
     io_blob response_blob();
-    grpc::ByteBuffer const& response_buf(bool need_contiguous = true);
 
 private:
     grpc::ByteBuffer m_response_buf;

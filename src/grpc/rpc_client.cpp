@@ -196,21 +196,23 @@ GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse&& 
     return *this;
 }
 
-grpc::ByteBuffer const& GenericClientResponse::response_buf(bool need_contiguous) {
-    if (!need_contiguous || m_single_slice.size() || !m_response_buf.Valid()) { return m_response_buf; }
-
-    auto status = m_response_buf.TrySingleSlice(&m_single_slice);
-    if (status.ok()) { return m_response_buf; }
-
-    status = m_response_buf.DumpToSingleSlice(&m_single_slice);
-    RELEASE_ASSERT(status.ok(), "Failed to deserialize response: code: {}. msg: {}",
-                   static_cast< int >(status.error_code()), status.error_message());
-
-    return m_response_buf;
+GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse const& other) {
+    m_response_buf = other.m_response_buf;
+    m_single_slice = other.m_single_slice;
+    return *this;
 }
 
 io_blob GenericClientResponse::response_blob() {
-    response_buf(true /* need_contiguous */);
+    if ((m_single_slice.size() == 0) && m_response_buf.Valid()) {
+        auto status = m_response_buf.TrySingleSlice(&m_single_slice);
+        if (!status.ok()) {
+            status = m_response_buf.DumpToSingleSlice(&m_single_slice);
+            RELEASE_ASSERT(status.ok(), "Failed to deserialize response: code: {}. msg: {}",
+                           static_cast< int >(status.error_code()), status.error_message());
+        }
+        m_response_buf.Clear(); // Since we dumped everything to a single slice, we don't need bytebyffer anymore
+    }
+
     auto const size = uint32_cast(m_single_slice.size());
     return size ? io_blob{m_single_slice.begin(), size, false /* is_aligned */} : io_blob{};
 }
