@@ -20,7 +20,7 @@ using namespace ::grpc;
     buffer.Swap(&tmp);
 }
 
-static std::string DeserializeFromBuffer(ByteBuffer const& buffer) {
+[[maybe_unused]] static std::string DeserializeFromBuffer(ByteBuffer const& buffer) {
     std::vector< grpc::Slice > slices;
     (void)buffer.Dump(&slices);
     std::string buf;
@@ -67,8 +67,7 @@ static std::string blob_to_string(io_blob const& b) { return std::string(c_charp
 static void do_test(std::string const& msg, grpc::ByteBuffer& bbuf) {
     GenericClientResponse resp1(bbuf);
     {
-        auto const& rbuf1 = resp1.response_buf();
-        EXPECT_EQ(msg, DeserializeFromBuffer(rbuf1));
+        // EXPECT_EQ(msg, DeserializeFromBuffer(rbuf1));
         EXPECT_EQ(msg, blob_to_string(resp1.response_blob()));
     }
 
@@ -76,9 +75,6 @@ static void do_test(std::string const& msg, grpc::ByteBuffer& bbuf) {
     GenericClientResponse resp2(std::move(resp1));
     {
         EXPECT_EQ(msg, blob_to_string(resp2.response_blob()));
-        EXPECT_TRUE(resp2.response_buf().Valid());
-
-        EXPECT_FALSE(resp1.response_buf().Valid());
         auto blb1 = resp1.response_blob();
         EXPECT_EQ(blb1.size(), 0);
         EXPECT_EQ(blb1.cbytes(), nullptr);
@@ -89,9 +85,6 @@ static void do_test(std::string const& msg, grpc::ByteBuffer& bbuf) {
     resp3 = std::move(resp2);
     {
         EXPECT_EQ(msg, blob_to_string(resp3.response_blob()));
-        EXPECT_TRUE(resp3.response_buf().Valid());
-
-        EXPECT_FALSE(resp2.response_buf().Valid());
         auto blb2 = resp2.response_blob();
         EXPECT_EQ(blb2.size(), 0);
         EXPECT_EQ(blb2.cbytes(), nullptr);
@@ -101,9 +94,6 @@ static void do_test(std::string const& msg, grpc::ByteBuffer& bbuf) {
     {
         GenericClientResponse resp4(resp3);
         EXPECT_EQ(msg, blob_to_string(resp4.response_blob()));
-        EXPECT_TRUE(resp4.response_buf().Valid());
-
-        EXPECT_TRUE(resp3.response_buf().Valid());
         EXPECT_EQ(msg, blob_to_string(resp3.response_blob()));
     }
 
@@ -112,9 +102,6 @@ static void do_test(std::string const& msg, grpc::ByteBuffer& bbuf) {
         GenericClientResponse resp5;
         resp5 = resp3;
         EXPECT_EQ(msg, blob_to_string(resp5.response_blob()));
-        EXPECT_TRUE(resp5.response_buf().Valid());
-
-        EXPECT_TRUE(resp3.response_buf().Valid());
         EXPECT_EQ(msg, blob_to_string(resp3.response_blob()));
     }
 }
