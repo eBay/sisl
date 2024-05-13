@@ -9,11 +9,18 @@ if(${breakpad_FOUND})
   list(APPEND LOGGING_DEPS breakpad::breakpad)
 endif()
 
-add_library(sisl_logging)
-target_sources(sisl_logging PRIVATE
+list(APPEND LOGGING_SOURCE_FILES
   logging.cpp
   stacktrace.cpp
-  )
+)
+if (${CMAKE_BUILD_TYPE} STREQUAL Debug)
+  list(APPEND LOGGING_SOURCE_FILES backtrace.cpp)
+endif()
+
+add_library(sisl_logging)
+target_sources(sisl_logging PRIVATE
+  ${LOGGING_SOURCE_FILES}
+)
 target_link_libraries(sisl_logging PUBLIC ${LOGGING_DEPS} -rdynamic)
 
 if (DEFINED ENABLE_TESTING)
