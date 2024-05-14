@@ -162,7 +162,6 @@ std::filesystem::path get_base_dir() {
     }
 }
 
-
 static std::filesystem::path log_path(std::string const& name) {
     std::filesystem::path p;
     if (0 < SISL_OPTIONS.count("logfile")) {
