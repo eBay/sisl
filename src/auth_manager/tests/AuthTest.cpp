@@ -33,10 +33,9 @@ class MockAuthManager : public AuthManager {
 public:
     using AuthManager::AuthManager;
     MOCK_METHOD(std::string, download_key, (const std::string&), (const));
-    AuthVerifyStatus verify(const std::string& token) {
-        std::string msg;
-        return AuthManager::verify(token, msg);
-    }
+    std::string msg;
+    AuthVerifyStatus verify(const std::string& token) { return verify(token, msg); }
+    AuthVerifyStatus verify(const std::string& token, std::string& msg) { return AuthManager::verify(token, msg); }
 };
 
 class AuthTest : public ::testing::Test {
@@ -57,7 +56,6 @@ public:
         SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) {
             s.auth_manager->auth_allowed_apps = "app1, testapp, app2";
             s.auth_manager->tf_token_url = "http://127.0.0.1";
-            s.auth_manager->leeway = 0;
             s.auth_manager->issuer = "trustfabric";
         });
         SECURITY_SETTINGS_FACTORY().save();
@@ -140,6 +138,48 @@ TEST_F(AuthTest, reject_unauthorized_app) {
     EXPECT_EQ(mock_auth_mgr->verify(token.sign_rs256()), AuthVerifyStatus::FORBIDDEN);
 }
 
+TEST_F(AuthTest, leeway_test) {
+    auto test_token = TestToken();
+    auto& trf_token = test_token.get_token();
+
+    // default leeway is 0 seconds for exp
+    trf_token.set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds(1));
+    // default leeway is 5 seconds for iat and nbf
+    trf_token.set_issued_at(std::chrono::system_clock::now() + std::chrono::seconds(4));
+    trf_token.set_not_before(std::chrono::system_clock::now() + std::chrono::seconds(4));
+    auto raw_token = test_token.sign_rs256();
+
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_EQ(mock_auth_mgr->verify(raw_token), AuthVerifyStatus::OK);
+
+    std::string unauth_msg;
+    // token expired
+    trf_token.set_expires_at(std::chrono::system_clock::now() - std::chrono::seconds(1));
+    raw_token = test_token.sign_rs256();
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
+    EXPECT_EQ(mock_auth_mgr->verify(raw_token, unauth_msg), AuthVerifyStatus::UNAUTH);
+    EXPECT_EQ(unauth_msg, "token verification failed: token expired");
+
+    unauth_msg.clear();
+    // iat expired
+    trf_token.set_expires_at(std::chrono::system_clock::now() + std::chrono::seconds(1));
+    trf_token.set_issued_at(std::chrono::system_clock::now() + std::chrono::seconds(6));
+    trf_token.set_key_id("new_key_id");
+    raw_token = test_token.sign_rs256();
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(1).WillOnce(Return(rsa_pub_key));
+    EXPECT_EQ(mock_auth_mgr->verify(raw_token, unauth_msg), AuthVerifyStatus::UNAUTH);
+    EXPECT_EQ(unauth_msg, "token verification failed: token expired");
+
+    unauth_msg.clear();
+    // nbf expired
+    trf_token.set_issued_at(std::chrono::system_clock::now() - std::chrono::seconds(1));
+    trf_token.set_not_before(std::chrono::system_clock::now() + std::chrono::seconds(6));
+    raw_token = test_token.sign_rs256();
+    EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
+    EXPECT_EQ(mock_auth_mgr->verify(raw_token, unauth_msg), AuthVerifyStatus::UNAUTH);
+    EXPECT_EQ(unauth_msg, "token verification failed: token expired");
+}
+
 // Testing trf client
 class MockTrfClient : public TrfClient {
 public:
@@ -169,7 +209,7 @@ static void load_trf_settings() {
         s.trf_client->grant_path = grant_path;
         s.trf_client->server = "127.0.0.1:12346/token";
         s.auth_manager->verify = false;
-        s.auth_manager->leeway = 30;
+        s.auth_manager->expiry_leeway_secs = 30;
     });
     SECURITY_SETTINGS_FACTORY().save();
 }
