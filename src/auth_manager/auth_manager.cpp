@@ -10,9 +10,46 @@ extern "C" {
 
 namespace sisl {
 
-AuthManager::AuthManager() : m_cached_keys(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_key_cache_size)) {}
+static std::string md5_sum(std::string const& s) {
+    unsigned char digest[MD5_DIGEST_LENGTH];
+
+    MD5(reinterpret_cast< unsigned char* >(const_cast< char* >(s.c_str())), s.length(),
+        reinterpret_cast< unsigned char* >(&digest));
+
+    std::ostringstream out;
+    out << std::hex;
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)digest[i];
+    }
+    return out.str();
+}
+
+struct incomplete_verification_error : std::exception {
+    explicit incomplete_verification_error(const std::string& error) : error_(error) {}
+    const char* what() const noexcept { return error_.c_str(); }
+
+private:
+    const std::string error_;
+};
+
+AuthManager::AuthManager() :
+        m_cached_tokens(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_token_cache_size)),
+        m_cached_keys(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_key_cache_size)) {}
 
 AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) const {
+    // if we have it in cache, just use it to make the decision
+    auto const token_hash = md5_sum(token);
+    if (auto const ct = m_cached_tokens.get(token_hash); ct) {
+        auto now = std::chrono::system_clock::now();
+        if (now > ct->expires_at + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->expiry_leeway_secs))) {
+            msg = "token expired";
+            return AuthVerifyStatus::UNAUTH;
+        }
+        return AuthVerifyStatus::OK;
+    }
+
+    // not found in cache
+    CachedToken cached_token;
     std::string app_name;
     try {
         // this may throw if token is ill formed
@@ -22,7 +59,10 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
         // exception is thrown.
         verify_decoded(decoded);
         app_name = get_app(decoded);
+        cached_token.expires_at = decoded.get_expires_at();
     } catch (const std::exception& e) {
+        // verification incomplete, the token validity is not determined, shouldn't
+        // cache
         msg = e.what();
         return AuthVerifyStatus::UNAUTH;
     }
@@ -35,6 +75,7 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
         }
     }
 
+    m_cached_tokens.put(token_hash, cached_token);
     return AuthVerifyStatus::OK;
 }
 
