@@ -208,6 +208,7 @@ static void load_trf_settings() {
     SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) {
         s.trf_client->grant_path = grant_path;
         s.trf_client->server = "127.0.0.1:12346/token";
+        s.trf_client->trf_expiry_leeway_secs = 30;
         s.auth_manager->verify = false;
         s.auth_manager->expiry_leeway_secs = 30;
     });
@@ -240,8 +241,9 @@ TEST_F(AuthTest, trf_allow_valid_token) {
     const auto raw_token{TestToken().sign_rs256()};
     // mock_trf_client is expected to be called twice
     // 1. First time when access_token is empty
-    // 2. When token is set to be expired
-    EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(2);
+    // 2. When expiry - leeway is less than current time
+    // 3. When access_token is expired
+    EXPECT_CALL(mock_trf_client, request_with_grant_token()).Times(3);
     ON_CALL(mock_trf_client, request_with_grant_token())
         .WillByDefault(
             testing::Invoke([&mock_trf_client, &raw_token]() { mock_trf_client.set_token(raw_token, "Bearer"); }));
@@ -251,6 +253,10 @@ TEST_F(AuthTest, trf_allow_valid_token) {
 
     // use the acces_token saved from the previous call
     EXPECT_CALL(*mock_auth_mgr, download_key(_)).Times(0);
+    EXPECT_EQ(mock_auth_mgr->verify(mock_trf_client.get_token()), AuthVerifyStatus::OK);
+
+    // token valid but the leeway (30 seconds) should invoke request_with_grant_token
+    mock_trf_client.set_expiry(std::chrono::system_clock::now() + std::chrono::seconds(25));
     EXPECT_EQ(mock_auth_mgr->verify(mock_trf_client.get_token()), AuthVerifyStatus::OK);
 
     // set token to be expired invoking request_with_grant_token
