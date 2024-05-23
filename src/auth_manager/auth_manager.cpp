@@ -10,49 +10,9 @@ extern "C" {
 
 namespace sisl {
 
-static std::string md5_sum(std::string const& s) {
-    unsigned char digest[MD5_DIGEST_LENGTH];
-
-    MD5(reinterpret_cast< unsigned char* >(const_cast< char* >(s.c_str())), s.length(),
-        reinterpret_cast< unsigned char* >(&digest));
-
-    std::ostringstream out;
-    out << std::hex;
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)digest[i];
-    }
-    return out.str();
-}
-
-struct incomplete_verification_error : std::exception {
-    explicit incomplete_verification_error(const std::string& error) : error_(error) {}
-    const char* what() const noexcept { return error_.c_str(); }
-
-private:
-    const std::string error_;
-};
-
-AuthManager::AuthManager() :
-        m_cached_tokens(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_token_cache_size)),
-        m_cached_keys(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_key_cache_size)) {}
+AuthManager::AuthManager() : m_cached_keys(SECURITY_DYNAMIC_CONFIG(auth_manager->auth_key_cache_size)) {}
 
 AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg) const {
-    // if we have it in cache, just use it to make the decision
-    auto const token_hash = md5_sum(token);
-    if (auto const ct = m_cached_tokens.get(token_hash); ct) {
-        if (ct->valid) {
-            auto now = std::chrono::system_clock::now();
-            if (now > ct->expires_at + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))) {
-                m_cached_tokens.put(token_hash,
-                                    CachedToken{AuthVerifyStatus::UNAUTH, "token expired", false, ct->expires_at});
-            }
-        }
-        msg = ct->msg;
-        return ct->response_status;
-    }
-
-    // not found in cache
-    CachedToken cached_token;
     std::string app_name;
     try {
         // this may throw if token is ill formed
@@ -62,32 +22,20 @@ AuthVerifyStatus AuthManager::verify(const std::string& token, std::string& msg)
         // exception is thrown.
         verify_decoded(decoded);
         app_name = get_app(decoded);
-        cached_token.expires_at = decoded.get_expires_at();
-        cached_token.set_valid();
-    } catch (const incomplete_verification_error& e) {
-        // verification incomplete, the token validity is not determined, shouldn't
-        // cache
+    } catch (const std::exception& e) {
         msg = e.what();
         return AuthVerifyStatus::UNAUTH;
-    } catch (const std::exception& e) {
-        cached_token.set_invalid(AuthVerifyStatus::UNAUTH, e.what());
-        m_cached_tokens.put(token_hash, cached_token);
-        msg = cached_token.msg;
-        return cached_token.response_status;
     }
 
     // check client application
-
     if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps) != "all") {
         if (SECURITY_DYNAMIC_CONFIG(auth_manager->auth_allowed_apps).find(app_name) == std::string::npos) {
-            cached_token.set_invalid(AuthVerifyStatus::FORBIDDEN,
-                                     fmt::format("application '{}' is not allowed to perform the request", app_name));
+            msg = fmt::format("application '{}' is not allowed to perform the request", app_name);
+            return AuthVerifyStatus::FORBIDDEN;
         }
     }
 
-    m_cached_tokens.put(token_hash, cached_token);
-    msg = cached_token.msg;
-    return cached_token.response_status;
+    return AuthVerifyStatus::OK;
 }
 
 void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
@@ -125,7 +73,9 @@ void AuthManager::verify_decoded(const jwt::decoded_jwt& decoded) const {
     const auto verifier{jwt::verify()
                             .with_issuer(SECURITY_DYNAMIC_CONFIG(auth_manager->issuer))
                             .allow_algorithm(jwt::algorithm::rs256(signing_key))
-                            .expires_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway))};
+                            .expires_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->expiry_leeway_secs))
+                            .issued_at_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->iat_leeway_secs))
+                            .not_before_leeway(SECURITY_DYNAMIC_CONFIG(auth_manager->nbf_leeway_secs))};
 
     // if verification fails, an instance of std::system_error subclass is thrown.
     verifier.verify(decoded);

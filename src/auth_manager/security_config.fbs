@@ -11,6 +11,9 @@ table TrfClient {
     // Server addr to download the token (default: https://trustfabric.vip.ebay.com/v2/token)
     server: string;
 
+    // Leeway for an expired token
+    trf_expiry_leeway_secs: uint32 = 0;
+
     // Pod env variables
     app_name: string;
     app_inst_name: string;
@@ -29,13 +32,18 @@ table AuthManager {
     tf_token_url: string;
 
     // leeway to the token expiration
-    leeway: uint32 = 0;
+    expiry_leeway_secs: uint32 = 300;
+
+    // leeway to the token issued_at
+    iat_leeway_secs: uint32 = 120;
+
+    // leeway to the token not_before
+    nbf_leeway_secs: uint32 = 120;
 
     // ssl verification for the signing key download url
     verify: bool = true;
 
-    // LRUCache sizes
-    auth_token_cache_size: uint32 = 2000;
+    // LRUCache size
     auth_key_cache_size: uint32 = 100;
 }
 

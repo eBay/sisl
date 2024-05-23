@@ -28,7 +28,7 @@ private:
     bool grant_path_exists() const { return std::filesystem::exists(SECURITY_DYNAMIC_CONFIG(trf_client->grant_path)); }
     bool access_token_expired() const {
         return (std::chrono::system_clock::now() >
-                m_expiry + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway)));
+                m_expiry + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(trf_client->trf_expiry_leeway_secs)));
     }
     static bool get_file_contents(const std::string& file_name, std::string& contents);
 

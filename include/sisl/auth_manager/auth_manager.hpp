@@ -60,11 +60,6 @@ private:
     virtual std::string download_key(const std::string& key_url) const;
     std::string get_app(const jwt::decoded_jwt& decoded) const;
 
-    // the verify method is declared const. We make this mutable
-    // as these caches are modified in the verify method. md5_sum(raw_token) ->
-    // DecodedToken
-    mutable LRUCache< std::string, CachedToken > m_cached_tokens;
-
     // key_id -> signing public key
     mutable LRUCache< std::string, std::string > m_cached_keys;
 };
