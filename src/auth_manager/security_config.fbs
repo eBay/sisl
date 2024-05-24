@@ -11,9 +11,6 @@ table TrfClient {
     // Server addr to download the token (default: https://trustfabric.vip.ebay.com/v2/token)
     server: string;
 
-    // Leeway for an expired token
-    trf_expiry_leeway_secs: uint32 = 300;
-
     // Pod env variables
     app_name: string;
     app_inst_name: string;
