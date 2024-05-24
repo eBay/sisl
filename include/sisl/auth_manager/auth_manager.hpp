@@ -32,21 +32,7 @@ class LRUCache;
  * they were extracted from decoded token.
  */
 struct CachedToken {
-    AuthVerifyStatus response_status;
-    std::string msg;
-    bool valid;
     std::chrono::system_clock::time_point expires_at;
-
-    inline void set_invalid(AuthVerifyStatus code, const std::string& reason) {
-        valid = false;
-        response_status = code;
-        msg = reason;
-    }
-
-    inline void set_valid() {
-        valid = true;
-        response_status = AuthVerifyStatus::OK;
-    }
 };
 
 class AuthManager {

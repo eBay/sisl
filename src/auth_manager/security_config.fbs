@@ -29,7 +29,13 @@ table AuthManager {
     tf_token_url: string;
 
     // leeway to the token expiration
-    leeway: uint32 = 0;
+    expiry_leeway_secs: uint32 = 0;
+
+    // leeway to the token issued_at
+    iat_leeway_secs: uint32 = 5;
+
+    // leeway to the token not_before
+    nbf_leeway_secs: uint32 = 5;
 
     // ssl verification for the signing key download url
     verify: bool = true;

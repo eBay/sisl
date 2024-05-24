@@ -34,6 +34,11 @@ bool TrfClient::get_file_contents(const std::string& file_path, std::string& con
     return false;
 }
 
+static std::chrono::seconds get_expiry(const std::chrono::seconds& token_expiry) {
+    // refresh after half the expiry time
+    return token_expiry / 2;
+}
+
 void TrfClient::request_with_grant_token() {
     std::string grant_token;
     if (!get_file_contents(SECURITY_DYNAMIC_CONFIG(trf_client->grant_path), grant_token)) {
@@ -72,7 +77,7 @@ void TrfClient::request_with_grant_token() {
 
     try {
         const nlohmann::json resp_json = nlohmann::json::parse(resp.text);
-        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(resp_json["expires_in"]);
+        m_expiry = std::chrono::system_clock::now() + get_expiry(std::chrono::seconds(resp_json["expires_in"]));
         m_access_token = resp_json["access_token"];
         m_token_type = resp_json["token_type"];
     } catch ([[maybe_unused]] const nlohmann::detail::exception& e) {
@@ -91,7 +96,7 @@ void TrfClient::parse_response(const std::string& resp) {
         if (m_token_type = get_quoted_string(resp, token2); m_access_token.empty()) { return; }
         auto expiry_str = get_string(resp, token3);
         if (expiry_str.empty()) { return; }
-        m_expiry = std::chrono::system_clock::now() + std::chrono::seconds(std::stol(expiry_str));
+        m_expiry = std::chrono::system_clock::now() + get_expiry(std::chrono::seconds(std::stol(expiry_str)));
     } catch (const std::exception& e) { LOGERROR("failed to parse response: {}, what: {}", resp, e.what()); }
 }
 

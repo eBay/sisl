@@ -26,10 +26,8 @@ public:
 private:
     void validate_grant_path() const;
     bool grant_path_exists() const { return std::filesystem::exists(SECURITY_DYNAMIC_CONFIG(trf_client->grant_path)); }
-    bool access_token_expired() const {
-        return (std::chrono::system_clock::now() >
-                m_expiry + std::chrono::seconds(SECURITY_DYNAMIC_CONFIG(auth_manager->leeway)));
-    }
+    // If leeway is set, this will force us to download token ahead of its expiry
+    bool access_token_expired() const { return (std::chrono::system_clock::now() > m_expiry); }
     static bool get_file_contents(const std::string& file_name, std::string& contents);
 
 private:

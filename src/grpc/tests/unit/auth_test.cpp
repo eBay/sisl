@@ -245,7 +245,7 @@ static void load_auth_settings() {
     SECURITY_SETTINGS_FACTORY().modifiable_settings([](auto& s) {
         s.auth_manager->auth_allowed_apps = "app1, testapp, app2";
         s.auth_manager->tf_token_url = "http://127.0.0.1";
-        s.auth_manager->leeway = 0;
+        s.auth_manager->expiry_leeway_secs = 0;
         s.auth_manager->issuer = "trustfabric";
         s.trf_client->grant_path = grant_path;
         s.trf_client->server = fmt::format("{}:{}/token", trf_token_server_ip, trf_token_server_port);
@@ -401,12 +401,12 @@ TEST(GenericServiceDeathTest, basic_test) {
     auto g_grpc_server = GrpcServer::make("0.0.0.0:56789", nullptr, 1, "", "");
     // register rpc before generic service is registered
 #ifndef NDEBUG
-    ASSERT_DEATH(g_grpc_server->register_generic_rpc(
-                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
-                 "Assertion .* failed");
+    ASSERT_DEATH(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
+        "Assertion .* failed");
 #else
-    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_FALSE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 #endif
 
     ASSERT_TRUE(g_grpc_server->register_async_generic_service());
@@ -414,21 +414,21 @@ TEST(GenericServiceDeathTest, basic_test) {
     EXPECT_FALSE(g_grpc_server->register_async_generic_service());
     // register rpc before server is run
 #ifndef NDEBUG
-    ASSERT_DEATH(g_grpc_server->register_generic_rpc(
-                     "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
-                 "Assertion .* failed");
+    ASSERT_DEATH(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
+        "Assertion .* failed");
 #else
-    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_FALSE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 #endif
     g_grpc_server->run();
-    EXPECT_TRUE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
-    EXPECT_TRUE(g_grpc_server->register_generic_rpc(
-        "method2", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_TRUE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_TRUE(
+        g_grpc_server->register_generic_rpc("method2", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
     // re-register method 1
-    EXPECT_FALSE(g_grpc_server->register_generic_rpc(
-        "method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
+    EXPECT_FALSE(
+        g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
 
     auto client = std::make_unique< GrpcAsyncClient >("0.0.0.0:56789", "", "");
     client->init();
@@ -437,15 +437,11 @@ TEST(GenericServiceDeathTest, basic_test) {
     ::grpc::ByteBuffer cli_buf;
     generic_stub->call_unary(
         cli_buf, "method1",
-        [method = "method1"](::grpc::ByteBuffer&, ::grpc::Status& status) {
-            validate_generic_reply(method, status);
-        },
+        [method = "method1"](::grpc::ByteBuffer&, ::grpc::Status& status) { validate_generic_reply(method, status); },
         1);
     generic_stub->call_unary(
         cli_buf, "method2",
-        [method = "method2"](::grpc::ByteBuffer&, ::grpc::Status& status) {
-            validate_generic_reply(method, status);
-        },
+        [method = "method2"](::grpc::ByteBuffer&, ::grpc::Status& status) { validate_generic_reply(method, status); },
         1);
     generic_stub->call_unary(
         cli_buf, "method_unknown",
