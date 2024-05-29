@@ -39,7 +39,7 @@ runs:
 
     - name: Restore Cache
       id: restore-cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.conan/data
@@ -47,7 +47,7 @@ runs:
         fail-on-cache-miss: ${{ inputs.fail_on_cache_miss }}
 
     - name: Restore Testing Cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.conan/data

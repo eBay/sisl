@@ -170,7 +170,7 @@ nlohmann::json expected = {
             {"Histograms percentiles (usecs) avg/50/95/99", {
                 {"Cache Delete Latency", "200.0 / 0.0 / 0.0 / 0.0" },
                 {"Cache Read Latency", "150.0 / 0.0 / 0.0 / 0.0" },
-                {"Cache Write Latency", "125.0 / 99.0 / 99.0 / 99.0"}
+                {"Cache Write Latency", "125.0 / 73.0 / 73.0 / 73.0"}
             }}
         }},
         {"cache1_2", {
@@ -181,7 +181,7 @@ nlohmann::json expected = {
                 {"Total cache size", 20}
             }},
             {"Histograms percentiles (usecs) avg/50/95/99", {
-                {"Cache Delete Latency", "275.0 / 152.0 / 152.0 / 152.0" },
+                {"Cache Delete Latency", "275.0 / 104.0 / 104.0 / 104.0" },
                 {"Cache Read Latency", "350.0 / 0.0 / 0.0 / 0.0" },
                 {"Cache Write Latency", "200.0 / 0.0 / 0.0 / 0.0"}
             }}
@@ -218,7 +218,7 @@ nlohmann::json expected = {
                 {"Total memory utilization", 980}
             }},
             {"Histograms percentiles (usecs) avg/50/95/99", {
-                {"Distribution of request per transactions", "18.2 / 15.0 / 31.0 / 31.0"}
+                {"Distribution of request per transactions", "18.2 / 6.0 / 16.0 / 16.0"}
             }}
         }}
     }}
