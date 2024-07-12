@@ -98,13 +98,15 @@ RpcDataAbstract* GenericRpcData::on_request_received(bool ok) {
     return in_shutdown ? nullptr : create_new();
 }
 
-RpcDataAbstract* GenericRpcData::on_buf_read(bool) {
-    auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
-    // take a ref before the handler cb is called.
-    // unref is called in send_response which is handled by us (in case of sync calls)
-    // or by the handler (for async calls)
-    ref();
-    if (RPCHelper::run_generic_handler_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data)) { send_response(); }
+RpcDataAbstract* GenericRpcData::on_buf_read(bool ok) {
+    if (ok) {
+        auto this_rpc_data = boost::intrusive_ptr< GenericRpcData >{this};
+        // take a ref before the handler cb is called.
+        // unref is called in send_response which is handled by us (in case of sync calls)
+        // or by the handler (for async calls)
+        ref();
+        if (RPCHelper::run_generic_handler_cb(m_rpc_info->m_server, m_ctx.method(), this_rpc_data)) { send_response(); }
+    }
     return nullptr;
 }
 

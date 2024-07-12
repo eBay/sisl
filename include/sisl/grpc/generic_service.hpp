@@ -87,7 +87,7 @@ private:
     bool do_authorization();
 
     RpcDataAbstract* on_request_received(bool ok);
-    RpcDataAbstract* on_buf_read(bool);
+    RpcDataAbstract* on_buf_read(bool ok);
     RpcDataAbstract* on_buf_write(bool);
     RpcDataAbstract* on_request_completed(bool);
 
