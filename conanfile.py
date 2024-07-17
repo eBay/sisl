@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "12.2.4"
+    version = "12.2.5"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -240,13 +240,13 @@ class SISLConan(ConanFile):
             self.cpp_info.components["grpc"].set_property("pkg_config_name", f"libsisl_grpc")
             self.cpp_info.components["grpc"].requires.extend([
                     "buffer",
-                    "grpc::grpc",
+                    "grpc::grpc++",
                     ])
             self.cpp_info.components["flip"].libs = ["flip"]
             self.cpp_info.components["flip"].set_property("pkg_config_name", f"libflip")
             self.cpp_info.components["flip"].requires.extend([
                     "logging",
-                    "grpc::grpc",
+                    "grpc::grpc++",
                     ])
             self.cpp_info.components["sisl"].requires.extend([
                     "grpc",
