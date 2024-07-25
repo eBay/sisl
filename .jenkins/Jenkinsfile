@@ -54,8 +54,7 @@ pipeline {
 
         stage("Compile") {
             steps {
-                sh "conan export 3rd_party/folly folly/nu2.2023.12.11.00@ ; \
-                    conan create ${BUILD_MISSING} -s:h build_type=Debug -o ${PROJECT}/*:sanitize=True ${CONAN_FLAGS} . ; \
+                sh "conan create ${BUILD_MISSING} -s:h build_type=Debug -o ${PROJECT}/*:sanitize=True ${CONAN_FLAGS} . ; \
                     conan create ${BUILD_MISSING} -s:h build_type=Debug ${CONAN_FLAGS} . ; \
                     conan create ${BUILD_MISSING} -s:h build_type=RelWithDebInfo -o ${PROJECT}/*:malloc_impl=tcmalloc ${CONAN_FLAGS} .; \
                     conan create ${BUILD_MISSING} -s:h build_type=RelWithDebInfo -o ${PROJECT}/*:prerelease=True -o ${PROJECT}/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ; \
