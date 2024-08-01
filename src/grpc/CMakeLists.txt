@@ -13,8 +13,4 @@ target_link_libraries(sisl_grpc PUBLIC
   gRPC::grpc++
   )
 
-if(DEFINED ENABLE_TESTING)
-  if(${ENABLE_TESTING})
-    add_subdirectory(tests)
-  endif()
-endif()
+add_subdirectory(tests)
