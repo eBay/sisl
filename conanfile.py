@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "12.2.6"
+    version = "12.2.7"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -86,6 +86,10 @@ class SISLConan(ConanFile):
         if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20210521")
         self.requires("fmt/10.0.0",  override=True)
+
+        # ARM needs unreleased versionof libunwind
+        if not self.settings.arch in ['x86', 'x86_64']:
+            self.requires("libunwind/1.8.2@baydb/develop", override=True)
 
         if self.options.metrics:
             self.requires("flatbuffers/23.5.26", transitive_headers=True)
