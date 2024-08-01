@@ -9,13 +9,9 @@ target_link_libraries(sisl_options PUBLIC
   cxxopts::cxxopts
   )
 
-if (DEFINED ENABLE_TESTING)
-  if (${ENABLE_TESTING})
-    add_executable(basic_test)
-    target_sources(basic_test PRIVATE
-      tests/basic.cpp
-      )
-    target_link_libraries(basic_test sisl_options GTest::gtest)
-    add_test(NAME OptionsBasics COMMAND basic_test)
-  endif()
-endif()
+add_executable(basic_test)
+target_sources(basic_test PRIVATE
+  tests/basic.cpp
+  )
+target_link_libraries(basic_test sisl_options GTest::gtest)
+add_test(NAME OptionsBasics COMMAND basic_test)

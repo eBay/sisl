@@ -8,11 +8,8 @@ include (cmake/Flags.cmake)
 
 set(CMAKE_CXX_STANDARD 20)
 
-if (NOT BUILD_TESTING STREQUAL OFF)
-  set(ENABLE_TESTING ON)
-  enable_testing()
-  find_package(GTest QUIET REQUIRED)
-endif()
+enable_testing()
+find_package(GTest QUIET REQUIRED)
 
 if (DEFINED BUILD_COVERAGE)
   if (${BUILD_COVERAGE})
