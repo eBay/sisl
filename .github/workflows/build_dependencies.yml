@@ -86,13 +86,13 @@ jobs:
     runs-on: ${{ inputs.platform }}
     steps:
     - name: Retrieve Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@main
       with:
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'True' }}
 
     - name: Retrieve Recipe
-      uses: actions/checkout@v3
+      uses: actions/checkout@main
       with:
         repository: eBay/sisl
         ref: ${{ inputs.branch }}
@@ -159,7 +159,7 @@ jobs:
       if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         gcov: true
