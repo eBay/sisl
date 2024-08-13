@@ -41,15 +41,17 @@ public:
                const std::string& ssl_cert);
     GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                const std::string& ssl_cert, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr);
+    GrpcServer(const std::string& listen_addr, uint32_t threads, int max_receive_msg_size, const std::string& ssl_key,
+               const std::string& ssl_cert, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr);
     virtual ~GrpcServer();
 
     /**
      * Create a new GrpcServer instance and initialize it.
      */
     static GrpcServer* make(const std::string& listen_addr, uint32_t threads = 1, const std::string& ssl_key = "",
-                            const std::string& ssl_cert = "");
+                            const std::string& ssl_cert = "", int max_receive_msg_size = 0);
     static GrpcServer* make(const std::string& listen_addr, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr,
-                            uint32_t threads = 1, const std::string& ssl_key = "", const std::string& ssl_cert = "");
+                            uint32_t threads = 1, const std::string& ssl_key = "", const std::string& ssl_cert = "", int max_receive_msg_size = 0);
 
     void run(const rpc_thread_start_cb_t& thread_start_cb = nullptr);
     void shutdown();

@@ -229,6 +229,45 @@ private:
     AlignedAllocatorMetrics m_metrics;
 };
 
+template < typename T, std::size_t Alignment = 512 >
+class AlignedTypeAllocator {
+private:
+    static_assert(Alignment >= alignof(T),
+                  "Beware that types like int have minimum alignment requirements "
+                  "or access will result in crashes.");
+
+public:
+    /**
+     * This is only necessary because AlignedAllocator has a second template
+     * argument for the alignment that will make the default
+     * std::allocator_traits implementation fail during compilation.
+     * @see https://stackoverflow.com/a/48062758/2191065
+     *
+     * Taken this from link:
+     * https://stackoverflow.com/questions/60169819/modern-approach-to-making-stdvector-allocate-aligned-memory
+     */
+    template < class OtherT >
+    struct rebind {
+        using other = AlignedTypeAllocator< OtherT, Alignment >;
+    };
+
+public:
+    constexpr AlignedTypeAllocator() noexcept = default;
+    constexpr AlignedTypeAllocator(const AlignedTypeAllocator&) noexcept = default;
+
+    template < typename U >
+    constexpr AlignedTypeAllocator(AlignedTypeAllocator< U, Alignment > const&) noexcept {}
+
+    T* allocate(std::size_t nelems) {
+        if (nelems > std::numeric_limits< std::size_t >::max() / sizeof(T)) { throw std::bad_array_new_length(); }
+        return r_cast< T* >(AlignedAllocator::allocator().aligned_alloc(Alignment, nelems * sizeof(T), buftag::common));
+    }
+
+    void deallocate(T* ptr, [[maybe_unused]] std::size_t nbytes) {
+        AlignedAllocator::allocator().aligned_free(uintptr_cast(ptr), buftag::common);
+    }
+};
+
 #define sisl_aligned_alloc sisl::AlignedAllocator::allocator().aligned_alloc
 #define sisl_aligned_free sisl::AlignedAllocator::allocator().aligned_free
 #define sisl_aligned_realloc sisl::AlignedAllocator::allocator().aligned_realloc
@@ -272,6 +311,9 @@ public:
 
     aligned_shared_ptr(T* p) : std::shared_ptr< T >(p) {}
 };
+
+template < typename T, std::size_t Alignment = 512 >
+using aligned_vector = std::vector< T, AlignedTypeAllocator< T, Alignment > >;
 
 struct io_blob;
 using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
@@ -338,7 +380,7 @@ public:
  */
 struct io_blob_safe final : public io_blob {
 public:
-    buftag m_tag;
+    buftag m_tag{buftag::common};
 
 public:
     io_blob_safe() = default;
@@ -367,6 +409,8 @@ public:
         other.size_ = 0;
         return *this;
     }
+
+    void buf_alloc(size_t sz, uint32_t align_size = 512) { io_blob::buf_alloc(sz, align_size, m_tag); }
 };
 
 using byte_array_impl = io_blob_safe;

@@ -15,6 +15,8 @@
 #include "sisl/grpc/rpc_client.hpp"
 #include "utils.hpp"
 
+SISL_LOGGING_DECL(grpc_server)
+
 namespace sisl {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
@@ -31,21 +33,17 @@ GrpcBaseClient::GrpcBaseClient(const std::string& server_addr,
 
 void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
+    ::grpc::ChannelArguments channel_args;
+    channel_args.SetMaxReceiveMessageSize(-1);
     if (!m_ssl_cert.empty()) {
         if (load_ssl_cert(m_ssl_cert, ssl_opts.pem_root_certs)) {
-            if (!m_target_domain.empty()) {
-                ::grpc::ChannelArguments channel_args;
-                channel_args.SetSslTargetNameOverride(m_target_domain);
-                m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts), channel_args);
-            } else {
-                m_channel = ::grpc::CreateChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts));
-            }
-
+            if (!m_target_domain.empty()) { channel_args.SetSslTargetNameOverride(m_target_domain); }
+            m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::SslCredentials(ssl_opts), channel_args);
         } else {
             throw std::runtime_error("Unable to load ssl certification for grpc client");
         }
     } else {
-        m_channel = ::grpc::CreateChannel(m_server_addr, ::grpc::InsecureChannelCredentials());
+        m_channel = ::grpc::CreateCustomChannel(m_server_addr, ::grpc::InsecureChannelCredentials(), channel_args);
     }
 }
 
@@ -157,11 +155,23 @@ void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t&
     prepare_and_send_unary_generic(cd, cd->m_req, method, deadline);
 }
 
-generic_async_result_t GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
-                                                                     const std::string& method, uint32_t deadline) {
-    auto [p, sf] = folly::makePromiseContract< generic_result_t >();
+AsyncResult< grpc::ByteBuffer > GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
+                                                                              const std::string& method,
+                                                                              uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< Result< grpc::ByteBuffer > >();
     auto data = new GenericClientRpcDataFuture(std::move(p));
     prepare_and_send_unary_generic(data, request, method, deadline);
+    return std::move(sf);
+}
+
+AsyncResult< GenericClientResponse > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
+                                                                                   const std::string& method,
+                                                                                   uint32_t deadline) {
+    auto [p, sf] = folly::makePromiseContract< Result< GenericClientResponse > >();
+    auto data = new GenericRpcDataFutureBlob(std::move(p));
+    grpc::ByteBuffer cli_byte_buf;
+    serialize_to_byte_buffer(request, cli_byte_buf);
+    prepare_and_send_unary_generic(data, cli_byte_buf, method, deadline);
     return std::move(sf);
 }
 
@@ -172,4 +182,52 @@ std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_gener
     return std::make_unique< GrpcAsyncClient::GenericAsyncStub >(std::make_unique< grpc::GenericStub >(m_channel), w,
                                                                  m_token_client);
 }
+
+GenericClientResponse::GenericClientResponse(GenericClientResponse&& other) {
+    m_response_buf.Swap(&(other.m_response_buf));
+    m_single_slice = std::move(other.m_single_slice);
+    other.m_response_buf.Release();
+}
+
+GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse&& other) {
+    m_response_buf.Swap(&(other.m_response_buf));
+    m_single_slice = std::move(other.m_single_slice);
+    other.m_response_buf.Release();
+    return *this;
+}
+
+GenericClientResponse& GenericClientResponse::operator=(GenericClientResponse const& other) {
+    m_response_buf = other.m_response_buf;
+    m_single_slice = other.m_single_slice;
+    return *this;
+}
+
+io_blob GenericClientResponse::response_blob() {
+    if ((m_single_slice.size() == 0) && m_response_buf.Valid()) {
+        auto status = m_response_buf.TrySingleSlice(&m_single_slice);
+        if (!status.ok()) {
+            status = m_response_buf.DumpToSingleSlice(&m_single_slice);
+            RELEASE_ASSERT(status.ok(), "Failed to deserialize response: code: {}. msg: {}",
+                           static_cast< int >(status.error_code()), status.error_message());
+        }
+        m_response_buf.Clear(); // Since we dumped everything to a single slice, we don't need bytebyffer anymore
+    }
+
+    auto const size = uint32_cast(m_single_slice.size());
+    return size ? io_blob{m_single_slice.begin(), size, false /* is_aligned */} : io_blob{};
+}
+
+GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(folly::Promise< Result< GenericClientResponse > >&& promise) :
+        m_promise{std::move(promise)} {}
+
+void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {
+    // For unary call, ok is always true, `status_` will indicate error if there are any.
+    if (this->m_status.ok()) {
+        auto future_resp = GenericClientResponse(this->m_reply);
+        m_promise.setValue(std::move(future_resp));
+    } else {
+        m_promise.setValue(folly::makeUnexpected(this->m_status));
+    }
+}
+
 } // namespace sisl

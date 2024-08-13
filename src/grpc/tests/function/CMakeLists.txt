@@ -7,10 +7,8 @@ target_sources(echo_server PRIVATE
       $<TARGET_OBJECTS:test_proto>
   )
 target_link_libraries(echo_server
-    sisl
     sisl_grpc
     GTest::gtest
-    ${COMMON_DEPS}
   )
 add_test(NAME Echo_Ping_Server COMMAND echo_server)
 
@@ -21,9 +19,7 @@ target_sources(echo_async_client PRIVATE
       $<TARGET_OBJECTS:test_proto>
   )
 target_link_libraries(echo_async_client
-    sisl
     sisl_grpc
     GTest::gtest
-    ${COMMON_DEPS}
   )
 add_test(NAME Echo_Ping_Async_Client_Server COMMAND echo_async_client)

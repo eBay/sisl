@@ -33,6 +33,7 @@
 #include <sisl/utility/obj_life_counter.hpp>
 #include <sisl/utility/enum.hpp>
 #include <sisl/auth_manager/token_client.hpp>
+#include <sisl/fds/buffer.hpp>
 
 #include <fmt/format.h>
 
@@ -81,8 +82,6 @@ using generic_req_builder_cb_t = req_builder_cb_t< grpc::ByteBuffer >;
 using generic_unary_callback_t = unary_callback_t< grpc::ByteBuffer >;
 using GenericClientRpcDataCallback = ClientRpcDataCallback< grpc::ByteBuffer, grpc::ByteBuffer >;
 using GenericClientRpcDataFuture = ClientRpcDataFuture< grpc::ByteBuffer, grpc::ByteBuffer >;
-using generic_result_t = Result< grpc::ByteBuffer >;
-using generic_async_result_t = AsyncResult< grpc::ByteBuffer >;
 
 /**
  * The specialized 'ClientRpcDataInternal' per gRPC call,
@@ -92,7 +91,7 @@ using generic_async_result_t = AsyncResult< grpc::ByteBuffer >;
 template < typename ReqT, typename RespT >
 class ClientRpcDataInternal : public ClientRpcDataAbstract {
 public:
-    using ResponseReaderPtr = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+    using ResponseReaderPtr = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
     using GenericResponseReaderPtr = std::unique_ptr< grpc::GenericClientAsyncResponseReader >;
 
     /* Allow GrpcAsyncClient and its inner classes to use
@@ -164,6 +163,39 @@ public:
     folly::Promise< Result< RespT > > m_promise;
 };
 
+class GenericClientResponse : public ObjLifeCounter< GenericClientResponse > {
+public:
+    GenericClientResponse() = default;
+    GenericClientResponse(grpc::ByteBuffer const& buf) : m_response_buf{buf} {}
+
+    GenericClientResponse(GenericClientResponse&& other);
+    GenericClientResponse& operator=(GenericClientResponse&& other);
+    GenericClientResponse(GenericClientResponse const& other) = default;
+    GenericClientResponse& operator=(GenericClientResponse const& other);
+    ~GenericClientResponse() = default;
+
+    io_blob response_blob();
+
+private:
+    grpc::ByteBuffer m_response_buf;
+    grpc::Slice m_single_slice;
+};
+
+/**
+ * futures version of ClientRpcDataInternal
+ * This class holds the promise end of the grpc response
+ * that returns a GenericClientResponse. The sisl::io_blob version of the response
+ * can be accessed via the response_blob() method.
+ */
+class GenericRpcDataFutureBlob : public ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer > {
+public:
+    GenericRpcDataFutureBlob(folly::Promise< Result< GenericClientResponse > >&& promise);
+    virtual void handle_response([[maybe_unused]] bool ok = true) override;
+
+private:
+    folly::Promise< Result< GenericClientResponse > > m_promise;
+};
+
 template < typename ReqT, typename RespT >
 class ClientRpcData : public ClientRpcDataInternal< ReqT, RespT > {
 public:
@@ -194,7 +226,7 @@ protected:
     const std::string m_target_domain;
     const std::string m_ssl_cert;
 
-    std::shared_ptr<::grpc::ChannelInterface > m_channel;
+    std::shared_ptr< ::grpc::ChannelInterface > m_channel;
     std::shared_ptr< sisl::GrpcTokenClient > m_token_client;
 
 public:
@@ -310,7 +342,7 @@ public:
 
         /* unary call helper */
         template < typename RespT >
-        using unary_call_return_t = std::unique_ptr<::grpc::ClientAsyncResponseReaderInterface< RespT > >;
+        using unary_call_return_t = std::unique_ptr< ::grpc::ClientAsyncResponseReaderInterface< RespT > >;
 
         template < typename ReqT, typename RespT >
         using unary_call_t = unary_call_return_t< RespT > (stub_t::*)(::grpc::ClientContext*, const ReqT&,
@@ -418,7 +450,8 @@ public:
                 m_generic_stub(std::move(stub)), m_worker(worker), m_token_client(token_client) {}
 
         void prepare_and_send_unary_generic(ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer >* data,
-                                            const grpc::ByteBuffer& request, const std::string& method, uint32_t deadline);
+                                            const grpc::ByteBuffer& request, const std::string& method,
+                                            uint32_t deadline);
 
         void call_unary(const grpc::ByteBuffer& request, const std::string& method,
                         const generic_unary_callback_t& callback, uint32_t deadline);
@@ -427,8 +460,11 @@ public:
                       const generic_rpc_comp_cb_t& done_cb, uint32_t deadline);
 
         // futures version of call_unary
-        generic_async_result_t call_unary(const grpc::ByteBuffer& request, const std::string& method,
-                                          uint32_t deadline);
+        AsyncResult< grpc::ByteBuffer > call_unary(const grpc::ByteBuffer& request, const std::string& method,
+                                                   uint32_t deadline);
+
+        AsyncResult< GenericClientResponse > call_unary(const io_blob_list_t& request, const std::string& method,
+                                                        uint32_t deadline);
 
         std::unique_ptr< grpc::GenericStub > m_generic_stub;
         GrpcAsyncClientWorker* m_worker;

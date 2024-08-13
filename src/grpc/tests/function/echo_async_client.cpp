@@ -19,6 +19,7 @@
 #include <chrono>
 #include <thread>
 #include <mutex>
+#include <random>
 
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
@@ -31,6 +32,25 @@
 using namespace sisl;
 using namespace ::grpc_helper_test;
 using namespace std::placeholders;
+
+#define MAX_GRPC_RECV_SIZE 64 * 1024 * 1024
+
+static constexpr std::array< const char, 62 > alphanum{
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K',
+    'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+    'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
+
+static std::string gen_random_string(size_t len) {
+    std::string str;
+    static thread_local std::random_device rd{};
+    static thread_local std::default_random_engine re{rd()};
+    std::uniform_int_distribution< size_t > rand_char{0, alphanum.size() - 1};
+    for (size_t i{0}; i < len; ++i) {
+        str += alphanum[rand_char(re)];
+    }
+    str += '\0';
+    return str;
+}
 
 struct DataMessage {
     int m_seqno;
@@ -89,7 +109,15 @@ static void SerializeToByteBuffer(grpc::ByteBuffer& buffer, const DataMessage& m
     buffer.Swap(&tmp);
 }
 
-static const std::string GENERIC_CLIENT_MESSAGE{"I am a super client!"};
+static void SerializeToBlob(sisl::io_blob_list_t& buffer, const DataMessage& msg) {
+    std::string str_msg;
+    msg.SerializeToString(str_msg);
+    auto buf = sisl::io_blob(str_msg.size());
+    std::memcpy(voidptr_cast(buf.bytes()), c_voidptr_cast(str_msg.data()), str_msg.size());
+    buffer.emplace_back(buf);
+}
+
+static const std::string GENERIC_CLIENT_MESSAGE{gen_random_string(MAX_GRPC_RECV_SIZE)};
 static const std::string GENERIC_METHOD{"SendData"};
 
 class TestClient {
@@ -129,6 +157,23 @@ public:
         {
             std::unique_lock lk(m_wait_mtx);
             if (--m_generic_counter == 0) { m_cv.notify_all(); }
+        }
+    }
+
+    void validate_generic_reply(const DataMessage& req, sisl::GenericClientResponse reply, ::grpc::Status const& status,
+                                sisl::io_blob_list_t cli_buf) {
+        RELEASE_ASSERT_EQ(status.ok(), true, "generic request {} failed, status {}: {}", req.m_seqno,
+                          status.error_code(), status.error_message());
+        DataMessage svr_msg;
+        DeserializeFromBuffer(reply.response_blob(), svr_msg);
+        RELEASE_ASSERT_EQ(req.m_seqno, svr_msg.m_seqno);
+        RELEASE_ASSERT_EQ(req.m_buf, svr_msg.m_buf);
+        {
+            std::unique_lock lk(m_wait_mtx);
+            if (--m_generic_counter == 0) { m_cv.notify_all(); }
+        }
+        for (auto& buf : cli_buf) {
+            buf.buf_free();
         }
     }
 
@@ -211,8 +256,14 @@ public:
             } else {
                 // divide all numbers not divisible by 2 and 3 into three equal buckets
                 static uint32_t j = 0u;
-                if ((j++ % 3) == 0) {
-                    DataMessage req(i, GENERIC_CLIENT_MESSAGE);
+                static int mess_size[] = {16, 64, 64 * 1024, 16 * 1024, 16 * 1024 * 1024, 64 * 1024 * 1024 - 1024};
+                static std::random_device rd;
+                static std::mt19937 gen(rd());
+                static std::uniform_int_distribution< int > distrib(0, sizeof(mess_size)/sizeof(mess_size[0]) -1);
+                if ((j++ % 4) == 0) {
+                    int size = mess_size[distrib(gen)];
+                    LOGDEBUGMOD(grpc_server, "Testing call_unary with size {}", size);
+                    DataMessage req(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
                     grpc::ByteBuffer cli_buf;
                     SerializeToByteBuffer(cli_buf, req);
                     generic_stub->call_unary(
@@ -221,16 +272,20 @@ public:
                             validate_generic_reply(req, reply, status);
                         },
                         1);
-                } else if (((j++ % 3) == 1)) {
-                    DataMessage data_msg(i, GENERIC_CLIENT_MESSAGE);
+                } else if (((j++ % 4) == 1)) {
+                    int size = mess_size[distrib(gen)];
+                    LOGDEBUGMOD(grpc_server, "Testing call_rpc with size {}", size);
+                    DataMessage data_msg(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
                     generic_stub->call_rpc([data_msg](grpc::ByteBuffer& req) { SerializeToByteBuffer(req, data_msg); },
                                            GENERIC_METHOD,
                                            [data_msg, this](GenericClientRpcData& cd) {
                                                validate_generic_reply(data_msg, cd.reply(), cd.status());
                                            },
                                            1);
-                } else {
-                    DataMessage req(i, GENERIC_CLIENT_MESSAGE);
+                } else if (((j++ % 4) == 2)) {
+                    int size = mess_size[distrib(gen)];
+                    LOGDEBUGMOD(grpc_server, "Testing call_unary with size {}", size);
+                    DataMessage req(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
                     grpc::ByteBuffer cli_buf;
                     SerializeToByteBuffer(cli_buf, req);
                     generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
@@ -238,6 +293,21 @@ public:
                             RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
                                            e.error().error_code(), e.error().error_message());
                             validate_generic_reply(req, e.value(), grpc::Status::OK);
+                            return folly::Unit();
+                        })
+                        .get();
+
+                } else {
+                    int size = mess_size[distrib(gen)];
+                    LOGDEBUGMOD(grpc_server, "Testing call_unary with size {}", size);
+                    DataMessage req(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
+                    sisl::io_blob_list_t cli_buf;
+                    SerializeToBlob(cli_buf, req);
+                    generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
+                        .deferValue([req, cli_buf, this](auto e) {
+                            RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
+                                           e.error().error_code(), e.error().error_message());
+                            validate_generic_reply(req, std::move(e.value()), grpc::Status::OK, cli_buf);
                             return folly::Unit();
                         })
                         .get();
@@ -332,11 +402,10 @@ public:
         std::atomic< uint32_t > num_completions = 0ul;
 
         template < typename BufT >
-        static void set_response(BufT const& req, grpc::ByteBuffer& resp) {
+        static void set_response(BufT const& req, grpc::ByteBuffer& resp, bool set_buf) {
             DataMessage cli_request;
             DeserializeFromBuffer(req, cli_request);
-            RELEASE_ASSERT((cli_request.m_buf == GENERIC_CLIENT_MESSAGE), "Could not parse response buffer");
-            SerializeToByteBuffer(resp, cli_request);
+            if (set_buf) { SerializeToByteBuffer(resp, cli_request); }
         }
 
     public:
@@ -353,12 +422,17 @@ public:
                     if ((++num_calls % 2) == 0) {
                         LOGDEBUGMOD(grpc_server, "respond async generic request, call_num {}", num_calls.load());
                         std::thread([this, rpc = rpc_data] {
-                            set_response(rpc->request_blob(), rpc->response());
-                            rpc->send_response();
+                            if ((num_calls % 3) == 0) {
+                                set_response(rpc->request_blob(), rpc->response(), false);
+                                rpc->send_response(io_blob_list_t{rpc->request_blob()});
+                            } else {
+                                set_response(rpc->request_blob(), rpc->response(), true);
+                                rpc->send_response();
+                            }
                         }).detach();
                         return false;
                     }
-                    set_response(rpc_data->request(), rpc_data->response());
+                    set_response(rpc_data->request(), rpc_data->response(), true);
                     return true;
                 });
             RELEASE_ASSERT(res, "register generic rpc failed");
@@ -375,7 +449,7 @@ public:
 
     void start(const std::string& server_address) {
         LOGINFO("Start echo and ping server on {}...", server_address);
-        m_grpc_server = GrpcServer::make(server_address, 4, "", "");
+        m_grpc_server = GrpcServer::make(server_address, 4, "", "", MAX_GRPC_RECV_SIZE);
         m_echo_impl = new EchoServiceImpl();
         m_echo_impl->register_service(m_grpc_server);
 

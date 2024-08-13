@@ -32,17 +32,14 @@
 #include <unistd.h>
 #endif
 
-#include <sisl/logging/logging.h>
-#if defined(__linux__)
-#include <breakpad/client/linux/handler/exception_handler.h>
+#ifndef NDEBUG
+#include "stacktrace_debug.h"
+#else
+#include "stacktrace_release.h"
 #endif
 
 namespace sisl {
 namespace logging {
-static bool g_custom_signal_handler_installed{false};
-static size_t g_custom_signal_handlers{0};
-static bool g_crash_handle_all_threads{true};
-static std::mutex g_hdlr_mutex;
 
 typedef struct SignalHandlerData {
     SignalHandlerData(std::string name, const sig_handler_t handler) : name{std::move(name)}, handler{handler} {}
@@ -121,29 +118,9 @@ static const char* exit_reason_name(const SignalType fatal_id) {
     }
 }
 
-#if defined(__linux__)
-static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, [[maybe_unused]] void*,
-                         bool succeeded) {
-    std::cerr << std::endl << "Minidump path: " << descriptor.path() << std::endl;
-    return succeeded;
-}
-#endif
-
-static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
-#if defined(__linux__)
-    google_breakpad::ExceptionHandler::WriteMinidump(get_base_dir().string(), dumpCallback, nullptr);
-#endif
-}
-
 static void crash_handler(const SignalType signal_number) {
     LOGCRITICAL("\n * ****Received fatal SIGNAL : {}({})\tPID : {}", exit_reason_name(signal_number), signal_number,
                 ::getpid());
-    const auto flush_logs{[]() { // flush all logs
-        spdlog::apply_all([&](std::shared_ptr< spdlog::logger > l) {
-            if (l) l->flush();
-        });
-        std::this_thread::sleep_for(std::chrono::milliseconds{250});
-    }};
 
     // Only one signal will be allowed past this point
     if (exit_in_progress()) {
@@ -155,10 +132,9 @@ static void crash_handler(const SignalType signal_number) {
     } else {
         flush_logs();
     }
+
+    log_stack_trace(g_crash_handle_all_threads, signal_number);
     spdlog::shutdown();
-
-    bt_dumper(signal_number);
-
     exit_with_default_sighandler(signal_number);
 }
 
