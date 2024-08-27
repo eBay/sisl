@@ -1,14 +1,15 @@
-from os.path import join
 from conan import ConanFile
-from conan.tools.files import copy
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import check_min_cppstd
-from conans import CMake
+from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
+from conan.tools.files import copy
+from os.path import join
 
-required_conan_version = ">=1.52.0"
+required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.7.0"
+    version = "8.8.0"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -34,20 +35,14 @@ class SISLConan(ConanFile):
                 'malloc_impl': 'tcmalloc',
             }
 
-    generators = "cmake", "cmake_find_package"
     exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
 
     def build_requirements(self):
-        self.build_requires("benchmark/1.7.0")
-        self.build_requires("gtest/1.11.0")
-        if self.settings.compiler in ["gcc"]:
-            self.build_requires("pistache/0.0.5")
+        self.test_requires("gtest/1.14.0")
+        self.test_requires("benchmark/1.8.2")
+        self.test_requires("pistache/0.0.5")
 
     def requirements(self):
-        # Custom packages
-        if self.options.prerelease:
-            self.requires("prerelease_dummy/1.0.1")
-
         # Generic packages (conan-center)
         self.requires("boost/1.79.0")
         if self.settings.os in ["Linux"]:
@@ -57,7 +52,7 @@ class SISLConan(ConanFile):
         self.requires("flatbuffers/1.12.0")
         if self.settings.os in ["Linux"]:
             self.requires("folly/2022.01.31.00")
-        self.requires("grpc/1.48.0")
+        self.requires("grpc/1.50.1")
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.0.1")
@@ -71,6 +66,7 @@ class SISLConan(ConanFile):
         self.requires("libcurl/8.4.0",      override=True)
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
+        self.requires("lz4/1.9.4",          override=True)
         if self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
         elif self.options.malloc_impl == "tcmalloc":
@@ -81,6 +77,8 @@ class SISLConan(ConanFile):
             check_min_cppstd(self, 17)
 
     def configure(self):
+        if self.settings.compiler in ["gcc"]:
+            self.options['pistache'].with_ssl: True
         if self.options.shared:
             del self.options.fPIC
         if self.settings.build_type == "Debug":
@@ -89,26 +87,40 @@ class SISLConan(ConanFile):
             if self.options.coverage or self.options.sanitize:
                 self.options.malloc_impl = 'libc'
 
+    def layout(self):
+        cmake_layout(self)
+
+    def generate(self):
+        # This generates "conan_toolchain.cmake" in self.generators_folder
+        tc = CMakeToolchain(self)
+        tc.variables["CONAN_CMAKE_SILENT_OUTPUT"] = "ON"
+        tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
+        tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
+        tc.variables["BUILD_COVERAGE"] = "OFF"
+        tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
+        tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
+        tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
+        if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
+            tc.preprocessor_definitions["_PRERELEASE"] = "1"
+            tc.variables["_PRERELEASE"] = "ON"
+        if self.settings.build_type == "Debug":
+            tc.preprocessor_definitions["_PRERELEASE"] = "1"
+            if self.options.get_safe("coverage"):
+                tc.variables['BUILD_COVERAGE'] = 'ON'
+            elif self.options.get_safe("sanitize"):
+                tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
+        tc.generate()
+
+        # This generates "boost-config.cmake" and "grpc-config.cmake" etc in self.generators_folder
+        deps = CMakeDeps(self)
+        deps.generate()
+
     def build(self):
         cmake = CMake(self)
-
-        definitions = {'CONAN_BUILD_COVERAGE': 'OFF',
-                       'CMAKE_EXPORT_COMPILE_COMMANDS': 'ON',
-                       'CONAN_CMAKE_SILENT_OUTPUT': 'ON',
-                       'MEMORY_SANITIZER_ON': 'OFF',
-                       'MALLOC_IMPL': self.options.malloc_impl}
-
-        if self.settings.build_type == "Debug":
-            if self.options.sanitize:
-                definitions['MEMORY_SANITIZER_ON'] = 'ON'
-            elif self.options.coverage:
-                definitions['CONAN_BUILD_COVERAGE'] = 'ON'
-
-        definitions['MALLOC_IMPL'] = self.options.malloc_impl
-
-        cmake.configure(defs=definitions)
+        cmake.configure()
         cmake.build()
-        cmake.test(output_on_failure=True)
+        if not self.conf.get("tools.build:skip_test", default=False):
+            cmake.test()
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
@@ -135,6 +147,9 @@ class SISLConan(ConanFile):
 
         if self.settings.compiler == "gcc":
             self.cpp_info.cppflags.extend(["-fconcepts"])
+
+        if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
+            self.cpp_info.defines.append("_PRERELEASE=1")
 
         if self.settings.os == "Linux":
             self.cpp_info.libs.append("flip")

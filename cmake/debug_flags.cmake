@@ -62,8 +62,8 @@ if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU"))
    set (REALLY_NO_OPTIMIZATION_FLAGS "${REALLY_NO_OPTIMIZATION_FLAGS} -fthreadsafe-statics"                )# Slightly smaller in code that doesn't need to be TS.
 endif()
 
-if (DEFINED CONAN_BUILD_COVERAGE)
-  if (${CONAN_BUILD_COVERAGE})
+if (DEFINED BUILD_COVERAGE)
+  if (${BUILD_COVERAGE})
     include (cmake/CodeCoverage.cmake)
     APPEND_COVERAGE_COMPILER_FLAGS()
     SETUP_TARGET_FOR_COVERAGE_GCOVR_XML(NAME coverage EXECUTABLE ctest DEPENDENCIES )
