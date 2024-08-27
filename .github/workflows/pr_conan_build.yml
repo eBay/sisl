@@ -11,19 +11,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-22.04", "ubuntu-20.04"]
+        platform: ["ubuntu-22.04"]
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc"]
         prerelease: ["True", "False"]
         exclude:
           - build-type: Debug
-            platform: ubuntu-20.04
-          - build-type: Debug
             platform: tcmalloc
           - malloc-impl: libc
             build-type: Release
-          - prerelease: "True"
-            platform: ubuntu-20.04
     uses: ./.github/workflows/build_dependencies.yml
     with:
       platform: ${{ matrix.platform }}
