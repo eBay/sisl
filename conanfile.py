@@ -67,6 +67,7 @@ class SISLConan(ConanFile):
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
         self.requires("lz4/1.9.4",          override=True)
+        self.requires("zstd/1.5.5",         override=True)
         if self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
         elif self.options.malloc_impl == "tcmalloc":
