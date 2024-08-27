@@ -52,7 +52,7 @@ class SISLConan(ConanFile):
         self.requires("flatbuffers/1.12.0")
         if self.settings.os in ["Linux"]:
             self.requires("folly/2022.01.31.00")
-        self.requires("grpc/[>=1.50]")
+        self.requires("grpc/1.50.1")
         self.requires("jwt-cpp/0.4.0")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.0.1")
@@ -67,7 +67,6 @@ class SISLConan(ConanFile):
         self.requires("xz_utils/5.2.5",     override=True)
         self.requires("zlib/1.2.12",        override=True)
         self.requires("lz4/1.9.4",          override=True)
-        self.requires("zstd/1.5.5",         override=True)
         if self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
         elif self.options.malloc_impl == "tcmalloc":
