@@ -3,6 +3,7 @@
 #include <sisl/options/options.h>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <boost/preprocessor/stringize.hpp>
 
 using namespace sisl;
 
@@ -10,7 +11,7 @@ SISL_OPTIONS_ENABLE(logging)
 SISL_LOGGING_INIT(test_version)
 
 void entry() {
-    auto ver{version::Semver200_version(PACKAGE_VERSION)};
+    auto ver{version::Semver200_version(BOOST_PP_STRINGIZE(PACKAGE_VERSION))};
     sisl::VersionMgr::addVersion("dummy", ver);
 }
 

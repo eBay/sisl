@@ -59,19 +59,15 @@ if (${MALLOC_IMPL} STREQUAL "tcmalloc")
 endif()
 find_package(jwt-cpp REQUIRED)
 find_package(nlohmann_json REQUIRED)
-find_package(prerelease_dummy QUIET)
 find_package(prometheus-cpp REQUIRED)
 find_package(zmarok-semver REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(Threads REQUIRED)
 
-# Linux Specific dependencies
-if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
-    find_package(breakpad REQUIRED)
-    find_package(folly REQUIRED)
-    find_package(userspace-rcu REQUIRED)
-    list (APPEND COMMON_DEPS breakpad::breakpad)
-endif()
+find_package(breakpad REQUIRED)
+find_package(folly REQUIRED)
+find_package(userspace-rcu REQUIRED)
+list (APPEND COMMON_DEPS breakpad::breakpad)
 
 list (APPEND COMMON_DEPS
     Boost::headers
@@ -85,10 +81,6 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
         userspace-rcu::userspace-rcu
     )
 endif()
-
-if (${prerelease_dummy_FOUND})
-    list (APPEND COMMON_DEPS prerelease_dummy::prerelease_dummy)
-endif ()
 
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "tcmalloc")
@@ -112,13 +104,6 @@ endif()
 
 # add conan information 
 add_flags("-DPACKAGE_NAME=sisl")
-if (DEFINED CONAN_PACKAGE_VERSION)
-  message("Package Version: [${CONAN_PACKAGE_VERSION}]")
-  add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
-else ()
-  message("Unknown Package Version")
-  add_flags("-DPACKAGE_VERSION=\\\"${CONAN_PACKAGE_VERSION}\\\"")
-endif ()
 
 if(UNIX)
     # enable proper memstream flags

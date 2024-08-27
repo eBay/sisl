@@ -15,6 +15,8 @@
  *
  *********************************************************************************/
 #include <sisl/version.hpp>
+
+#include <boost/preprocessor/stringize.hpp>
 #include <cassert>
 
 namespace sisl {
@@ -24,7 +26,7 @@ std::once_flag VersionMgr::m_init_flag;
 
 void VersionMgr::createAndInit() {
     m_instance = new VersionMgr();
-    auto ver{version::Semver200_version(PACKAGE_VERSION)};
+    auto ver{version::Semver200_version(BOOST_PP_STRINGIZE(PACKAGE_VERSION))};
     m_instance->m_version_map["sisl"] = ver;
 }
 

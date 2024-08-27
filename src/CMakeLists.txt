@@ -34,7 +34,7 @@ if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Linux)
         $<TARGET_OBJECTS:sisl_settings>
     )
     list(APPEND SISL_DEPS
-        Folly::Folly
+        Folly::folly
         breakpad::breakpad
     )
 endif()
