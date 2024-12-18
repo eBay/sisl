@@ -32,6 +32,8 @@ namespace {
 struct TestData {
     TestData(int val) : m_value(val) {}
     int m_value = 0;
+
+    bool operator==(const TestData& other) const { return (m_value == other.m_value); }
 };
 
 struct StreamTrackerTest : public testing::Test {
@@ -109,6 +111,59 @@ TEST_F(StreamTrackerTest, ForceRealloc) {
     }
     EXPECT_EQ(m_tracker.completed_upto(), far_idx);
     EXPECT_EQ(get_mem_size(), prev_size * 2);
+}
+
+TEST_F(StreamTrackerTest, Rollback) {
+    static std::random_device s_rd{};
+    static std::default_random_engine s_engine{s_rd()};
+    std::uniform_int_distribution< int > gen{0, 999};
+
+    for (auto i = 0; i < 200; ++i) {
+        m_tracker.create(i, gen(s_engine));
+    }
+    EXPECT_EQ(m_tracker.active_upto(), 199);
+    EXPECT_EQ(m_tracker.completed_upto(), -1);
+    m_tracker.complete(0, 99);
+    EXPECT_EQ(m_tracker.active_upto(), 199);
+    EXPECT_EQ(m_tracker.completed_upto(), 99);
+
+    m_tracker.rollback(169);
+    EXPECT_EQ(m_tracker.active_upto(), 169);
+    EXPECT_EQ(m_tracker.completed_upto(), 99);
+
+    m_tracker.complete(100, 169);
+    EXPECT_EQ(m_tracker.active_upto(), 169);
+    EXPECT_EQ(m_tracker.completed_upto(), 169);
+
+    auto new_val1 = gen(s_engine);
+    auto new_val2 = gen(s_engine);
+    m_tracker.create(170, new_val1);
+    m_tracker.create(172, new_val2);
+    EXPECT_EQ(m_tracker.active_upto(), 170);
+    EXPECT_EQ(m_tracker.completed_upto(), 169);
+    m_tracker.complete(170, 170);
+    EXPECT_EQ(m_tracker.completed_upto(), 170);
+    m_tracker.create_and_complete(171, new_val2);
+    m_tracker.complete(172, 172);
+
+    EXPECT_EQ(m_tracker.completed_upto(), 172);
+    EXPECT_EQ(m_tracker.at(170), TestData{new_val1});
+    EXPECT_EQ(m_tracker.at(171), TestData{new_val2});
+    EXPECT_EQ(m_tracker.at(172), TestData{new_val2});
+
+    bool exception_hit{false};
+    m_tracker.truncate(80);
+    try {
+        m_tracker.rollback(1);
+    } catch (const std::out_of_range& e) { exception_hit = true; }
+    EXPECT_EQ(exception_hit, true);
+
+    exception_hit = false;
+    m_tracker.truncate(173);
+    try {
+        m_tracker.rollback(1);
+    } catch (const std::out_of_range& e) { exception_hit = true; }
+    EXPECT_EQ(exception_hit, true);
 }
 
 int main(int argc, char* argv[]) {
