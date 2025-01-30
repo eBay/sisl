@@ -100,11 +100,7 @@ class SISLConan(ConanFile):
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
         tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
         tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
-        if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
-            tc.preprocessor_definitions["_PRERELEASE"] = "1"
-            tc.variables["_PRERELEASE"] = "ON"
         if self.settings.build_type == "Debug":
-            tc.preprocessor_definitions["_PRERELEASE"] = "1"
             if self.options.get_safe("coverage"):
                 tc.variables['BUILD_COVERAGE'] = 'ON'
             elif self.options.get_safe("sanitize"):
@@ -147,9 +143,6 @@ class SISLConan(ConanFile):
 
         if self.settings.compiler == "gcc":
             self.cpp_info.cppflags.extend(["-fconcepts"])
-
-        if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
-            self.cpp_info.defines.append("_PRERELEASE=1")
 
         if self.settings.os == "Linux":
             self.cpp_info.libs.append("flip")
