@@ -30,13 +30,9 @@ target_sources(test_enum PRIVATE
 target_link_libraries(test_enum ${COMMON_DEPS} GTest::gtest)
 add_test(NAME Enum COMMAND test_enum)
 
-if (DEFINED ${_PRERELEASE})
-  if (${_PRERELEASE})
-    add_executable(test_objlife)
-    target_sources(test_objlife PRIVATE
-        tests/test_objlife_counter.cpp
-      )
-    target_link_libraries(test_objlife sisl ${COMMON_DEPS} GTest::gtest)
-    add_test(NAME ObjLife COMMAND test_objlife)
-  endif ()
-endif ()
+add_executable(test_objlife)
+target_sources(test_objlife PRIVATE
+    tests/test_objlife_counter.cpp
+  )
+target_link_libraries(test_objlife sisl ${COMMON_DEPS} GTest::gtest)
+add_test(NAME ObjLife COMMAND test_objlife)
