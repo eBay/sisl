@@ -31,7 +31,6 @@
 
 namespace sisl {
 
-#ifdef _PRERELEASE
 class ObjCounterMetrics;
 class ObjCounterRegistry {
 public:
@@ -159,25 +158,5 @@ std::atomic< int64_t > ObjLifeCounter< T >::s_alive(0);
 
 template < typename T >
 ObjTypeWrapper< T > ObjLifeCounter< T >::s_type(&ObjLifeCounter< T >::s_created, &ObjLifeCounter< T >::s_alive);
-
-#else
-
-template < typename DS >
-struct ObjLifeCounter {};
-class ObjCounterRegistry {
-public:
-    using pair_of_atomic_ptrs = std::pair< std::atomic< int64_t >*, std::atomic< int64_t >* >;
-
-    static ObjCounterRegistry& inst() {
-        static ObjCounterRegistry instance;
-        return instance;
-    }
-
-    static void register_obj(const char*, pair_of_atomic_ptrs) {}
-
-    static void foreach (const std::function< void(const std::string&, int64_t, int64_t) >&) {}
-    static inline void enable_metrics_reporting() {}
-};
-#endif // _PRERELEASE
 
 } // namespace sisl
