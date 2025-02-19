@@ -83,8 +83,7 @@ class SISLConan(ConanFile):
         self.requires("nlohmann_json/3.11.2", transitive_headers=True)
         self.requires("spdlog/1.12.0", transitive_headers=True)
         self.requires("zmarok-semver/1.1.0", transitive_headers=True)
-        if self.settings.os in ["Linux"]:
-            self.requires("breakpad/cci.20210521")
+        self.requires("libsystemd/255.10",  override=True)
         self.requires("fmt/10.0.0",  override=True)
 
         # ARM needs unreleased versionof libunwind
@@ -213,7 +212,6 @@ class SISLConan(ConanFile):
         self.cpp_info.components["logging"].requires.extend([
                 "options",
                 "boost::boost",
-                "breakpad::breakpad",
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])

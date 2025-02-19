@@ -5,9 +5,6 @@ list(APPEND LOGGING_DEPS
   spdlog::spdlog
   nlohmann_json::nlohmann_json
   )
-if(${breakpad_FOUND})
-  list(APPEND LOGGING_DEPS breakpad::breakpad)
-endif()
 
 list(APPEND LOGGING_SOURCE_FILES
   logging.cpp
