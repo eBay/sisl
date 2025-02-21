@@ -21,6 +21,7 @@ runs:
         python -m pip install gcovr
         conan user
         conan profile new --detect default
+        conan remote update conancenter --url https://center2.conan.io
 
     - name: Fixup libstdc++
       shell: bash
