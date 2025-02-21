@@ -81,9 +81,8 @@ class SISLConan(ConanFile):
         self.requires("boost/1.86.0", override=True, transitive_headers=True)
         self.requires("cxxopts/3.2.0", transitive_headers=True)
         self.requires("nlohmann_json/3.11.3", transitive_headers=True)
-        self.requires("spdlog/1.15.0", transitive_headers=True)
+        self.requires("spdlog/1.14.0", transitive_headers=True)
         self.requires("zmarok-semver/1.1.0", transitive_headers=True)
-        self.requires("fmt/11.0.2",  override=True)
         self.requires("libsystemd/255.10",  override=True)
         self.requires("lz4/1.10.0", override=True)
 
