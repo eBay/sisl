@@ -1,18 +1,17 @@
-name: Sisl Build
+name: Sisl Build NuBlox2
 
 on:
   workflow_dispatch:
   pull_request:
     branches:
-      - stable/v8.x
-      - master
+      - dev/nublox2
 
 jobs:
   Build:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-22.04"]
+        platform: ["ubuntu-24.04"]
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc"]
         prerelease: ["True", "False"]

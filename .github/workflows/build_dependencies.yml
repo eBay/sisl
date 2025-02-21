@@ -1,11 +1,11 @@
-name: Conan Build
+name: Conan Build NuBlox2
 
 on:
   workflow_call:
     inputs:
       platform:
         required: false
-        default: 'ubuntu-22.04'
+        default: 'ubuntu-24.04'
         type: string
       branch:
         required: true
@@ -34,11 +34,8 @@ on:
         required: true
         type: choice
         options:
-          - ubuntu-22.04
-          - ubuntu-20.04
-          - macos-13
-          - macos-12
-        default: 'ubuntu-22.04'
+          - ubuntu-24.04
+        default: 'ubuntu-24.04'
       branch:
         required: true
         type: string
