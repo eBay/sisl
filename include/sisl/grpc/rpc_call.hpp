@@ -35,7 +35,8 @@ SISL_LOGGING_DECL(grpc_server)
     LOG##level##MOD_FMT(grpc_server, ([&](fmt::memory_buffer& buf, const char* __m, auto&&... args) -> bool {          \
                             fmt::vformat_to(fmt::appender{buf}, std::string_view{"[RPC={} id={}] "},                   \
                                             fmt::make_format_args(m_rpc_info->m_rpc_name, m_request_id));              \
-                            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{__m}, fmt::make_format_args(args...));\
+                            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{__m},                                 \
+                                            fmt::make_format_args(args...));                                           \
                             return true;                                                                               \
                         }),                                                                                            \
                         msg, ##__VA_ARGS__);

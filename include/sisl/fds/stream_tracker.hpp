@@ -140,7 +140,7 @@ public:
     }
 
     size_t truncate(int64_t idx) {
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 
         auto upto_bit = idx - m_slot_ref_idx + 1;
         if (upto_bit <= 0) { return m_slot_ref_idx - 1; }
@@ -150,7 +150,7 @@ public:
     size_t truncate() {
         if (AutoTruncate && (m_cmpltd_count_since_last_truncate.load(std::memory_order_acquire) == 0)) { return 0; }
 
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 
         // Find the first bit with 0 in it
         auto first_incomplete_bit = m_comp_slot_bits.get_next_reset_bit(0);
@@ -275,7 +275,7 @@ private:
     }
 
     void do_resize(size_t atleast_count) {
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 
         // Check if we already resized enough
         if (atleast_count < m_alloced_slots) { return; }

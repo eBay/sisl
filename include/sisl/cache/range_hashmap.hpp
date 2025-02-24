@@ -250,7 +250,7 @@ private:
 
     K m_base_key;
     big_offset_t m_base_nth;
-    folly::small_vector< ValueEntryRange, 8, folly::small_vector_policy::policy_size_type<small_count_t> > m_values;
+    folly::small_vector< ValueEntryRange, 8, folly::small_vector_policy::policy_size_type< small_count_t > > m_values;
 
 public:
     MultiEntryHashNode(const K& base_key, big_offset_t nth) : m_base_key{base_key}, m_base_nth{nth} {}
@@ -483,7 +483,7 @@ public:
 
     void insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
 #ifndef GLOBAL_HASHSET_LOCK
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 #endif
         const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;
@@ -533,7 +533,7 @@ public:
 
     void erase(const RangeKey< K >& input_key) {
 #ifndef GLOBAL_HASHSET_LOCK
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 #endif
         const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;

@@ -134,7 +134,7 @@ public:
 
     bool insert(const K& input_key, const V& input_value, bool overwrite_ok) {
 #ifndef GLOBAL_HASHSET_LOCK
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 #endif
         SingleEntryHashNode< V >* n = nullptr;
         auto it = m_list.begin();
@@ -182,7 +182,7 @@ public:
 
     bool erase(const K& input_key, V& out_val) {
 #ifndef GLOBAL_HASHSET_LOCK
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 #endif
         SingleEntryHashNode< V >* n = nullptr;
 
@@ -209,7 +209,7 @@ public:
 
     bool upsert_or_delete(const K& input_key, auto&& update_or_delete_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
-	auto holder = std::unique_lock{m_lock};
+        auto holder = std::unique_lock{m_lock};
 #endif
         SingleEntryHashNode< V >* n = nullptr;
 

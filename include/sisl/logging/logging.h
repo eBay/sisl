@@ -134,7 +134,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
         fmt::memory_buffer _log_buf{};                                                                                 \
         const auto& cb{formatter};                                                                                     \
         [[likely]] if (cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__)) {                                                 \
-            fmt::format_to(fmt::appender{_log_buf}, fmt::string_view{"\0"});                                          \
+            fmt::format_to(fmt::appender{_log_buf}, fmt::string_view{"\0"});                                           \
             _l->method(_log_buf.data());                                                                               \
             if (is_flush) { _l->flush(); }                                                                             \
         }                                                                                                              \
@@ -145,7 +145,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
         fmt::memory_buffer _log_buf{};                                                                                 \
         const auto& cb{formatter};                                                                                     \
         if (LOGGING_PREDICT_TRUE(cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__))) {                                      \
-            fmt::format_to(fmt::appender{_log_buf}, fmt::string_view{"\0"});                                          \
+            fmt::format_to(fmt::appender{_log_buf}, fmt::string_view{"\0"});                                           \
             _l->method(_log_buf.data());                                                                               \
             if (is_flush) { _l->flush(); }                                                                             \
         }                                                                                                              \
@@ -279,8 +279,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
     _GENERIC_ASSERT(                                                                                                   \
         0, cond,                                                                                                       \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg},                                                 \
-                            fmt::make_format_args(args...));                                                           \
+            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(args...));                \
             return true;                                                                                               \
         },                                                                                                             \
         m, ##__VA_ARGS__)
