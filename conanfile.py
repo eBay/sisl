@@ -112,7 +112,12 @@ class SISLConan(ConanFile):
 
     def layout(self):
         self.folders.source = "."
-        self.folders.build = join("build", str(self.settings.build_type))
+        if self.options.sanitize:
+            self.folders.build = join("build", "Sanitized")
+        elif self.options.coverage:
+            self.folders.build = join("build", "Coverage")
+        else:
+            self.folders.build = join("build", str(self.settings.build_type))
         self.folders.generators = join(self.folders.build, "generators")
 
         self.cpp.build.components["options"].libdirs = ["src/options"]

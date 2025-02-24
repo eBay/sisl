@@ -365,6 +365,8 @@ public:
         return check_for_set ? (v != static_cast< word_t >(0)) : (v == static_cast< word_t >(0));
     }
 
+/// FIXME: Is this a real warning, or simply GCC-13 false positive?
+#pragma GCC diagnostic ignored "-Warray-bounds"
     bool is_bits_set_reset(const uint8_t start, const uint8_t nbits, const bool check_for_set) const {
         assert(start < bits());
         if (nbits == 1) { return (is_bit_set_reset(start, check_for_set)); }
@@ -373,6 +375,7 @@ public:
         const word_t expected{static_cast< word_t >(check_for_set ? consecutive_bitmask[nbits - 1] : 0)};
         return (actual == expected);
     }
+#pragma GCC diagnostic pop
 
     bool get_next_set_bit(const uint8_t start, uint8_t* const p_set_bit) const {
         assert(start < bits());
