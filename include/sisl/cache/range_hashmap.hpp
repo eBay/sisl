@@ -483,7 +483,7 @@ public:
 
     void insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 #endif
         const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;
@@ -511,7 +511,7 @@ public:
     big_count_t get(const RangeKey< K >& input_key,
                     std::vector< std::pair< RangeKey< K >, sisl::byte_view > >& out_values) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
 #endif
         big_count_t ret{0};
         const auto input_nth_rounded = input_key.rounded_nth();
@@ -533,7 +533,7 @@ public:
 
     void erase(const RangeKey< K >& input_key) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 #endif
         const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;

@@ -134,7 +134,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
         fmt::memory_buffer _log_buf{};                                                                                 \
         const auto& cb{formatter};                                                                                     \
         [[likely]] if (cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__)) {                                                 \
-            fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));             \
+            fmt::format_to(fmt::appender{_log_buf}, fmt::string_view{"\0"});                                          \
             _l->method(_log_buf.data());                                                                               \
             if (is_flush) { _l->flush(); }                                                                             \
         }                                                                                                              \
@@ -145,7 +145,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
         fmt::memory_buffer _log_buf{};                                                                                 \
         const auto& cb{formatter};                                                                                     \
         if (LOGGING_PREDICT_TRUE(cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__))) {                                      \
-            fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));             \
+            fmt::format_to(fmt::appender{_log_buf}, fmt::string_view{"\0"});                                          \
             _l->method(_log_buf.data());                                                                               \
             if (is_flush) { _l->flush(); }                                                                             \
         }                                                                                                              \
@@ -280,7 +280,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
         0, cond,                                                                                                       \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
             fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg},                                                 \
-                            fmt::make_format_args(std::forward< decltype(args) >(args)...));                           \
+                            fmt::make_format_args(args...));                                                           \
             return true;                                                                                               \
         },                                                                                                             \
         m, ##__VA_ARGS__)
@@ -486,7 +486,7 @@ extern std::filesystem::path get_base_dir();
 template < typename... Args >
 std::string format_log_msg(const char* const msg, Args&&... args) {
     fmt::memory_buffer buf{};
-    fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(std::forward< Args >(args)...));
+    fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(args...));
     return fmt::to_string(buf);
 }
 extern std::string format_log_msg();
@@ -497,7 +497,7 @@ void _cmp_assert_with_msg(fmt::memory_buffer& buf, const char* const msg, T1&& v
 
     fmt::vformat_to(fmt::appender{buf},
                     fmt::string_view{"******************** Assertion failure: =====> Expected '{}' to be {} to '{}' "},
-                    fmt::make_format_args(std::forward< T1 >(val1), std::forward< T2 >(op), std::forward< T3 >(val2)));
+                    fmt::make_format_args(val1, std::forward< T2 >(op), val2));
     fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(std::forward< Args >(args)...));
 }
 

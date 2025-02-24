@@ -83,13 +83,13 @@ public:
     }
 
     void complete(int64_t start_idx, int64_t end_idx) {
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         auto start_bit = start_idx - m_slot_ref_idx;
         m_comp_slot_bits.set_bits(start_bit, end_idx - start_idx + 1);
     }
 
     void rollback(int64_t new_end_idx) {
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         if ((new_end_idx < m_slot_ref_idx) ||
             (new_end_idx >= (m_slot_ref_idx + int64_cast(m_active_slot_bits.size())))) {
             throw std::out_of_range("Slot idx is not in range");
@@ -101,7 +101,7 @@ public:
     }
 
     T& at(int64_t idx) const {
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         if (idx < m_slot_ref_idx) { throw std::out_of_range("Slot idx is not in range"); }
 
         size_t nbit = idx - m_slot_ref_idx;
@@ -123,7 +123,7 @@ public:
             bool is_completed = false;
         } ret;
 
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         if (idx < m_slot_ref_idx) {
             ret.is_out_of_range = true;
         } else {
@@ -140,7 +140,7 @@ public:
     }
 
     size_t truncate(int64_t idx) {
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 
         auto upto_bit = idx - m_slot_ref_idx + 1;
         if (upto_bit <= 0) { return m_slot_ref_idx - 1; }
@@ -150,7 +150,7 @@ public:
     size_t truncate() {
         if (AutoTruncate && (m_cmpltd_count_since_last_truncate.load(std::memory_order_acquire) == 0)) { return 0; }
 
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 
         // Find the first bit with 0 in it
         auto first_incomplete_bit = m_comp_slot_bits.get_next_reset_bit(0);
@@ -194,12 +194,12 @@ public:
     void foreach_all_active(int64_t start_idx, const auto& cb) { _foreach_all(start_idx, false, cb); }
 
     int64_t completed_upto(int64_t search_hint_idx = 0) const {
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         return _upto(true /* completed */, search_hint_idx);
     }
 
     int64_t active_upto(int64_t search_hint_idx = 0) const {
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         return _upto(false /* completed */, search_hint_idx);
     }
 
@@ -275,7 +275,7 @@ private:
     }
 
     void do_resize(size_t atleast_count) {
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 
         // Check if we already resized enough
         if (atleast_count < m_alloced_slots) { return; }
@@ -309,7 +309,7 @@ private:
     }
 
     void _foreach_contiguous(int64_t start_idx, bool completed_only, const auto& cb) {
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         auto upto = _upto(completed_only, start_idx);
         for (auto idx = start_idx; idx <= upto; ++idx) {
             auto proceed = cb(idx, upto, *(get_slot_data(idx - m_slot_ref_idx)));
@@ -318,7 +318,7 @@ private:
     }
 
     void _foreach_all(int64_t start_idx, bool completed_only, const auto& cb) {
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
         auto search_bit = std::max(0l, (start_idx - m_slot_ref_idx));
         do {
             search_bit = completed_only ? m_comp_slot_bits.get_next_set_bit(search_bit)

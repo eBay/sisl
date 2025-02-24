@@ -134,7 +134,7 @@ public:
 
     bool insert(const K& input_key, const V& input_value, bool overwrite_ok) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 #endif
         SingleEntryHashNode< V >* n = nullptr;
         auto it = m_list.begin();
@@ -163,7 +163,7 @@ public:
 
     bool get(const K& input_key, V& out_val) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
 #endif
         bool found{false};
         for (const auto& n : m_list) {
@@ -182,7 +182,7 @@ public:
 
     bool erase(const K& input_key, V& out_val) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 #endif
         SingleEntryHashNode< V >* n = nullptr;
 
@@ -209,7 +209,7 @@ public:
 
     bool upsert_or_delete(const K& input_key, auto&& update_or_delete_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+	auto holder = std::unique_lock{m_lock};
 #endif
         SingleEntryHashNode< V >* n = nullptr;
 
@@ -245,7 +245,7 @@ public:
 
     bool update(const K& input_key, auto&& update_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock{m_lock};
 #endif
         bool found{false};
         for (auto& n : m_list) {
