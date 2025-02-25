@@ -100,10 +100,9 @@ private:
         bitset_serialized& operator=(bitset_serialized&&) noexcept = delete;
         ~bitset_serialized() = default;
 
-        void destroy(const bool destroy_words = true) {
+        void destroy() {
             // destruct the BitWords
-            if (destroy_words) { std::destroy(get_words(), end_words()); }
-            this->~bitset_serialized();
+            std::destroy(get_words(), end_words());
         }
 
         bool valid_bit(const uint64_t bit) const { return (bit + m_skip_bits) < m_nbits; }
@@ -174,7 +173,7 @@ private:
                 if (ptr) {
                     // beginning of buffer is bitset_serialized
                     bitset_serialized* const bitset_serialized_ptr{reinterpret_cast< bitset_serialized* >(ptr)};
-                    bitset_serialized_ptr->destroy(true);
+                    bitset_serialized_ptr->destroy();
                     delete ptr;
                 }
             }};
@@ -661,9 +660,6 @@ public:
                 new byte_array_impl{static_cast< uint32_t >(size), alignment_size, buftag::bitset},
                 [](byte_array_impl* const ptr) {
                     if (ptr) {
-                        // beginning of buffer is bitset_serialized
-                        bitset_serialized* const bitset_serialized_ptr{reinterpret_cast< bitset_serialized* >(ptr)};
-                        bitset_serialized_ptr->destroy(false);
                         delete ptr;
                     }
                 }}};

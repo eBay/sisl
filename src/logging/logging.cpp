@@ -295,7 +295,7 @@ static std::string setup_modules() {
         const std::string& mod_name{glob_enabled_mods[mod_num]};
         fmt::vformat_to(
             std::back_inserter(out_str), fmt::string_view{"{}={}, "},
-            fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data()));
+            fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name))));
     }
 
     return out_str;

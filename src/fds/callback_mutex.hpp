@@ -40,7 +40,7 @@ public:
     ~_cb_wait_q() = default;
 
     void add_cb(post_lock_cb_t&& cb) {
-        folly::SharedMutexWritePriority::WriteHolder holder{m_waitq_lock};
+        auto holder = std::unique_lock{m_waitq_lock};
         if (m_wait_q == nullptr) { m_wait_q = sisl::VectorPool< post_lock_cb_t >::alloc(); }
         m_wait_q->emplace_back(std::move(cb));
     }
@@ -48,7 +48,7 @@ public:
     bool drain_cb() {
         std::vector< post_lock_cb_t >* wait_q{nullptr};
         {
-            folly::SharedMutexWritePriority::WriteHolder holder{m_waitq_lock};
+            auto holder = std::unique_lock{m_waitq_lock};
             std::swap(wait_q, m_wait_q);
         }
 
@@ -62,7 +62,7 @@ public:
     }
 
     bool empty() const {
-        folly::SharedMutexWritePriority::ReadHolder holder{m_waitq_lock};
+        auto holder = std::shared_lock{m_waitq_lock};
         return ((m_wait_q == nullptr) || (m_wait_q->empty()));
     }
 

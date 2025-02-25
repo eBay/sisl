@@ -15,7 +15,6 @@ find_package(cxxopts REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(zmarok-semver REQUIRED)
-find_package(breakpad)
 
 add_subdirectory(logging)
 add_subdirectory(options)
