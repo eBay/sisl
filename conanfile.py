@@ -156,8 +156,6 @@ class SISLConan(ConanFile):
     def generate(self):
         # This generates "conan_toolchain.cmake" in self.generators_folder
         tc = CMakeToolchain(self)
-        tc.variables["CONAN_CMAKE_SILENT_OUTPUT"] = "ON"
-        tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
         tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
@@ -183,7 +181,7 @@ class SISLConan(ConanFile):
         cmake.configure()
         cmake.build()
         if not self.conf.get("tools.build:skip_test", default=False):
-            cmake.test()
+            cmake.ctest(cli_args=['--output-on-failure'])
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
