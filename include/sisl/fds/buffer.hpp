@@ -324,7 +324,15 @@ protected:
 
 public:
     io_blob() = default;
-    io_blob(size_t sz, uint32_t align_size = 512, buftag tag = buftag::common) { buf_alloc(sz, align_size, tag); }
+    io_blob(size_t sz, uint32_t align_size = 512, buftag tag = buftag::common) {
+#ifdef _DEBUG
+        // Allocate buffer and initialize it with 0xEE to ensure every byte is non-null
+        // This helps the upper layer test if it is affected by the original buffer value or not
+        buf_alloc_and_init(sz, align_size, tag, 0xEE);
+#else
+        buf_alloc(sz, align_size, tag);
+#endif
+    }
     io_blob(uint8_t* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned_{is_aligned} {}
     io_blob(uint8_t const* bytes, uint32_t size, bool is_aligned) : blob(bytes, size), aligned_{is_aligned} {}
     ~io_blob() = default;
@@ -333,6 +341,11 @@ public:
         aligned_ = (align_size != 0);
         blob::size_ = sz;
         blob::bytes_ = aligned_ ? sisl_aligned_alloc(align_size, sz, tag) : (uint8_t*)malloc(sz);
+    }
+
+    void buf_alloc_and_init(size_t sz, uint32_t align_size = 512, buftag tag = buftag::common, uint8_t init_val = 0) {
+        buf_alloc(sz, align_size, tag);
+        std::memset(blob::bytes_, init_val, sz);
     }
 
     void buf_free(buftag tag = buftag::common) const {
