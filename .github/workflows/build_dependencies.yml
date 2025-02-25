@@ -103,7 +103,7 @@ jobs:
         #        key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Setup Conan
-      uses: eBay/sisl/.github/actions/setup_conan@dev/nublox2
+      uses: eBay/sisl/.github/actions/setup_conan2@dev/nublox2
       with:
         platform: ${{ inputs.platform }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}

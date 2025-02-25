@@ -4,7 +4,7 @@ inputs:
   platform:
     description: 'Platform conan will be building on'
     required: true
-    default: 'ubuntu-22.04'
+    default: 'ubuntu-24.04'
 runs:
   using: "composite"
   steps:
@@ -17,15 +17,14 @@ runs:
       shell: bash
       run: |
         python -m pip install --upgrade pip
-        python -m pip install conan~=1.0
+        python -m pip install conan~=2.0
         python -m pip install gcovr
-        conan user
-        conan profile new --detect default
+        conan profile detect
+        conan remote update conancenter --url https://center2.conan.io
 
     - name: Fixup libstdc++
       shell: bash
       run: |
-        # Set std::string to non-CoW C++11 version
-        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
-      if: ${{ inputs.platform == 'ubuntu-22.04' }}
-
+        # Ensure std::string to non-CoW C++11 version
+        sed -i 's,compiler.cppstd=.*$,compiler.cppstd=20,g' ~/.conan2/profiles/default
+        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan2/profiles/default
