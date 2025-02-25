@@ -96,7 +96,7 @@ class SISLConan(ConanFile):
             self.requires("flatbuffers/24.12.23", transitive_headers=True)
             self.requires("folly/nu2.2024.08.12.00", transitive_headers=True)
             self.requires("prometheus-cpp/1.3.0", transitive_headers=True)
-            self.requires("snappy/1.2.1", override=True, transitive_headers=True)
+            self.requires("snappy/1.2.1", transitive_headers=True)
             self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
             self.requires("libcurl/8.11.1",  override=True)
             self.requires("xz_utils/5.4.5",  override=True)
