@@ -78,7 +78,7 @@ class SISLConan(ConanFile):
 
     def requirements(self):
         # Required
-        self.requires("boost/1.86.0", override=True, transitive_headers=True)
+        self.requires("boost/1.86.0", transitive_headers=True)
         self.requires("cxxopts/3.2.0", transitive_headers=True)
         self.requires("nlohmann_json/3.11.3", transitive_headers=True)
         self.requires("spdlog/1.14.0", transitive_headers=True)
