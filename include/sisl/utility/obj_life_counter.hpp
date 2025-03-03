@@ -80,9 +80,9 @@ public:
             });
 
             const auto idx{
-                this->m_impl_ptr->register_gauge(prom_name, prom_name + " created", prom_name, {"type", "created"})};
+                this->m_impl_ptr->register_gauge(prom_name, prom_name + " created", prom_name, {"sds_obj_type", "created"})};
             const auto nidx{
-                this->m_impl_ptr->register_gauge(prom_name, prom_name + " alive", prom_name, {"type", "alive"})};
+                this->m_impl_ptr->register_gauge(prom_name, prom_name + " alive", prom_name, {"sds_obj_type", "alive"})};
             assert(nidx == idx + 1);
             m_name_gauge_map.emplace(name, std::make_pair(idx, nidx));
         }

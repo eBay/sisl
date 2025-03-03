@@ -70,13 +70,13 @@ TEST_F(ObjLifeTest, BasicCount) {
 
     const auto prom_format{sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat)};
     std::cout << "Prometheus Output = " << prom_format;
-    EXPECT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",type="alive"} 1)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",sds_obj_type="alive"} 1)") !=
                 std::string::npos);
-    EXPECT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",type="created"} 1)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",sds_obj_type="created"} 1)") !=
                 std::string::npos);
-    EXPECT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",type="alive"} 1)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",sds_obj_type="alive"} 1)") !=
                 std::string::npos);
-    EXPECT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",type="created"} 2)") !=
+    EXPECT_TRUE(prom_format.find(R"(TestClass_charP__unsigned_int_{entity="Singleton",sds_obj_type="created"} 2)") !=
                 std::string::npos);
 }
 
