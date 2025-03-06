@@ -43,6 +43,7 @@ TEST_F(EnumTest, enum_signed_test) {
     ASSERT_EQ(enum_lambda(signed_enum::val2), 2);
     ASSERT_EQ(enum_name(signed_enum::val1), "val1");
     ASSERT_EQ(enum_name(signed_enum::val2), "val2");
+    ASSERT_EQ(enum_count< signed_enum >(), 2);
 }
 
 ENUM(unsigned_enum, uint16_t, val1, val2)
@@ -62,6 +63,7 @@ TEST_F(EnumTest, enum_unsigned_test) {
     ASSERT_EQ(enum_lambda(unsigned_enum::val2), 2);
     ASSERT_EQ(enum_name(unsigned_enum::val1), "val1");
     ASSERT_EQ(enum_name(unsigned_enum::val2), "val2");
+    ASSERT_EQ(enum_count< unsigned_enum >(), 2);
 }
 
 ENUM(signed_enum_value, int16_t, val1 = -10, val2 = -20)
@@ -81,6 +83,7 @@ TEST_F(EnumTest, enum_signed_value_test) {
     ASSERT_EQ(enum_lambda(signed_enum_value::val2), -20);
     ASSERT_EQ(enum_name(signed_enum_value::val1), "val1");
     ASSERT_EQ(enum_name(signed_enum_value::val2), "val2");
+    ASSERT_EQ(enum_count< signed_enum_value >(), 2);
 }
 
 ENUM(unsigned_enum_value, uint16_t, val1 = 10, val2 = 20, val3 = 1 << 4, val4 = +30, val5 = 40u)
@@ -112,6 +115,7 @@ TEST_F(EnumTest, enum_unsigned_value_test) {
     ASSERT_EQ(enum_name(unsigned_enum_value::val3), "val3");
     ASSERT_EQ(enum_name(unsigned_enum_value::val4), "val4");
     ASSERT_EQ(enum_name(unsigned_enum_value::val5), "val5");
+    ASSERT_EQ(enum_count< unsigned_enum_value >(), 5);
 }
 
 ENUM(signed_enum_mixed, int16_t, val1 = -10, val2)
@@ -131,6 +135,7 @@ TEST_F(EnumTest, enum_signed_mixed_test) {
     ASSERT_EQ(enum_lambda(signed_enum_mixed::val2), -9);
     ASSERT_EQ(enum_name(signed_enum_mixed::val1), "val1");
     ASSERT_EQ(enum_name(signed_enum_mixed::val2), "val2");
+    ASSERT_EQ(enum_count< signed_enum_mixed >(), 2);
 }
 
 ENUM(unsigned_enum_mixed, uint16_t, val1 = 10, val2, val3 = 1 << 2)
@@ -154,6 +159,7 @@ TEST_F(EnumTest, enum_unsigned_mixed_test) {
     ASSERT_EQ(enum_name(unsigned_enum_mixed::val1), "val1");
     ASSERT_EQ(enum_name(unsigned_enum_mixed::val2), "val2");
     ASSERT_EQ(enum_name(unsigned_enum_mixed::val3), "val3");
+    ASSERT_EQ(enum_count< unsigned_enum_mixed >(), 3);
 }
 
 ENUM(unsigned_enum2, uint16_t, val1 = 0x1, val2 = 0x2, val3 = 0x3)
@@ -186,6 +192,7 @@ TEST_F(EnumTest, enum_unsigned_test_bit_ops) {
     unsigned_enum2 val2{unsigned_enum2::val2};
     ASSERT_EQ(val2 &= unsigned_enum2::val3, unsigned_enum2::val2);
     ASSERT_EQ(val2, unsigned_enum2::val2);
+    ASSERT_EQ(enum_count< unsigned_enum2 >(), 3);
 }
 
 class Container {
@@ -210,6 +217,7 @@ TEST_F(EnumTest, scoped_enum) {
     ASSERT_EQ(enum_lambda(Container::signed_enum::val2), 2);
     ASSERT_EQ(enum_name(Container::signed_enum::val1), "val1");
     ASSERT_EQ(enum_name(Container::signed_enum::val2), "val2");
+    ASSERT_EQ(enum_count< Container::signed_enum >(), 2);
 }
 
 int main(int argc, char* argv[]) {
