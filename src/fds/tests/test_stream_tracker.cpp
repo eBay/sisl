@@ -26,7 +26,8 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_stream_tracker)
+SISL_LOGGING_INIT()
+SISL_OPTIONS_ENABLE(logging)
 
 namespace {
 struct TestData {
@@ -123,16 +124,12 @@ TEST_F(StreamTrackerTest, Rollback) {
     }
     EXPECT_EQ(m_tracker.active_upto(), 199);
     EXPECT_EQ(m_tracker.completed_upto(), -1);
-    m_tracker.complete(0, 99);
+    m_tracker.complete(0, 169);
     EXPECT_EQ(m_tracker.active_upto(), 199);
-    EXPECT_EQ(m_tracker.completed_upto(), 99);
+    EXPECT_EQ(m_tracker.completed_upto(), 169);
 
-    m_tracker.rollback(169);
-    EXPECT_EQ(m_tracker.active_upto(), 169);
-    EXPECT_EQ(m_tracker.completed_upto(), 99);
-
-    m_tracker.complete(100, 169);
-    EXPECT_EQ(m_tracker.active_upto(), 169);
+    m_tracker.rollback(170);
+    EXPECT_EQ(m_tracker.active_upto(), 170);
     EXPECT_EQ(m_tracker.completed_upto(), 169);
 
     auto new_val1 = gen(s_engine);
@@ -151,22 +148,30 @@ TEST_F(StreamTrackerTest, Rollback) {
     EXPECT_EQ(m_tracker.at(171), TestData{new_val2});
     EXPECT_EQ(m_tracker.at(172), TestData{new_val2});
 
+    m_tracker.rollback(150);
+    EXPECT_EQ(m_tracker.active_upto(), 150);
+    EXPECT_EQ(m_tracker.completed_upto(), 150);
+
     bool exception_hit{false};
     m_tracker.truncate(80);
     try {
-        m_tracker.rollback(1);
+        m_tracker.rollback(80);
     } catch (const std::out_of_range& e) { exception_hit = true; }
     EXPECT_EQ(exception_hit, true);
 
     exception_hit = false;
-    m_tracker.truncate(173);
+    m_tracker.truncate(180);
     try {
         m_tracker.rollback(1);
     } catch (const std::out_of_range& e) { exception_hit = true; }
     EXPECT_EQ(exception_hit, true);
+
 }
 
 int main(int argc, char* argv[]) {
+    SISL_OPTIONS_LOAD(argc, argv, logging)
+    sisl::logging::SetLogger(std::string(argv[0]));
+    spdlog::set_pattern("[%D %T%z] [%^%l%$] [%n] [%t] %v");
     ::testing::InitGoogleTest(&argc, argv);
     auto ret = RUN_ALL_TESTS();
     return ret;
