@@ -33,7 +33,7 @@
 #include <sisl/cache/lru_evictor.hpp>
 
 using namespace sisl;
-SISL_LOGGING_INIT(test_simplecache)
+REGISTER_LOG_MOD(test_simplecache)
 
 static constexpr uint32_t g_val_size{512};
 static thread_local std::random_device g_rd{};

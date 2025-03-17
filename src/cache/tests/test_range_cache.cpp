@@ -33,8 +33,6 @@
 #include <sisl/cache/lru_evictor.hpp>
 
 using namespace sisl;
-SISL_LOGGING_INIT(test_rangecache)
-
 static uint32_t g_num_chunks;
 static int64_t g_chunk_size;
 static constexpr uint32_t g_blk_size{4096};
@@ -244,6 +242,7 @@ SISL_OPTION_GROUP(test_rangecache,
                    ::cxxopts::value< uint32_t >()->default_value("65536"), "number"))
 
 int main(int argc, char* argv[]) {
+    REGISTER_LOG_MOD(test_rangecache);
     ::testing::InitGoogleTest(&argc, argv);
     SISL_OPTIONS_LOAD(argc, argv, logging, test_rangecache)
     sisl::logging::SetLogger("test_rangecache");

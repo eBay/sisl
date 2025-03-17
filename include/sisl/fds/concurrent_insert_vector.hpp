@@ -60,6 +60,23 @@ public:
             }
         }
 
+        void operator+=(int64_t count) {
+            while ((count > 0) && (next_thread < vec->per_thread_vec_ptrs_.size())) {
+                // Determine how many steps we can take in the current thread
+                size_t remaining_in_thread = vec->per_thread_vec_ptrs_[next_thread]->size() - next_id_in_thread;
+
+                if (count < remaining_in_thread) {
+                    next_id_in_thread += count;
+                    break;
+                } else {
+                    // Move to the next thread
+                    count -= remaining_in_thread;
+                    ++next_thread;
+                    next_id_in_thread = 0;
+                }
+            }
+        }
+
         bool operator==(iterator const& other) const = default;
         bool operator!=(iterator const& other) const = default;
 
@@ -116,6 +133,13 @@ public:
                 return false;
             });
         return sz;
+    }
+
+    void clear() {
+        tvector_.access_all_threads([this](std::vector< T >* tvec, bool, bool) {
+            if (tvec) { tvec->clear(); }
+            return false;
+        });
     }
 };
 

@@ -26,7 +26,7 @@
 #include <sisl/cache/range_hashmap.hpp>
 
 using namespace sisl;
-SISL_LOGGING_INIT(test_hashmap)
+REGISTER_LOG_MOD(test_hashmap)
 
 static uint32_t g_max_offset;
 static constexpr uint32_t per_val_size = 128;

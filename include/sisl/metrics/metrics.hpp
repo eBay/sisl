@@ -40,9 +40,6 @@
 #include "metrics_rcu.hpp"
 #include "metrics_tlocal.hpp"
 
-// TODO: Commenting out this tempoarily till the SISL_OPTIONS and SISL_LOGGING issue is resolved
-// SISL_LOGGING_DECL(vmod_metrics_framework)
-
 namespace sisl {
 
 class MetricsGroupStaticInfo;

@@ -105,6 +105,8 @@ public:
             return static_cast< enum_type >(itr->second);
     }
 
+    [[nodiscard]] size_t get_count() const { return m_value_to_tokens.size(); }
+
 private:
     std::unordered_map< underlying_type, std::string > m_value_to_tokens;
     std::unordered_map< std::string, underlying_type > m_token_to_value;
@@ -171,6 +173,12 @@ private:
     [[nodiscard]] inline const std::string& enum_name(const FQEnumName##Support::enum_type es) {                       \
         return FQEnumName##Support::instance().get_name(es);                                                           \
     }                                                                                                                  \
+                                                                                                                       \
+    template < typename ET = FQEnumName##Support::enum_type >                                                          \
+    typename std::enable_if< std::is_same< ET, FQEnumName##Support::enum_type >::value, size_t >::type enum_count() {  \
+        return FQEnumName##Support::instance().get_count();                                                            \
+    }                                                                                                                  \
+                                                                                                                       \
     [[nodiscard]] inline FQEnumName##Support::underlying_type enum_value(const FQEnumName##Support::enum_type es) {    \
         return static_cast< FQEnumName##Support::underlying_type >(es);                                                \
     }

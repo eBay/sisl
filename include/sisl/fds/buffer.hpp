@@ -509,4 +509,34 @@ private:
     byte_array m_base_buf;
     blob m_view;
 };
+
+struct buf_builder {
+public:
+    buf_builder(uint32_t sz, uint32_t alignment = 0, buftag tag = buftag::common) : alignment_{alignment} {
+        buf_ = make_byte_array(sz, alignment, tag);
+        cur_ptr_ = buf_->bytes();
+    }
+
+    void append(sisl::blob const& incoming_buf) {
+        if (available_space() < incoming_buf.size()) {
+            auto const increase_size = std::max(incoming_buf.size(), uint32_cast(buf_->size() * 1.5));
+            auto const cur_offset = occupied_space();
+            buf_->buf_realloc(buf_->size() + increase_size, alignment_, buf_->m_tag);
+            cur_ptr_ = buf_->bytes() + cur_offset;
+        }
+        std::memcpy(cur_ptr_, incoming_buf.cbytes(), incoming_buf.size());
+        cur_ptr_ += incoming_buf.size();
+    }
+
+    sisl::byte_view view() const { return sisl::byte_view{buf_, 0, occupied_space()}; }
+    uint8_t* bytes() const { return buf_->bytes(); }
+    uint32_t occupied_space() const { return cur_ptr_ - buf_->bytes(); }
+    uint32_t available_space() const { return buf_->size() - occupied_space(); }
+
+private:
+    byte_array buf_;
+    uint32_t alignment_{0};
+    uint8_t* cur_ptr_{nullptr};
+};
+
 } // namespace sisl

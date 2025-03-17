@@ -234,20 +234,24 @@ void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
 static spdlog::level::level_enum* to_mod_log_level_ptr(const std::string& module_name) {
     const auto sym = std::string{"module_level_"} + module_name;
     auto* mod_level = static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()));
-    if (mod_level == nullptr) {
-        std::cout << fmt::format("Unable to locate the module [{}] in registered modules, error: {}\n", module_name,
-                                 dlerror());
-    }
     return mod_level;
 }
 
 static void set_module_log_level(const std::string& module_name, const spdlog::level::level_enum level) {
     auto* mod_level = to_mod_log_level_ptr(module_name);
     if (mod_level != nullptr) { *mod_level = level; }
+
+#ifdef LOG_MODS_V2_SUPPORT
+    sisl::logging::LogModulesV2::instance().set_module_level(module_name, level);
+#else
+    std::cout << fmt::format("Unable to locate the module [{}] in registered modules, error: {}\n", module_name,
+                             dlerror());
+#endif
 }
 
 static std::string setup_modules() {
     std::string out_str;
+    REGISTER_LOG_MOD(base);
 
     if (SISL_OPTIONS.count("verbosity")) {
         auto lvl_str{SISL_OPTIONS["verbosity"].as< std::string >()};
@@ -263,8 +267,9 @@ static std::string setup_modules() {
             fmt::vformat_to(std::back_inserter(out_str), fmt::string_view{"{}={}, "},
                             fmt::make_format_args(mod_name, lvl_str));
         }
-    } else
+    } else {
         set_module_log_level("base", spdlog::level::level_enum::info);
+    }
 
     if (SISL_OPTIONS.count("log_mods")) {
         std::regex re{"[\\s,]+"};
@@ -275,18 +280,13 @@ static std::string setup_modules() {
             auto mod_stream{std::istringstream(it->str())};
             std::string module_name, module_level;
             std::getline(mod_stream, module_name, ':');
-            if (module_name.empty()) continue;
-            const auto sym{std::string{"module_level_"} + module_name};
-            if (auto* const mod_level{static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()))};
-                nullptr != mod_level) {
-                if (std::getline(mod_stream, module_level, ':')) {
-                    *mod_level = (1 == module_level.size())
-                        ? static_cast< spdlog::level::level_enum >(std::strtol(module_level.data(), nullptr, 0))
-                        : spdlog::level::from_str(module_level.data());
-                }
-            } else {
-                std::cout << fmt::format("Unable to setup the module [{}] in registered modules, error: {}\n",
-                                         module_name, dlerror());
+            if (module_name.empty()) { continue; }
+
+            if (std::getline(mod_stream, module_level, ':')) {
+                set_module_log_level(module_name,
+                                     (1 == module_level.size()) ? static_cast< spdlog::level::level_enum >(
+                                                                      std::strtol(module_level.data(), nullptr, 0))
+                                                                : spdlog::level::from_str(module_level.data()));
             }
         }
     }
@@ -297,6 +297,15 @@ static std::string setup_modules() {
             std::back_inserter(out_str), fmt::string_view{"{}={}, "},
             fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data()));
     }
+
+#ifdef LOG_MODS_V2_SUPPORT
+    fmt::format_to(std::back_inserter(out_str), fmt::string_view("\nV2 Modules: "));
+    auto m = sisl::logging::LogModulesV2::instance().get_all_module_levels();
+    for (auto const& [mod_name, lvl] : m) {
+        fmt::vformat_to(std::back_inserter(out_str), fmt::string_view{"{}={}, "},
+                        fmt::make_format_args(mod_name, spdlog::level::to_string_view(lvl).data()));
+    }
+#endif
 
     return out_str;
 }
@@ -326,7 +335,7 @@ void SetLogger(std::string const& name, std::string const& pkg, std::string cons
         std::exit(0);
     }
 
-    const auto log_details{setup_modules()};
+    const auto log_details = setup_modules();
     LOGINFO("Logging initialized: {}/{}, [logmods: {}]", pkg, ver, log_details);
 }
 
@@ -370,7 +379,15 @@ void SetModuleLogLevel(const std::string& module_name, const spdlog::level::leve
 
 spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name) {
     auto* mod_level = to_mod_log_level_ptr(module_name);
-    return mod_level ? *mod_level : spdlog::level::level_enum::off;
+    if (mod_level != nullptr) { return *mod_level; }
+
+#ifdef LOG_MODS_V2_SUPPORT
+    return sisl::logging::LogModulesV2::instance().get_module_level(module_name);
+#else
+    std::cout << fmt::format("Unable to locate the module [{}] in registered modules, error: {}\n", module_name,
+                             dlerror());
+    return spdlog::level::level_enum::off;
+#endif
 }
 
 nlohmann::json GetAllModuleLogLevel() {
@@ -379,14 +396,24 @@ nlohmann::json GetAllModuleLogLevel() {
         const std::string& mod_name{glob_enabled_mods[mod_num]};
         j[mod_name] = spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data();
     }
+
+#ifdef LOG_MODS_V2_SUPPORT
+    auto m = sisl::logging::LogModulesV2::instance().get_all_module_levels();
+    for (auto const& [mod_name, lvl] : m) {
+        j[mod_name] = spdlog::level::to_string_view(lvl).data();
+    }
+#endif
     return j;
 }
 
 void SetAllModuleLogLevel(const spdlog::level::level_enum level) {
     for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
-        const std::string& mod_name{glob_enabled_mods[mod_num]};
-        SetModuleLogLevel(mod_name, level);
+        const std::string& mod_name = glob_enabled_mods[mod_num];
+        set_module_log_level(mod_name, level);
     }
+#ifdef LOG_MODS_V2_SUPPORT
+    sisl::logging::LogModulesV2::instance().set_all_module_levels(level);
+#endif
 }
 
 std::string format_log_msg() { return std::string{}; }

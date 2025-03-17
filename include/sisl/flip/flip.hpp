@@ -39,8 +39,6 @@
 #include "flip_rpc_server.hpp"
 #include <sisl/logging/logging.h>
 
-SISL_LOGGING_DECL(flip)
-
 namespace flip {
 
 template < size_t Index = 0,                                                     // start iteration at 0 index
@@ -435,7 +433,8 @@ static constexpr int DELAYED_RETURN = 3;
 
 class Flip {
 public:
-    Flip() : m_flip_enabled(false) {}
+    Flip() : m_flip_enabled(false) { REGISTER_LOG_MODS(flip) }
+
     ~Flip() {
         if (m_flip_server) { stop_rpc_server(); }
     }

@@ -95,7 +95,7 @@ public:
 
 private:
     SimpleHashBucket< K, V >& get_bucket(const K& key) const;
-    SimpleHashBucket< K, V >& get_bucket(size_t hash_code) const;
+    SimpleHashBucket< K, V >& get_bucket_from_hash(size_t hash_code) const;
 };
 
 ///////////////////////////////////////////// MultiEntryHashNode Definitions ///////////////////////////////////
@@ -127,6 +127,8 @@ public:
         auto it{m_list.begin()};
         while (it != m_list.end()) {
             SingleEntryHashNode< V >* n = &*it;
+            const K k = SimpleHashMap< K, V >::extractor_cb()(it->m_value);
+            access_cb(*n, k, hash_op_t::DELETE);
             it = m_list.erase(it);
             delete n;
         }
@@ -278,6 +280,7 @@ SimpleHashMap< K, V >::SimpleHashMap(uint32_t nBuckets, const key_extractor_cb_t
 
 template < typename K, typename V >
 SimpleHashMap< K, V >::~SimpleHashMap() {
+    set_current_instance(this);
     delete[] m_buckets;
 }
 
@@ -353,7 +356,7 @@ SimpleHashBucket< K, V >& SimpleHashMap< K, V >::get_bucket(const K& key) const 
 }
 
 template < typename K, typename V >
-SimpleHashBucket< K, V >& SimpleHashMap< K, V >::get_bucket(size_t hash_code) const {
+SimpleHashBucket< K, V >& SimpleHashMap< K, V >::get_bucket_from_hash(size_t hash_code) const {
     return (m_buckets[hash_code % m_nbuckets]);
 }
 
