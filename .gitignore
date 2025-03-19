@@ -102,6 +102,7 @@ cmake-*/**
 .vscode/**
 
 # Visual Studio
+CMakeUserPresets.json
 CMakeSettings.json
 .vs/**
 
