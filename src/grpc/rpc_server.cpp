@@ -26,8 +26,6 @@ extern "C" {
 
 #include <grpcpp/impl/codegen/service_type.h>
 
-SISL_LOGGING_DEF(grpc_server)
-
 namespace sisl {
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                        const std::string& ssl_cert) :
@@ -39,6 +37,7 @@ GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, int max
                        const std::string& ssl_key, const std::string& ssl_cert,
                        const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr) :
         m_num_threads{threads}, m_auth_mgr{auth_mgr} {
+    REGISTER_LOG_MOD(grpc_server);
     if (listen_addr.empty() || threads == 0) { throw std::invalid_argument("Invalid parameter to start grpc server"); }
 
     if (max_receive_msg_size != 0) { m_builder.SetMaxReceiveMessageSize(max_receive_msg_size); }

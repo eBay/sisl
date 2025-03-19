@@ -27,8 +27,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_bitset);
-
 SISL_OPTIONS_ENABLE(logging, test_id_reserver)
 
 SISL_OPTION_GROUP(test_id_reserver,

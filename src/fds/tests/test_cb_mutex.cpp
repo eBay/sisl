@@ -30,8 +30,6 @@
 #include "callback_mutex.hpp"
 #include "sisl/fds/utils.hpp"
 
-SISL_LOGGING_INIT(test_cb_mutex)
-
 static uint64_t g_prev_val{0};
 static uint64_t g_cur_val{1};
 

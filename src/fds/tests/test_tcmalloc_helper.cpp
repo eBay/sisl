@@ -31,8 +31,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_jemalloc)
-
 namespace {
 uint32_t g_num_threads;
 

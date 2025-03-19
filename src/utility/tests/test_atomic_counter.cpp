@@ -14,8 +14,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_atomic_counter)
-
 namespace {
 size_t g_num_threads;
 

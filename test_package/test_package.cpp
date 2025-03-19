@@ -2,9 +2,6 @@
 #include <sisl/options/options.h>
 #include <sisl/utility/thread_factory.hpp>
 
-SISL_LOGGING_DECL(my_module)
-SISL_LOGGING_INIT(my_module)
-
 SISL_OPTIONS_ENABLE(logging)
 
 extern void example_decl();

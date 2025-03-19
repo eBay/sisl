@@ -21,7 +21,6 @@
 
 #include "sisl/metrics/metrics.hpp"
 
-SISL_LOGGING_INIT(vmod_metrics_framework)
 RCU_REGISTER_INIT
 
 #define ITERATIONS 1000

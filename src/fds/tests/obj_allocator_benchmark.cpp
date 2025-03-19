@@ -28,7 +28,6 @@
 #include "sisl/metrics/metrics.hpp"
 #include "sisl/fds/obj_allocator.hpp"
 
-SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
 RCU_REGISTER_INIT
 
 namespace {

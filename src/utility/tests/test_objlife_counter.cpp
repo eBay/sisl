@@ -13,8 +13,6 @@
 #include "sisl/fds/buffer.hpp"
 #include "sisl/utility/obj_life_counter.hpp"
 
-SISL_LOGGING_INIT(test_objlife)
-
 template < typename T1, typename T2 >
 struct TestClass : sisl::ObjLifeCounter< TestClass< T1, T2 > > {
     TestClass() : m_x{rand()} {}

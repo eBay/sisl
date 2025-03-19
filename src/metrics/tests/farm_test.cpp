@@ -30,7 +30,6 @@
 constexpr size_t ITERATIONS{3};
 
 RCU_REGISTER_INIT
-SISL_LOGGING_INIT(vmod_metrics_framework)
 
 using namespace sisl;
 

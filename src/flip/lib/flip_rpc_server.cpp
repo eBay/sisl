@@ -25,8 +25,6 @@
 #include "sisl/flip/flip_rpc_server.hpp"
 #include "sisl/flip/flip.hpp"
 
-SISL_LOGGING_DEF(flip)
-
 namespace flip {
 grpc::Status FlipRPCServer::InjectFault(grpc::ServerContext*, const FlipSpec* request, FlipResponse* response) {
     LOGTRACEMOD(flip, "InjectFault request = {}", request->DebugString());

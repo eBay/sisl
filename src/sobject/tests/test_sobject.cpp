@@ -28,7 +28,6 @@
 using namespace sisl;
 using namespace std;
 
-SISL_LOGGING_INIT(test_sobject)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace {

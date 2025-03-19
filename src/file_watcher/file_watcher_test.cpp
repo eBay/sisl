@@ -12,7 +12,6 @@
 #include "sisl/file_watcher/file_watcher.hpp"
 #include <sisl/options/options.h>
 
-SISL_LOGGING_INIT(test_file_watcher)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace sisl::testing {

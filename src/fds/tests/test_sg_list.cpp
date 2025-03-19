@@ -17,7 +17,6 @@
 #include <random>
 #include "sisl/fds/buffer.hpp"
 
-SISL_LOGGING_INIT(test_sg_list)
 SISL_OPTIONS_ENABLE(logging, test_sg_list)
 SISL_OPTION_GROUP(test_sg_list,
                   (num_threads, "", "num_threads", "number of threads",

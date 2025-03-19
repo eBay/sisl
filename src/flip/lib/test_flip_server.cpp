@@ -18,8 +18,6 @@
 
 #include <sisl/options/options.h>
 
-SISL_LOGGING_INIT(flip)
-
 SISL_OPTIONS_ENABLE(logging)
 
 int main(int argc, char* argv[]) {

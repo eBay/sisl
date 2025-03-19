@@ -29,7 +29,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_bitword)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace {

@@ -24,7 +24,6 @@
 #include "sisl/grpc/rpc_server.hpp"
 #include "grpc_helper_test.grpc.pb.h"
 
-SISL_LOGGING_INIT(logging, grpc_server)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace sisl::grpc::testing {

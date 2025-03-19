@@ -6,7 +6,6 @@
 
 #include "sisl/grpc/rpc_client.hpp"
 
-SISL_LOGGING_INIT(grpc_server)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace sisltesting {

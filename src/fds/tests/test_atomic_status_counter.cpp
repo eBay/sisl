@@ -23,7 +23,6 @@
 
 using namespace sisl;
 
-SISL_LOGGING_INIT(test_atomic_status_counter)
 SISL_OPTIONS_ENABLE(logging)
 
 namespace {

@@ -24,7 +24,7 @@
 #include "sisl/settings/settings.hpp"
 
 SISL_OPTIONS_ENABLE(logging, test_settings, config)
-SISL_LOGGING_INIT(test_settings, settings)
+
 SETTINGS_INIT(testapp::TestAppSettings, test_app_schema)
 
 SISL_OPTION_GROUP(test_settings,

@@ -24,7 +24,6 @@
 
 using namespace flip;
 
-SISL_LOGGING_INIT(flip)
 SISL_OPTIONS_ENABLE(logging)
 
 Flip g_flip;

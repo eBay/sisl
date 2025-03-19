@@ -124,7 +124,6 @@ void StartServer() {
     g_ping_impl->register_rpcs(g_grpc_server);
 }
 
-SISL_LOGGING_INIT(logging, grpc_server)
 SISL_OPTIONS_ENABLE(logging)
 
 int main(int argc, char* argv[]) {

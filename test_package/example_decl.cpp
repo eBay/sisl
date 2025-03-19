@@ -1,7 +1,6 @@
 #include <sisl/logging/logging.h>
 
-SISL_LOGGING_DEF(my_module)
-
 void example_decl() {
-  LOGINFOMOD(my_module, "Example def!");
+    REGISTER_LOG_MOD(my_module)
+    LOGINFOMOD(my_module, "Example def!");
 }

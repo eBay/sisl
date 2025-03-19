@@ -38,32 +38,31 @@ template < typename T >
 class ConcurrentInsertVector {
 private:
     ExitSafeThreadBuffer< std::vector< T >, size_t > tvector_;
-    std::vector< std::vector< T > const* > per_thread_vec_ptrs_;
 
 public:
     struct iterator {
         size_t next_thread{0};
         size_t next_id_in_thread{0};
-        ConcurrentInsertVector const* vec{nullptr};
+        std::vector< std::vector< T > const* > per_thread_vectors;
 
         iterator() = default;
-        iterator(ConcurrentInsertVector const& v) : vec{&v} {}
-        iterator(ConcurrentInsertVector const& v, bool end_iterator) : vec{&v} {
-            if (end_iterator) { next_thread = vec->per_thread_vec_ptrs_.size(); }
+        iterator(std::vector< std::vector< T > const* > v) : per_thread_vectors{std::move(v)} {
+            if (per_thread_vectors.empty()) { next_thread = std::numeric_limits< size_t >::max(); }
         }
 
         void operator++() {
             ++next_id_in_thread;
-            if (next_id_in_thread >= vec->per_thread_vec_ptrs_[next_thread]->size()) {
+            if (next_id_in_thread >= per_thread_vectors[next_thread]->size()) {
                 ++next_thread;
                 next_id_in_thread = 0;
             }
+            if (next_thread >= per_thread_vectors.size()) { next_thread = std::numeric_limits< size_t >::max(); }
         }
 
         void operator+=(int64_t count) {
-            while ((count > 0) && (next_thread < vec->per_thread_vec_ptrs_.size())) {
+            while ((count > 0) && (next_thread < per_thread_vectors.size())) {
                 // Determine how many steps we can take in the current thread
-                size_t remaining_in_thread = vec->per_thread_vec_ptrs_[next_thread]->size() - next_id_in_thread;
+                size_t remaining_in_thread = per_thread_vectors[next_thread]->size() - next_id_in_thread;
 
                 if (count < remaining_in_thread) {
                     next_id_in_thread += count;
@@ -75,13 +74,19 @@ public:
                     next_id_in_thread = 0;
                 }
             }
+            if (next_thread >= per_thread_vectors.size()) { next_thread = std::numeric_limits< size_t >::max(); }
         }
 
-        bool operator==(iterator const& other) const = default;
-        bool operator!=(iterator const& other) const = default;
+        bool operator==(iterator const& other) const {
+            return ((next_thread == other.next_thread) && (next_id_in_thread == other.next_id_in_thread));
+        }
 
-        T const& operator*() const { return vec->per_thread_vec_ptrs_[next_thread]->at(next_id_in_thread); }
-        T const* operator->() const { return &(vec->per_thread_vec_ptrs_[next_thread]->at(next_id_in_thread)); }
+        bool operator!=(iterator const& other) const {
+            return ((next_thread != other.next_thread) || (next_id_in_thread != other.next_id_in_thread));
+        }
+
+        T const& operator*() const { return per_thread_vectors[next_thread]->at(next_id_in_thread); }
+        T const* operator->() const { return &(per_thread_vectors[next_thread]->at(next_id_in_thread)); }
     };
 
     ConcurrentInsertVector() = default;
@@ -105,14 +110,16 @@ public:
     }
 
     iterator begin() {
-        tvector_.access_all_threads([this](std::vector< T > const* tvec, bool, bool) {
-            if (tvec && tvec->size()) { per_thread_vec_ptrs_.push_back(tvec); }
+        std::vector< std::vector< T > const* > per_thread_vectors;
+        per_thread_vectors.reserve(8);
+        tvector_.access_all_threads([this, &per_thread_vectors](std::vector< T > const* tvec, bool, bool) {
+            if (tvec && tvec->size()) { per_thread_vectors.push_back(tvec); }
             return false;
         });
-        return iterator{*this};
+        return iterator{per_thread_vectors};
     }
 
-    iterator end() { return iterator{*this, true /* end_iterator */}; }
+    iterator end() { return iterator{{}}; }
 
     void foreach_entry(auto&& cb) {
         tvector_.access_all_threads([this, &cb](std::vector< T > const* tvec, bool, bool) {

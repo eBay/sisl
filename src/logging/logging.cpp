@@ -57,7 +57,9 @@ SISL_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enabl
                           (version,    "V", "version", "Print the version and exist", ::cxxopts::value<bool>(), ""))
 // clang-format on
 
+#ifdef LOG_MODS_V1_LEGACY
 SISL_LOGGING_DEF(base)
+#endif
 
 namespace sisl {
 namespace logging {
@@ -68,10 +70,6 @@ constexpr uint64_t Mi{Ki * Ki};
 // SISL_LOGGING_INIT declared global variables
 static std::shared_ptr< spdlog::logger > glob_spdlog_logger;
 static std::shared_ptr< spdlog::logger > glob_critical_logger;
-// NOTE: glob_enabled_mods should be a vector but sanitizer reports a leak so changed to array of pointers
-static constexpr size_t MAX_MODULES{100};
-static std::array< const char*, MAX_MODULES > glob_enabled_mods{"base"};
-static size_t glob_num_mods{1};
 
 /****************************** LoggerThreadRegistry ******************************/
 std::shared_ptr< LoggerThreadRegistry > LoggerThreadRegistry::instance() {
@@ -103,13 +101,20 @@ LoggerThreadContext::LoggerThreadContext() :
 LoggerThreadContext::~LoggerThreadContext() { m_logger_thread_registry->remove_logger_thread(this); }
 
 /******************************** InitModules *********************************/
-void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
-    assert(glob_num_mods + mods_list.size() <= MAX_MODULES);
+#ifdef LOG_MODS_V1_LEGACY
+// NOTE: glob_enabled_mods should be a vector but sanitizer reports a leak so changed to array of pointers
+static constexpr size_t MAX_MODULES{100};
+static std::array< const char*, MAX_MODULES > s_glob_enabled_mods{"base"};
+static size_t s_glob_num_mods{1};
+
+void LogModulesV1::init_modules(std::initializer_list< const char* > mods_list) {
+    assert(s_glob_num_mods + mods_list.size() <= MAX_MODULES);
     for (const auto& mod : mods_list) {
         if (std::string(mod).empty()) continue;
-        glob_enabled_mods[glob_num_mods++] = mod;
+        s_glob_enabled_mods[s_glob_enabled_mods++] = mod;
     }
 }
+#endif
 
 std::shared_ptr< spdlog::logger >& GetLogger() {
 #if __cplusplus > 201703L
@@ -231,21 +236,22 @@ void set_global_logger(N const& name, S const& sinks, S const& crit_sinks) {
     spdlog::register_logger(glob_critical_logger);
 }
 
+#ifdef LOG_MODS_V1_LEGACY
 static spdlog::level::level_enum* to_mod_log_level_ptr(const std::string& module_name) {
     const auto sym = std::string{"module_level_"} + module_name;
     auto* mod_level = static_cast< spdlog::level::level_enum* >(::dlsym(RTLD_DEFAULT, sym.c_str()));
     return mod_level;
 }
+#endif
 
 static void set_module_log_level(const std::string& module_name, const spdlog::level::level_enum level) {
-    auto* mod_level = to_mod_log_level_ptr(module_name);
+#ifdef LOG_MODS_V1_LEGACY
+    auto* mod_level = LogModulesV1::to_mod_log_level_ptr(module_name);
     if (mod_level != nullptr) { *mod_level = level; }
-
-#ifdef LOG_MODS_V2_SUPPORT
-    sisl::logging::LogModulesV2::instance().set_module_level(module_name, level);
-#else
     std::cout << fmt::format("Unable to locate the module [{}] in registered modules, error: {}\n", module_name,
                              dlerror());
+#else
+    sisl::logging::LogModulesV2::instance().set_module_level(module_name, level);
 #endif
 }
 
@@ -261,12 +267,16 @@ static std::string setup_modules() {
             lvl_str = spdlog::level::to_string_view(lvl).data();
         }
 
+#ifdef LOG_MODS_V1_LEGACY
         for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
             const std::string& mod_name{glob_enabled_mods[mod_num]};
             set_module_log_level(mod_name, lvl);
             fmt::vformat_to(std::back_inserter(out_str), fmt::string_view{"{}={}, "},
                             fmt::make_format_args(mod_name, lvl_str));
         }
+#else
+        sisl::logging::LogModulesV2::instance().set_all_module_levels(lvl);
+#endif
     } else {
         set_module_log_level("base", spdlog::level::level_enum::info);
     }
@@ -291,14 +301,14 @@ static std::string setup_modules() {
         }
     }
 
+#ifdef LOG_MODS_V1_LEGACY
     for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
         const std::string& mod_name{glob_enabled_mods[mod_num]};
         fmt::vformat_to(
             std::back_inserter(out_str), fmt::string_view{"{}={}, "},
             fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data()));
     }
-
-#ifdef LOG_MODS_V2_SUPPORT
+#else
     fmt::format_to(std::back_inserter(out_str), fmt::string_view("\nV2 Modules: "));
     auto m = sisl::logging::LogModulesV2::instance().get_all_module_levels();
     for (auto const& [mod_name, lvl] : m) {
@@ -378,26 +388,25 @@ void SetModuleLogLevel(const std::string& module_name, const spdlog::level::leve
 }
 
 spdlog::level::level_enum GetModuleLogLevel(const std::string& module_name) {
+#ifdef LOG_MODS_V1_LEGACY
     auto* mod_level = to_mod_log_level_ptr(module_name);
     if (mod_level != nullptr) { return *mod_level; }
-
-#ifdef LOG_MODS_V2_SUPPORT
-    return sisl::logging::LogModulesV2::instance().get_module_level(module_name);
-#else
     std::cout << fmt::format("Unable to locate the module [{}] in registered modules, error: {}\n", module_name,
                              dlerror());
     return spdlog::level::level_enum::off;
+#else
+    return sisl::logging::LogModulesV2::instance().get_module_level(module_name);
 #endif
 }
 
 nlohmann::json GetAllModuleLogLevel() {
     nlohmann::json j;
+#ifdef LOG_MODS_V1_LEGACY
     for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
         const std::string& mod_name{glob_enabled_mods[mod_num]};
         j[mod_name] = spdlog::level::to_string_view(GetModuleLogLevel(mod_name)).data();
     }
-
-#ifdef LOG_MODS_V2_SUPPORT
+#else
     auto m = sisl::logging::LogModulesV2::instance().get_all_module_levels();
     for (auto const& [mod_name, lvl] : m) {
         j[mod_name] = spdlog::level::to_string_view(lvl).data();
@@ -407,11 +416,12 @@ nlohmann::json GetAllModuleLogLevel() {
 }
 
 void SetAllModuleLogLevel(const spdlog::level::level_enum level) {
+#ifdef LOG_MODS_V1_LEGACY
     for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
         const std::string& mod_name = glob_enabled_mods[mod_num];
         set_module_log_level(mod_name, level);
     }
-#ifdef LOG_MODS_V2_SUPPORT
+#else
     sisl::logging::LogModulesV2::instance().set_all_module_levels(level);
 #endif
 }

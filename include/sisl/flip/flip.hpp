@@ -433,7 +433,7 @@ static constexpr int DELAYED_RETURN = 3;
 
 class Flip {
 public:
-    Flip() : m_flip_enabled(false) { REGISTER_LOG_MODS(flip) }
+    Flip() : m_flip_enabled(false) { REGISTER_LOG_MOD(flip) }
 
     ~Flip() {
         if (m_flip_server) { stop_rpc_server(); }

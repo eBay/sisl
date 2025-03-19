@@ -15,8 +15,6 @@
 #include "sisl/grpc/rpc_client.hpp"
 #include "utils.hpp"
 
-SISL_LOGGING_DECL(grpc_server)
-
 namespace sisl {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
@@ -35,6 +33,9 @@ void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
     ::grpc::ChannelArguments channel_args;
     channel_args.SetMaxReceiveMessageSize(-1);
+
+    REGISTER_LOG_MOD(grpc_server)
+
     if (!m_ssl_cert.empty()) {
         if (load_ssl_cert(m_ssl_cert, ssl_opts.pem_root_certs)) {
             if (!m_target_domain.empty()) { channel_args.SetSslTargetNameOverride(m_target_domain); }

@@ -23,7 +23,6 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
-#include <initializer_list>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -34,14 +33,17 @@
 #include <filesystem>
 
 #include <boost/preprocessor/cat.hpp>
-#include <boost/preprocessor/control/if.hpp>
-#include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/variadic/to_seq.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h> // NOTE: There is an ordering dependecy on this header and fmt headers below
 #include <spdlog/fmt/bin_to_hex.h>
 #include <spdlog/fmt/ostr.h>
+
+#ifdef LOG_MODS_V1_LEGACY
+#include <sisl/logging/log_mods_v1.h>
+#else
+#include <sisl/logging/log_mods_v2.h>
+#endif
 
 // The following constexpr's are used to extract the filename
 // from the full path during compile time.
@@ -405,19 +407,6 @@ private:
     LoggerThreadContext();
 };
 
-class InitModules {
-public:
-    InitModules(std::initializer_list< const char* > list) { init_modules(list); }
-    InitModules(const InitModules&) = delete;
-    InitModules& operator=(const InitModules&) = delete;
-    InitModules(InitModules&&) noexcept = delete;
-    InitModules& operator=(InitModules&&) noexcept = delete;
-    ~InitModules() = default;
-
-private:
-    void init_modules(std::initializer_list< const char* > mods_list);
-};
-
 #define logger_thread_ctx LoggerThreadContext::instance()
 #define mythread_logger logger_thread_ctx.m_logger
 #define mycritical_logger logger_thread_ctx.m_critical_logger
@@ -427,173 +416,6 @@ private:
 
 } // namespace logging
 } // namespace sisl
-
-#define MODLEVELDEC(r, _, module)                                                                                      \
-    extern "C" {                                                                                                       \
-    extern spdlog::level::level_enum BOOST_PP_CAT(module_level_, module);                                              \
-    }
-MODLEVELDEC(_, _, base)
-
-#define MODLEVELDEF(r, l, module)                                                                                      \
-    extern "C" {                                                                                                       \
-    __attribute__((visibility("default"))) spdlog::level::level_enum BOOST_PP_CAT(module_level_, module){l};           \
-    }
-
-#define MOD_LEVEL_STRING(r, _, module) BOOST_PP_STRINGIZE(module),
-
-#define SISL_LOGGING_DECL(...)                                                                                         \
-    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEC, spdlog::level::level_enum::off, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
-
-#define SISL_LOGGING_DEF(...)                                                                                          \
-    BOOST_PP_SEQ_FOR_EACH(MODLEVELDEF, spdlog::level::level_enum::err, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
-
-#define SISL_LOGGING_INIT(...)                                                                                         \
-    sisl::logging::InitModules s_init_enabled_mods{                                                                    \
-        BOOST_PP_SEQ_FOR_EACH(MOD_LEVEL_STRING, , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))};
-
-#ifdef LOG_MODS_V2_SUPPORT
-#define MOD_DECLTYPE(name) decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr))
-
-#define REGISTER_LOG_MOD(name)                                                                                         \
-    {                                                                                                                  \
-        using namespace sisl::logging;                                                                                 \
-        auto& mod = ModuleName< MOD_DECLTYPE(name) >::instance();                                                      \
-        sisl::logging::LogModulesV2::instance().register_module(&mod);                                                 \
-    }
-
-#define _REGISTER_LOG_MOD_MACRO(r, _, module) REGISTER_LOG_MOD(module)
-#define REGISTER_LOG_MODS(...) BOOST_PP_SEQ_FOR_EACH(_REGISTER_LOG_MOD_MACRO, , BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))
-#define LEVELCHECK(mod, lvl) (ModuleName< MOD_DECLTYPE(mod) >::instance().get_level() <= (lvl))
-
-namespace sisl {
-namespace logging {
-
-class ModuleBase {
-public:
-    ModuleBase() = default;
-    virtual std::string get_name() const = 0;
-    virtual void set_level(spdlog::level::level_enum level) = 0;
-    virtual spdlog::level::level_enum get_level() const = 0;
-    virtual ~ModuleBase() = default;
-};
-
-class LogModulesV2 {
-public:
-    static constexpr spdlog::level::level_enum k_default_level{spdlog::level::level_enum::err};
-
-    static LogModulesV2& instance() {
-        static LogModulesV2 s_inst{};
-        return s_inst;
-    }
-
-    void register_module(ModuleBase* mod) {
-        std::unique_lock lock{m_mutex};
-        m_registered_modules.emplace(mod->get_name(), mod);
-        auto const it = m_requested_modules.find(mod->get_name());
-        mod->set_level(it != m_requested_modules.end() ? it->second : k_default_level);
-    }
-
-    void set_module_level(const std::string& name, spdlog::level::level_enum level) {
-        std::unique_lock lock{m_mutex};
-        m_requested_modules[name] = level;
-
-        auto it = m_registered_modules.find(name);
-        if (it != m_registered_modules.end()) { it->second->set_level(level); }
-    }
-
-    spdlog::level::level_enum get_module_level(const std::string& module_name) {
-        std::unique_lock lock{m_mutex};
-        if (auto it = m_registered_modules.find(module_name); it != m_registered_modules.end()) {
-            return it->second->get_level();
-        } else if (auto it2 = m_requested_modules.find(module_name); (it2 != m_requested_modules.end())) {
-            return it2->second;
-        }
-
-        return k_default_level;
-    }
-
-    std::unordered_map< std::string, spdlog::level::level_enum > get_all_module_levels() {
-        std::unique_lock lock{m_mutex};
-        std::unordered_map< std::string, spdlog::level::level_enum > ret;
-        ret = m_requested_modules;
-        for (auto& [name, mod] : m_registered_modules) {
-            ret[name] = mod->get_level();
-        }
-        return ret;
-    }
-
-    void set_all_module_levels(spdlog::level::level_enum level) {
-        std::unique_lock lock{m_mutex};
-        for (auto& [name, mod] : m_registered_modules) {
-            mod->set_level(level);
-        }
-
-        for (auto& [name, _] : m_requested_modules) {
-            m_requested_modules[name] = level;
-        }
-    }
-
-private:
-    LogModulesV2() = default;
-    std::mutex m_mutex;
-    std::unordered_map< std::string, ModuleBase* > m_registered_modules;
-    std::unordered_map< std::string, spdlog::level::level_enum > m_requested_modules;
-};
-
-} // namespace logging
-} // namespace sisl
-
-template < char... chars >
-using tstring = std::integer_sequence< char, chars... >;
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#ifdef __clang__
-#pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
-#endif
-template < typename T, T... chars >
-constexpr tstring< chars... > operator""_tstr() {
-    return {};
-}
-#pragma GCC diagnostic pop
-
-template < typename >
-class ModuleName;
-
-template < char... elements >
-class ModuleName< tstring< elements... > > : public sisl::logging::ModuleBase {
-public:
-    ModuleName(const ModuleName&) = delete;
-    ModuleName(ModuleName&&) noexcept = delete;
-    ModuleName& operator=(const ModuleName&) = delete;
-    ModuleName& operator=(ModuleName&&) noexcept = delete;
-
-    static ModuleName& instance() {
-        static ModuleName inst{};
-        return inst;
-    }
-
-    bool is_registered() const { return m_registered; }
-    spdlog::level::level_enum get_level() const override { return m_level; }
-    void set_level(spdlog::level::level_enum level) override { m_level = level; }
-    std::string get_name() const override { return std::string(s_name); }
-
-private:
-    ModuleName() = default;
-
-private:
-    static constexpr char s_name[sizeof...(elements) + 1] = {elements..., '\0'};
-    spdlog::level::level_enum m_level{spdlog::level::level_enum::off};
-    bool m_registered{false};
-};
-
-#else
-#define REGISTER_LOG_MODS(...)                                                                                         \
-    {}
-#define REGISTER_LOG_MOD(name)                                                                                         \
-    {}
-#define LEVELCHECK(mod, lvl) (module_level_##mod <= (lvl))
-#endif
 
 namespace sisl {
 namespace logging {

@@ -16,8 +16,6 @@
 #include "sisl/grpc/generic_service.hpp"
 #include "utils.hpp"
 
-SISL_LOGGING_DECL(grpc_server)
-
 namespace sisl {
 
 GenericRpcStaticInfo::GenericRpcStaticInfo(GrpcServer* server, grpc::AsyncGenericService* service) :

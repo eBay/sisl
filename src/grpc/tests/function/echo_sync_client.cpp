@@ -103,7 +103,6 @@ int RunClient(const std::string& server_address) {
     return ret;
 }
 
-SISL_LOGGING_INIT()
 SISL_OPTIONS_ENABLE(logging)
 
 int main(int argc, char** argv) {

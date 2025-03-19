@@ -485,7 +485,6 @@ private:
     GenericServiceImpl* m_generic_impl = nullptr;
 };
 
-SISL_LOGGING_INIT(logging, grpc_server)
 SISL_OPTIONS_ENABLE(logging)
 
 int main(int argc, char** argv) {

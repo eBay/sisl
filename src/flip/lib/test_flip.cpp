@@ -21,7 +21,6 @@
 
 #include <sisl/options/options.h>
 
-SISL_LOGGING_INIT(flip)
 SISL_OPTIONS_ENABLE(logging)
 
 void create_ret_fspec(flip::FlipSpec* fspec) {

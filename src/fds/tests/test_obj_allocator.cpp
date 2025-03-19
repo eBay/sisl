@@ -22,8 +22,6 @@
 
 #include "sisl/fds/obj_allocator.hpp"
 
-SISL_LOGGING_INIT(HOMESTORE_LOG_MODS)
-
 using namespace sisl;
 using namespace std;
 
