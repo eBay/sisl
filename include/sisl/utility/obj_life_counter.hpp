@@ -139,7 +139,7 @@ struct ObjLifeCounter {
         s_type.m_dummy = 0; // To keep s_type initialized during compile time
     }
 
-    virtual ~ObjLifeCounter() {
+    ~ObjLifeCounter() {
         assert(s_alive.load() > 0);
         s_alive.fetch_sub(1, std::memory_order_relaxed);
     }
