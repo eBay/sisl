@@ -46,7 +46,7 @@ void LRUEvictor::record_resized(uint64_t hash_code, const CacheRecord &record,
 
 bool LRUEvictor::LRUPartition::add_record(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
-  if (will_fill(record.size()) > m_max_size) {
+  if (will_fill(record.size())) {
     if (!do_evict(record.record_family_id(), record.size())) {
       return false;
     }
@@ -58,6 +58,9 @@ bool LRUEvictor::LRUPartition::add_record(CacheRecord &record) {
 
 void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
+  if (!record.m_member_hook.is_linked()) {
+    return;
+  }
   auto it = m_list.iterator_to(record);
   m_filled_size -= record.size();
   m_list.erase(it);
@@ -65,6 +68,10 @@ void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
 
 void LRUEvictor::LRUPartition::record_accessed(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
+  // An evicted record might be accessed in the hashmap before erasing it.
+  if (!record.m_member_hook.is_linked()) {
+    return;
+  }
   m_list.erase(m_list.iterator_to(record));
   m_list.push_back(record);
 }
@@ -84,9 +91,12 @@ bool LRUEvictor::LRUPartition::do_evict(const uint32_t record_fid,
     CacheRecord &rec = *it;
 
     /* return the next element */
-    if (!rec.is_pinned() && m_evictor->can_evict_cb(record_fid)(rec)) {
+    if (!rec.is_pinned() && (!m_evictor->can_evict_cb(record_fid) || m_evictor->can_evict_cb(record_fid)(rec))) {
       m_filled_size -= rec.size();
       it = m_list.erase(it);
+      if(m_evictor->post_eviction_cb(record_fid)) {
+        m_evictor->post_eviction_cb(record_fid)(rec);
+      }
     } else {
       ++count;
       it = std::next(it);
