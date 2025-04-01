@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.errors import ConanInvalidConfiguration
+from conan.errors import ConanInvalidConfiguration, ConanException
 from conan.tools.apple import is_apple_os
 from conan.tools.build import can_run, check_min_cppstd
 from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
@@ -74,7 +74,6 @@ class FollyConan(ConanFile):
         self.requires("lz4/1.9.4", transitive_libs=True)
         self.requires("snappy/1.1.10")
         self.requires("zlib/[>=1.2.11 <2]")
-        self.requires("liburing/[>=2.1]")
         self.requires("zstd/1.5.5", transitive_libs=True)
         if not is_msvc(self):
             self.requires("libdwarf/20191104")
@@ -84,7 +83,13 @@ class FollyConan(ConanFile):
         if self.settings.os in ["Linux", "FreeBSD"]:
             self.requires("libiberty/9.1.0")
             self.requires("libunwind/1.7.2")
+        if self.settings.os == "Linux":
+            self.requires("liburing/[>=2.1]")
         self.requires("fmt/10.2.1", transitive_headers=True, transitive_libs=True)
+
+    def build_requirements(self):
+        # INFO: Required due ZIP_LISTS CMake feature in conan_deps.cmake
+        self.tool_requires("cmake/[>=3.17 <4]")
 
     @property
     def _required_boost_components(self):
@@ -190,6 +195,7 @@ class FollyConan(ConanFile):
         tc.cache_variables["CMAKE_POLICY_DEFAULT_CMP0077"] = "NEW"
         # Honor Boost_ROOT set by boost recipe
         tc.cache_variables["CMAKE_POLICY_DEFAULT_CMP0074"] = "NEW"
+        tc.cache_variables["CMAKE_POLICY_VERSION_MINIMUM"] = "3.5" # CMake 4 support
 
         cxx_std_value = self._cppstd_flag_value(self.settings.get_safe("compiler.cppstd", self._min_cppstd))
         # 2019.10.21.00 -> either MSVC_ flags or CXX_STD
