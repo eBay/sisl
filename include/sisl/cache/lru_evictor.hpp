@@ -49,6 +49,15 @@ public:
 
     void record_resized(uint64_t hash_code, const CacheRecord& record, uint32_t old_size) override;
 
+    // for testing purpose
+    int64_t filled_size() const {
+        int64_t filled_size{0};
+        for (uint32_t i{0}; i < num_partitions(); ++i) {
+            filled_size += m_partitions[i].filled_size();
+        }
+        return filled_size;
+    }
+
 private:
     typedef list<
         ValueEntryBase,
@@ -81,6 +90,9 @@ private:
         void remove_record(CacheRecord& record);
         void record_accessed(CacheRecord& record);
         void record_resized(const CacheRecord& record, uint32_t old_size);
+
+        // for testing purpose
+        int64_t filled_size() const { return m_filled_size; }
 
     private:
         bool do_evict(const uint32_t record_fid, const uint32_t needed_size);
