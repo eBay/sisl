@@ -21,20 +21,32 @@ namespace sisl {
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr, const std::string& target_domain,
                                const std::string& ssl_cert) :
-        GrpcBaseClient::GrpcBaseClient(server_addr, nullptr, target_domain, ssl_cert) {}
+        GrpcBaseClient::GrpcBaseClient(server_addr, nullptr, target_domain, ssl_cert, 0, 0) {}
 
 GrpcBaseClient::GrpcBaseClient(const std::string& server_addr,
                                const std::shared_ptr< sisl::GrpcTokenClient >& token_client,
-                               const std::string& target_domain, const std::string& ssl_cert) :
+                               const std::string& target_domain, const std::string& ssl_cert,
+                               const int max_receive_msg_size, const int max_send_msg_size) :
         m_server_addr(server_addr),
         m_target_domain(target_domain),
         m_ssl_cert(ssl_cert),
-        m_token_client(token_client) {}
+        m_token_client(token_client),
+        m_max_receive_msg_size(max_receive_msg_size),
+        m_max_send_msg_size(max_send_msg_size) {}
 
 void GrpcBaseClient::init() {
     ::grpc::SslCredentialsOptions ssl_opts;
     ::grpc::ChannelArguments channel_args;
     channel_args.SetMaxReceiveMessageSize(-1);
+    if (m_max_receive_msg_size != 0) {
+        LOGINFO("Setting max receive message size to {}", m_max_receive_msg_size);
+        channel_args.SetMaxReceiveMessageSize(m_max_receive_msg_size);
+    }
+    if (m_max_send_msg_size != 0) {
+        LOGINFO("Setting max send message size to {}", m_max_send_msg_size);
+        channel_args.SetMaxSendMessageSize(m_max_send_msg_size);
+    }
+
     if (!m_ssl_cert.empty()) {
         if (load_ssl_cert(m_ssl_cert, ssl_opts.pem_root_certs)) {
             if (!m_target_domain.empty()) { channel_args.SetSslTargetNameOverride(m_target_domain); }
