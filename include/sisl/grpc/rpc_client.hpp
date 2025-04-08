@@ -229,11 +229,15 @@ protected:
     std::shared_ptr< ::grpc::ChannelInterface > m_channel;
     std::shared_ptr< sisl::GrpcTokenClient > m_token_client;
 
+    int m_max_receive_msg_size{0};
+    int m_max_send_msg_size{0};
+
 public:
     GrpcBaseClient(const std::string& server_addr, const std::string& target_domain = "",
                    const std::string& ssl_cert = "");
     GrpcBaseClient(const std::string& server_addr, const std::shared_ptr< sisl::GrpcTokenClient >& token_client,
-                   const std::string& target_domain = "", const std::string& ssl_cert = "");
+                   const std::string& target_domain = "", const std::string& ssl_cert = "",
+                   int max_receive_msg_size = 0, int max_send_msg_size = 0);
     virtual ~GrpcBaseClient() = default;
     virtual bool is_connection_ready() const;
     virtual void init();
@@ -311,12 +315,14 @@ public:
     using StubPtr = std::unique_ptr< typename ServiceT::StubInterface >;
 
     GrpcAsyncClient(const std::string& server_addr, const std::shared_ptr< sisl::GrpcTokenClient > token_client,
-                    const std::string& target_domain = "", const std::string& ssl_cert = "") :
-            GrpcBaseClient(server_addr, token_client, target_domain, ssl_cert) {}
+                    const std::string& target_domain = "", const std::string& ssl_cert = "",
+                    int max_receive_msg_size = 0, int max_send_msg_size = 0) :
+            GrpcBaseClient(server_addr, token_client, target_domain, ssl_cert,
+                           max_receive_msg_size, max_send_msg_size) {}
 
     GrpcAsyncClient(const std::string& server_addr, const std::string& target_domain = "",
                     const std::string& ssl_cert = "") :
-            GrpcAsyncClient(server_addr, nullptr, target_domain, ssl_cert) {}
+            GrpcAsyncClient(server_addr, nullptr, target_domain, ssl_cert, 0, 0) {}
 
     virtual ~GrpcAsyncClient() {}
 
