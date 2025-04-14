@@ -37,6 +37,7 @@
 #else
 #include "stacktrace_release.h"
 #endif
+#include <sisl/options/options.h>
 
 namespace sisl {
 namespace logging {
@@ -81,7 +82,17 @@ static void exit_with_default_sighandler(const SignalType fatal_signal_id) {
                   << std::flush;
     }
 
-    //::kill(::getpid(), fatal_signal_id);
+    // If core dump file generation is enabled and the signal is one that generates a core dump, re-raise the signal
+    const std::unordered_set<SignalType> core_dump_signals = {SIGABRT, SIGFPE, SIGSEGV, SIGILL};
+    if (SISL_OPTIONS["enable_core_dump"].count() && core_dump_signals.count(fatal_signal_id) > 0) {
+        std::cerr << "\n"
+                  << __FUNCTION__ << ":" << __LINE__ << ". Raising signal "
+                  << fatal_signal_id << "   \n\n"
+                  << std::flush;
+        std::raise(fatal_signal_id);
+        return;
+    }
+
     if (fatal_signal_id == SIGABRT) {
         std::_Exit(fatal_signal_id);
     } else {
