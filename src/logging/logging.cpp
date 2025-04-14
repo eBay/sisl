@@ -54,7 +54,8 @@ SISL_OPTION_GROUP(logging, (enab_mods,  "", "log_mods", "Module loggers to enabl
                           (synclog,    "s", "synclog", "Synchronized logging", ::cxxopts::value<bool>(), ""), \
                           (flush,      "",  "flush_every", "Flush logs on level (sync mode) or periodically (async mode)", ::cxxopts::value<uint32_t>()->default_value("2"), "level/seconds"), \
                           (verbosity,  "v", "verbosity", "Verbosity filter (0-5)", ::cxxopts::value<std::string>()->default_value("info"), "level"), \
-                          (version,    "V", "version", "Print the version and exist", ::cxxopts::value<bool>(), ""))
+                          (version,    "V", "version", "Print the version and exist", ::cxxopts::value<bool>(), ""), \
+                          (enable_core_dump, "", "enable_core_dump", "Generate coredump file when crash", ::cxxopts::value<bool>(), ""))
 // clang-format on
 
 SISL_LOGGING_DEF(base)
