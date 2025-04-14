@@ -81,9 +81,9 @@ static void exit_with_default_sighandler(const SignalType fatal_signal_id) {
                   << std::flush;
     }
 
-    //::kill(::getpid(), fatal_signal_id);
     if (fatal_signal_id == SIGABRT) {
-        std::_Exit(fatal_signal_id);
+        // exit with core dump file by raising SIGABRT to the current process
+        std::raise(fatal_signal_id);
     } else {
         std::exit(fatal_signal_id);
     }
