@@ -34,7 +34,6 @@ private:
     uint32_t m_per_value_size;
 
     static thread_local std::set< K > t_failed_keys;
-    static thread_local std::set< K > t_evicted_keys;
 
 public:
     SimpleCache(const std::shared_ptr< Evictor >& evictor, uint32_t num_buckets, uint32_t per_val_size,
@@ -46,7 +45,7 @@ public:
         m_record_family_id = m_evictor->register_record_family(std::move(evict_cb), [this](const CacheRecord& record) {
             V const value = reinterpret_cast<SingleEntryHashNode< V >*>(const_cast< CacheRecord* >(&record))->m_value;
             K key = m_key_extract_cb(value);
-            t_evicted_keys.insert(key);
+            return m_map.try_erase(key);
         });
     }
 
@@ -55,14 +54,6 @@ public:
     bool insert(const V& value) {
         K k = m_key_extract_cb(value);
         bool ret = m_map.insert(k, value);
-        // erase evicted keys
-        if (t_evicted_keys.size() > 0) {
-            for (const auto& key : t_evicted_keys) {
-                V out_val;
-                m_map.erase(key, out_val);
-            }
-            t_evicted_keys.clear();
-        }
         return ret;
     }
 
@@ -116,6 +107,4 @@ private:
 template < typename K, typename V >
 thread_local std::set< K > SimpleCache< K, V >::t_failed_keys;
 
-template < typename K, typename V >
-thread_local std::set< K > SimpleCache< K, V >::t_evicted_keys;
 } // namespace sisl

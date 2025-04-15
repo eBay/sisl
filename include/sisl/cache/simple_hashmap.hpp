@@ -73,6 +73,7 @@ public:
     bool upsert(const K& key, const V& value);
     bool get(const K& input_key, V& out_val);
     bool erase(const K& key, V& out_val);
+    bool try_erase(const K& key);
     bool update(const K& key, auto&& update_cb);
     bool upsert_or_delete(const K& key, auto&& update_or_delete_cb);
 
@@ -184,27 +185,21 @@ public:
 #ifndef GLOBAL_HASHSET_LOCK
         folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
 #endif
-        SingleEntryHashNode< V >* n = nullptr;
+        return erase_unsafe(input_key, out_val, true /* call_access_cb */);
+    }
 
-        auto it = m_list.begin();
-        for (auto itend{m_list.end()}; it != itend; ++it) {
-            const K k = SimpleHashMap< K, V >::extractor_cb()(it->m_value);
-            if (input_key > k) {
-                break;
-            } else if (input_key == k) {
-                n = &*it;
-                break;
-            }
+    bool try_erase(const K& input_key) {
+        V dummy_val;
+#ifndef GLOBAL_HASHSET_LOCK
+        if(m_lock.try_lock()) {
+            bool ret = erase_unsafe(input_key, dummy_val, false /* call_access_cb */);
+            m_lock.unlock();
+            return ret;
+        } else {
+            return false;
         }
-
-        if (n) {
-            access_cb(*n, input_key, hash_op_t::DELETE);
-            out_val = n->m_value;
-            m_list.erase(it);
-            delete n;
-            return true;
-        }
-        return false;
+#endif
+        return erase_unsafe(input_key, dummy_val, false);
     }
 
     bool upsert_or_delete(const K& input_key, auto&& update_or_delete_cb) {
@@ -266,9 +261,33 @@ private:
     static void access_cb(const SingleEntryHashNode< V >& node, const K& key, hash_op_t op) {
         SimpleHashMap< K, V >::call_access_cb((const ValueEntryBase&)node, key, op);
     }
+
+    bool erase_unsafe(const K& input_key, V& out_val, bool call_access_cb) {
+        SingleEntryHashNode< V >* n = nullptr;
+
+        auto it = m_list.begin();
+        for (auto itend{m_list.end()}; it != itend; ++it) {
+            const K k = SimpleHashMap< K, V >::extractor_cb()(it->m_value);
+            if (input_key > k) {
+                break;
+            } else if (input_key == k) {
+                n = &*it;
+                break;
+            }
+        }
+
+        if (n) {
+            if (call_access_cb) { access_cb(*n, input_key, hash_op_t::DELETE); }
+            out_val = n->m_value;
+            m_list.erase(it);
+            delete n;
+            return true;
+        }
+        return false;
+    }
 };
 
-///////////////////////////////////////////// RangeHashMap Definitions ///////////////////////////////////
+///////////////////////////////////////////// SimpleHashMap Definitions ///////////////////////////////////
 template < typename K, typename V >
 SimpleHashMap< K, V >::SimpleHashMap(uint32_t nBuckets, const key_extractor_cb_t< K, V >& extract_cb,
                                      key_access_cb_t< K > access_cb) :
@@ -316,6 +335,12 @@ bool SimpleHashMap< K, V >::erase(const K& key, V& out_val) {
     set_current_instance(this);
     return get_bucket(key).erase(key, out_val);
 }
+
+template < typename K, typename V >
+bool SimpleHashMap< K, V >::try_erase(const K& key) {
+    set_current_instance(this);
+    return get_bucket(key).try_erase(key);
+} 
 
 /// This is a special atomic operation where user can insert_or_update_or_erase based on condition atomically. It
 /// performs differently based on certain conditions.

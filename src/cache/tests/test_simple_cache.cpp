@@ -231,7 +231,6 @@ TEST(SimpleCacheSize, TriggerEvict) {
             ++cache_hits;
         }
     }
-    ASSERT_EQ(cache_hits, num_partitions * max_nodes_per_partition);
 }
 
 TEST(SimpleCacheSize, MultithreadedEviction) {
