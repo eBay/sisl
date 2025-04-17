@@ -68,7 +68,6 @@ void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
 
 void LRUEvictor::LRUPartition::record_accessed(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
-  // An evicted record might be accessed in the hashmap before erasing it.
   if (!record.m_member_hook.is_linked()) {
     return;
   }
@@ -89,17 +88,24 @@ bool LRUEvictor::LRUPartition::do_evict(const uint32_t record_fid,
   auto it = std::begin(m_list);
   while (will_fill(needed_size) && (it != std::end(m_list))) {
     CacheRecord &rec = *it;
-
+    bool eviction_failed{true};
     /* return the next element */
     if (!rec.is_pinned() && (!m_evictor->can_evict_cb(record_fid) || m_evictor->can_evict_cb(record_fid)(rec))) {
-      m_filled_size -= rec.size();
+      auto const rec_size = rec.size();
       it = m_list.erase(it);
-      if(m_evictor->post_eviction_cb(record_fid)) {
-        m_evictor->post_eviction_cb(record_fid)(rec);
+      if (m_evictor->post_eviction_cb(record_fid) && !m_evictor->post_eviction_cb(record_fid)(rec)) {
+          // If the post eviction callback fails, we need to reinsert the record
+          // back into the list.
+          it = m_list.insert(it, rec);
+      } else {
+        eviction_failed = false;
+        m_filled_size -= rec_size;
       }
-    } else {
-      ++count;
-      it = std::next(it);
+    }
+    
+    if (eviction_failed) {
+        ++count;
+        it = std::next(it);
     }
   }
 

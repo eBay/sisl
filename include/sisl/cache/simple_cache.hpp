@@ -37,16 +37,17 @@ private:
 
 public:
     SimpleCache(const std::shared_ptr< Evictor >& evictor, uint32_t num_buckets, uint32_t per_val_size,
-                key_extractor_cb_t< K, V >&& extract_cb, Evictor::can_evict_cb_t evict_cb = nullptr) :
+                key_extractor_cb_t< K, V >&& extract_cb, Evictor::eviction_cb_t evict_cb = nullptr) :
             m_evictor{evictor},
             m_key_extract_cb{std::move(extract_cb)},
             m_map{num_buckets, m_key_extract_cb, std::bind(&SimpleCache< K, V >::on_hash_operation, this, _1, _2, _3)},
             m_per_value_size{per_val_size} {
-        m_record_family_id = m_evictor->register_record_family(std::move(evict_cb), [this](const CacheRecord& record) {
-            V const value = reinterpret_cast<SingleEntryHashNode< V >*>(const_cast< CacheRecord* >(&record))->m_value;
-            K key = m_key_extract_cb(value);
-            return m_map.try_erase(key);
-        });
+        m_record_family_id = m_evictor->register_record_family(Evictor::RecordFamily{.can_evict_cb = evict_cb
+            , .post_eviction_cb = [this](const CacheRecord& record) {
+                V const value = reinterpret_cast<SingleEntryHashNode< V >*>(const_cast< CacheRecord* >(&record))->m_value;
+                K key = m_key_extract_cb(value);
+                return m_map.try_erase(key);
+            }});
     }
 
     ~SimpleCache() { m_evictor->unregister_record_family(m_record_family_id); }
@@ -54,6 +55,15 @@ public:
     bool insert(const V& value) {
         K k = m_key_extract_cb(value);
         bool ret = m_map.insert(k, value);
+        if (t_failed_keys.size()) {
+            // There are some failures to add for some keys
+            for (auto& key : t_failed_keys) {
+                V dummy_v;
+                m_map.erase(key, dummy_v);
+                ret = false;
+            }
+            t_failed_keys.clear();
+        }
         return ret;
     }
 

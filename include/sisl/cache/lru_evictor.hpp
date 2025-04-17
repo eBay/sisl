@@ -50,7 +50,7 @@ public:
     void record_resized(uint64_t hash_code, const CacheRecord& record, uint32_t old_size) override;
 
     // for testing purpose
-    int64_t filled_size() const {
+    int64_t filled_size() {
         int64_t filled_size{0};
         for (uint32_t i{0}; i < num_partitions(); ++i) {
             filled_size += m_partitions[i].filled_size();
@@ -92,12 +92,15 @@ private:
         void record_resized(const CacheRecord& record, uint32_t old_size);
 
         // for testing purpose
-        int64_t filled_size() const { return m_filled_size; }
+        int64_t filled_size() {
+            std::unique_lock guard{m_list_guard}; 
+            return m_filled_size; 
+        }
 
     private:
         bool do_evict(const uint32_t record_fid, const uint32_t needed_size);
         bool will_fill(const uint32_t new_size) const { return ((m_filled_size + new_size) > m_max_size); }
-        bool is_full() const { return will_fill(0); }
+        bool is_full() const { return (m_filled_size >= m_max_size); }
     };
 
 private:

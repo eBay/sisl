@@ -213,7 +213,7 @@ TEST(SimpleCacheSize, TriggerEvict) {
     std::shared_ptr< Evictor > evictor = std::make_unique< LRUEvictor >(cache_size, num_partitions);
     auto simple_cache = std::make_unique< SimpleCache< uint32_t, std::shared_ptr< Entry > > >(
         evictor,                                                             // Evictor to evict used entries
-            cache_size / 4096,                                                     // Total number of buckets
+            10000,                                                     // Total number of buckets
             g_val_size,                                                            // Value size
             [](const std::shared_ptr< Entry >& e) -> uint32_t { return e->m_id; }, // Method to extract key
             nullptr                                                                // Method to prevent eviction
@@ -221,7 +221,7 @@ TEST(SimpleCacheSize, TriggerEvict) {
         auto* evictor_ptr = dynamic_cast<LRUEvictor*>(evictor.get());
     uint32_t num_iters = num_partitions * max_nodes_per_partition * 1000;
     for(uint32_t i = 0; i < num_iters; i++) {
-        simple_cache->insert(std::make_shared< Entry >(i, fmt::format("test{}", i)));
+        ASSERT_TRUE(simple_cache->insert(std::make_shared< Entry >(i, fmt::format("test{}", i))));
         ASSERT_LE(evictor_ptr->filled_size(), cache_size);
     }
     uint32_t cache_hits{0};
@@ -239,8 +239,8 @@ TEST(SimpleCacheSize, MultithreadedEviction) {
     uint32_t cache_size = g_val_size * num_partitions * max_nodes_per_partition;
     std::shared_ptr< Evictor > evictor = std::make_unique< LRUEvictor >(cache_size, num_partitions);
     auto simple_cache = std::make_unique< SimpleCache< uint32_t, std::shared_ptr< Entry > > >(
-        evictor,                                                             // Evictor to evict used entries
-            cache_size / 4096,                                                     // Total number of buckets
+            evictor,                                                             // Evictor to evict used entries
+            10000,                                                     // Total number of buckets
             g_val_size,                                                            // Value size
             [](const std::shared_ptr< Entry >& e) -> uint32_t { return e->m_id; }, // Method to extract key
             nullptr                                                                // Method to prevent eviction
