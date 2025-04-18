@@ -58,7 +58,11 @@ bool LRUEvictor::LRUPartition::add_record(CacheRecord &record) {
 
 void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
+
+  // accessing the iterator to the record crashes if the record is not present in the list.
   if (!record.m_member_hook.is_linked()) {
+    LOGERROR("Not expected! Record not found in partition {}", m_partition_num);
+    DEBUG_ASSERT(false, "Not expected! Record not found");
     return;
   }
   auto it = m_list.iterator_to(record);
@@ -68,7 +72,11 @@ void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
 
 void LRUEvictor::LRUPartition::record_accessed(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
+
+  // accessing the iterator to the record crashes if the record is not present in the list.
   if (!record.m_member_hook.is_linked()) {
+    LOGERROR("Not Expected! Record not found in partition {}", m_partition_num);
+    DEBUG_ASSERT(false, "Not expected! Record not found");
     return;
   }
   m_list.erase(m_list.iterator_to(record));

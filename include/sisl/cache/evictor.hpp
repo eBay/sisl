@@ -31,6 +31,10 @@ public:
     typedef std::function< bool(const CacheRecord&) > eviction_cb_t;
     using can_evict_cb_t = eviction_cb_t;
 
+    // struct to hold the eviction callbacks for each record family
+    // can_evict_cb: called before eviction to check if the record can be evicted.
+    // post_eviction_cb: called after eviction to do any cleanup. If this returns false, the record is reinserted.
+    // and we try to evict the next record.
     struct RecordFamily {
         Evictor::eviction_cb_t can_evict_cb{nullptr};
         Evictor::eviction_cb_t post_eviction_cb{nullptr};
@@ -78,6 +82,6 @@ private:
     uint32_t m_num_partitions;
 
     std::mutex m_reg_mtx;
-    std::array< std::pair< bool, RecordFamily >, CacheRecord::max_record_families() > m_eviction_cbs;
+    std::array< std::pair< bool /*registered*/, RecordFamily >, CacheRecord::max_record_families() > m_eviction_cbs;
 };
 } // namespace sisl

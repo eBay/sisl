@@ -42,6 +42,12 @@ public:
             m_key_extract_cb{std::move(extract_cb)},
             m_map{num_buckets, m_key_extract_cb, std::bind(&SimpleCache< K, V >::on_hash_operation, this, _1, _2, _3)},
             m_per_value_size{per_val_size} {
+                // Register the record family callbacks with the evictor:
+                // - `can_evict_cb`: Provided by the user of the `SimpleCache`. This callback determines whether a record can be evicted.
+                // - `post_eviction_cb`: Owned by the `SimpleCache`. This callback is used to remove the evicted record from the hashmap.
+                //   Note: We cannot directly call `erase` on the hashmap as it might result in deadlocks. Instead, we use `try_erase`,
+                //   which attempts to acquire the bucket lock using `try_lock`. If the lock cannot be acquired, the method returns `false`.
+                //   In such cases, we notify the evictor to skip evicting this record and try the next one.
         m_record_family_id = m_evictor->register_record_family(Evictor::RecordFamily{.can_evict_cb = evict_cb
             , .post_eviction_cb = [this](const CacheRecord& record) {
                 V const value = reinterpret_cast<SingleEntryHashNode< V >*>(const_cast< CacheRecord* >(&record))->m_value;

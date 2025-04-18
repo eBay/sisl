@@ -198,6 +198,9 @@ public:
         } else {
             return false;
         }
+#else 
+        // We are in global hashset lock 
+        return erase_unsafe(input_key, dummy_val, false); #endif
 #endif
         return erase_unsafe(input_key, dummy_val, false);
     }
