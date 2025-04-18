@@ -46,7 +46,7 @@ void LRUEvictor::record_resized(uint64_t hash_code, const CacheRecord &record,
 
 bool LRUEvictor::LRUPartition::add_record(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
-  if (will_fill(record.size()) > m_max_size) {
+  if (will_fill(record.size())) {
     if (!do_evict(record.record_family_id(), record.size())) {
       return false;
     }
@@ -58,6 +58,13 @@ bool LRUEvictor::LRUPartition::add_record(CacheRecord &record) {
 
 void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
+
+  // accessing the iterator to the record crashes if the record is not present in the list.
+  if (!record.m_member_hook.is_linked()) {
+    LOGERROR("Not expected! Record not found in partition {}", m_partition_num);
+    DEBUG_ASSERT(false, "Not expected! Record not found");
+    return;
+  }
   auto it = m_list.iterator_to(record);
   m_filled_size -= record.size();
   m_list.erase(it);
@@ -65,6 +72,13 @@ void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
 
 void LRUEvictor::LRUPartition::record_accessed(CacheRecord &record) {
   std::unique_lock guard{m_list_guard};
+
+  // accessing the iterator to the record crashes if the record is not present in the list.
+  if (!record.m_member_hook.is_linked()) {
+    LOGERROR("Not Expected! Record not found in partition {}", m_partition_num);
+    DEBUG_ASSERT(false, "Not expected! Record not found");
+    return;
+  }
   m_list.erase(m_list.iterator_to(record));
   m_list.push_back(record);
 }
@@ -82,14 +96,24 @@ bool LRUEvictor::LRUPartition::do_evict(const uint32_t record_fid,
   auto it = std::begin(m_list);
   while (will_fill(needed_size) && (it != std::end(m_list))) {
     CacheRecord &rec = *it;
-
+    bool eviction_failed{true};
     /* return the next element */
-    if (!rec.is_pinned() && m_evictor->can_evict_cb(record_fid)(rec)) {
-      m_filled_size -= rec.size();
+    if (!rec.is_pinned() && (!m_evictor->can_evict_cb(record_fid) || m_evictor->can_evict_cb(record_fid)(rec))) {
+      auto const rec_size = rec.size();
       it = m_list.erase(it);
-    } else {
-      ++count;
-      it = std::next(it);
+      if (m_evictor->post_eviction_cb(record_fid) && !m_evictor->post_eviction_cb(record_fid)(rec)) {
+          // If the post eviction callback fails, we need to reinsert the record
+          // back into the list.
+          it = m_list.insert(it, rec);
+      } else {
+        eviction_failed = false;
+        m_filled_size -= rec_size;
+      }
+    }
+    
+    if (eviction_failed) {
+        ++count;
+        it = std::next(it);
     }
   }
 
