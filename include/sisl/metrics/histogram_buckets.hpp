@@ -27,14 +27,14 @@ typedef std::vector< double > hist_bucket_boundaries_t;
 /* For any new histogram buckets, define a name and its values here */
 #define HIST_BKTS_TYPES                                                                                                \
     X(DefaultBuckets, 10, 40, 70, 100, 160, 220, 280, 340, 400, 475, 600, 750, 900, 1100, 1400, 1700, 2000, 3500,      \
-    5000, 6500, 8000, 10000, 13000, 16000, 20000, 50000, 80000, 100000, 150000, 180000, 200000, 500000, 2000000,       \
-    3000000, 4000000)                                                                                                  \
+      5000, 6500, 8000, 10000, 13000, 16000, 20000, 50000, 80000, 100000, 150000, 180000, 200000, 500000, 2000000,     \
+      3000000, 4000000)                                                                                                \
                                                                                                                        \
-    X(OpLatecyBuckets, 10, 50, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 5000, 10000, 20000, 100000,        \
-    200000, 2000000)                                                                                                   \
+    X(OpLatecyBuckets, 10, 50, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 5000, 10000, 20000, 50000, 100000, \
+      200000, 300000, 2000000)                                                                                         \
                                                                                                                        \
     X(ExponentialOfTwoBuckets, 1, exp2(4), exp2(7), exp2(10), exp2(13), exp2(16), exp2(19), exp2(22), exp2(25),        \
-    exp2(28), exp2(31))                                                                                                \
+      exp2(28), exp2(31))                                                                                              \
                                                                                                                        \
     X(OpSizeBuckets, exp2(12), exp2(13), exp2(16), exp2(20), exp2(22))                                                 \
                                                                                                                        \
@@ -43,7 +43,7 @@ typedef std::vector< double > hist_bucket_boundaries_t;
     X(SteppedUpto32Buckets, 0, 1, 4, 16, 32)                                                                           \
                                                                                                                        \
     X(LinearUpto128Buckets, 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80, 84, 88,   \
-    92, 96, 100, 104, 108, 112,  116,  120, 124, 128)                                                                  \
+      92, 96, 100, 104, 108, 112, 116, 120, 124, 128)                                                                  \
                                                                                                                        \
     X(SingleValueBucket, std::numeric_limits< double >::max())
 
