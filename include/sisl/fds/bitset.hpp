@@ -122,6 +122,11 @@ private:
         static constexpr uint64_t total_words(const uint64_t nbits) {
             return ((nbits / word_size()) + (((nbits & m_word_mask) > 0) ? 1 : 0));
         }
+        static constexpr uint64_t bits_possible(uint64_t size) {
+            auto const ret = round_down((size - sizeof(bitset_serialized)) * 8, word_size());
+            assert(nbytes(ret) <= size);
+            return ret;
+        }
     };
 #pragma pack()
 
@@ -218,6 +223,9 @@ public:
         m_buf = other.m_buf;
         m_s = other.m_s;
     }
+
+    // Max bits that can fit in the bitset given the number of bits
+    static size_t max_possible_bits(uint64_t size) { return bitset_serialized::bits_possible(size); }
 
     explicit BitsetImpl(const sisl::byte_array& b,
                         const std::optional< uint32_t > opt_alignment_size = std::optional< uint32_t >{}) {
