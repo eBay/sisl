@@ -177,13 +177,17 @@ void FileWatcher::handle_events() {
             event = (const struct inotify_event*)ptr;
 
             // We set the is_deleted flag true in the cb when one of the events IN_MOVE_SELF, IN_DELETE_SELF,
-            // IN_UNMOUNT, IN_ATTRIB occurs.
+            // IN_UNMOUNT occurs.
+            LOGDEBUG("Handling event {} on wd {}", event->mask, event->wd);
 
-            if ((event->mask & IN_MOVE_SELF) || (event->mask & IN_MODIFY) || (event->mask & IN_DELETE_SELF) ||
-                (event->mask & IN_UNMOUNT) || ((event->mask & IN_ATTRIB))) {
-                bool is_deleted = !(event->mask & IN_MODIFY);
-                on_modified_event(event->wd, is_deleted);
+            if ((event->mask & IN_MOVE_SELF) || (event->mask & IN_DELETE_SELF) || (event->mask & IN_UNMOUNT)) {
+                on_modified_event(event->wd, true);
             }
+            //
+            if ((event->mask & IN_CLOSE_WRITE) || (event->mask & IN_ATTRIB)) { on_modified_event(event->wd, false); }
+
+            // we on purpose skip IN_MODIFY as it will trigger on every single modification of files,
+            // the aggregated one IN_CLOSE_WRITE when file was closed makes more sense.
 
             // if the watch is removed due to file deletion or fs unmount (mask IN_IGNORED),
             // the user is expected to re-register callback afer the file is up as re-registering
@@ -195,6 +199,7 @@ void FileWatcher::handle_events() {
 void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
     FileInfo file_info;
     get_fileinfo(wd, file_info);
+    LOGDEBUG("on_modified_event, wd={}, is_deleted={}", wd, is_deleted);
     if (is_deleted) {
         // There is a corner case (very unlikely) where a new listener
         // regestered for this filepath  after the current delete event was triggered.
@@ -218,11 +223,12 @@ void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
     if (file_info.m_filecontents == cur_buffer) {
         LOGDEBUG("File contents have not changed: {}", file_info.m_filepath);
     } else {
-        LOGDEBUG("File contents have changed: {}", file_info.m_filepath);
+        LOGDEBUG("File contents have changed: {}, from {} to {}", file_info.m_filepath, cur_buffer, file_info.m_filecontents);
         // notify file modification event
         for (const auto& [id, handler] : file_info.m_handlers) {
             handler(file_info.m_filepath, false);
         }
+	set_fileinfo_content(wd, file_info.m_filecontents);
     }
 }
 
@@ -263,4 +269,14 @@ void FileWatcher::get_fileinfo(const int wd, FileInfo& file_info) const {
     LOGWARN("wd {} not found!", wd);
 }
 
+void FileWatcher::set_fileinfo_content(const int wd, const std::string& content) {
+    auto lk = std::unique_lock< std::mutex >(m_files_lock);
+    for (auto& [file_path, file] : m_files) {
+        if (file.m_wd == wd) {
+            file.m_filecontents = content;
+            return;
+        }
+    }
+    LOGWARN("wd {} not found!", wd);
+}
 } // namespace sisl
