@@ -47,6 +47,7 @@ void monitor_file_changes(FileWatcherTest::FileChangeParams& file_change_params,
         file_change_params.file_str, listener,
         [&file_change_params, listener](const std::string filepath, const bool deleted) {
             EXPECT_EQ(file_change_params.file_str, filepath);
+	    LOGWARN("CB called with deleted = {}", deleted);
             {
                 std::lock_guard< std::mutex > lg(file_change_params.file_change_lock);
                 file_change_params.is_deleted = deleted;
@@ -74,6 +75,7 @@ TEST_F(FileWatcherTest, basic_watcher) {
     // edit the file
     file_of << "Hello World!";
     file_of.flush();
+    file_of.close();
     {
         auto lk = std::unique_lock< std::mutex >(m_file_change_params.file_change_lock);
         EXPECT_TRUE(m_file_change_params.file_change_cv.wait_for(
@@ -81,7 +83,6 @@ TEST_F(FileWatcherTest, basic_watcher) {
         EXPECT_FALSE(m_file_change_params.is_deleted);
         m_file_change_params.cb_call_count = 1; // set it 1 for the next iteration of the test
     }
-
     // remove the file
     fs::remove(file_path);
     {
@@ -105,6 +106,54 @@ TEST_F(FileWatcherTest, basic_watcher) {
     */
 }
 
+TEST_F(FileWatcherTest, cert_watcher_simulation) {
+    const auto file_path = fs::current_path() / "cert.crt";
+    // remove if exists and then create a new file
+    fs::remove(file_path);
+    m_file_change_params.file_str = file_path.string();
+    std::ofstream org_file_of{file_path.string(), std::ios::out | std::ios::trunc};
+    org_file_of << "Good Morning!";
+    org_file_of.flush();
+    org_file_of.close();
+
+    m_file_change_params.is_deleted = true;
+    m_file_change_params.cb_call_count = 1;
+
+    monitor_file_changes(m_file_change_params, "basic_listener");
+    // open with trunc
+    std::ofstream file_of{file_path.string(), std::ios::out | std::ios::trunc};
+    // edit the file
+    file_of << "Hello World!";
+    file_of.flush();
+    file_of.close();
+    // 2nd open and close, no cb should be called
+    file_of.open(file_path.string(), std::ios::app);
+    file_of.close();
+    // doing a chmod to the file
+    auto ret = chmod(file_path.string().c_str(), 0777);
+    LOGDEBUG("after CHMOD, ret={}", ret);
+
+    // ensure the CB only called once.
+    {
+        auto lk = std::unique_lock< std::mutex >(m_file_change_params.file_change_lock);
+        EXPECT_TRUE(m_file_change_params.file_change_cv.wait_for(
+            lk, std::chrono::milliseconds(1500), [this]() { return m_file_change_params.cb_call_count == 0; }));
+        EXPECT_FALSE(m_file_change_params.is_deleted);
+        m_file_change_params.cb_call_count = 1; // set it 1 for the next iteration of the test
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    LOGDEBUG("BEFORE REMOVING FILE");
+    // remove the file
+    fs::remove(file_path);
+    {
+        auto lk = std::unique_lock< std::mutex >(m_file_change_params.file_change_lock);
+        EXPECT_TRUE(m_file_change_params.file_change_cv.wait_for(
+            lk, std::chrono::milliseconds(1500), [this]() { return m_file_change_params.cb_call_count == 0; }));
+        EXPECT_TRUE(m_file_change_params.is_deleted);
+        m_file_change_params.cb_call_count = 1; // set it 1 for the next iteration of the test
+    }
+}
+
 TEST_F(FileWatcherTest, multiple_watchers) {
     const auto file_path = fs::current_path() / "basic_test.txt";
     // remove if exists and then create a new file
@@ -120,6 +169,7 @@ TEST_F(FileWatcherTest, multiple_watchers) {
     // edit the file
     file_of << "Hello World!";
     file_of.flush();
+    file_of.close();
     {
         auto lk = std::unique_lock< std::mutex >(m_file_change_params.file_change_lock);
         EXPECT_TRUE(m_file_change_params.file_change_cv.wait_for(
