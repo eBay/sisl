@@ -17,6 +17,7 @@
 #pragma once
 
 #include <boost/intrusive/list.hpp>
+#include <sisl/metrics/metrics.hpp> 
 
 using namespace boost::intrusive;
 
@@ -68,4 +69,24 @@ public:
     static constexpr size_t max_record_families() { return (1 << RECORD_FAMILY_ID_BITS); }
 };
 #pragma pack()
+
+class CacheMetrics : public sisl::MetricsGroupWrapper {
+public:
+    explicit CacheMetrics() : sisl::MetricsGroupWrapper("Cache") {
+        REGISTER_COUNTER(cache_object_count, "Total number of cache entries", sisl::_publish_as::publish_as_gauge);
+        REGISTER_COUNTER(cache_size, "Total size of cache", sisl::_publish_as::publish_as_gauge);
+        REGISTER_COUNTER(cache_num_evictions, "Total number of cache evictions");
+        REGISTER_COUNTER(cache_num_evictions_punt, "Total number of cache evictions punted because of busy");
+
+        register_me_to_farm();
+    }
+
+    CacheMetrics(const CacheMetrics&) = delete;
+    CacheMetrics(CacheMetrics&&) noexcept = delete;
+    CacheMetrics& operator=(const CacheMetrics&) = delete;
+    CacheMetrics& operator=(CacheMetrics&&) noexcept = delete;
+
+    ~CacheMetrics() { deregister_me_from_farm(); }
+};
+
 } // namespace sisl

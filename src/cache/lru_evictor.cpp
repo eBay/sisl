@@ -53,6 +53,10 @@ bool LRUEvictor::LRUPartition::add_record(CacheRecord &record) {
   }
   m_list.push_back(record);
   m_filled_size += record.size();
+  if (m_evictor->metrics_ptr()) {
+    COUNTER_INCREMENT(*(m_evictor->metrics_ptr()), cache_object_count, 1);
+    COUNTER_INCREMENT(*(m_evictor->metrics_ptr()), cache_size, record.size());
+  }
   return true;
 }
 
@@ -68,6 +72,10 @@ void LRUEvictor::LRUPartition::remove_record(CacheRecord &record) {
   auto it = m_list.iterator_to(record);
   m_filled_size -= record.size();
   m_list.erase(it);
+  if (m_evictor->metrics_ptr()) {
+    COUNTER_DECREMENT(*(m_evictor->metrics_ptr()), cache_object_count, 1);
+    COUNTER_DECREMENT(*(m_evictor->metrics_ptr()), cache_size, record.size());
+  }
 }
 
 void LRUEvictor::LRUPartition::record_accessed(CacheRecord &record) {
@@ -91,7 +99,9 @@ void LRUEvictor::LRUPartition::record_resized(const CacheRecord &record,
 
 bool LRUEvictor::LRUPartition::do_evict(const uint32_t record_fid,
                                         const uint32_t needed_size) {
-  size_t count{0};
+  size_t eviction_punt_count{0};
+  size_t evictions_count{0};
+  size_t evicted_size{0};
 
   auto it = std::begin(m_list);
   while (will_fill(needed_size) && (it != std::end(m_list))) {
@@ -108,27 +118,37 @@ bool LRUEvictor::LRUPartition::do_evict(const uint32_t record_fid,
       } else {
         eviction_failed = false;
         m_filled_size -= rec_size;
+        evictions_count++;
+        evicted_size += rec_size;
       }
     }
     
     if (eviction_failed) {
-        ++count;
+        ++eviction_punt_count;
         it = std::next(it);
     }
   }
 
-  if (count) {
-    LOGDEBUG("LRU ejection had to skip {} entries", count);
+  if (eviction_punt_count > 0) {
+    LOGDEBUG("LRU ejection had to skip {} entries", eviction_punt_count);
+    if (m_evictor->metrics_ptr()) {
+      COUNTER_INCREMENT(*(m_evictor->metrics_ptr()), cache_num_evictions_punt, eviction_punt_count);
+    }
   }
   if (is_full()) {
     // No available candidate to evict
     LOGERROR("No cache space available: Eviction partition={} as "
              "total_entries={} rejected eviction request to add "
-             "size={}, already filled={}",
-             m_partition_num, m_list.size(), needed_size, m_filled_size);
+             "size={}, already filled={}, num evictions punt={}",
+             m_partition_num, m_list.size(), needed_size, m_filled_size, eviction_punt_count);
     return false;
   }
 
+  if (m_evictor->metrics_ptr()) {
+    COUNTER_INCREMENT(*(m_evictor->metrics_ptr()), cache_num_evictions, evictions_count);
+    COUNTER_DECREMENT(*(m_evictor->metrics_ptr()), cache_object_count, evictions_count);
+    COUNTER_DECREMENT(*(m_evictor->metrics_ptr()), cache_size, evicted_size);
+  }
   return true;
 }
 } // namespace sisl

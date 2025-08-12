@@ -67,6 +67,13 @@ public:
         m_eviction_cbs[record_type_id] = std::make_pair(false, RecordFamily{});
     }
 
+    void add_metrics(CacheMetrics* metrics) {
+        m_metrics = metrics;
+    }
+    CacheMetrics* metrics_ptr() {
+        return m_metrics;
+    }
+
     virtual bool add_record(uint64_t hash_code, CacheRecord& record) = 0;
     virtual void remove_record(uint64_t hash_code, CacheRecord& record) = 0;
     virtual void record_accessed(uint64_t hash_code, CacheRecord& record) = 0;
@@ -83,5 +90,7 @@ private:
 
     std::mutex m_reg_mtx;
     std::array< std::pair< bool /*registered*/, RecordFamily >, CacheRecord::max_record_families() > m_eviction_cbs;
+    // metrics raw ptr, we do not own it
+    CacheMetrics* m_metrics{nullptr};
 };
 } // namespace sisl

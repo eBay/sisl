@@ -27,6 +27,7 @@ namespace sisl {
 template < typename K, typename V >
 class SimpleCache {
 private:
+    std::unique_ptr< CacheMetrics > m_metrics;
     std::shared_ptr< Evictor > m_evictor;
     key_extractor_cb_t< K, V > m_key_extract_cb;
     SimpleHashMap< K, V > m_map;
@@ -38,6 +39,7 @@ private:
 public:
     SimpleCache(const std::shared_ptr< Evictor >& evictor, uint32_t num_buckets, uint32_t per_val_size,
                 key_extractor_cb_t< K, V >&& extract_cb, Evictor::eviction_cb_t evict_cb = nullptr) :
+            m_metrics{std::make_unique< CacheMetrics >()},
             m_evictor{evictor},
             m_key_extract_cb{std::move(extract_cb)},
             m_map{num_buckets, m_key_extract_cb, std::bind(&SimpleCache< K, V >::on_hash_operation, this, _1, _2, _3)},
@@ -54,6 +56,7 @@ public:
                 K key = m_key_extract_cb(value);
                 return m_map.try_erase(key);
             }});
+        m_evictor->add_metrics(m_metrics.get());
     }
 
     ~SimpleCache() { m_evictor->unregister_record_family(m_record_family_id); }
