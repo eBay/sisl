@@ -42,7 +42,7 @@ class GrpcTokenVerifier : public TokenVerifier {
 public:
     explicit GrpcTokenVerifier(std::string const& auth_header_key) : m_auth_header_key(auth_header_key) {}
     virtual ~GrpcTokenVerifier() = default;
-
+    using TokenVerifier::verify;
     virtual grpc::Status verify(grpc::ServerContext const* srv_ctx) const = 0;
 
 protected:
