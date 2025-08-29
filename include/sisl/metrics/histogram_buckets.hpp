@@ -32,6 +32,7 @@ typedef std::vector< double > hist_bucket_boundaries_t;
                                                                                                                        \
     X(OpLatecyBuckets, 10, 50, 100, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000, 5000, 10000, 20000, 50000, 100000, \
       200000, 300000, 2000000)                                                                                         \
+    X(LowResolutionLatecyBuckets, 100, 500, 1000, 5000, 10000, 50000, 100000, 200000, 300000, 2000000)                 \
                                                                                                                        \
     X(ExponentialOfTwoBuckets, 1, exp2(4), exp2(7), exp2(10), exp2(13), exp2(16), exp2(19), exp2(22), exp2(25),        \
       exp2(28), exp2(31))                                                                                              \
