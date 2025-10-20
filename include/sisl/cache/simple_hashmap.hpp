@@ -116,7 +116,7 @@ template < typename K, typename V >
 class SimpleHashBucket {
 private:
 #ifndef GLOBAL_HASHSET_LOCK
-    mutable folly::SharedMutexWritePriority m_lock;
+    mutable folly::SharedMutex m_lock;
 #endif
     typedef boost::intrusive::slist< SingleEntryHashNode< V > > hash_node_list_t;
     hash_node_list_t m_list;
@@ -135,7 +135,7 @@ public:
 
     bool insert(const K& input_key, const V& input_value, bool overwrite_ok) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
 #endif
         SingleEntryHashNode< V >* n = nullptr;
         auto it = m_list.begin();
@@ -164,7 +164,7 @@ public:
 
     bool get(const K& input_key, V& out_val) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
 #endif
         bool found{false};
         for (const auto& n : m_list) {
@@ -183,7 +183,7 @@ public:
 
     bool erase(const K& input_key, V& out_val) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
 #endif
         return erase_unsafe(input_key, out_val, true /* call_access_cb */);
     }
@@ -191,23 +191,20 @@ public:
     bool try_erase(const K& input_key) {
         V dummy_val;
 #ifndef GLOBAL_HASHSET_LOCK
-        if(m_lock.try_lock()) {
+        if (m_lock.try_lock()) {
             bool ret = erase_unsafe(input_key, dummy_val, false /* call_access_cb */);
             m_lock.unlock();
             return ret;
         } else {
             return false;
         }
-#else 
-        // We are in global hashset lock 
-        return erase_unsafe(input_key, dummy_val, false); #endif
 #endif
         return erase_unsafe(input_key, dummy_val, false);
     }
 
     bool upsert_or_delete(const K& input_key, auto&& update_or_delete_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::WriteHolder holder(m_lock);
+        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
 #endif
         SingleEntryHashNode< V >* n = nullptr;
 
@@ -243,7 +240,7 @@ public:
 
     bool update(const K& input_key, auto&& update_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
-        folly::SharedMutexWritePriority::ReadHolder holder(m_lock);
+        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
 #endif
         bool found{false};
         for (auto& n : m_list) {
@@ -343,7 +340,7 @@ template < typename K, typename V >
 bool SimpleHashMap< K, V >::try_erase(const K& key) {
     set_current_instance(this);
     return get_bucket(key).try_erase(key);
-} 
+}
 
 /// This is a special atomic operation where user can insert_or_update_or_erase based on condition atomically. It
 /// performs differently based on certain conditions.
