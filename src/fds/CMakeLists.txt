@@ -74,13 +74,6 @@ target_sources(test_obj_allocator PRIVATE
 target_link_libraries(test_obj_allocator sisl_buffer)
 add_test(NAME ObjAlloc COMMAND test_obj_allocator)
 
-add_executable(test_cb_mutex)
-target_sources(test_cb_mutex PRIVATE
-  tests/test_cb_mutex.cpp
-  )
-target_link_libraries(test_cb_mutex sisl_logging folly::folly GTest::gtest)
-#add_test(NAME TestCBMutex COMMAND test_cb_mutex)
-
 add_executable(test_sg_list)
 target_sources(test_sg_list PRIVATE
   tests/test_sg_list.cpp
