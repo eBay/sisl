@@ -312,8 +312,7 @@ const T& unmove(T&& x) {
     _GENERIC_ASSERT(                                                                                                   \
         1, cond,                                                                                                       \
         [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg},                                                 \
-                            fmt::make_format_args(std::forward< decltype(args) >(args)...));                           \
+            fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(args...));                \
             return true;                                                                                               \
         },                                                                                                             \
         m, ##__VA_ARGS__)
@@ -490,7 +489,7 @@ extern std::filesystem::path get_base_dir();
 template < typename... Args >
 std::string format_log_msg(const char* const msg, Args&&... args) {
     fmt::memory_buffer buf{};
-    fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(std::forward< Args >(args)...));
+    fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(args...));
     return fmt::to_string(buf);
 }
 extern std::string format_log_msg();
