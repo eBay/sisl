@@ -99,7 +99,7 @@ class SISLConan(ConanFile):
             self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
 
         if self.options.grpc:
-            self.requires("grpc/1.72.0", transitive_headers=True)
+            self.requires("grpc/1.54.3", transitive_headers=True)
 
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
