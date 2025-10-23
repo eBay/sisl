@@ -25,6 +25,6 @@ runs:
       shell: bash
       run: |
         # Set std::string to non-CoW C++11 version
-        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan/profiles/default
+        sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan2/profiles/default
       if: ${{ inputs.platform == 'ubuntu-22.04' }}
 
