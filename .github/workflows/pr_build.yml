@@ -14,7 +14,6 @@ jobs:
         platform: ["ubuntu-22.04"]
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc"]
-        prerelease: ["False"]
         tooling: ["Sanitize", "Coverage", "None"]
         exclude:
           - build-type: Debug
@@ -33,6 +32,5 @@ jobs:
       branch: ${{ github.ref }}
       build-type: ${{ matrix.build-type }}
       malloc-impl: ${{ matrix.malloc-impl }}
-      prerelease: ${{ matrix.prerelease }}
       tooling: ${{ matrix.tooling }}
       testing: 'True'

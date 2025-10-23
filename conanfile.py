@@ -24,7 +24,6 @@ class SISLConan(ConanFile):
                 "fPIC": ['True', 'False'],
                 "coverage": ['True', 'False'],
                 "sanitize": ['True', 'False'],
-                'prerelease' : ['True', 'False'],
                 'metrics': ['False', 'True'],
                 'grpc': ['False', 'True'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
@@ -34,7 +33,6 @@ class SISLConan(ConanFile):
                 'fPIC': True,
                 'coverage': False,
                 'sanitize': False,
-                'prerelease': False,
                 'metrics': True,
                 'grpc': True,
                 'malloc_impl': 'libc',
@@ -64,7 +62,6 @@ class SISLConan(ConanFile):
         if self.options.shared:
             self.options.rm_safe("fPIC")
         if self.settings.build_type == "Debug":
-            self.options.rm_safe("prerelease")
             if self.options.coverage and self.options.sanitize:
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if self.conf.get("tools.build:skip_test", default=False):
@@ -160,11 +157,7 @@ class SISLConan(ConanFile):
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
         tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
         tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
-        if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
-            tc.preprocessor_definitions["_PRERELEASE"] = "1"
-            tc.variables["_PRERELEASE"] = "ON"
         if self.settings.build_type == "Debug":
-            tc.preprocessor_definitions["_PRERELEASE"] = "1"
             if self.options.get_safe("coverage"):
                 tc.variables['BUILD_COVERAGE'] = 'ON'
             elif self.options.get_safe("sanitize"):
@@ -279,8 +272,6 @@ class SISLConan(ConanFile):
                 component.defines.append("_LARGEFILE64")
                 component.system_libs.extend(["dl", "pthread"])
                 component.exelinkflags.extend(["-export-dynamic"])
-            if self.options.get_safe("prerelease") or (self.settings.build_type == "Debug"):
-                component.defines.append("_PRERELEASE=1")
             if  self.options.get_safe("sanitize"):
                 component.sharedlinkflags.append("-fsanitize=address")
                 component.exelinkflags.append("-fsanitize=address")

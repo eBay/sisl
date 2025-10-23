@@ -57,7 +57,6 @@ pipeline {
                 sh "conan create ${BUILD_MISSING} -s:h build_type=Debug -o ${PROJECT}/*:sanitize=True ${CONAN_FLAGS} . ; \
                     conan create ${BUILD_MISSING} -s:h build_type=Debug ${CONAN_FLAGS} . ; \
                     conan create ${BUILD_MISSING} -s:h build_type=RelWithDebInfo -o ${PROJECT}/*:malloc_impl=tcmalloc ${CONAN_FLAGS} . ; \
-                    conan create ${BUILD_MISSING} -s:h build_type=RelWithDebInfo -o ${PROJECT}/*:prerelease=True -o ${PROJECT}/*:malloc_impl=tcmalloc ${CONAN_FLAGS} . ; \
                     "
             }
         }
