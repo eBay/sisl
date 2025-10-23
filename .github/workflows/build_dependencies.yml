@@ -82,8 +82,8 @@ jobs:
     - name: Retrieve Recipe
       uses: actions/checkout@main
       with:
-        repository: eBay/sisl
-        ref: ${{ inputs.branch }}
+        repository: szmyd/sisl
+        ref: dev/v13.x
       if: ${{ inputs.testing == 'False' }}
 
     - name: Setup Conan
