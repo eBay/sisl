@@ -19,7 +19,7 @@ runs:
         python -m pip install --upgrade pip
         python -m pip install conan~=2.0
         python -m pip install gcovr
-        conan profile new detect --name default
+        conan profile detect --name default
 
     - name: Fixup libstdc++
       shell: bash
