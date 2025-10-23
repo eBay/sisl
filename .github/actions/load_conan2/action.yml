@@ -59,4 +59,5 @@ runs:
       shell: bash
       run: |
         conan cache restore ~/conan_cache_save.tgz
+      if: ${{ steps.restore-cache.outputs.cache-hit == 'true' }}
 
