@@ -1,11 +1,10 @@
-name: Sisl Build
+name: Sisl v13 Build
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - stable/v8.x
-      - master
+      - dev/v13.x
 
 jobs:
   Build:
