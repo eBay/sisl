@@ -14,11 +14,9 @@ jobs:
         platform: ["ubuntu-22.04"]
         build-type: ["Debug", "Release"]
         malloc-impl: ["libc", "tcmalloc"]
-        prerelease: ["True", "False"]
+        prerelease: ["False"]
         tooling: ["Sanitize", "Coverage", "None"]
         exclude:
-          - build-type: Debug
-            prerelease: "False"
           - build-type: Debug
             tooling: None
           - build-type: Debug
