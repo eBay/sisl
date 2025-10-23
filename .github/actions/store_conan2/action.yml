@@ -11,7 +11,7 @@ runs:
     - name: Setup Conan and Export Recipes
       shell: bash
       run: |
-        conan cache save '*/*:*'
+        conan cache save --no-source --file ~/conan_cache_save.tgz '*/*:*'
 
     - name: Save Cache
       uses: actions/cache/save@v4
