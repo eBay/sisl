@@ -83,7 +83,7 @@ jobs:
       uses: actions/checkout@main
       with:
         repository: szmyd/sisl
-        ref: dev/v13.x
+        ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'False' }}
 
     - name: Setup Conan
