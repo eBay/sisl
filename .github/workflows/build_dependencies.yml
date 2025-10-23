@@ -97,7 +97,7 @@ jobs:
       uses: szmyd/sisl/.github/actions/load_conan2@dev/v13.x
       with:
         testing: ${{ inputs.testing }}
-        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-False
+        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
 
     - name: Prepare Recipes
       run: |
@@ -118,7 +118,7 @@ jobs:
     - name: Save Conan Cache
       uses: szmyd/sisl/.github/actions/store_conan2@dev/v13.x
       with:
-        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-False
+        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Create and Test Package
