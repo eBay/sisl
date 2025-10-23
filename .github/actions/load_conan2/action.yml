@@ -1,0 +1,62 @@
+name: 'Load Conan Cache'
+description: 'Loads Local Conan Cache'
+inputs:
+  testing:
+    description: 'Support building tests'
+    required: true
+  key_prefix:
+    description: 'Cache prefix'
+    required: true
+    default: 'Deps'
+  fail_on_cache_miss:
+    description: 'Fail if key missing'
+    required: false
+    default: false
+  path:
+    description: 'Recipe path'
+    required: false
+    default: '.'
+  load_any:
+    description: 'Load cache miss'
+    required: false
+    default: 'False'
+outputs:
+  cache-hit:
+    description: 'Cache match found'
+    value: ${{ steps.restore-cache.outputs.cache-hit }}
+runs:
+  using: "composite"
+  steps:
+    - id: hash-key-primary
+      shell: bash
+      run: |
+        echo "key=${{ inputs.path }}/conanfile.py" >> $GITHUB_OUTPUT
+
+    - id: hash-key-3rd
+      shell: bash
+      run: |
+        echo "keys=${{ inputs.path }}/3rd_party/**/conanfile.py" >> $GITHUB_OUTPUT
+
+    - name: Restore Cache
+      id: restore-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/conan_cache_save.tgz
+        key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key-primary.outputs.key, steps.hash-key-3rd.outputs.keys) }}
+        fail-on-cache-miss: ${{ inputs.fail_on_cache_miss }}
+
+    - name: Restore Testing Cache
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/conan_cache_save.tgz
+        key: ${{ inputs.key_prefix }}-${{ hashFiles(steps.hash-key-primary.outputs.key, steps.hash-key-3rd.outputs.keys) }}
+        restore-keys: ${{ inputs.key_prefix }}-
+      if: ${{ steps.restore-cache.outputs.cache-hit != 'true' && (( github.event_name == 'pull_request' && inputs.testing == 'True' ) || ( inputs.load_any == 'True' )) }}
+
+    - name: Restore Tarball
+      shell: bash
+      run: |
+        conan cache restore ~/conan_cache_save.tgz
+

@@ -1,0 +1,22 @@
+name: 'Store Conan Cache'
+description: 'Cleans Local Conan Cache and Persists Dirty Packages'
+inputs:
+  key_prefix:
+    description: 'Cache prefix'
+    required: true
+    default: 'Deps'
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Conan and Export Recipes
+      shell: bash
+      run: |
+        conan cache save '*/*:*'
+
+    - name: Save Cache
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/conan_cache_save.tgz
+        key: ${{ inputs.key_prefix }}-${{ hashFiles('conanfile.py', '3rd_party/**/conanfile.py') }}
+

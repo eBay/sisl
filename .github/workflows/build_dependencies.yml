@@ -98,12 +98,12 @@ jobs:
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'False' }}
 
-        #- name: Load Conan Cache
-        #  id: restore-cache
-        #  uses: eBay/sisl/.github/actions/load_conan@master
-        #  with:
-        #    testing: ${{ inputs.testing }}
-        #    key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+    - name: Load Conan Cache
+      id: restore-cache
+      uses: szmyd/sisl/.github/actions/load_conan2@dev/v13.x
+      with:
+        testing: ${{ inputs.testing }}
+        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
 
     - name: Setup Conan
       uses: szmyd/sisl/.github/actions/setup_conan2@dev/v13.x
@@ -128,11 +128,11 @@ jobs:
             .
       if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
 
-        #- name: Save Conan Cache
-        #  uses: eBay/sisl/.github/actions/store_conan@master
-        #  with:
-        #    key_prefix: SislDeps-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
-        #  if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
+    - name: Save Conan Cache
+      uses: szmyd/sisl/.github/actions/store_conan2@dev/v13.x
+      with:
+        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.prerelease }}
+      if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Create and Test Package
       run: |
