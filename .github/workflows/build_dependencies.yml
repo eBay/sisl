@@ -102,8 +102,6 @@ jobs:
     - name: Prepare Recipes
       run: |
         ./prepare_v2.sh
-        #cached_pkgs=$(ls -1d ~/.conan/data/*/*/*/*/export 2>/dev/null | sed 's,.*data/,,' | cut -d'/' -f1,2 | paste -sd',' - -)
-        #echo "::info:: Pre-cached: ${cached_pkgs}"
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Build Cache
@@ -114,7 +112,7 @@ jobs:
             --format=json \
             --build missing \
             . > ~/build.json
-        conan list --graph=~/build.json --graph-binaries=build --format=json > ~/pkglist.json
+        conan list --graph ~/build.json --graph-binaries=build --format=json > ~/pkglist.json
       if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Save Conan Cache
