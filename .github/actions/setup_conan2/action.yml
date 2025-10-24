@@ -4,7 +4,7 @@ inputs:
   platform:
     description: 'Platform conan will be building on'
     required: true
-    default: 'ubuntu-22.04'
+    default: 'ubuntu-24.04'
 runs:
   using: "composite"
   steps:
@@ -28,5 +28,5 @@ runs:
         sed -i 's,compiler.libcxx=libstdc++$,compiler.libcxx=libstdc++11,g' ~/.conan2/profiles/default
         # Set C++ version to C++20
         sed -i 's,compiler.cppstd=.*$,compiler.cppstd=20,g' ~/.conan2/profiles/default
-      if: ${{ inputs.platform == 'ubuntu-22.04' }}
+      if: ${{ inputs.platform == 'ubuntu-24.04' }}
 
