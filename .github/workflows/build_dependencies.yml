@@ -111,8 +111,10 @@ jobs:
         conan install \
             -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
             -s:h build_type=${{ inputs.build-type }} \
+            --format=json \
             --build missing \
-            .
+            . > ~/build.json
+        conan list --graph=~/build.json --graph-binaries=build --format=json > ~/pkglist.json
       if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Save Conan Cache
@@ -143,8 +145,8 @@ jobs:
       if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        gcov: true
+        verbose: true
       if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
