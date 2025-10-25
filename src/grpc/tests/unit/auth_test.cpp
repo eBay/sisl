@@ -96,7 +96,7 @@ public:
 class MockTokenVerifier : public GrpcTokenVerifier {
 public:
     using GrpcTokenVerifier::GrpcTokenVerifier;
-    ::grpc::Status verify(::grpc::ServerContext const* srv_ctx) const override {
+    ::grpc::Status verify_ctx(::grpc::ServerContext const* srv_ctx) const override {
         auto& client_headers = srv_ctx->client_metadata();
         if (auto it = client_headers.find(g_auth_header); it != client_headers.end()) {
             if (it->second == g_test_token) { return ::grpc::Status(); }

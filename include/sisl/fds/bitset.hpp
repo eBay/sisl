@@ -103,7 +103,10 @@ private:
         void destroy(const bool destroy_words = true) {
             // destruct the BitWords
             if (destroy_words) { std::destroy(get_words(), end_words()); }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
             this->~bitset_serialized();
+#pragma GCC diagnostic pop
         }
 
         bool valid_bit(const uint64_t bit) const { return (bit + m_skip_bits) < m_nbits; }
@@ -1114,7 +1117,7 @@ private:
         // test first possibly partial word
         const bitword_type* word_ptr{get_word_const(start)};
         if (!word_ptr) { return (nbits == 0); }
-        uint64_t bits_remaining{(nbits > total_bits() - start) ? total_bits() - start : nbits};
+        uint64_t bits_remaining{((nbits > total_bits()) - start) ? (total_bits() - start) : nbits};
         const uint8_t offset{get_word_offset(start)};
         uint8_t count{static_cast< uint8_t >(
             (bits_remaining > static_cast< uint8_t >(word_size() - offset)) ? (word_size() - offset) : bits_remaining)};
