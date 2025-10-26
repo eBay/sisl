@@ -28,7 +28,7 @@
 using namespace sisl;
 SISL_LOGGING_INIT(test_hashmap)
 
-static uint32_t g_max_offset;
+static uint32_t g_max_offset{UINT16_MAX};
 static constexpr uint32_t per_val_size = 128;
 
 static thread_local std::random_device g_rd{};
