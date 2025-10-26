@@ -103,7 +103,10 @@ private:
         void destroy(const bool destroy_words = true) {
             // destruct the BitWords
             if (destroy_words) { std::destroy(get_words(), end_words()); }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
             this->~bitset_serialized();
+#pragma GCC diagnostic pop
         }
 
         bool valid_bit(const uint64_t bit) const { return (bit + m_skip_bits) < m_nbits; }

@@ -154,7 +154,7 @@ void GrpcServer::shutdown() {
 
 bool GrpcServer::is_auth_enabled() const { return m_auth_mgr != nullptr; }
 
-grpc::Status GrpcServer::auth_verify(grpc::ServerContext const* srv_ctx) const { return m_auth_mgr->verify(srv_ctx); }
+grpc::Status GrpcServer::auth_verify(grpc::ServerContext const* srv_ctx) const { return m_auth_mgr->verify_ctx(srv_ctx); }
 
 bool GrpcServer::run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data) {
     generic_rpc_handler_cb_t cb;

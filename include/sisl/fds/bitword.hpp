@@ -370,7 +370,10 @@ public:
         if (nbits == 1) { return (is_bit_set_reset(start, check_for_set)); }
 
         const word_t actual{extract(start, nbits)};
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
         const word_t expected{static_cast< word_t >(check_for_set ? consecutive_bitmask[nbits - 1] : 0)};
+#pragma GCC diagnostic pop
         return (actual == expected);
     }
 
@@ -544,14 +547,7 @@ public:
 
     word_t to_integer() const { return m_bits.get(); }
 
-    std::string to_string() const {
-        std::ostringstream oSS{};
-        const word_t e = m_bits.get();
-        for (uint8_t bit{0}; bit < bits(); ++bit) {
-            oSS << (((e & bit_mask[bit]) == bit_mask[bit]) ? '1' : '0');
-        }
-        return oSS.str();
-    }
+    std::string to_string() const { return fmt::format("{0:0>{1}b}", m_bits.get(), bits()); }
 
     void print() const { std::cout << to_string() << std::endl; }
 
@@ -562,8 +558,11 @@ public:
 private:
     word_t extract(const uint8_t start, const uint8_t nbits) const {
         const uint8_t wanted_bits{std::min< uint8_t >(bits() - start, nbits)};
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
         assert(wanted_bits > 0);
         const word_t mask{static_cast< word_t >(static_cast< word_t >(consecutive_bitmask[wanted_bits - 1]) << start)};
+#pragma GCC diagnostic pop
         return ((m_bits.get() & mask) >> start);
     }
 
