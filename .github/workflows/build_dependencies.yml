@@ -84,7 +84,7 @@ jobs:
       if: ${{ inputs.testing == 'False' }}
 
     - name: Setup Conan
-      uses: szmyd/sisl/.github/actions/setup_conan2@dev/v13.x
+      uses: ebay/sisl/.github/actions/setup_conan2@dev/v13.x
       with:
         platform: ${{ inputs.platform }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
