@@ -27,7 +27,13 @@
 #include <grpcpp/impl/codegen/async_unary_call.h>
 #include <grpcpp/generic/generic_stub.h>
 #include <grpc/support/log.h>
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuninitialized"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #include <folly/futures/Future.h>
+#pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 
 #include <sisl/logging/logging.h>
 #include <sisl/utility/obj_life_counter.hpp>
@@ -317,8 +323,8 @@ public:
     GrpcAsyncClient(const std::string& server_addr, const std::shared_ptr< sisl::GrpcTokenClient > token_client,
                     const std::string& target_domain = "", const std::string& ssl_cert = "",
                     int max_receive_msg_size = 0, int max_send_msg_size = 0) :
-            GrpcBaseClient(server_addr, token_client, target_domain, ssl_cert,
-                           max_receive_msg_size, max_send_msg_size) {}
+            GrpcBaseClient(server_addr, token_client, target_domain, ssl_cert, max_receive_msg_size,
+                           max_send_msg_size) {}
 
     GrpcAsyncClient(const std::string& server_addr, const std::string& target_domain = "",
                     const std::string& ssl_cert = "") :
