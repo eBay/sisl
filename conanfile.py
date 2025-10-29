@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "12.4.7"
+    version = "12.4.8"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -78,7 +78,7 @@ class SISLConan(ConanFile):
 
     def requirements(self):
         # Required
-        self.requires("boost/1.83.0", transitive_headers=True)
+        self.requires("boost/1.83.0", transitive_headers=True, override=True)
         self.requires("cxxopts/3.1.1", transitive_headers=True)
         self.requires("nlohmann_json/3.11.2", transitive_headers=True)
         self.requires("spdlog/1.12.0", transitive_headers=True)
@@ -86,6 +86,7 @@ class SISLConan(ConanFile):
         if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20210521")
         self.requires("fmt/10.0.0",  override=True)
+        self.requires("lz4/1.10.0",  override=True)
 
         # ARM needs unreleased versionof libunwind
         if not self.settings.arch in ['x86', 'x86_64']:
@@ -97,7 +98,7 @@ class SISLConan(ConanFile):
             self.requires("flatbuffers/23.5.26", transitive_headers=True)
             self.requires("folly/nu2.2023.12.18.00", transitive_headers=True)
             self.requires("prometheus-cpp/1.1.0", transitive_headers=True)
-            self.requires("snappy/1.1.10", transitive_headers=True)
+            self.requires("snappy/[^1.1]", transitive_headers=True)
             self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
             self.requires("libcurl/8.4.0",  override=True)
             self.requires("xz_utils/5.4.5",  override=True)
