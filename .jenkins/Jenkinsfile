@@ -6,30 +6,10 @@ pipeline {
         CONAN_USER = 'oss'
         TARGET_BRANCH = 'master'
         STABLE_BRANCH = 'stable/v*'
+        BUILD_MISSING = "--build missing"
     }
 
     stages {
-        stage('Adjust for Master/PR') {
-            when { not {
-                branch "${STABLE_BRANCH}"
-            } }
-            steps {
-                script {
-                    BUILD_MISSING = "--build missing"
-                }
-            }
-        }
-        stage('Adjust for Testing/Stable') {
-            when {
-                branch "${STABLE_BRANCH}"
-            }
-            steps {
-                script {
-                    BUILD_MISSING = ""
-                }
-            }
-        }
-
         stage('Get Version') {
             steps {
                 script {
