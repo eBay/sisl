@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "12.4.7"
+    version = "12.4.8"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -78,7 +78,7 @@ class SISLConan(ConanFile):
 
     def requirements(self):
         # Required
-        self.requires("boost/1.83.0", transitive_headers=True)
+        self.requires("boost/1.83.0", transitive_headers=True, override=True)
         self.requires("cxxopts/3.1.1", transitive_headers=True)
         self.requires("nlohmann_json/3.11.2", transitive_headers=True)
         self.requires("spdlog/1.12.0", transitive_headers=True)
