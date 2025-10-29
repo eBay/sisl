@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - dev/v13.x
       - stable/v12.x
       - master
 

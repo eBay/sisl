@@ -84,14 +84,14 @@ jobs:
       if: ${{ inputs.testing == 'False' }}
 
     - name: Setup Conan
-      uses: ebay/sisl/.github/actions/setup_conan2@dev/v13.x
+      uses: ebay/sisl/.github/actions/setup_conan2@master
       with:
         platform: ${{ inputs.platform }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Load Conan Cache
       id: restore-cache
-      uses: ebay/sisl/.github/actions/load_conan2@dev/v13.x
+      uses: ebay/sisl/.github/actions/load_conan2@master
       with:
         testing: ${{ inputs.testing }}
         key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
@@ -113,7 +113,7 @@ jobs:
       if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Save Conan Cache
-      uses: ebay/sisl/.github/actions/store_conan2@dev/v13.x
+      uses: ebay/sisl/.github/actions/store_conan2@master
       with:
         key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
