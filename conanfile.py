@@ -5,11 +5,11 @@ from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake
 from conan.tools.files import copy
 from os.path import join
 
-required_conan_version = ">=1.60.0"
+required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "13.0.2"
+    version = "13.0.3"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
