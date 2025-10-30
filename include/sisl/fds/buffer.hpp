@@ -26,7 +26,10 @@
 #include <malloc.h>
 #include <sys/uio.h>
 #endif
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #include <folly/small_vector.h>
+#pragma GCC diagnostic pop
 #include <sisl/metrics/metrics.hpp>
 #include <sisl/utility/enum.hpp>
 #include "utils.hpp"
