@@ -125,6 +125,7 @@ jobs:
             -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
             -o sisl/*:sanitize=${sanitize} \
             -s:h build_type=${{ inputs.build-type }} \
+            -s:h compiler.cppstd=23 \
             --build missing \
             .
       if: ${{ inputs.testing == 'True' && inputs.tooling != 'Coverage' }}
@@ -135,6 +136,7 @@ jobs:
             -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
             -o sisl/*:coverage=True \
             -s:h build_type=${{ inputs.build-type }} \
+            -s:h compiler.cppstd=23 \
             --build missing \
             .
       if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}

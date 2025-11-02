@@ -9,7 +9,7 @@ required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "13.0.3"
+    version = "13.0.4"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -47,7 +47,7 @@ class SISLConan(ConanFile):
             )
 
     def _min_cppstd(self):
-        return 20
+        return 23
 
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
