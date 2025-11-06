@@ -9,7 +9,7 @@ required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "13.0.4"
+    version = "13.0.5"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -93,7 +93,7 @@ class SISLConan(ConanFile):
             self.requires("folly/nu2.2023.12.18.00", transitive_headers=True)
             self.requires("prometheus-cpp/1.1.0", transitive_headers=True)
             self.requires("snappy/[^1.2]", transitive_headers=True)
-            self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
+            self.requires("userspace-rcu/0.11.4", transitive_headers=True)
 
         if self.options.grpc:
             self.requires("grpc/1.54.3", transitive_headers=True)
@@ -232,7 +232,7 @@ class SISLConan(ConanFile):
             self.cpp_info.components["settings"].requires.extend([
                     "logging",
                     "flatbuffers::flatbuffers",
-                    "userspace-rcu::userspace-rcu",
+                    "userspace-rcu::urcu-memb",
                     ])
             self.cpp_info.components["metrics"].requires.extend([
                     "logging",
@@ -243,7 +243,7 @@ class SISLConan(ConanFile):
                     "metrics",
                     "folly::folly",
                     "snappy::snappy",
-                    "userspace-rcu::userspace-rcu",
+                    "userspace-rcu::urcu-memb",
                     ])
             self.cpp_info.components["cache"].requires.extend([
                     "buffer",

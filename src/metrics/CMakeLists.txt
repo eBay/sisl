@@ -12,7 +12,7 @@ target_link_libraries(sisl_metrics PUBLIC
     sisl_logging
     folly::folly
     prometheus-cpp::prometheus-cpp
-    userspace-rcu::userspace-rcu
+    userspace-rcu::urcu-memb
   )
 
 include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
