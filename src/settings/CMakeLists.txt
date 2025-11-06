@@ -7,7 +7,7 @@ target_sources(sisl_settings PRIVATE
 target_link_libraries(sisl_settings PUBLIC
   sisl_logging
   flatbuffers::flatbuffers
-  userspace-rcu::userspace-rcu
+  userspace-rcu::urcu-memb
   )
 
 add_executable(test_settings)
