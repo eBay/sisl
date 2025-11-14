@@ -238,7 +238,7 @@ void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {
         auto future_resp = GenericClientResponse(this->m_reply);
         m_promise.setValue(std::move(future_resp));
     } else {
-        m_promise.setValue(folly::makeUnexpected(this->m_status));
+        m_promise.setValue(std::unexpected(this->m_status));
     }
 }
 

@@ -215,7 +215,7 @@ public:
                     req.set_message(std::to_string(i));
                     echo_stub->call_unary< EchoRequest, EchoReply >(req, &EchoService::StubInterface::AsyncEcho, 1)
                         .deferValue([req, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "echo request {} failed, status {}: {}", req.message(),
+                            RELEASE_ASSERT(e.has_value(), "echo request {} failed, status {}: {}", req.message(),
                                            e.error().error_code(), e.error().error_message());
                             validate_echo_reply(req, e.value(), grpc::Status::OK);
                             return folly::Unit();
@@ -246,7 +246,7 @@ public:
                     req.set_seqno(i);
                     ping_stub->call_unary< PingRequest, PingReply >(req, &PingService::StubInterface::AsyncPing, 1)
                         .deferValue([req, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "ping request {} failed, status {}: {}", req.seqno(),
+                            RELEASE_ASSERT(e.has_value(), "ping request {} failed, status {}: {}", req.seqno(),
                                            e.error().error_code(), e.error().error_message());
                             validate_ping_reply(req, e.value(), grpc::Status::OK);
                             return folly::Unit();
@@ -290,7 +290,7 @@ public:
                     SerializeToByteBuffer(cli_buf, req);
                     generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
                         .deferValue([req, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
+                            RELEASE_ASSERT(e.has_value(), "generic request {} failed, status {}: {}", req.m_seqno,
                                            e.error().error_code(), e.error().error_message());
                             validate_generic_reply(req, e.value(), grpc::Status::OK);
                             return folly::Unit();
@@ -305,7 +305,7 @@ public:
                     SerializeToBlob(cli_buf, req);
                     generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
                         .deferValue([req, cli_buf, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
+                            RELEASE_ASSERT(e.has_value(), "generic request {} failed, status {}: {}", req.m_seqno,
                                            e.error().error_code(), e.error().error_message());
                             validate_generic_reply(req, std::move(e.value()), grpc::Status::OK, cli_buf);
                             return folly::Unit();
