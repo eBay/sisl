@@ -77,7 +77,7 @@ template < typename ReqT, typename RespT >
 class ClientRpcDataFuture;
 
 template < typename T >
-using Result = folly::Expected< T, ::grpc::Status >;
+using Result = std::expected< T, ::grpc::Status >;
 
 template < typename T >
 using AsyncResult = folly::SemiFuture< Result< T > >;
@@ -162,7 +162,7 @@ public:
         if (this->m_status.ok()) {
             m_promise.setValue(this->m_reply);
         } else {
-            m_promise.setValue(folly::makeUnexpected(this->m_status));
+            m_promise.setValue(std::unexpected(this->m_status));
         }
     }
 
