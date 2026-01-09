@@ -113,3 +113,4 @@ CMakeUserPresets.json
 logs/
 conan.lock
 graph_info.json
+.vsconan/config.json

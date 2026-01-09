@@ -37,7 +37,7 @@ public:
     atomic_counter(const atomic_counter& other) : m_count{other.m_count.load(std::memory_order_acquire)} {}
     atomic_counter(atomic_counter&& other) noexcept : m_count{std::move(other.m_count)} {}
     atomic_counter& operator=(const atomic_counter& rhs) {
-        if (this != &rhs) { m_count.store(rhs.load(std::memory_order_acquire), std::memory_order_release); }
+        if (this != &rhs) { m_count.store(rhs.m_count.load(std::memory_order_acquire), std::memory_order_release); }
         return *this;
     }
     atomic_counter& operator=(atomic_counter&& rhs) noexcept {
