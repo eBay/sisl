@@ -150,6 +150,18 @@ void ThreadBufferMetricsGroup::counter_decrement(const uint64_t index, const int
     m_metrics_buf->get()->get_counter(index).decrement(val);
 }
 
+int64_t ThreadBufferMetricsGroup::counter_get(const uint64_t index) {
+    // Gather the specific counter value from all threads
+    flush_core_cache();
+    CounterValue result_counter;
+    m_metrics_buf->access_all_threads([&](PerThreadMetrics* tmetrics, [[maybe_unused]] bool is_thread_running,
+                                          [[maybe_unused]] bool is_last_thread) {
+        result_counter.merge(tmetrics->get_counter(index));
+        return true;
+    });
+    return result_counter.get();
+}
+
 // If we were to call the method with count parameter and compiler inlines them, binaries linked with libsisl gets
 // linker errors. At the same time we also don't want to non-inline this method, since its the most obvious call
 // everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
@@ -160,5 +172,27 @@ void ThreadBufferMetricsGroup::histogram_observe(const uint64_t index, const int
 
 void ThreadBufferMetricsGroup::histogram_observe(const uint64_t index, const int64_t val, const uint64_t count) {
     m_metrics_buf->get()->get_histogram(index).observe(val, m_static_info->m_histograms[index].get_boundaries(), count);
+}
+
+HistogramStatistics ThreadBufferMetricsGroup::histogram_get(const uint64_t index) {
+    // Gather the specific histogram value from all threads
+    flush_core_cache();
+    HistogramValue result_histogram;
+    const auto& boundaries = hist_static_info(index).get_boundaries();
+
+    m_metrics_buf->access_all_threads([&](PerThreadMetrics* tmetrics, [[maybe_unused]] bool is_thread_running,
+                                          [[maybe_unused]] bool is_last_thread) {
+        result_histogram.merge(tmetrics->get_histogram(index), boundaries);
+        return true;
+    });
+
+    HistogramStatistics stats;
+    stats.count = hist_dynamic_info(index).count(result_histogram);
+    stats.average = hist_dynamic_info(index).average(result_histogram);
+    stats.p50 = hist_dynamic_info(index).percentile(result_histogram, boundaries, 50.0f);
+    stats.p95 = hist_dynamic_info(index).percentile(result_histogram, boundaries, 95.0f);
+    stats.p99 = hist_dynamic_info(index).percentile(result_histogram, boundaries, 99.0f);
+
+    return stats;
 }
 } // namespace sisl

@@ -33,6 +33,12 @@ void WisrBufferMetricsGroup::counter_decrement(uint64_t index, int64_t val) {
     m->get_counter(index).decrement(val);
 }
 
+int64_t WisrBufferMetricsGroup::counter_get(uint64_t index) {
+    // Get the latest snapshot and read the specific counter
+    PerThreadMetrics* tmetrics = m_metrics->now();
+    return tmetrics->get_counter(index).get();
+}
+
 // If we were to call the method with count parameter and compiler inlines them, binaries linked with libsisl gets
 // linker errors. At the same time we also don't want to non-inline this method, since its the most obvious call
 // everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
@@ -45,6 +51,22 @@ void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val) {
 void WisrBufferMetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
     auto m{m_metrics->insert_access()};
     m->get_histogram(index).observe(val, hist_static_info(index).get_boundaries(), count);
+}
+
+HistogramStatistics WisrBufferMetricsGroup::histogram_get(uint64_t index) {
+    // Get the latest snapshot and read the specific histogram
+    PerThreadMetrics* tmetrics = m_metrics->now();
+    const HistogramValue& hvalue = tmetrics->get_histogram(index);
+    const auto& boundaries = hist_static_info(index).get_boundaries();
+
+    HistogramStatistics stats;
+    stats.count = hist_dynamic_info(index).count(hvalue);
+    stats.average = hist_dynamic_info(index).average(hvalue);
+    stats.p50 = hist_dynamic_info(index).percentile(hvalue, boundaries, 50.0f);
+    stats.p95 = hist_dynamic_info(index).percentile(hvalue, boundaries, 95.0f);
+    stats.p99 = hist_dynamic_info(index).percentile(hvalue, boundaries, 99.0f);
+
+    return stats;
 }
 
 void WisrBufferMetricsGroup::gather_result(bool need_latest, const counter_gather_cb_t& counter_cb,

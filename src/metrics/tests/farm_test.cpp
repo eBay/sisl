@@ -34,33 +34,47 @@ SISL_LOGGING_INIT(vmod_metrics_framework)
 
 using namespace sisl;
 
-void userA() {
-    auto mgroup = std::make_shared< ThreadBufferMetricsGroup >("Group1", "Instance1");
-    mgroup->register_counter("counter1", "Counter1");
-    mgroup->register_counter("counter2", "Counter2");
-    mgroup->register_counter("counter3", "Counter3");
-    MetricsFarm::getInstance().register_metrics_group(mgroup);
+class Group1Metrics : public MetricsGroup {
+public:
+    explicit Group1Metrics(const char* inst_name)
+        : MetricsGroup("Group1", inst_name, group_impl_type_t::thread_buf_signal) {
+        REGISTER_COUNTER(counter1, "Counter1");
+        REGISTER_COUNTER(counter2, "Counter2");
+        REGISTER_COUNTER(counter3, "Counter3");
+        register_me_to_farm();
+    }
+    ~Group1Metrics() { deregister_me_from_farm(); }
+};
 
-    mgroup->counter_increment(0);
-    mgroup->counter_increment(2, 4);
+class Group2Metrics : public MetricsGroup {
+public:
+    explicit Group2Metrics(const char* inst_name)
+        : MetricsGroup("Group2", inst_name, group_impl_type_t::thread_buf_signal) {
+        REGISTER_GAUGE(gauge1, "Gauge1");
+        REGISTER_GAUGE(gauge2, "Gauge2");
+        register_me_to_farm();
+    }
+    ~Group2Metrics() { deregister_me_from_farm(); }
+};
+
+void userA() {
+    Group1Metrics metrics("Instance1");
+
+    COUNTER_INCREMENT(metrics, counter1, 1);
+    COUNTER_INCREMENT(metrics, counter3, 4);
     std::this_thread::sleep_for(std::chrono::seconds(3));
-    mgroup->counter_increment(1);
+    COUNTER_INCREMENT(metrics, counter2, 1);
     std::this_thread::sleep_for(std::chrono::seconds(4));
-    MetricsFarm::getInstance().deregister_metrics_group(mgroup);
 }
 
 void userB() {
-    auto mgroup = std::make_shared< ThreadBufferMetricsGroup >("Group2", "Instance1");
-    mgroup->register_gauge("gauge1", "Gauge1");
-    mgroup->register_gauge("gauge2", "Gauge2");
-    MetricsFarm::getInstance().register_metrics_group(mgroup);
+    Group2Metrics metrics("Instance1");
 
-    mgroup->gauge_update(0, 5);
+    GAUGE_UPDATE(metrics, gauge1, 5);
     std::this_thread::sleep_for(std::chrono::seconds(3));
-    mgroup->gauge_update(1, 2);
-    mgroup->gauge_update(0, 3);
+    GAUGE_UPDATE(metrics, gauge2, 2);
+    GAUGE_UPDATE(metrics, gauge1, 3);
     std::this_thread::sleep_for(std::chrono::seconds(4));
-    MetricsFarm::getInstance().deregister_metrics_group(mgroup);
 }
 
 // clang-format off
@@ -134,7 +148,7 @@ void gather() {
     }
 }
 
-TEST(farmTest, gather) {
+TEST(FarmTest, gather) {
     std::thread th1(userA);
     std::thread th2(userB);
     std::thread th3(gather);
@@ -143,6 +157,67 @@ TEST(farmTest, gather) {
     th2.join();
     th3.join();
 }
+
+// Helper class for DirectAccess tests
+class TestMetrics : public MetricsGroup {
+public:
+    explicit TestMetrics(const char* inst_name, group_impl_type_t type = group_impl_type_t::rcu)
+        : MetricsGroup("TestGroup", inst_name, type) {
+        REGISTER_COUNTER(test_counter, "Test counter");
+        REGISTER_GAUGE(test_gauge, "Test gauge");
+        REGISTER_HISTOGRAM(test_histogram, "Test histogram");
+        register_me_to_farm();
+    }
+    ~TestMetrics() { deregister_me_from_farm(); }
+};
+
+// Parameterized test fixture for DirectAccess tests
+class DirectAccessTest : public ::testing::TestWithParam< group_impl_type_t > {};
+
+// Test direct access to counter, gauge, and histogram values
+TEST_P(DirectAccessTest, allMetricTypes) {
+    group_impl_type_t impl_type = GetParam();
+    TestMetrics metrics("direct_access_test", impl_type);
+
+    // Test counter
+    COUNTER_INCREMENT(metrics, test_counter, 5);
+    COUNTER_INCREMENT(metrics, test_counter, 10);
+    COUNTER_INCREMENT(metrics, test_counter, 15);
+    int64_t counter_value = COUNTER_VALUE(metrics, test_counter);
+    EXPECT_EQ(counter_value, 30);
+
+    // Test gauge
+    GAUGE_UPDATE(metrics, test_gauge, 100);
+    EXPECT_EQ(GAUGE_VALUE(metrics, test_gauge), 100);
+    GAUGE_UPDATE(metrics, test_gauge, 250);
+    EXPECT_EQ(GAUGE_VALUE(metrics, test_gauge), 250);
+
+    // Test histogram
+    HISTOGRAM_OBSERVE(metrics, test_histogram, 10);
+    HISTOGRAM_OBSERVE(metrics, test_histogram, 20);
+    HISTOGRAM_OBSERVE(metrics, test_histogram, 30);
+    HISTOGRAM_OBSERVE(metrics, test_histogram, 40);
+    HISTOGRAM_OBSERVE(metrics, test_histogram, 50);
+
+    sisl::HistogramStatistics stats = HISTOGRAM_VALUE(metrics, test_histogram);
+    EXPECT_EQ(stats.count, 5);
+    EXPECT_DOUBLE_EQ(stats.average, 30.0);
+    EXPECT_GT(stats.p50, 0.0);
+    EXPECT_GT(stats.p95, 0.0);
+    EXPECT_GT(stats.p99, 0.0);
+}
+
+INSTANTIATE_TEST_SUITE_P(AllImplementations, DirectAccessTest,
+                         ::testing::Values(group_impl_type_t::rcu, group_impl_type_t::atomic,
+                                           group_impl_type_t::thread_buf_signal),
+                         [](const ::testing::TestParamInfo< group_impl_type_t >& info) {
+                             switch (info.param) {
+                             case group_impl_type_t::rcu: return "RCU";
+                             case group_impl_type_t::atomic: return "Atomic";
+                             case group_impl_type_t::thread_buf_signal: return "ThreadLocal";
+                             default: return "Unknown";
+                             }
+                         });
 
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);

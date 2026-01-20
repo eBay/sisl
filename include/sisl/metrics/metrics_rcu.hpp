@@ -38,8 +38,10 @@ public:
 
     void counter_increment(uint64_t index, int64_t val = 1) override;
     void counter_decrement(uint64_t index, int64_t val = 1) override;
+    int64_t counter_get(uint64_t index) override;
     void histogram_observe(uint64_t index, int64_t val) override;
     void histogram_observe(uint64_t index, int64_t val, uint64_t count) override;
+    HistogramStatistics histogram_get(uint64_t index) override;
 
     group_impl_type_t impl_type() const { return group_impl_type_t::rcu; }
 
