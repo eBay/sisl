@@ -261,6 +261,15 @@ private:
     const hist_bucket_boundaries_t& m_bkt_boundaries;
 };
 
+// Structure to hold histogram statistics
+struct HistogramStatistics {
+    int64_t count{0};
+    double average{0.0};
+    double p50{0.0};  // 50th percentile (median)
+    double p95{0.0};  // 95th percentile
+    double p99{0.0};  // 99th percentile
+};
+
 class HistogramDynamicInfo {
     friend class MetricsGroupImpl;
 
@@ -385,11 +394,14 @@ public:
 
     virtual void counter_increment(const uint64_t index, const int64_t val = 1) = 0;
     virtual void counter_decrement(const uint64_t index, const int64_t val = 1) = 0;
+    virtual int64_t counter_get(const uint64_t index) = 0;
 
     void gauge_update(const uint64_t index, const int64_t val);
+    int64_t gauge_get(const uint64_t index) { return m_gauge_values[index].get(); }
 
     virtual void histogram_observe(const uint64_t index, const int64_t val, const uint64_t count) = 0;
     virtual void histogram_observe(const uint64_t index, const int64_t val) = 0;
+    virtual HistogramStatistics histogram_get(const uint64_t index) = 0;
 
     nlohmann::json get_result_in_json(const bool need_latest);
     [[nodiscard]] const std::string& get_group_name() const;
@@ -448,7 +460,7 @@ public:
 
     virtual void on_register() = 0;
 
-protected:
+    // Public API to gather metrics with callbacks for direct access to counter/gauge/histogram values
     virtual void gather_result(const bool need_latest, const counter_gather_cb_t& counter_cb,
                                const gauge_gather_cb_t& gauge_cb, const histogram_gather_cb_t& histogram_cb) = 0;
 

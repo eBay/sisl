@@ -49,6 +49,8 @@ void AtomicMetricsGroup::counter_increment(uint64_t index, int64_t val) { m_coun
 
 void AtomicMetricsGroup::counter_decrement(uint64_t index, int64_t val) { m_counter_values[index].decrement(val); }
 
+int64_t AtomicMetricsGroup::counter_get(uint64_t index) { return m_counter_values[index].to_counter_value().get(); }
+
 // If we were to call the method with count parameter and compiler inlines them, binaries linked with libsisl gets
 // linker errors. At the same time we also don't want to non-inline this method, since its the most obvious call
 // everyone makes and wanted to avoid additional function call in the stack. Hence we are duplicating the function
@@ -59,5 +61,19 @@ void AtomicMetricsGroup::histogram_observe(uint64_t index, int64_t val) {
 
 void AtomicMetricsGroup::histogram_observe(uint64_t index, int64_t val, uint64_t count) {
     m_histogram_values[index].observe(val, hist_static_info(index).get_boundaries(), count);
+}
+
+HistogramStatistics AtomicMetricsGroup::histogram_get(uint64_t index) {
+    HistogramStatistics stats;
+    HistogramValue hvalue = m_histogram_values[index].to_histogram_value();
+    const auto& boundaries = hist_static_info(index).get_boundaries();
+
+    stats.count = hist_dynamic_info(index).count(hvalue);
+    stats.average = hist_dynamic_info(index).average(hvalue);
+    stats.p50 = hist_dynamic_info(index).percentile(hvalue, boundaries, 50.0f);
+    stats.p95 = hist_dynamic_info(index).percentile(hvalue, boundaries, 95.0f);
+    stats.p99 = hist_dynamic_info(index).percentile(hvalue, boundaries, 99.0f);
+
+    return stats;
 }
 } // namespace sisl

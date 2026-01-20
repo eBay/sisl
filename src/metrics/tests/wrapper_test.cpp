@@ -250,6 +250,52 @@ TEST(counterTest, wrapperTest) {
     // std::cout << "Prometheus serialized format: " << prometheus_bytes << "\n";
 }
 
+// Test direct access to counter values (COUNTER_VALUE macro)
+TEST(counterTest, directCounterAccess) {
+    TreeMetrics metrics("direct_counter_test");
+
+    COUNTER_INCREMENT(metrics, tree_node_count, 5);
+    COUNTER_INCREMENT(metrics, tree_node_count, 10);
+    COUNTER_INCREMENT(metrics, tree_node_count, 15);
+
+    // Direct access without JSON parsing
+    int64_t value = COUNTER_VALUE(metrics, tree_node_count);
+    EXPECT_EQ(value, 30);
+}
+
+// Test direct access to gauge values (GAUGE_VALUE macro)
+TEST(gaugeTest, directGaugeAccess) {
+    CacheMetrics metrics("direct_gauge_test");
+
+    GAUGE_UPDATE(metrics, cache_size, 100);
+    EXPECT_EQ(GAUGE_VALUE(metrics, cache_size), 100);
+
+    GAUGE_UPDATE(metrics, cache_size, 250);
+    EXPECT_EQ(GAUGE_VALUE(metrics, cache_size), 250);
+}
+
+// Test direct access to histogram statistics (HISTOGRAM_VALUE macro)
+TEST(histogramTest, directHistogramAccess) {
+    CacheMetrics metrics("direct_histogram_test");
+
+    // Observe some latency values
+    HISTOGRAM_OBSERVE(metrics, cache_write_latency, 10);
+    HISTOGRAM_OBSERVE(metrics, cache_write_latency, 20);
+    HISTOGRAM_OBSERVE(metrics, cache_write_latency, 30);
+    HISTOGRAM_OBSERVE(metrics, cache_write_latency, 40);
+    HISTOGRAM_OBSERVE(metrics, cache_write_latency, 50);
+
+    // Get histogram statistics directly (no JSON!)
+    sisl::HistogramStatistics stats = HISTOGRAM_VALUE(metrics, cache_write_latency);
+
+    // Verify statistics
+    EXPECT_EQ(stats.count, 5);
+    EXPECT_DOUBLE_EQ(stats.average, 30.0);
+    EXPECT_GT(stats.p50, 0.0);
+    EXPECT_GT(stats.p95, 0.0);
+    EXPECT_GT(stats.p99, 0.0);
+}
+
 // SISL_OPTIONS_ENABLE(logging)
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);

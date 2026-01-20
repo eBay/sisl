@@ -97,8 +97,10 @@ public:
 
     void counter_increment(const uint64_t index, const int64_t val = 1) override;
     void counter_decrement(const uint64_t index, const int64_t val = 1) override;
+    int64_t counter_get(const uint64_t index) override;
     void histogram_observe(const uint64_t index, const int64_t val) override;
     void histogram_observe(const uint64_t index, const int64_t val, const uint64_t count) override;
+    HistogramStatistics histogram_get(const uint64_t index) override;
 
     [[nodiscard]] group_impl_type_t impl_type() const { return group_impl_type_t::atomic; }
 
