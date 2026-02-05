@@ -90,6 +90,12 @@ public:
 
     void rollback(int64_t new_end_idx) {
         auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        // Special case: allow rollback exactly to (start_idx - 1), which clears all slots >= start
+        if (new_end_idx + 1 == m_slot_ref_idx) {
+            m_active_slot_bits.reset_bits(0, m_active_slot_bits.size());
+            m_comp_slot_bits.reset_bits(0, m_comp_slot_bits.size());
+            return;
+        }
         if ((new_end_idx < m_slot_ref_idx) ||
             (new_end_idx >= (m_slot_ref_idx + int64_cast(m_active_slot_bits.size())))) {
             throw std::out_of_range("Slot idx is not in range");
