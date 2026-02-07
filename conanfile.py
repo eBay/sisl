@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.9.3"
+    version = "8.9.4"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -38,9 +38,9 @@ class SISLConan(ConanFile):
     exports_sources = ("CMakeLists.txt", "cmake/*", "include/*", "src/*", "LICENSE")
 
     def build_requirements(self):
-        self.test_requires("gtest/1.14.0")
+        self.test_requires("gtest/1.15.0")
         self.test_requires("benchmark/1.8.2")
-        self.test_requires("pistache/0.0.5")
+        self.test_requires("pistache/nbi.0.0.5.1")
 
     def requirements(self):
         # Generic packages (conan-center)
@@ -52,9 +52,9 @@ class SISLConan(ConanFile):
         self.requires("flatbuffers/1.12.0")
         if self.settings.os in ["Linux"]:
             self.requires("folly/2022.01.31.00")
-        self.requires("grpc/1.50.1")
+        self.requires("grpc/1.54.3")
         self.requires("jwt-cpp/0.4.0")
-        self.requires("nlohmann_json/3.11.2")
+        self.requires("nlohmann_json/3.12.0")
         self.requires("prometheus-cpp/1.0.1")
         self.requires("spdlog/1.11.0")
         if self.settings.os in ["Linux"]:
@@ -62,11 +62,12 @@ class SISLConan(ConanFile):
         self.requires("zmarok-semver/1.1.0")
         self.requires("fmt/8.1.1",          override=True)
         self.requires("libevent/2.1.12",    override=True)
-        self.requires("openssl/1.1.1s",     override=True)
+        self.requires("openssl/1.1.1w",     override=True)
         self.requires("libcurl/8.4.0",      override=True)
         self.requires("xz_utils/5.2.5",     override=True)
-        self.requires("zlib/1.2.12",        override=True)
         self.requires("lz4/1.9.4",          override=True)
+        self.requires("zlib/1.2.12",        override=True)
+        self.requires("zstd/1.5.4",         override=True)
         if self.options.malloc_impl == "jemalloc":
             self.requires("jemalloc/5.2.1")
         elif self.options.malloc_impl == "tcmalloc":
