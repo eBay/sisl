@@ -3,6 +3,7 @@
 
 #include <fmt/format.h>
 extern "C" {
+#include <openssl/evp.h>
 #include <openssl/md5.h>
 }
 
@@ -11,17 +12,25 @@ extern "C" {
 namespace sisl {
 
 static std::string md5_sum(std::string const& s) {
-    unsigned char digest[MD5_DIGEST_LENGTH];
-
-    MD5(reinterpret_cast< unsigned char* >(const_cast< char* >(s.c_str())), s.length(),
-        reinterpret_cast< unsigned char* >(&digest));
-
-    std::ostringstream out;
-    out << std::hex;
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        out << std::setfill('0') << std::setw(2) << std::hex << (int)(unsigned char)digest[i];
+    std::array< unsigned char, MD5_DIGEST_LENGTH > result;
+    uint32_t md_len;
+    auto mdctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(mdctx, EVP_md5(), nullptr);
+    EVP_DigestUpdate(mdctx, s.c_str(), s.size());
+    EVP_DigestFinal_ex(mdctx, result.data(), &md_len);
+    EVP_MD_CTX_free(mdctx);
+    if (md_len != MD5_DIGEST_LENGTH) {
+        LOGERROR("Bad digest length, expected [{}] got [{}]!", MD5_DIGEST_LENGTH, md_len);
+        return std::string();
     }
-    return out.str();
+
+    // convert to hex
+    std::ostringstream ss;
+    ss << std::hex;
+    for (auto const c : result) {
+        ss << std::setw(2) << std::setfill('0') << static_cast< unsigned >(c);
+    }
+    return ss.str();
 }
 
 struct incomplete_verification_error : std::exception {
