@@ -112,18 +112,16 @@ pipeline {
                                 def BUILD_PROFILE = "${BUILD_TYPE}"
                                 def SANITIZE = 'False'
 
+                                if ("${ALLOC}" == 'libc') {
+                                    PRERELEASE = 'False'
+                                }
                                 if ("${BUILD_TYPE}" == 'sanitize') {
                                     SANITIZE = 'True'
                                     BUILD_PROFILE = "debug"
                                 }
-
-                                if ("${ALLOC}" == 'libc') {
+                                if ("${BUILD_TYPE}" == "release") {
                                     PRERELEASE = 'False'
-                                } else {
-                                    if ("${BUILD_TYPE}" == "release") {
-                                        PRERELEASE = 'False'
-                                        BUILD_PROFILE = "test"
-                                    }
+                                    BUILD_PROFILE = "test"
                                 }
 
                                 if (("${env.BRANCH_NAME}" =~ /PR-/) && ("$BUILD_TYPE" == "debug")) {
