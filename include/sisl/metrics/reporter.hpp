@@ -41,6 +41,11 @@ public:
     virtual void set_value(std::vector< double >& bucket_values, double sum) = 0;
 };
 
+class ReportSumCount {
+public:
+    virtual void set_value(int64_t count, double sum) = 0;
+};
+
 class Reporter {
 public:
     virtual ~Reporter() = default;
@@ -54,10 +59,14 @@ public:
                                                              const std::string& instance_name,
                                                              const hist_bucket_boundaries_t& bkt_boundaries,
                                                              const metric_label& label_pair = {"", ""}) = 0;
+    virtual std::shared_ptr< ReportSumCount > add_sum_count(const std::string& name, const std::string& desc,
+                                                            const std::string& instance_name,
+                                                            const metric_label& label_pair = {"", ""}) = 0;
 
     virtual void remove_counter(const std::string& name, const std::shared_ptr< ReportCounter >& hist) = 0;
     virtual void remove_gauge(const std::string& name, const std::shared_ptr< ReportGauge >& hist) = 0;
     virtual void remove_histogram(const std::string& name, const std::shared_ptr< ReportHistogram >& hist) = 0;
+    virtual void remove_sum_count(const std::string& name, const std::shared_ptr< ReportSumCount >& sum_count) = 0;
 
     virtual std::string serialize(ReportFormat format) = 0;
 };

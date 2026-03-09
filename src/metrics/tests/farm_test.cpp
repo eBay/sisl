@@ -219,6 +219,45 @@ INSTANTIATE_TEST_SUITE_P(AllImplementations, DirectAccessTest,
                              }
                          });
 
+// Test MetricsGroup with sum/count histogram
+class SumCountTestMetrics : public MetricsGroup {
+public:
+    SumCountTestMetrics() : MetricsGroup("SumCountTestGroup", "SumCountInstance") {
+        REGISTER_HISTOGRAM(test_latency, "Test latency", HistogramBucketsType(DefaultBuckets),
+                           _publish_as::publish_as_sum_count);
+        register_me_to_farm();
+    }
+    ~SumCountTestMetrics() { deregister_me_from_farm(); }
+};
+
+TEST(FarmTest, TestHistogramSumCount) {
+    auto mg = std::make_unique< SumCountTestMetrics >();
+
+    // Record some observations: 10, 20, 30
+    HISTOGRAM_OBSERVE(*mg, test_latency, 10);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 20);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 30);
+
+    // Get Prometheus output
+    auto output = sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat);
+
+    // Should contain sum and count, not buckets
+    EXPECT_TRUE(output.find("test_latency_sum") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_count") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_bucket") == std::string::npos); // No buckets!
+
+    // Verify sum and count values
+    // Sum should be 10 + 20 + 30 = 60
+    EXPECT_TRUE(output.find("test_latency_sum{entity=\"SumCountInstance\"} 60") != std::string::npos);
+    // Count should be 3
+    EXPECT_TRUE(output.find("test_latency_count{entity=\"SumCountInstance\"} 3") != std::string::npos);
+
+    // JSON should still have full data
+    auto json = mg->get_result_in_json(true);
+    auto histograms = json["Histograms percentiles (usecs) avg/50/95/99"];
+    EXPECT_TRUE(histograms.contains("Test latency"));
+}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
