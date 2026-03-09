@@ -357,6 +357,9 @@ HistogramDynamicInfo::HistogramDynamicInfo(const HistogramStaticInfo& static_inf
         m_report_histogram_gauge =
             MetricsFarm::get_reporter().add_histogram(static_info.m_name, static_info.m_desc, instance_name,
                                                       static_info.get_boundaries(), static_info.m_label_pair);
+    } else if (ptype == _publish_as::publish_as_sum_count) {
+        m_report_histogram_gauge = MetricsFarm::get_reporter().add_sum_count(static_info.m_name, static_info.m_desc,
+                                                                             instance_name, static_info.m_label_pair);
     } else {
         m_report_histogram_gauge = MetricsFarm::get_reporter().add_gauge(static_info.m_name, static_info.m_desc,
                                                                          instance_name, static_info.m_label_pair);
@@ -368,6 +371,8 @@ void HistogramDynamicInfo::publish(const HistogramValue& hvalue) {
         const auto arr = hvalue.get_freqs();
         auto v = std::vector< double >(arr.cbegin(), arr.cend());
         as_histogram()->set_value(v, hvalue.get_sum());
+    } else if (is_sum_count_reporter()) {
+        as_sum_count()->set_value(count(hvalue), hvalue.get_sum());
     } else {
         as_gauge()->set_value(average(hvalue));
     }
@@ -415,6 +420,8 @@ double HistogramDynamicInfo::average(const HistogramValue& hvalue) const {
 void HistogramDynamicInfo::unregister(const HistogramStaticInfo& static_info) {
     if (is_histogram_reporter()) {
         MetricsFarm::get_reporter().remove_histogram(static_info.m_name, as_histogram());
+    } else if (is_sum_count_reporter()) {
+        MetricsFarm::get_reporter().remove_sum_count(static_info.m_name, as_sum_count());
     } else {
         MetricsFarm::get_reporter().remove_gauge(static_info.m_name, as_gauge());
     }

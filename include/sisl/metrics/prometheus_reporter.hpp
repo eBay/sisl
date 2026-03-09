@@ -89,6 +89,22 @@ public:
     const hist_bucket_boundaries_t& m_bkt_boundaries;
 };
 
+class PrometheusReportSumCount : public ReportSumCount {
+public:
+    PrometheusReportSumCount(prometheus::Family< prometheus::Counter >& sum_family,
+                             prometheus::Family< prometheus::Counter >& count_family,
+                             const std::map< std::string, std::string >& label_pairs) :
+            m_sum(sum_family.Add(label_pairs)), m_count(count_family.Add(label_pairs)) {}
+
+    void set_value(int64_t count, double sum) override {
+        m_sum.Increment(sum - m_sum.Value());
+        m_count.Increment(count - m_count.Value());
+    }
+
+    prometheus::Counter& m_sum;
+    prometheus::Counter& m_count;
+};
+
 class PrometheusReporter : public Reporter {
 public:
     PrometheusReporter() {
@@ -175,6 +191,45 @@ public:
         return std::make_shared< PrometheusReportHistogram >(*family_ptr, label_pairs, bkt_boundaries);
     }
 
+    std::shared_ptr< ReportSumCount > add_sum_count(const std::string& name, const std::string& desc,
+                                                    const std::string& instance_name,
+                                                    const metric_label& label_pair = {"", ""}) override {
+        std::unique_lock lk(m_mutex);
+
+        // Create/get sum family
+        auto sum_name = name + "_sum";
+        auto sum_it = m_counter_families.find(sum_name);
+        prometheus::Family< prometheus::Counter >* sum_family;
+        if (sum_it == m_counter_families.end()) {
+            auto& family = prometheus::BuildCounter().Name(sum_name).Help(desc + " (sum)").Register(*m_registry);
+            sum_family = &family;
+            m_counter_families[sum_name] = sum_family;
+        } else {
+            sum_family = sum_it->second;
+        }
+
+        // Create/get count family
+        auto count_name = name + "_count";
+        auto count_it = m_counter_families.find(count_name);
+        prometheus::Family< prometheus::Counter >* count_family;
+        if (count_it == m_counter_families.end()) {
+            auto& family = prometheus::BuildCounter().Name(count_name).Help(desc + " (count)").Register(*m_registry);
+            count_family = &family;
+            m_counter_families[count_name] = count_family;
+        } else {
+            count_family = count_it->second;
+        }
+
+        std::map< std::string, std::string > label_pairs;
+        if (!label_pair.first.empty() && !label_pair.second.empty()) {
+            label_pairs = {{"entity", instance_name}, {label_pair.first, label_pair.second}};
+        } else {
+            label_pairs = {{"entity", instance_name}};
+        }
+
+        return std::make_shared< PrometheusReportSumCount >(*sum_family, *count_family, label_pairs);
+    }
+
     void remove_counter(const std::string& name, const std::shared_ptr< ReportCounter >& rc) override {
         std::unique_lock lk(m_mutex);
         auto it = m_counter_families.find(name);
@@ -212,6 +267,30 @@ public:
         auto family_ptr = it->second;
         auto prh = std::static_pointer_cast< PrometheusReportHistogram >(rh);
         family_ptr->Remove(&prh->m_histogram);
+    }
+
+    virtual void remove_sum_count(const std::string& name, const std::shared_ptr< ReportSumCount >& rsc) {
+        std::unique_lock lk(m_mutex);
+
+        // Remove sum counter
+        auto sum_name = name + "_sum";
+        auto sum_it = m_counter_families.find(sum_name);
+        if (sum_it != m_counter_families.end()) {
+            auto prsc = std::static_pointer_cast< PrometheusReportSumCount >(rsc);
+            sum_it->second->Remove(&prsc->m_sum);
+        } else {
+            LOGERROR("Unable to locate the sum counter of name {} to remove", sum_name);
+        }
+
+        // Remove count counter
+        auto count_name = name + "_count";
+        auto count_it = m_counter_families.find(count_name);
+        if (count_it != m_counter_families.end()) {
+            auto prsc = std::static_pointer_cast< PrometheusReportSumCount >(rsc);
+            count_it->second->Remove(&prsc->m_count);
+        } else {
+            LOGERROR("Unable to locate the count counter of name {} to remove", count_name);
+        }
     }
 
     std::string serialize(ReportFormat format) {

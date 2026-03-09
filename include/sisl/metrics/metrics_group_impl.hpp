@@ -49,6 +49,7 @@ enum class _publish_as : uint8_t {
     publish_as_counter,
     publish_as_gauge,
     publish_as_histogram,
+    publish_as_sum_count,  // NEW: publish only sum/count, not buckets
 };
 
 /****************************** Counter ************************************/
@@ -299,12 +300,21 @@ private:
         return std::get< std::shared_ptr< ReportGauge > >(m_report_histogram_gauge);
     }
 
+    std::shared_ptr< ReportSumCount >& as_sum_count() {
+        return std::get< std::shared_ptr< ReportSumCount > >(m_report_histogram_gauge);
+    }
+
     [[nodiscard]] bool is_histogram_reporter() const {
         return std::holds_alternative< std::shared_ptr< ReportHistogram > >(m_report_histogram_gauge);
     }
 
+    [[nodiscard]] bool is_sum_count_reporter() const {
+        return std::holds_alternative< std::shared_ptr< ReportSumCount > >(m_report_histogram_gauge);
+    }
+
 private:
-    std::variant< std::shared_ptr< ReportHistogram >, std::shared_ptr< ReportGauge > > m_report_histogram_gauge;
+    std::variant< std::shared_ptr< ReportHistogram >, std::shared_ptr< ReportGauge >, std::shared_ptr< ReportSumCount > >
+        m_report_histogram_gauge;
 };
 
 class MetricsGroupImpl;
