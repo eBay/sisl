@@ -222,7 +222,8 @@ INSTANTIATE_TEST_SUITE_P(AllImplementations, DirectAccessTest,
 // Test MetricsGroup with sum/count histogram
 class SumCountTestMetrics : public MetricsGroup {
 public:
-    SumCountTestMetrics() : MetricsGroup("SumCountTestGroup", "SumCountInstance") {
+    explicit SumCountTestMetrics(const char* inst_name = "SumCountInstance")
+        : MetricsGroup("SumCountTestGroup", inst_name) {
         REGISTER_HISTOGRAM(test_latency, "Test latency", HistogramBucketsType(DefaultBuckets),
                            _publish_as::publish_as_sum_count);
         register_me_to_farm();
@@ -231,7 +232,7 @@ public:
 };
 
 TEST(FarmTest, TestHistogramSumCount) {
-    auto mg = std::make_unique< SumCountTestMetrics >();
+    auto mg = std::make_unique< SumCountTestMetrics >("TestHistogramSumCount");
 
     // Record some observations: 10, 20, 30
     HISTOGRAM_OBSERVE(*mg, test_latency, 10);
@@ -248,14 +249,71 @@ TEST(FarmTest, TestHistogramSumCount) {
 
     // Verify sum and count values
     // Sum should be 10 + 20 + 30 = 60
-    EXPECT_TRUE(output.find("test_latency_sum{entity=\"SumCountInstance\"} 60") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_sum{entity=\"TestHistogramSumCount\"} 60") != std::string::npos);
     // Count should be 3
-    EXPECT_TRUE(output.find("test_latency_count{entity=\"SumCountInstance\"} 3") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_count{entity=\"TestHistogramSumCount\"} 3") != std::string::npos);
 
     // JSON should still have full data
     auto json = mg->get_result_in_json(true);
     auto histograms = json["Histograms percentiles (usecs) avg/50/95/99"];
     EXPECT_TRUE(histograms.contains("Test latency"));
+}
+
+TEST(FarmTest, TestReportFull) {
+    auto mg = std::make_unique< SumCountTestMetrics >("TestReportFull");
+
+    // Record some observations: 10, 20, 30
+    HISTOGRAM_OBSERVE(*mg, test_latency, 10);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 20);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 30);
+
+    // Normal report() - should have sum/count only
+    auto output = sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat);
+    EXPECT_TRUE(output.find("test_latency_sum") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_count") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_bucket") == std::string::npos); // No buckets!
+
+    // report_full() - should have FULL histogram with buckets
+    auto full_output = sisl::MetricsFarm::getInstance().report_full(sisl::ReportFormat::kTextFormat);
+    EXPECT_TRUE(full_output.find("test_latency_bucket") != std::string::npos); // HAS buckets!
+    EXPECT_TRUE(full_output.find("test_latency_sum") != std::string::npos);
+    EXPECT_TRUE(full_output.find("test_latency_count") != std::string::npos);
+
+    // Verify bucket data is present
+    EXPECT_TRUE(full_output.find("test_latency_bucket{") != std::string::npos);
+
+    // Verify sum and count are correct in full output too
+    // Sum should be 10 + 20 + 30 = 60
+    EXPECT_TRUE(full_output.find("test_latency_sum{entity=\"TestReportFull\"} 60") != std::string::npos);
+    // Count should be 3
+    EXPECT_TRUE(full_output.find("test_latency_count{entity=\"TestReportFull\"} 3") != std::string::npos);
+}
+
+TEST(FarmTest, TestReportFullMultipleCalls) {
+    auto mg = std::make_unique< SumCountTestMetrics >("TestReportFullMultipleCalls");
+
+    // Record initial observations
+    HISTOGRAM_OBSERVE(*mg, test_latency, 10);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 20);
+
+    // First report_full call
+    auto output1 = sisl::MetricsFarm::getInstance().report_full(sisl::ReportFormat::kTextFormat);
+
+    // Verify first output has correct data
+    EXPECT_TRUE(output1.find("test_latency_bucket") != std::string::npos);
+    EXPECT_TRUE(output1.find("test_latency_sum{entity=\"TestReportFullMultipleCalls\"} 30") != std::string::npos);
+    EXPECT_TRUE(output1.find("test_latency_count{entity=\"TestReportFullMultipleCalls\"} 2") != std::string::npos);
+
+    // Add more observations
+    HISTOGRAM_OBSERVE(*mg, test_latency, 30);
+
+    // Second report_full call - should reflect updated values
+    auto output2 = sisl::MetricsFarm::getInstance().report_full(sisl::ReportFormat::kTextFormat);
+
+    // Verify second output has UPDATED values
+    EXPECT_TRUE(output2.find("test_latency_bucket") != std::string::npos);
+    EXPECT_TRUE(output2.find("test_latency_sum{entity=\"TestReportFullMultipleCalls\"} 60") != std::string::npos);
+    EXPECT_TRUE(output2.find("test_latency_count{entity=\"TestReportFullMultipleCalls\"} 3") != std::string::npos);
 }
 
 int main(int argc, char* argv[]) {

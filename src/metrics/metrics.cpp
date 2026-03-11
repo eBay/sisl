@@ -17,6 +17,7 @@
 #include <sisl/logging/logging.h>
 
 #include "sisl/metrics/metrics.hpp"
+#include "sisl/metrics/prometheus_reporter.hpp"
 
 THREAD_BUFFER_INIT
 
@@ -77,6 +78,21 @@ std::string MetricsFarm::report(ReportFormat format) {
 
     // Now everything is published to reporter, serialize them
     return m_reporter->serialize(format);
+}
+
+std::string MetricsFarm::report_full(ReportFormat format) {
+    auto locked{lock()};
+
+    // Create temporary reporter with its own registry
+    auto temp_reporter = std::make_unique<PrometheusReporter>();
+
+    // Re-register and publish all metrics with full histogram mode
+    for (auto& mgroup : m_mgroups) {
+        mgroup->publish_full(*temp_reporter);
+    }
+
+    // Serialize and return
+    return temp_reporter->serialize(format);
 }
 
 void MetricsFarm::gather() {

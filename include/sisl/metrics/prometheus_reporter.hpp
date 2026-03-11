@@ -91,18 +91,18 @@ public:
 
 class PrometheusReportSumCount : public ReportSumCount {
 public:
-    PrometheusReportSumCount(prometheus::Family< prometheus::Counter >& sum_family,
-                             prometheus::Family< prometheus::Counter >& count_family,
+    PrometheusReportSumCount(prometheus::Family< prometheus::Gauge >& sum_family,
+                             prometheus::Family< prometheus::Gauge >& count_family,
                              const std::map< std::string, std::string >& label_pairs) :
             m_sum(sum_family.Add(label_pairs)), m_count(count_family.Add(label_pairs)) {}
 
     void set_value(int64_t count, double sum) override {
-        m_sum.Increment(sum - m_sum.Value());
-        m_count.Increment(count - m_count.Value());
+        m_sum.Set(sum);
+        m_count.Set(count);
     }
 
-    prometheus::Counter& m_sum;
-    prometheus::Counter& m_count;
+    prometheus::Gauge& m_sum;
+    prometheus::Gauge& m_count;
 };
 
 class PrometheusReporter : public Reporter {
@@ -198,24 +198,24 @@ public:
 
         // Create/get sum family
         auto sum_name = name + "_sum";
-        auto sum_it = m_counter_families.find(sum_name);
-        prometheus::Family< prometheus::Counter >* sum_family;
-        if (sum_it == m_counter_families.end()) {
-            auto& family = prometheus::BuildCounter().Name(sum_name).Help(desc + " (sum)").Register(*m_registry);
+        auto sum_it = m_gauge_families.find(sum_name);
+        prometheus::Family< prometheus::Gauge >* sum_family;
+        if (sum_it == m_gauge_families.end()) {
+            auto& family = prometheus::BuildGauge().Name(sum_name).Help(desc + " (sum)").Register(*m_registry);
             sum_family = &family;
-            m_counter_families[sum_name] = sum_family;
+            m_gauge_families[sum_name] = sum_family;
         } else {
             sum_family = sum_it->second;
         }
 
         // Create/get count family
         auto count_name = name + "_count";
-        auto count_it = m_counter_families.find(count_name);
-        prometheus::Family< prometheus::Counter >* count_family;
-        if (count_it == m_counter_families.end()) {
-            auto& family = prometheus::BuildCounter().Name(count_name).Help(desc + " (count)").Register(*m_registry);
+        auto count_it = m_gauge_families.find(count_name);
+        prometheus::Family< prometheus::Gauge >* count_family;
+        if (count_it == m_gauge_families.end()) {
+            auto& family = prometheus::BuildGauge().Name(count_name).Help(desc + " (count)").Register(*m_registry);
             count_family = &family;
-            m_counter_families[count_name] = count_family;
+            m_gauge_families[count_name] = count_family;
         } else {
             count_family = count_it->second;
         }
@@ -272,24 +272,24 @@ public:
     virtual void remove_sum_count(const std::string& name, const std::shared_ptr< ReportSumCount >& rsc) {
         std::unique_lock lk(m_mutex);
 
-        // Remove sum counter
+        // Remove sum gauge
         auto sum_name = name + "_sum";
-        auto sum_it = m_counter_families.find(sum_name);
-        if (sum_it != m_counter_families.end()) {
+        auto sum_it = m_gauge_families.find(sum_name);
+        if (sum_it != m_gauge_families.end()) {
             auto prsc = std::static_pointer_cast< PrometheusReportSumCount >(rsc);
             sum_it->second->Remove(&prsc->m_sum);
         } else {
-            LOGERROR("Unable to locate the sum counter of name {} to remove", sum_name);
+            LOGERROR("Unable to locate the sum gauge of name {} to remove", sum_name);
         }
 
-        // Remove count counter
+        // Remove count gauge
         auto count_name = name + "_count";
-        auto count_it = m_counter_families.find(count_name);
-        if (count_it != m_counter_families.end()) {
+        auto count_it = m_gauge_families.find(count_name);
+        if (count_it != m_gauge_families.end()) {
             auto prsc = std::static_pointer_cast< PrometheusReportSumCount >(rsc);
             count_it->second->Remove(&prsc->m_count);
         } else {
-            LOGERROR("Unable to locate the count counter of name {} to remove", count_name);
+            LOGERROR("Unable to locate the count gauge of name {} to remove", count_name);
         }
     }
 

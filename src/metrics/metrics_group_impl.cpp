@@ -274,6 +274,55 @@ void MetricsGroupImpl::publish_result() {
     }
 }
 
+void MetricsGroupImpl::publish_full(Reporter& reporter) {
+    auto locked = lock();
+    if (m_on_gather_cb) { m_on_gather_cb(); }
+
+    // Create temporary report objects for all metrics
+    std::vector<std::shared_ptr<ReportCounter>> temp_counters;
+    std::vector<std::shared_ptr<ReportGauge>> temp_gauges;
+    std::vector<std::shared_ptr<ReportHistogram>> temp_histograms;
+
+    // Pre-register all metrics with the temporary reporter
+    for (uint64_t idx = 0; idx < num_counters(); ++idx) {
+        const auto& sinfo = counter_static_info(idx);
+        temp_counters.push_back(reporter.add_counter(sinfo.name(), sinfo.desc(), m_inst_name, sinfo.labels()));
+    }
+
+    for (uint64_t idx = 0; idx < num_gauges(); ++idx) {
+        const auto& sinfo = gauge_static_info(idx);
+        temp_gauges.push_back(reporter.add_gauge(sinfo.name(), sinfo.desc(), m_inst_name, sinfo.labels()));
+    }
+
+    for (uint64_t idx = 0; idx < num_histograms(); ++idx) {
+        const auto& sinfo = hist_static_info(idx);
+        // Always register as full histogram
+        temp_histograms.push_back(std::static_pointer_cast<ReportHistogram>(
+            reporter.add_histogram(sinfo.name(), sinfo.desc(), m_inst_name,
+                                   sinfo.get_boundaries(), sinfo.labels())));
+    }
+
+    // Gather and publish all metrics in one go
+    gather_result(
+        true, /* need_latest */
+        [&temp_counters](uint64_t idx, const CounterValue& result) {
+            temp_counters[idx]->set_value(result.get());
+        },
+        [&temp_gauges](uint64_t idx, const GaugeValue& result) {
+            temp_gauges[idx]->set_value((double)result.get());
+        },
+        [&temp_histograms](uint64_t idx, const HistogramValue& result) {
+            const auto arr = result.get_freqs();
+            auto v = std::vector<double>(arr.cbegin(), arr.cend());
+            temp_histograms[idx]->set_value(v, result.get_sum());
+        });
+
+    // Call child groups
+    for (auto& cg : m_child_groups) {
+        cg->publish_full(reporter);
+    }
+}
+
 void MetricsGroupImpl::gather() {
     auto locked = lock();
     if (m_on_gather_cb) { m_on_gather_cb(); }

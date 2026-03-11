@@ -112,6 +112,7 @@ public:
     nlohmann::json get_result_in_json(bool need_latest = true);
     std::string get_result_in_json_string(bool need_latest = true);
     std::string report(ReportFormat format);
+    std::string report_full(ReportFormat format);
     void gather(); // Dummy call just to make it gather. Does not report
 
     std::string ensure_unique(const std::string& grp_name, const std::string& inst_name);
