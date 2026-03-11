@@ -94,6 +94,7 @@ public:
             ? m_label_pair.first + "-" + m_label_pair.second
             : "";
     }
+    [[nodiscard]] const std::pair<std::string, std::string>& labels() const { return m_label_pair; }
 
 private:
     std::string m_name;
@@ -175,6 +176,7 @@ public:
             ? m_label_pair.first + "-" + m_label_pair.second
             : "";
     }
+    [[nodiscard]] const std::pair<std::string, std::string>& labels() const { return m_label_pair; }
 
 private:
     const std::string m_name;
@@ -252,6 +254,7 @@ public:
             ? m_label_pair.first + "-" + m_label_pair.second
             : "";
     }
+    [[nodiscard]] const std::pair<std::string, std::string>& labels() const { return m_label_pair; }
 
     [[nodiscard]] const hist_bucket_boundaries_t& get_boundaries() const { return m_bkt_boundaries; }
 
@@ -418,6 +421,7 @@ public:
     [[nodiscard]] const std::string& get_instance_name() const;
 
     void publish_result();
+    void publish_full(Reporter& reporter);
     void gather();
 
     [[nodiscard]] virtual const CounterStaticInfo& counter_static_info(const uint64_t idx) const {

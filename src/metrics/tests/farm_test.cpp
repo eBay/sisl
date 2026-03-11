@@ -258,6 +258,63 @@ TEST(FarmTest, TestHistogramSumCount) {
     EXPECT_TRUE(histograms.contains("Test latency"));
 }
 
+TEST(FarmTest, TestReportFull) {
+    auto mg = std::make_unique< SumCountTestMetrics >();
+
+    // Record some observations: 10, 20, 30
+    HISTOGRAM_OBSERVE(*mg, test_latency, 10);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 20);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 30);
+
+    // Normal report() - should have sum/count only
+    auto output = sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat);
+    EXPECT_TRUE(output.find("test_latency_sum") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_count") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_bucket") == std::string::npos); // No buckets!
+
+    // report_full() - should have FULL histogram with buckets
+    auto full_output = sisl::MetricsFarm::getInstance().report_full(sisl::ReportFormat::kTextFormat);
+    EXPECT_TRUE(full_output.find("test_latency_bucket") != std::string::npos); // HAS buckets!
+    EXPECT_TRUE(full_output.find("test_latency_sum") != std::string::npos);
+    EXPECT_TRUE(full_output.find("test_latency_count") != std::string::npos);
+
+    // Verify bucket data is present
+    EXPECT_TRUE(full_output.find("test_latency_bucket{") != std::string::npos);
+
+    // Verify sum and count are correct in full output too
+    // Sum should be 10 + 20 + 30 = 60
+    EXPECT_TRUE(full_output.find("test_latency_sum{entity=\"SumCountInstance\"} 60") != std::string::npos);
+    // Count should be 3
+    EXPECT_TRUE(full_output.find("test_latency_count{entity=\"SumCountInstance\"} 3") != std::string::npos);
+}
+
+TEST(FarmTest, TestReportFullMultipleCalls) {
+    auto mg = std::make_unique< SumCountTestMetrics >();
+
+    // Record initial observations
+    HISTOGRAM_OBSERVE(*mg, test_latency, 10);
+    HISTOGRAM_OBSERVE(*mg, test_latency, 20);
+
+    // First report_full call
+    auto output1 = sisl::MetricsFarm::getInstance().report_full(sisl::ReportFormat::kTextFormat);
+
+    // Verify first output has correct data
+    EXPECT_TRUE(output1.find("test_latency_bucket") != std::string::npos);
+    EXPECT_TRUE(output1.find("test_latency_sum{entity=\"SumCountInstance\"} 30") != std::string::npos);
+    EXPECT_TRUE(output1.find("test_latency_count{entity=\"SumCountInstance\"} 2") != std::string::npos);
+
+    // Add more observations
+    HISTOGRAM_OBSERVE(*mg, test_latency, 30);
+
+    // Second report_full call - should reflect updated values
+    auto output2 = sisl::MetricsFarm::getInstance().report_full(sisl::ReportFormat::kTextFormat);
+
+    // Verify second output has UPDATED values
+    EXPECT_TRUE(output2.find("test_latency_bucket") != std::string::npos);
+    EXPECT_TRUE(output2.find("test_latency_sum{entity=\"SumCountInstance\"} 60") != std::string::npos);
+    EXPECT_TRUE(output2.find("test_latency_count{entity=\"SumCountInstance\"} 3") != std::string::npos);
+}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
