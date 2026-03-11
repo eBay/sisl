@@ -222,7 +222,8 @@ INSTANTIATE_TEST_SUITE_P(AllImplementations, DirectAccessTest,
 // Test MetricsGroup with sum/count histogram
 class SumCountTestMetrics : public MetricsGroup {
 public:
-    SumCountTestMetrics() : MetricsGroup("SumCountTestGroup", "SumCountInstance") {
+    explicit SumCountTestMetrics(const char* inst_name = "SumCountInstance")
+        : MetricsGroup("SumCountTestGroup", inst_name) {
         REGISTER_HISTOGRAM(test_latency, "Test latency", HistogramBucketsType(DefaultBuckets),
                            _publish_as::publish_as_sum_count);
         register_me_to_farm();
@@ -231,7 +232,7 @@ public:
 };
 
 TEST(FarmTest, TestHistogramSumCount) {
-    auto mg = std::make_unique< SumCountTestMetrics >();
+    auto mg = std::make_unique< SumCountTestMetrics >("TestHistogramSumCount");
 
     // Record some observations: 10, 20, 30
     HISTOGRAM_OBSERVE(*mg, test_latency, 10);
@@ -248,9 +249,9 @@ TEST(FarmTest, TestHistogramSumCount) {
 
     // Verify sum and count values
     // Sum should be 10 + 20 + 30 = 60
-    EXPECT_TRUE(output.find("test_latency_sum{entity=\"SumCountInstance\"} 60") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_sum{entity=\"TestHistogramSumCount\"} 60") != std::string::npos);
     // Count should be 3
-    EXPECT_TRUE(output.find("test_latency_count{entity=\"SumCountInstance\"} 3") != std::string::npos);
+    EXPECT_TRUE(output.find("test_latency_count{entity=\"TestHistogramSumCount\"} 3") != std::string::npos);
 
     // JSON should still have full data
     auto json = mg->get_result_in_json(true);
@@ -259,7 +260,7 @@ TEST(FarmTest, TestHistogramSumCount) {
 }
 
 TEST(FarmTest, TestReportFull) {
-    auto mg = std::make_unique< SumCountTestMetrics >();
+    auto mg = std::make_unique< SumCountTestMetrics >("TestReportFull");
 
     // Record some observations: 10, 20, 30
     HISTOGRAM_OBSERVE(*mg, test_latency, 10);
@@ -283,13 +284,13 @@ TEST(FarmTest, TestReportFull) {
 
     // Verify sum and count are correct in full output too
     // Sum should be 10 + 20 + 30 = 60
-    EXPECT_TRUE(full_output.find("test_latency_sum{entity=\"SumCountInstance\"} 60") != std::string::npos);
+    EXPECT_TRUE(full_output.find("test_latency_sum{entity=\"TestReportFull\"} 60") != std::string::npos);
     // Count should be 3
-    EXPECT_TRUE(full_output.find("test_latency_count{entity=\"SumCountInstance\"} 3") != std::string::npos);
+    EXPECT_TRUE(full_output.find("test_latency_count{entity=\"TestReportFull\"} 3") != std::string::npos);
 }
 
 TEST(FarmTest, TestReportFullMultipleCalls) {
-    auto mg = std::make_unique< SumCountTestMetrics >();
+    auto mg = std::make_unique< SumCountTestMetrics >("TestReportFullMultipleCalls");
 
     // Record initial observations
     HISTOGRAM_OBSERVE(*mg, test_latency, 10);
@@ -300,8 +301,8 @@ TEST(FarmTest, TestReportFullMultipleCalls) {
 
     // Verify first output has correct data
     EXPECT_TRUE(output1.find("test_latency_bucket") != std::string::npos);
-    EXPECT_TRUE(output1.find("test_latency_sum{entity=\"SumCountInstance\"} 30") != std::string::npos);
-    EXPECT_TRUE(output1.find("test_latency_count{entity=\"SumCountInstance\"} 2") != std::string::npos);
+    EXPECT_TRUE(output1.find("test_latency_sum{entity=\"TestReportFullMultipleCalls\"} 30") != std::string::npos);
+    EXPECT_TRUE(output1.find("test_latency_count{entity=\"TestReportFullMultipleCalls\"} 2") != std::string::npos);
 
     // Add more observations
     HISTOGRAM_OBSERVE(*mg, test_latency, 30);
@@ -311,8 +312,8 @@ TEST(FarmTest, TestReportFullMultipleCalls) {
 
     // Verify second output has UPDATED values
     EXPECT_TRUE(output2.find("test_latency_bucket") != std::string::npos);
-    EXPECT_TRUE(output2.find("test_latency_sum{entity=\"SumCountInstance\"} 60") != std::string::npos);
-    EXPECT_TRUE(output2.find("test_latency_count{entity=\"SumCountInstance\"} 3") != std::string::npos);
+    EXPECT_TRUE(output2.find("test_latency_sum{entity=\"TestReportFullMultipleCalls\"} 60") != std::string::npos);
+    EXPECT_TRUE(output2.find("test_latency_count{entity=\"TestReportFullMultipleCalls\"} 3") != std::string::npos);
 }
 
 int main(int argc, char* argv[]) {
