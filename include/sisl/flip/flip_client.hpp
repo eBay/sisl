@@ -84,6 +84,32 @@ public:
         return true;
     }
 
+    // Inject callback flip (no return value) - deduces Args from std::function
+    template < typename Ret, typename... Args >
+    bool inject_callback_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+                              const FlipFrequency& freq, std::function< Ret(Args...) > callback) {
+        FlipSpec fspec;
+
+        _create_flip_spec(flip_name, conditions, freq, fspec);
+        fspec.mutable_flip_action()->set_callbacks(true);
+
+        m_flip->add(fspec, std::move(callback));
+        return true;
+    }
+
+    // Inject callback flip (with return value) - deduces Args from std::function
+    template < typename T, typename... Args >
+    bool inject_callback_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+                                     const FlipFrequency& freq, std::function< T(Args...) > callback) {
+        FlipSpec fspec;
+
+        _create_flip_spec(flip_name, conditions, freq, fspec);
+        fspec.mutable_flip_action()->set_callback_returns(true);
+
+        m_flip->add(fspec, std::move(callback));
+        return true;
+    }
+
     uint32_t remove_flip(const std::string& flip_name) { return m_flip->remove(flip_name); }
 
 private:

@@ -133,6 +133,55 @@ void IO::process_response(packet_t *pkt) {
 In the above example after delay the value injected externally is passed to the closure, which could be used to simulate
 various error scenarios.
 
+* **Callback injection:** For more complex fault scenarios where you need to execute custom logic at the fault injection point,
+Flip provides callback-based fault injection. Unlike predefined actions (return value, delay), callbacks allow you to run arbitrary
+code when a flip is triggered. This is useful for:
+  - Complex state manipulation
+  - Multi-step fault scenarios
+  - Synchronization among multiple systems
+  - Conditional fault logic based on runtime state
+  - Integration with testing frameworks or mocks
+  - Enhance visibility in the test codes
+
+```c++
+Flip flip;
+io_status IO::submit(packet_t *pkt) {
+    // Callback flip: no return value
+    if (flip.callback_flip("corrupt_packet", pkt->op_code, pkt->size)) {
+        // Callback was triggered and executed
+        return io_status::error;
+    }
+    return real_submit(pkt);
+}
+```
+
+In this example, when the flip is triggered, it executes a user-defined callback function that was registered during the
+injection phase. The callback can perform any custom logic like logging, state manipulation, or even more complex fault scenarios.
+
+Flip also supports callbacks with return values, which is useful when the callback needs to compute a specific error value:
+
+```c++
+Flip flip;
+io_status IO::submit(packet_t *pkt) {
+    // Callback flip: with return value
+    auto error = flip.get_callback_flip<io_status>("compute_error", pkt->op_code);
+    if (error) {
+        return error.get();  // Return value computed by callback
+    }
+    return real_submit(pkt);
+}
+```
+
+**Key features of callback flips:**
+- **Type safety:** Callbacks are type-checked at compile time with template parameters
+- **Flexible signatures:** Support arbitrary parameter lists (int, string, custom types, etc.)
+- **Thread safety:** Callbacks are cloned before execution to avoid holding locks while running user code
+- **No deadlock:** Callbacks execute outside of Flip's internal locks, so they can safely call other Flip methods
+- **Exception safety:** If a callback throws an exception, it's caught and logged without crashing
+
+**Current limitations:**
+- **Local client only:** Callback flips are currently only supported through the local FlipClient. RPC-based injection (gRPC/Python client) does not support callbacks. Use callback flips for unit tests.
+
 # How to use Flip
 
 Flip usage has 2 phases
@@ -157,7 +206,7 @@ During injection phase, user can supply values and operator for each parameter. 
 double, bool, uint64) and string, const char* as parameter types. It supports all operators (==, >, <, >=, <=, !=) and one more called "*"
 to ignore the check for this parameter.
 
-**Flip Action**: If the fault is triggered what action the application should take. Flip supports 4 types of action
+**Flip Action**: If the fault is triggered what action the application should take. Flip supports 6 types of action
 
 * **No explicit action**: Flip does not take any other action other than returning the fault is hit. Application code will then
 write the error simulation code.
@@ -165,6 +214,8 @@ write the error simulation code.
 as part of flip hit.
 * **Delay action**: Introduce a time delay determined during the injection phase.
 * **Delay and return a value action**: Combining above 2.
+* **Callback action**: Execute a user-defined callback function when the flip is triggered.
+* **Callback with return value action**: Execute a user-defined callback function and return its result.
 
 **Flip frequency**: This is actioned only during injection phase, which determines how frequently and how much the flip has to hit
 or trigger the fault.
@@ -228,6 +279,45 @@ the fault could be injected with.
 * args: variable list of arguments to filter. Arguments can be of primitive types or std::string or const char *
 
 Returns: If the flip is hit or not. Whether flip is hit or not is immediately known.
+
+### callback_flip
+```c++
+template< class... Args >
+bool callback_flip(std::string flip_name, Args &&... args);
+```
+Test if flip is triggered and if triggered, executes the registered callback function.
+* flip_name: Name of the flip
+* args: variable list of arguments to filter. Arguments can be of primitive types or std::string or const char *
+
+Returns: `true` if the flip was triggered and callback executed successfully, `false` if the flip did not match or was rate-limited.
+
+**Important notes:**
+- The callback is executed **synchronously** in the calling thread
+- The callback executes **outside of Flip's internal locks** to prevent deadlocks
+- Callbacks can safely call other Flip methods (add, remove, test_flip, etc.)
+- If the callback throws an exception, it's caught and logged, and the method returns `false`
+
+### get_callback_flip
+```c++
+template< typename T, class... Args >
+boost::optional< T > get_callback_flip(std::string flip_name, Args &&... args);
+```
+Test if flip is triggered and if triggered, executes the registered callback function and returns its result.
+* flip_name: Name of the flip
+* args: variable list of arguments to filter. Arguments can be of primitive types or std::string or const char *
+
+Returns: If flip is not hit, returns `boost::none`, otherwise returns the value returned by the callback function. The return type `T`
+must match the callback's return type.
+
+**Example:**
+```c++
+// Callback that computes an error code
+auto result = flip.get_callback_flip<int>("error_code_flip", pkt->op_code);
+if (result) {
+    int error_code = result.get();  // Value returned by callback
+    return handle_error(error_code);
+}
+```
 
 ## Integration with Application
 
@@ -320,6 +410,14 @@ bool inject_delay_flip(std::string flip_name, const std::vector< FlipCondition >
 template <typename T>
 bool inject_delay_and_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
                                   const FlipFrequency &freq, uint64_t delay_usec, const T& retval);
+
+template <typename... Args>
+bool inject_callback_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+                         const FlipFrequency& freq, std::function<void(Args...)> callback);
+
+template <typename T, typename... Args>
+bool inject_callback_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+                                const FlipFrequency& freq, std::function<T(Args...)> callback);
 ```
 
 Parameters are:
@@ -329,6 +427,9 @@ Parameters are:
 FlipFrequency::set_percent(), FlipFrequency::set_every_nth()_
 * retval: (for _inject_retval_flip_ and _inject_delay_and_retval_flip_): What is the injected value to be returned or called back respecitvely
 * delay_usec: (for _inject_delay_flip_ and _inject_delay_and_retval_flip_): How much delay to inject
+* callback: (for _inject_callback_flip_ and _inject_callback_retval_flip_): User-defined callback function to execute when flip is triggered.
+  - For `inject_callback_flip`: callback signature is `void(Args...)` where Args match the parameters passed to `callback_flip()`
+  - For `inject_callback_retval_flip`: callback signature is `T(Args...)` where T is the return type
 
 Returns:
 * If successfully injected the fault or not.

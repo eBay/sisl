@@ -92,6 +92,8 @@ message FlipAction {
         ActionReturns returns = 2;
         ActionDelays delays = 3;
         ActionDelayedReturns delay_returns = 4;
+        bool callbacks = 5;           // Callback without return value (local-only)
+        bool callback_returns = 6;    // Callback with return value (local-only)
     }
 }
 
