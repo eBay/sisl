@@ -22,6 +22,7 @@
 #include <functional>
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
+#include <any>
 
 #include <shared_mutex>
 #include <boost/asio.hpp>
@@ -64,14 +65,98 @@ struct flip_name_compare {
     bool operator()(const std::string& lhs, const std::string& rhs) const { return lhs < rhs; }
 };
 
+// Forward declaration for type erasure
+struct CallbackHolderBase;
+
+// Type erasure for callbacks
+struct CallbackHolderBase {
+    virtual ~CallbackHolderBase() = default;
+    virtual std::unique_ptr< CallbackHolderBase > clone() const = 0;
+    virtual std::any call(std::vector< std::any >& args) = 0;
+};
+
+template < typename Ret, typename... Args >
+struct CallbackHolder : CallbackHolderBase {
+    std::function< Ret(Args...) > m_callback;
+
+    CallbackHolder(std::function< Ret(Args...) > callback) : m_callback(std::move(callback)) {}
+
+    std::unique_ptr< CallbackHolderBase > clone() const override {
+        return std::make_unique< CallbackHolder< Ret, Args... > >(m_callback);
+    }
+
+    std::any call(std::vector< std::any >& args) override {
+        return invoke_callback_impl(m_callback, args, std::index_sequence_for< Args... >{});
+    }
+
+private:
+    // Helper to extract argument from std::any, handling both value and reference types
+    template < typename T >
+    static T extract_any_arg(std::any& arg) {
+        using PlainType = std::remove_reference_t< T >;
+        if constexpr (std::is_lvalue_reference_v< T >) {
+            // For reference parameter types, the actual storage could be either:
+            // - std::reference_wrapper<PlainType> (from lvalue argument)
+            // - PlainType (from rvalue argument that got copied)
+            // Try reference_wrapper first, fall back to plain value
+            try {
+                return std::any_cast< std::reference_wrapper< PlainType > >(arg).get();
+            } catch (const std::bad_any_cast&) {
+                // Stored as plain value, return reference to it
+                return *std::any_cast< PlainType >(&arg);
+            }
+        } else {
+            // For value parameter types, could also be stored as either type
+            // Try plain value first, fall back to reference_wrapper
+            if (arg.type() == typeid(PlainType)) {
+                return std::any_cast< PlainType >(arg);
+            } else {
+                return std::any_cast< std::reference_wrapper< PlainType > >(arg).get();
+            }
+        }
+    }
+
+    template < typename Func, size_t... Is >
+    static std::any invoke_callback_impl(Func&& func,
+                                         std::vector< std::any >& args,
+                                         std::index_sequence< Is... >) {
+        if constexpr (std::is_same_v< Ret, void >) {
+            func(extract_any_arg< Args >(args[Is])...);
+            return std::any(boost::blank{});
+        } else {
+            auto ret = func(extract_any_arg< Args >(args[Is])...);
+            return std::any(ret); // Store actual return value in std::any
+        }
+    }
+};
+
 struct flip_instance {
     flip_instance(const FlipSpec& fspec) :
             m_fspec(fspec), m_hit_count(0), m_remain_exec_count(fspec.flip_frequency().count()) {}
 
-    flip_instance(const flip_instance& other) {
-        m_fspec = other.m_fspec;
-        m_hit_count.store(other.m_hit_count.load());
-        m_remain_exec_count.store(other.m_remain_exec_count.load());
+    flip_instance(const flip_instance& other) :
+            m_fspec(other.m_fspec), m_hit_count(other.m_hit_count.load()),
+            m_remain_exec_count(other.m_remain_exec_count.load()), m_has_callback(other.m_has_callback) {
+        if (other.m_callback) { m_callback = other.m_callback->clone(); }
+    }
+
+    flip_instance(flip_instance&& other) noexcept :
+            m_fspec(std::move(other.m_fspec)), m_hit_count(other.m_hit_count.load()),
+            m_remain_exec_count(other.m_remain_exec_count.load()), m_callback(std::move(other.m_callback)),
+            m_has_callback(other.m_has_callback) {
+        other.m_has_callback = false;
+    }
+
+    flip_instance& operator=(flip_instance&& other) noexcept {
+        if (this != &other) {
+            m_fspec = std::move(other.m_fspec);
+            m_hit_count.store(other.m_hit_count.load());
+            m_remain_exec_count.store(other.m_remain_exec_count.load());
+            m_has_callback = other.m_has_callback;
+            m_callback = std::move(other.m_callback);
+            other.m_has_callback = false;
+        }
+        return *this;
     }
 
     std::string to_string() const {
@@ -95,6 +180,10 @@ struct flip_instance {
     FlipSpec m_fspec;
     std::atomic< uint32_t > m_hit_count;
     std::atomic< int32_t > m_remain_exec_count;
+
+    // Callback support: type-erased callback storage using polymorphism
+    std::unique_ptr< CallbackHolderBase > m_callback;
+    bool m_has_callback = false;
 };
 
 /****************************** Proto Param to Value converter ******************************/
@@ -432,6 +521,8 @@ static constexpr int TEST_ONLY = 0;
 static constexpr int RETURN_VAL = 1;
 static constexpr int SET_DELAY = 2;
 static constexpr int DELAYED_RETURN = 3;
+static constexpr int CALLBACK_NO_RET = 4;
+static constexpr int CALLBACK_WITH_RET = 5;
 
 class Flip {
 public:
@@ -483,6 +574,20 @@ public:
         m_flip_specs.emplace(std::pair< std::string, flip_instance >(fspec.flip_name(), inst));
         LOGDEBUGMOD(flip, "Added new fault flip {} to the list of flips", fspec.flip_name());
         // LOG(INFO) << "Flip details:" << inst.to_string();
+        return true;
+    }
+
+    // Add flip with callback (type-erased using CallbackHolder)
+    template < typename Ret, typename... Args >
+    bool add(const FlipSpec& fspec, std::function< Ret(Args...) > callback) {
+        m_flip_enabled = true;
+        flip_instance inst(fspec);
+        inst.m_callback = std::make_unique< CallbackHolder< Ret, Args... > >(std::move(callback));
+        inst.m_has_callback = true;
+
+        std::unique_lock< std::shared_mutex > lock(m_mutex);
+        m_flip_specs.emplace(std::pair< std::string, flip_instance >(fspec.flip_name(), std::move(inst)));
+        LOGDEBUGMOD(flip, "Added new callback flip {} to the list of flips", fspec.flip_name());
         return true;
     }
 
@@ -558,6 +663,25 @@ public:
         get_timer().schedule(flip_name, boost::posix_time::microseconds(param.delay_usec),
                              [closure, param]() { closure(param.val); });
         return true;
+    }
+
+    // Callback flip: executes registered callback, returns true if triggered
+    template < class... Args >
+    bool callback_flip(std::string flip_name, Args&&... args) {
+        if (!m_flip_enabled) return false;
+
+        return __callback_flip< boost::blank >(flip_name, std::forward< Args >(args)...)
+                   .has_value();
+    }
+
+    // Get callback flip: executes registered callback and returns result
+    template < typename T, class... Args >
+    boost::optional< T > get_callback_flip(std::string flip_name, Args&&... args) {
+        if (!m_flip_enabled) return boost::none;
+
+        auto ret = __callback_flip< T >(flip_name, std::forward< Args >(args)...);
+        if (ret == boost::none) return boost::none;
+        return boost::optional< T >(boost::get< T >(ret.get()));
     }
 
     void override_timer(std::unique_ptr< FlipTimerBase > t) {
@@ -640,6 +764,107 @@ private:
             if (inst->m_remain_exec_count.load(std::memory_order_relaxed) == 0) { m_flip_specs.erase(flip_name); }
         }
         return val_ret;
+    }
+
+    template < typename T, class... Args >
+    boost::optional< boost::variant< boost::blank, T > > __callback_flip(std::string flip_name, Args&&... args) {
+        bool exec_completed = false;
+        flip_instance* inst = nullptr;
+        std::unique_ptr< CallbackHolderBase > callback_copy;
+
+        {
+            std::shared_lock< std::shared_mutex > lock(m_mutex);
+            inst = match_flip(flip_name, std::forward< Args >(args)...);
+            if (inst == nullptr) {
+                return boost::none;
+            }
+            if (!inst->m_has_callback) {
+                LOGWARNMOD(flip, "Flip '{}' triggered but no callback registered", flip_name);
+                return boost::none;
+            }
+
+            if (!handle_hits(inst->m_fspec.flip_frequency(), inst)) {
+                LOGDEBUGMOD(flip, "Callback flip {} matches, but it is rate limited", flip_name);
+                return boost::none;
+            }
+
+            auto remain_count = inst->m_remain_exec_count.fetch_sub(1, std::memory_order_acq_rel) - 1;
+            if (remain_count == 0) {
+                exec_completed = true;
+            } else if (remain_count < 0) {
+                LOGDEBUGMOD(flip, "Callback flip {} matches, but reaches max count", flip_name);
+                return boost::none;
+            }
+
+            // Clone callback to execute outside lock
+            callback_copy = inst->m_callback->clone();
+            LOGDEBUGMOD(flip, "Callback flip {} matches and hits", flip_name);
+        }
+
+        // Execute callback outside lock to avoid deadlock
+        boost::variant< boost::blank, T > result;
+        try {
+            // Pack arguments: use std::ref for lvalue references, direct values for rvalue references/values
+            auto pack_arg = [](auto&& arg) -> std::any {
+                using ArgType = decltype(arg);
+                if constexpr (std::is_lvalue_reference_v< ArgType >) {
+                    // lvalue reference: use std::ref to preserve reference semantics
+                    return std::any(std::ref(arg));
+                } else {
+                    // rvalue reference or value: store directly
+                    return std::any(std::forward< ArgType >(arg));
+                }
+            };
+            std::vector< std::any > packed_args = {pack_arg(std::forward< Args >(args))...};
+            auto cb_result = callback_copy->call(packed_args);
+
+            // Check if callback returned void (boost::blank) or a value
+            if (cb_result.type() == typeid(boost::blank)) {
+                // Void callback
+                if constexpr (std::is_same_v< T, boost::blank >) {
+                    result = boost::blank{};
+                } else {
+                    LOGERRORMOD(flip, "Callback flip '{}' void callback called but return type expected", flip_name);
+                    return boost::none;
+                }
+            } else {
+                // Callback with return value
+                if constexpr (std::is_same_v< T, boost::blank >) {
+                    // Expecting void but got a return value - this is OK, just ignore it
+                    result = boost::blank{};
+                } else {
+                    // Extract the actual return value
+                    try {
+                        T ret_val = std::any_cast< T >(cb_result);
+                        result = ret_val;
+                    } catch (const std::bad_any_cast& e) {
+                        LOGERRORMOD(flip, "Callback flip '{}' return type mismatch: {}", flip_name, e.what());
+                        return boost::none;
+                    }
+                }
+            }
+        } catch (const std::exception& e) {
+            LOGERRORMOD(flip, "Callback for flip '{}' threw exception: {}", flip_name, e.what());
+            // Exception handling strategy:
+            // - For void callbacks (callback_flip): Return true to indicate the flip was triggered.
+            //   The bool return value means "was the injection point activated", not "did callback succeed".
+            //
+            // - For value callbacks (get_callback_flip<T>): Return none since we don't have a valid
+            //   return value to provide. Callers need to know they didn't get the expected result.
+            if constexpr (std::is_same_v< T, boost::blank >) {
+                result = boost::blank{};  // Return true (callback was invoked)
+            } else {
+                return boost::none;  // Return none (no valid return value available)
+            }
+        }
+
+        if (exec_completed) {
+            // If we completed the execution, need to remove them
+            std::unique_lock< std::shared_mutex > lock(m_mutex);
+            if (inst->m_remain_exec_count.load(std::memory_order_relaxed) == 0) { m_flip_specs.erase(flip_name); }
+        }
+
+        return result;
     }
 
     template < class... Args >
