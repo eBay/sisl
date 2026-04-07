@@ -154,14 +154,31 @@ class SISLConan(ConanFile):
         tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
         tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
+        tc.variables["ENABLE_FLIP"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
         tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
         tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
+        if self.options.get_safe("flip"):
+            tc.variables["ENABLE_FLIP"] = "ON"
         if self.settings.build_type == "Debug":
             if self.options.get_safe("coverage"):
                 tc.variables['BUILD_COVERAGE'] = 'ON'
             elif self.options.get_safe("sanitize"):
                 tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
+
+        # Pin generator tool paths to conan-managed binaries.
+        # cmake's find_program will otherwise pick up incompatible system tools
+        # (e.g. Arch Linux ships protoc 34.x which is incompatible with grpc 1.54.3).
+        if self.options.metrics:
+            tc.cache_variables["FLATBUFFERS_FLATC_EXECUTABLE"] = join(
+                self.dependencies["flatbuffers"].package_folder, "bin", "flatc")
+        if self.options.grpc:
+            protoc_path = join(self.dependencies["protobuf"].package_folder, "bin", "protoc")
+            tc.cache_variables["PROTOC_PROGRAM"] = protoc_path
+            tc.cache_variables["Protobuf_PROTOC_EXECUTABLE"] = protoc_path
+            tc.cache_variables["GRPC_CPP_PLUGIN_PROGRAM"] = join(
+                self.dependencies["grpc"].package_folder, "bin", "grpc_cpp_plugin")
+
         tc.generate()
 
         # This generates "boost-config.cmake" and "grpc-config.cmake" etc in self.generators_folder
