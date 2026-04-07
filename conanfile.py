@@ -154,12 +154,9 @@ class SISLConan(ConanFile):
         tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
         tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
-        tc.variables["ENABLE_FLIP"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
         tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
         tc.preprocessor_definitions["PACKAGE_NAME"] = self.name
-        if self.options.get_safe("flip"):
-            tc.variables["ENABLE_FLIP"] = "ON"
         if self.settings.build_type == "Debug":
             if self.options.get_safe("coverage"):
                 tc.variables['BUILD_COVERAGE'] = 'ON'
