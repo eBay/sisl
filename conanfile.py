@@ -9,7 +9,7 @@ required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "13.2.4"
+    version = "13.2.5"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -162,6 +162,20 @@ class SISLConan(ConanFile):
                 tc.variables['BUILD_COVERAGE'] = 'ON'
             elif self.options.get_safe("sanitize"):
                 tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
+
+        # Pin generator tool paths to conan-managed binaries.
+        # cmake's find_program will otherwise pick up incompatible system tools
+        # (e.g. Arch Linux ships protoc 34.x which is incompatible with grpc 1.54.3).
+        if self.options.metrics:
+            tc.cache_variables["FLATBUFFERS_FLATC_EXECUTABLE"] = join(
+                self.dependencies["flatbuffers"].package_folder, "bin", "flatc")
+        if self.options.grpc:
+            protoc_path = join(self.dependencies["protobuf"].package_folder, "bin", "protoc")
+            tc.cache_variables["PROTOC_PROGRAM"] = protoc_path
+            tc.cache_variables["Protobuf_PROTOC_EXECUTABLE"] = protoc_path
+            tc.cache_variables["GRPC_CPP_PLUGIN_PROGRAM"] = join(
+                self.dependencies["grpc"].package_folder, "bin", "grpc_cpp_plugin")
+
         tc.generate()
 
         # This generates "boost-config.cmake" and "grpc-config.cmake" etc in self.generators_folder

@@ -2,99 +2,150 @@
 [![Conan Build](https://github.com/eBay/sisl/actions/workflows/merge_build.yml/badge.svg?branch=master)](https://github.com/eBay/sisl/actions/workflows/merge_build.yml)
 [![CodeCov](https://codecov.io/gh/eBay/sisl/branch/master/graph/badge.svg)](https://codecov.io/gh/eBay/Sisl)
 
-This repo provides a symbiosis of libraries (thus named sisl - pronounced like sizzle) mostly for very high performance data 
-structures and utilities. This is mostly on top of folly, boost, STL and other good well known libraries. Thus its not trying 
-to replace these libraries, but provide a layer on top of it. In general there are 3 variations of these libraries
+> *Pronounced "sizzle" — because your code should too.*
 
-* Libraries which are higher performing than standard libraries for specific use cases
-* Libraries which wrap existing library to provide simplistic view or use cases
-* Libraries that fill any missing gaps.
+A C++20 library of high-performance data structures, utilities, and infrastructure components built for systems that
+can't afford to be slow. sisl lives on top of folly, Boost, and the STL — filling gaps, wrapping complexity, and
+outperforming the standard approaches where it matters most.
 
-Following are the tools it provides so far
+The library spans three categories:
+- **Higher-performance** alternatives for specific hot-path use cases
+- **Simplifying wrappers** around existing libraries
+- **Gap-fillers** for things that just aren't in the standard toolkit yet
 
-## Whats in this library
+---
+
+## QuickStart
+
+```bash
+git clone git@github.com:eBay/sisl
+cd sisl
+./prepare_v2.sh          # export local recipes to the conan cache
+conan build -s:h build_type=Debug --build missing .
+```
+
+> **Note:** Requires [Conan 2](https://conan.io/) and a C++20-capable compiler (GCC 13+ / Clang 16+).
+
+### Build Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `metrics` | `True` | Metrics, WISR, FDS, Cache, and Settings components |
+| `grpc` | `True` | gRPC transport and Flip fault injection |
+| `malloc_impl` | `libc` | Memory allocator: `libc`, `tcmalloc`, or `jemalloc` |
+| `sanitize` | `False` | Enable AddressSanitizer + UBSan (Debug only) |
+| `coverage` | `False` | Enable gcov code coverage (Debug only) |
+
+```bash
+# Example: release build with jemalloc, no tests
+conan build -s:h build_type=Release -o sisl/*:malloc_impl=jemalloc \
+    -c tools.build:skip_test=True .
+```
+
+---
+
+## What's Inside
+
 ### Metrics
+High-performance metrics collection (counters, histograms, gauges) with Prometheus export and JSON reporting.
+Designed to scale across hundreds of threads with negligible overhead on the write path — **<5ns per metric update**.
+Gathering/scraping cost is amortized since it's rare.
 
-A very high performance metrics collection (counters, histograms and gauges) and report the results in form of json or 
-sent to prometheus whichever caller choose from. It is meant to scale with multiple threads and huge amount of performance
-metrics. The collection is extremely fast <<5ns per metric, but pay penalty during metrics result gathering which is rare. It
-uses Wisr framework which will be detailed next
+Implements two collection strategies:
+- **ThreadBuffer + Signal**: Per-thread lock-free collection with signal-based cache flush before scraping
+- **WISR RCU**: Wait-free inserts via the WISR framework (see below)
 
-*Lacks MacOS support*
+See [src/metrics/README.md](src/metrics/README.md) for internals.
 
-### Wisr
+### WISR — Wait-free Inserts, Snoozy Rest
+A concurrency framework for the common pattern of *frequent fast writes, infrequent slow reads*. Uses RCU to
+provide wait-free inserts at near-zero overhead while reads gather and merge per-thread state.
 
-WISR stands for Waitfree Inserts Snoozy Rest. This is a framework and data structures on top of this framework which provides
-ultra high performance waitfree inserts into the data structures, but pretty slow read and update operations. It is thread safe
-and thus good use cases are to collect metrics, garbage collection etc, where one would want to quickly append the data into
-some protected list, but scanning them is few and far between. It uses RCU (Read side during insert and write side during other
-operations).
+Benchmarks show **10–12× better write throughput** vs. mutex on 8 threads, with 1.5× better reads than
+`shared_mutex`. Ships with `wisr_vector`, `wisr_list`, and `wisr_deque`.
 
-More details in the Wisr README under [src/wisr/README.md]
+See [src/wisr/README.md](src/wisr/README.md) for the full story.
 
-### FDS
-This is a bunch of data structures meant for high performance or specific use cases. Each of these structures are detailed in their 
-corresponding source files. Some of the major data structures are listed below:
+### FDS — Fast Data Structures
+A collection of data structures for high-performance or specialized use cases:
 
-*Lacks MacOS support*
+- **Bitset** — Concurrent, resizable, serializable bitset with bulk operations that
+  `std::bitset`, `boost::dynamic_bitset`, and `folly::AtomicBitset` don't provide
+- **StreamTracker** — Tracks sequential integer-keyed completions and sweeps contiguous ranges;
+  essential for stream processing without exclusive locks
+- **ThreadBuffer** — Per-thread object storage that survives thread exit, the backbone of WISR
+  and the metrics subsystem
+- **ObjectAllocator** — Pool allocator for fixed-size objects with metrics integration
+- **VectorPool** — Thread-local vector recycling to avoid repeated heap allocation
+- **ConcurrentInsertVector** — Lock-free append-only vector for concurrent producers
 
-#### Bitset
-A high performance bitset to have various functionalities to scan the contiguous 1s, 0s, set/reset multiple bits without iterating over
-every bit, ability to serialize/deserialize bitsets, atomically update concurrent bits, ability to dynamically resize and shrink. It
-has many functionalities which are not provided by std::bitset or boost::dynamic_bitset or folly::AtomicBitset
-
-#### StreamTracker
-Support a very popular pattern of tracking sequential entities, where key is an integer and value is any structure. It tracks consecutive
-completions of the key and sweep everything that are completed. It is an essential pattern seen in multiple stream processing and this
-container provides concurrent access without exclusive locks for all critical operations.
-
-#### MallocHelper
-To be able to use either tcmalloc or jemalloc and have consistent tunables across both the mallocs and metrics collections into prometheus.
-
-#### ThreadBuffer
-This is an enhanced version of per thread buffer, where the buffers are optionally tracked even after the thread exits till it is consumed.
-This pattern is essential to build reliable structures using Wisr framework.
-
-#### VectorPool
-Capture the vector in a pool in thread local fashion, so that vectors are not built from scratch everytime.
+### Cache
+An LRU evictor and range-aware cache built on top of FDS primitives. Supports range-based lookups,
+range hashmaps, and pluggable eviction callbacks.
 
 ### Settings Framework
-Please refer to the README under [src/settings/README.md]
+Flatbuffers-backed runtime configuration with hot-swap support. Define your schema in a `.fbs` file,
+generate the C++ accessors at build time, and get thread-safe, memory-safe, near-zero-cost config access
+at runtime — without recompiling to change a tuning knob.
 
-### Flip
-Flip is fault injection framework, Please refer to the README under [src/flip/README.md]
+Supports both hot-swappable (live reload) and cold (restart-required) settings within the same schema.
 
-## Installation
-This is mostly header only library and can be just compiled into your code. There are some of the pieces which needs a library (libsisl)
-to be built. 
+See [src/settings/README.md](src/settings/README.md) for schema definition and CMake integration.
 
-### With conan
-Assuming the conan setup is already done
+### Flip — Fault Injection Framework
+A gRPC-backed fault injection framework for testing failure scenarios without recompilation. Instrument
+your code with named flip points; trigger faults externally via gRPC, Python client, or local `FlipClient`
+in unit tests.
 
-```
-$ ./prepare.sh # this will export some recipes to the conan cache
-$ // ./prepare_v2.sh for conan >= 2.0
+Supports:
+- **Boolean flips** — take an alternate code path
+- **Return value injection** — return a specific error from outside the binary
+- **Async delay injection** — simulate timeouts in async code
+- **Callback flips** — run arbitrary logic at the injection point (local client only)
+- **Parameterized conditions** — filter by runtime values with `==`, `>`, `<`, `!=`, etc.
+- **Frequency control** — trigger N times, every Nth call, or at X% probability
 
-# Install all dependencies
-$ conan install .
+See [src/flip/README.md](src/flip/README.md) for the full API and examples.
 
-# Build and Run Tests
-$ conan build .
-```
+### Logging
+Structured logging built on spdlog with stacktrace capture (via Breakpad/libunwind), backtrace support,
+and `rdynamic` symbol resolution. Integrates with the Options framework for log-level control at startup.
 
-## Contributing to This Project
-We welcome contributions. If you find any bugs, potential flaws and edge cases, improvements, new feature suggestions or discussions, please submit issues or pull requests.
+### gRPC Utilities
+Helpers for building gRPC services on top of sisl's buffer and metrics infrastructure.
 
-Contact
-Harihara Kadayam hkadayam@ebay.com
+### Supporting Components
+- **Options** — Command-line option parsing (cxxopts wrapper) integrated with Settings
+- **Sobject** — Introspectable managed objects with JSON serialization
+- **FileWatcher** — Inotify-based file change notifications
+- **Version** — Semver-aware build version embedding
 
-## License Information
+---
+
+## Platform Support
+
+| Platform | Status |
+|----------|--------|
+| Linux x86_64 | Fully supported |
+| Linux ARM | Supported (requires unreleased libunwind) |
+| macOS | Partial — Metrics/WISR/FDS not supported |
+| Windows | Not supported |
+
+---
+
+## Contributing
+
+Issues, bug reports, and pull requests are welcome. If you find something broken, missing, or improvable —
+open an issue or send a PR.
+
+---
+
+## License
+
 Copyright 2021 eBay Inc.
 
 Primary Author: Harihara Kadayam
 
-Primary Developers: Harihara Kadayam, Rishabh Mittal, Bryan Zimmerman, Brian Szmyd
+Developers: Harihara Kadayam, Rishabh Mittal, Bryan Zimmerman, Brian Szmyd
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+Licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0). See LICENSE for full terms.
