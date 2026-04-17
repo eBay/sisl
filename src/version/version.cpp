@@ -16,46 +16,44 @@
  *********************************************************************************/
 #include <sisl/version.hpp>
 
-#include <boost/preprocessor/stringize.hpp>
 #include <cassert>
+#include <mutex>
+#include <unordered_map>
+#include <boost/preprocessor/stringize.hpp>
 
-namespace sisl {
+namespace sisl::VersionMgr {
 
-VersionMgr* VersionMgr::m_instance = nullptr;
-std::once_flag VersionMgr::m_init_flag;
+static std::mutex k_mutex;
+static std::unordered_map< std::string, version::Semver200_version > k_version_map;
 
-void VersionMgr::createAndInit() {
-    m_instance = new VersionMgr();
-    auto ver{version::Semver200_version(BOOST_PP_STRINGIZE(PACKAGE_VERSION))};
-    m_instance->m_version_map["sisl"] = ver;
+static void createAndInit() {
+    static std::once_flag k_init_flag;
+    std::call_once(k_init_flag, []() {
+        if (auto [it, happened] = k_version_map.emplace(std::make_pair("sisl", version::Semver200_version())); happened)
+            it->second = version::Semver200_version(BOOST_PP_STRINGIZE(PACKAGE_VERSION));
+    });
 }
 
-VersionMgr* VersionMgr::getInstance() {
-    std::call_once(m_init_flag, &VersionMgr::createAndInit);
-    return m_instance;
+version::Semver200_version getVersion(const std::string& name) {
+    auto lg = std::scoped_lock< std::mutex >(k_mutex);
+    createAndInit();
+    if (auto it = k_version_map.find(name); k_version_map.end() != it) return it->second;
+    return version::Semver200_version();
 }
 
-version::Semver200_version VersionMgr::getVersion(const std::string& name) {
-    auto ver_info{VersionMgr::getInstance()};
-    std::unique_lock l{ver_info->m_mutex};
-    auto it{ver_info->m_version_map.find(name)};
-    assert(it != ver_info->m_version_map.end());
-    return it->second;
-}
-
-std::vector< modinfo > VersionMgr::getVersions() {
-    std::vector< modinfo > res;
-    auto ver_info{VersionMgr::getInstance()};
-    std::unique_lock l{ver_info->m_mutex};
-    res.insert(res.end(), ver_info->m_version_map.begin(), ver_info->m_version_map.end());
+std::vector< mod_info_t > getVersions() {
+    std::unique_lock l{k_mutex};
+    createAndInit();
+    std::vector< mod_info_t > res;
+    res.insert(res.end(), k_version_map.begin(), k_version_map.end());
     return res;
 }
 
-void VersionMgr::addVersion(const std::string& name, const version::Semver200_version& ver) {
-    auto ver_info{VersionMgr::getInstance()};
-    std::unique_lock l{ver_info->m_mutex};
-    auto it{ver_info->m_version_map.find(name)};
-    if (it == ver_info->m_version_map.end()) { ver_info->m_version_map[name] = ver; }
+void addVersion(const std::string& name, const version::Semver200_version& ver) {
+    std::unique_lock l{k_mutex};
+    createAndInit();
+    auto it{k_version_map.find(name)};
+    if (it == k_version_map.end()) { k_version_map[name] = ver; }
 }
 
-} // namespace sisl
+} // namespace sisl::VersionMgr
