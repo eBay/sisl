@@ -230,8 +230,8 @@ public:
     RpcData(rpc_call_static_info_t* rpc_info, size_t queue_idx) :
             RpcDataAbstract{queue_idx},
             m_rpc_info{rpc_info},
-            m_request{google::protobuf::Arena::CreateMessage< ReqT >(&m_arena_req)},
-            m_response{google::protobuf::Arena::CreateMessage< RespT >(&m_arena_resp)},
+            m_request{google::protobuf::Arena::Create< ReqT >(&m_arena_req)},
+            m_response{google::protobuf::Arena::Create< RespT >(&m_arena_resp)},
             // m_rpc_context{google::protobuf::Arena::Create< context_t >(&m_arena_req, *this)},
             m_responder(&m_ctx),
             m_streaming_responder(&m_ctx) {}
