@@ -385,7 +385,7 @@ watcher.register_listener("/etc/myapp/config.json", "cfg-reload",
 |----------|--------|
 | Linux x86_64 | Fully supported |
 | Linux ARM64 | Supported |
-| macOS | Partial — Metrics/WISR/FDS not available |
+| macOS | Supported — crash dumps (breakpad) not available |
 | Windows | Not supported |
 
 ---
