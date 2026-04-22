@@ -23,7 +23,7 @@ class SISLConan(ConanFile):
                 "shared": ['True', 'False'],
                 "fPIC": ['True', 'False'],
                 "coverage": ['True', 'False'],
-                "sanitize": ['True', 'False'],
+                "sanitize": ['address', 'thread', 'False'],
                 'metrics': ['False', 'True'],
                 'grpc': ['False', 'True'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
@@ -105,8 +105,8 @@ class SISLConan(ConanFile):
 
     def layout(self):
         self.folders.source = "."
-        if self.options.get_safe("sanitize"):
-            self.folders.build = join("build", "Sanitized")
+        if self.options.get_safe("sanitize") and self.options.sanitize != "False":
+            self.folders.build = join("build", f"Sanitized-{self.options.sanitize}")
         elif self.options.get_safe("coverage"):
             self.folders.build = join("build", "Coverage")
         else:
@@ -151,7 +151,8 @@ class SISLConan(ConanFile):
         tc = CMakeToolchain(self)
         tc.variables["CONAN_CMAKE_SILENT_OUTPUT"] = "ON"
         tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
-        tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
+        tc.variables["ADDRESS_SANITIZER_ON"] = "OFF"
+        tc.variables["THREAD_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
         tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
@@ -159,8 +160,11 @@ class SISLConan(ConanFile):
         if self.settings.build_type == "Debug":
             if self.options.get_safe("coverage"):
                 tc.variables['BUILD_COVERAGE'] = 'ON'
-            elif self.options.get_safe("sanitize"):
-                tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
+            elif self.options.get_safe("sanitize") and self.options.sanitize != "False":
+                if self.options.sanitize == "thread":
+                    tc.variables['THREAD_SANITIZER_ON'] = 'ON'
+                else:
+                    tc.variables['ADDRESS_SANITIZER_ON'] = 'ON'
 
         # Pin generator tool paths to conan-managed binaries.
         # cmake's find_program will otherwise pick up incompatible system tools
@@ -284,11 +288,15 @@ class SISLConan(ConanFile):
                 component.defines.append("_LARGEFILE64")
                 component.system_libs.extend(["dl", "pthread"])
                 component.exelinkflags.extend(["-export-dynamic"])
-            if  self.options.get_safe("sanitize"):
-                component.sharedlinkflags.append("-fsanitize=address")
-                component.exelinkflags.append("-fsanitize=address")
-                component.sharedlinkflags.append("-fsanitize=undefined")
-                component.exelinkflags.append("-fsanitize=undefined")
+            if self.options.get_safe("sanitize") and self.options.sanitize != "False":
+                if self.options.sanitize == "thread":
+                    component.sharedlinkflags.append("-fsanitize=thread")
+                    component.exelinkflags.append("-fsanitize=thread")
+                else:
+                    component.sharedlinkflags.append("-fsanitize=address")
+                    component.exelinkflags.append("-fsanitize=address")
+                    component.sharedlinkflags.append("-fsanitize=undefined")
+                    component.exelinkflags.append("-fsanitize=undefined")
             if self.options.malloc_impl == 'jemalloc':
                 component.defines.append("USE_JEMALLOC=1")
                 component.requires.extend(["jemalloc::jemalloc"])

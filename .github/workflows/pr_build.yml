@@ -40,8 +40,8 @@ jobs:
     with:
       platform: "ubuntu-24.04"
       branch: ${{ github.ref }}
-      build-type: "Release"
+      build-type: "Debug"
       malloc-impl: "libc"
-      tooling: "None"
+      tooling: "Sanitize"
       compiler: "clang"
       testing: 'True'

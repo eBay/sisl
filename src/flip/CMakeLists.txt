@@ -25,8 +25,13 @@ target_sources(test_flip PRIVATE
   )
 target_link_libraries(test_flip flip cxxopts::cxxopts)
 add_test(NAME Flip COMMAND test_flip)
-set_tests_properties(Flip PROPERTIES
-    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0:allow_user_poisoning=0")
+if (DEFINED ADDRESS_SANITIZER_ON AND ADDRESS_SANITIZER_ON)
+    set_tests_properties(Flip PROPERTIES
+        ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0:allow_user_poisoning=0")
+elseif (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(Flip PROPERTIES
+        ENVIRONMENT "TSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tsan.supp")
+endif()
 
 add_executable(test_flip_server)
 target_sources(test_flip_server PRIVATE

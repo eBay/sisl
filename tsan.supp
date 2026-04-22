@@ -1,0 +1,3 @@
+# ThreadSanitizer suppression file for sisl
+# Add suppressions here as TSAN identifies false positives.
+# Format: race:<function_name>
