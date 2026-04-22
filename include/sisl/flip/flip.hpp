@@ -117,9 +117,7 @@ private:
     }
 
     template < typename Func, size_t... Is >
-    static std::any invoke_callback_impl(Func&& func,
-                                         std::vector< std::any >& args,
-                                         std::index_sequence< Is... >) {
+    static std::any invoke_callback_impl(Func&& func, std::vector< std::any >& args, std::index_sequence< Is... >) {
         if constexpr (std::is_same_v< Ret, void >) {
             func(extract_any_arg< Args >(args[Is])...);
             return std::any(boost::blank{});
@@ -135,14 +133,18 @@ struct flip_instance {
             m_fspec(fspec), m_hit_count(0), m_remain_exec_count(fspec.flip_frequency().count()) {}
 
     flip_instance(const flip_instance& other) :
-            m_fspec(other.m_fspec), m_hit_count(other.m_hit_count.load()),
-            m_remain_exec_count(other.m_remain_exec_count.load()), m_has_callback(other.m_has_callback) {
+            m_fspec(other.m_fspec),
+            m_hit_count(other.m_hit_count.load()),
+            m_remain_exec_count(other.m_remain_exec_count.load()),
+            m_has_callback(other.m_has_callback) {
         if (other.m_callback) { m_callback = other.m_callback->clone(); }
     }
 
     flip_instance(flip_instance&& other) noexcept :
-            m_fspec(std::move(other.m_fspec)), m_hit_count(other.m_hit_count.load()),
-            m_remain_exec_count(other.m_remain_exec_count.load()), m_callback(std::move(other.m_callback)),
+            m_fspec(std::move(other.m_fspec)),
+            m_hit_count(other.m_hit_count.load()),
+            m_remain_exec_count(other.m_remain_exec_count.load()),
+            m_callback(std::move(other.m_callback)),
             m_has_callback(other.m_has_callback) {
         other.m_has_callback = false;
     }
@@ -189,7 +191,7 @@ struct flip_instance {
 /****************************** Proto Param to Value converter ******************************/
 template < typename T >
 struct val_converter {
-    T operator()(const ParamValue& val) { return 0; }
+    T operator()(const ParamValue& /* val */) { return 0; }
 };
 
 template <>
@@ -256,7 +258,7 @@ struct delayed_return_param {
 
 template < typename T >
 struct val_converter< delayed_return_param< T > > {
-    delayed_return_param< T > operator()(const ParamValue& val) {
+    delayed_return_param< T > operator()(const ParamValue& /* val */) {
         delayed_return_param< T > dummy;
         return dummy;
     }
@@ -265,7 +267,7 @@ struct val_converter< delayed_return_param< T > > {
 /******************************************** Value to Proto converter ****************************************/
 template < typename T >
 struct to_proto_converter {
-    void operator()(const T& val, ParamValue* out_pval) {}
+    void operator()(const T& /* val */, ParamValue* /* out_pval */) {}
 };
 
 template <>
@@ -487,7 +489,7 @@ public:
         m_timer_instances.insert(std::make_pair(timer_name, std::move(t)));
     }
 
-    void cancel(const std::string& timer_name) { remove_timer(timer_name, nullptr); }
+    void cancel(const std::string& timer_name) override { remove_timer(timer_name, nullptr); }
 
     void timer_thr() {
         size_t executed = 0;
@@ -670,8 +672,7 @@ public:
     bool callback_flip(std::string flip_name, Args&&... args) {
         if (!m_flip_enabled) return false;
 
-        return __callback_flip< boost::blank >(flip_name, std::forward< Args >(args)...)
-                   .has_value();
+        return __callback_flip< boost::blank >(flip_name, std::forward< Args >(args)...).has_value();
     }
 
     // Get callback flip: executes registered callback and returns result
@@ -775,9 +776,7 @@ private:
         {
             std::shared_lock< std::shared_mutex > lock(m_mutex);
             inst = match_flip(flip_name, std::forward< Args >(args)...);
-            if (inst == nullptr) {
-                return boost::none;
-            }
+            if (inst == nullptr) { return boost::none; }
             if (!inst->m_has_callback) {
                 LOGWARNMOD(flip, "Flip '{}' triggered but no callback registered", flip_name);
                 return boost::none;
@@ -852,9 +851,9 @@ private:
             // - For value callbacks (get_callback_flip<T>): Return none since we don't have a valid
             //   return value to provide. Callers need to know they didn't get the expected result.
             if constexpr (std::is_same_v< T, boost::blank >) {
-                result = boost::blank{};  // Return true (callback was invoked)
+                result = boost::blank{}; // Return true (callback was invoked)
             } else {
-                return boost::none;  // Return none (no valid return value available)
+                return boost::none; // Return none (no valid return value available)
             }
         }
 
