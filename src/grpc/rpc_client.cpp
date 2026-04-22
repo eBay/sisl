@@ -170,21 +170,23 @@ void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t&
 AsyncResult< grpc::ByteBuffer > GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
                                                                               const std::string& method,
                                                                               uint32_t deadline) {
-    auto [p, sf] = folly::makePromiseContract< Result< grpc::ByteBuffer > >();
+    std::promise< Result< grpc::ByteBuffer > > p;
+    auto sf = p.get_future();
     auto data = new GenericClientRpcDataFuture(std::move(p));
     prepare_and_send_unary_generic(data, request, method, deadline);
-    return std::move(sf);
+    return sf;
 }
 
 AsyncResult< GenericClientResponse > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
                                                                                    const std::string& method,
                                                                                    uint32_t deadline) {
-    auto [p, sf] = folly::makePromiseContract< Result< GenericClientResponse > >();
+    std::promise< Result< GenericClientResponse > > p;
+    auto sf = p.get_future();
     auto data = new GenericRpcDataFutureBlob(std::move(p));
     grpc::ByteBuffer cli_byte_buf;
     serialize_to_byte_buffer(request, cli_byte_buf);
     prepare_and_send_unary_generic(data, cli_byte_buf, method, deadline);
-    return std::move(sf);
+    return sf;
 }
 
 std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_generic_stub(const std::string& worker) {
@@ -229,16 +231,16 @@ io_blob GenericClientResponse::response_blob() {
     return size ? io_blob{m_single_slice.begin(), size, false /* is_aligned */} : io_blob{};
 }
 
-GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(folly::Promise< Result< GenericClientResponse > >&& promise) :
+GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(std::promise< Result< GenericClientResponse > >&& promise) :
         m_promise{std::move(promise)} {}
 
 void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {
     // For unary call, ok is always true, `status_` will indicate error if there are any.
     if (this->m_status.ok()) {
         auto future_resp = GenericClientResponse(this->m_reply);
-        m_promise.setValue(std::move(future_resp));
+        m_promise.set_value(std::move(future_resp));
     } else {
-        m_promise.setValue(folly::makeUnexpected(this->m_status));
+        m_promise.set_value(std::unexpected(this->m_status));
     }
 }
 

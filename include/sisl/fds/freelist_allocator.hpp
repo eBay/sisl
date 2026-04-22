@@ -23,15 +23,7 @@
 #include <iostream>
 #include <utility>
 
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-#include <folly/ThreadLocal.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
+#include <memory>
 
 #include <sisl/metrics/metrics.hpp>
 #include "utils.hpp"
@@ -137,26 +129,27 @@ public:
 
 template < const uint16_t MaxListCount, const size_t Size >
 class FreeListAllocator {
-    folly::ThreadLocalPtr< FreeListAllocatorImpl< MaxListCount, Size > > m_impl;
+    inline static thread_local std::unique_ptr< FreeListAllocatorImpl< MaxListCount, Size > > m_impl;
 
 public:
     static_assert((Size >= sizeof(uint8_t*)), "Size requested should be atleast a pointer size");
 
-    FreeListAllocator() { m_impl.reset(nullptr); }
+    FreeListAllocator() = default;
     FreeListAllocator(const FreeListAllocator&) = delete;
     FreeListAllocator(FreeListAllocator&&) noexcept = delete;
     FreeListAllocator& operator=(const FreeListAllocator&) = delete;
     FreeListAllocator& operator=(FreeListAllocator&&) noexcept = delete;
-
-    ~FreeListAllocator() { m_impl.reset(nullptr); }
+    ~FreeListAllocator() = default;
 
     uint8_t* allocate(const uint32_t size_needed) {
-        if (sisl_unlikely(m_impl.get() == nullptr)) { m_impl.reset(new FreeListAllocatorImpl< MaxListCount, Size >()); }
+        if (sisl_unlikely(m_impl == nullptr)) {
+            m_impl = std::make_unique< FreeListAllocatorImpl< MaxListCount, Size > >();
+        }
         return (m_impl->allocate(size_needed));
     }
 
     bool deallocate(uint8_t* const mem, const uint32_t size_alloced) {
-        if (sisl_unlikely(m_impl.get() == nullptr)) {
+        if (sisl_unlikely(m_impl == nullptr)) {
             std::free(static_cast< void* >(mem)); // LCOV_EXCL_EXCL
             return true;                          // LCOV_EXCL_EXCL
         } else {

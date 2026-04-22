@@ -16,15 +16,6 @@
  *********************************************************************************/
 #include <algorithm>
 
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#endif
-#include <folly/Synchronized.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
-
 #include <fmt/format.h>
 #include <sisl/logging/logging.h>
 
@@ -114,14 +105,15 @@ uint64_t MetricsGroupStaticInfo::register_histogram(const std::string& name, con
 }
 
 std::shared_ptr< MetricsGroupStaticInfo > MetricsGroupStaticInfo::create_or_get_info(const std::string& grp_name) {
-    static folly::Synchronized< std::unordered_map< std::string, std::shared_ptr< MetricsGroupStaticInfo > > > _grp_map;
+    static std::mutex _grp_map_mtx;
+    static std::unordered_map< std::string, std::shared_ptr< MetricsGroupStaticInfo > > _grp_map;
 
     std::shared_ptr< MetricsGroupStaticInfo > ret;
-
-    _grp_map.withWLock([&grp_name, &ret](auto& m) {
-        auto it_pair{m.try_emplace(grp_name, std::make_shared< MetricsGroupStaticInfo >(grp_name))};
+    {
+        std::lock_guard< std::mutex > lk(_grp_map_mtx);
+        auto it_pair{_grp_map.try_emplace(grp_name, std::make_shared< MetricsGroupStaticInfo >(grp_name))};
         ret = it_pair.first->second;
-    });
+    }
     return ret;
 }
 

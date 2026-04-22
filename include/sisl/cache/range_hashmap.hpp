@@ -19,8 +19,7 @@
 #include <boost/intrusive/slist.hpp>
 #include <vector>
 #include <string>
-#include <folly/Traits.h>
-#include <folly/small_vector.h>
+#include <boost/container/small_vector.hpp>
 #if defined __clang__ or defined __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -250,7 +249,7 @@ private:
 
     K m_base_key;
     big_offset_t m_base_nth;
-    folly::small_vector< ValueEntryRange, 8, folly::small_vector_policy::policy_size_type< small_count_t > > m_values;
+    boost::container::small_vector< ValueEntryRange, 8 > m_values;
 
 public:
     MultiEntryHashNode(const K& base_key, big_offset_t nth) : m_base_key{base_key}, m_base_nth{nth} {}

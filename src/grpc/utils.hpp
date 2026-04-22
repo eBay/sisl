@@ -16,6 +16,7 @@
 
 #include <string>
 #include <fstream>
+#include <boost/container/small_vector.hpp>
 
 namespace sisl {
 
@@ -30,7 +31,7 @@ namespace sisl {
 }
 
 [[maybe_unused]] static void serialize_to_byte_buffer(io_blob_list_t const& cli_buf, grpc::ByteBuffer& cli_byte_buf) {
-    folly::small_vector< grpc::Slice, 4 > slices;
+    boost::container::small_vector< grpc::Slice, 4 > slices;
     for (auto const& blob : cli_buf) {
         slices.emplace_back(blob.cbytes(), blob.size(), grpc::Slice::STATIC_SLICE);
     }

@@ -6,7 +6,6 @@ target_sources(sisl_buffer PRIVATE
   )
 target_link_libraries(sisl_buffer PUBLIC
   sisl_metrics
-  folly::folly
   )
 
 include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -78,7 +77,7 @@ add_executable(test_sg_list)
 target_sources(test_sg_list PRIVATE
   tests/test_sg_list.cpp
   )
-target_link_libraries(test_sg_list sisl_buffer folly::folly GTest::gtest)
+target_link_libraries(test_sg_list sisl_buffer GTest::gtest)
 add_test(NAME SgList COMMAND test_sg_list)
 
 

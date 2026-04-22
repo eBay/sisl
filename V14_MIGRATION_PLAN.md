@@ -101,55 +101,37 @@ Why boost::stacktrace specifically (vs cpptrace / std::stacktrace):
 
 **This is a SemVer major change regardless** — breakpad is in the public `requires` list of the `logging` component, so removing it breaks any downstream transitively linking it. Has to ship in 14.0.0 or be cut to 15.0.0 (which user wants to avoid).
 
-## Open work — where we were when switching machines
+## Folly removal — status as of 2026-04-22 (machine: bszmyd MBP)
 
-### Current blocker: folly fails to build on clang-22/libc++
+### DONE
 
-```
-error: implicit instantiation of undefined template 'std::char_traits<unsigned char>'
-```
+All folly usages removed **except `folly::SharedMutex`** (deferred — see below):
 
-Folly's `Range.h` uses `std::basic_string_view<unsigned char>` (or similar) which relies on a non-standard `std::char_traits<unsigned char>` specialization. libstdc++ still provides it; libc++ removed it. This is folly's problem, not the compiler's.
+| File | Change |
+|---|---|
+| `conanfile.py` | folly removed from `requires` and `cpp_info.components` |
+| `3rd_party/folly/` | recipe directory deleted |
+| `src/CMakeLists.txt` | gating switched from `folly_FOUND` → `flatbuffers_FOUND` |
+| `src/metrics/CMakeLists.txt` | removed `folly::folly` link |
+| `src/fds/CMakeLists.txt` | removed `folly::folly` from sisl_buffer and test_sg_list |
+| `src/metrics/metrics_group_impl.cpp` | `folly::Synchronized` → `std::mutex` + `lock_guard` |
+| `include/sisl/grpc/rpc_client.hpp` | `Result<T>` → `std::expected`, `AsyncResult<T>` → `std::future`, `folly::Promise` → `std::promise`, `makeUnexpected` → `std::unexpected` |
+| `src/grpc/rpc_client.cpp` | same promise/unexpected migration |
+| `src/grpc/tests/function/echo_async_client.cpp` | `.deferValue().get()` chains → `.get()` inline; `folly::Unit` removed |
+| `include/sisl/fds/freelist_allocator.hpp` | `folly::ThreadLocalPtr` → `inline static thread_local std::unique_ptr` |
+| `include/sisl/fds/buffer.hpp` | `folly::small_vector` → `boost::container::small_vector` for `sg_iovs_t` / `io_blob_list_t` |
+| `include/sisl/cache/range_hashmap.hpp` | `folly::small_vector` (with policy) → `boost::container::small_vector<T,8>` |
+| `src/grpc/utils.hpp` | `folly::small_vector` → `boost::container::small_vector` |
 
-### Decision taken: remove folly entirely
+### DEFERRED — SharedMutex
 
-User proposed removing folly as a dep rather than continuing to wrestle with it. Investigation showed folly usage in sisl is **remarkably contained**:
+`folly::SharedMutex` remains in 4 public headers:
+- `include/sisl/cache/range_hashmap.hpp`
+- `include/sisl/cache/simple_hashmap.hpp`
+- `include/sisl/fds/bitset.hpp`
+- `include/sisl/fds/stream_tracker.hpp`
 
-| Symbol | Usages | Replacement |
-|---|---|---|
-| `folly::SharedMutex` | 23 | `std::shared_mutex` |
-| `folly::Promise<T>` / `makePromiseContract` | 8 | `std::promise<T>` + `get_future()` |
-| `folly::Unit` | 4 | empty struct / `std::monostate` |
-| `folly::small_vector<T>` | 4 (+1 policy) | `boost::container::small_vector` |
-| `folly::makeUnexpected` / `Expected` | 3 | `std::unexpected` / `std::expected` (C++23) |
-| `folly::ThreadLocalPtr<T>` | 1 | `thread_local std::unique_ptr<T>` (inspect usage first) |
-| `folly::Synchronized<T>` | 1 | small `std::mutex` wrapper |
-| `folly::SemiFuture<T>` | 1 | `std::future<T>` |
-
-**Only 11 files touched.** None of the hard folly features (`Future.then()`, `F14Map`, `fbstring`, `dynamic`, `ConcurrentHashMap`, `hazptr`, `IndexedMemPool`) are used.
-
-### Per-swap performance analysis
-
-| Swap | Runtime cost delta | Severity |
-|---|---|---|
-| `folly::SharedMutex` → `std::shared_mutex` | Real, measurable under high reader contention (folly 3-5× faster at 16+ readers; at low contention within 10-20%) | **The only real concern** — 23 sites |
-| `folly::Promise`/`SemiFuture` → `std::promise`/`std::future` | Essentially none; both heap-allocate shared state, both use futex waiters | Negligible |
-| `folly::Synchronized<T>` → std::mutex wrapper | Depends on whether usage is read-dominated or balanced | Minor — single usage, inspect |
-| `folly::small_vector` → `boost::container::small_vector` | Within noise; boost is slightly less memory-compact in some configs | Negligible |
-| `folly::Unit` → empty struct | Zero — compile-time marker | None |
-| `folly::Expected` / `makeUnexpected` → `std::expected` | Zero when T/E are small; aligns with C++23 direction | None |
-| `folly::ThreadLocalPtr<T>` → `thread_local std::unique_ptr<T>` | Native `thread_local` is faster (single `mov` from fs/gs). Folly has teardown/NUMA-awareness features — inspect the 1 usage | Semantic concern, not perf |
-
-### Recommended folly removal execution plan
-
-1. **Inspect the single `folly::ThreadLocalPtr` usage** first — check if it relies on folly's registry/teardown semantics or if it's a simple per-thread store. Determines whether `thread_local std::unique_ptr<T>` is semantically adequate.
-2. **Do the swap as `std::shared_mutex` across the board** for the SharedMutex sites. Don't preemptively optimize.
-3. **Benchmark the 2-3 hottest-looking SharedMutex sites** after swap with synthetic reader-contention load. Suspected hot locations: buffer/cache/metrics paths.
-4. **If regression is measurable**: escalate those specific files to `absl::Mutex` reader-writer mode. Abseil is already transitively in the graph via grpc; adding a direct dep is cheap. **Don't reach back for folly** — the whole point is to remove it.
-5. **Other swaps are essentially free** — do them mechanically without ceremony.
-6. **Drop folly from `conanfile.py`**: remove from requires, remove from cpp_info.components, and delete `3rd_party/folly/` recipe directory.
-7. **Graph cleanup**: libdwarf, libiberty, libevent, libsodium, xz_utils, double-conversion, zstd, glog, gflags may fall out of the transitive graph entirely. fmt needs inspection — spdlog may pull it independently.
-8. **Retry the clang+libc++ build** — the char_traits<unsigned char> issue should be gone entirely since it was folly's code.
+`folly::SharedMutex` is 3-5× faster than `std::shared_mutex` at 16+ reader threads. These are hot-path data structures. Replacement candidates: `absl::Mutex` (transitive via grpc, just needs direct dep) or keep folly solely for SharedMutex. Needs benchmarking before deciding.
 
 ## Decisions still pending
 

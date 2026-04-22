@@ -28,12 +28,8 @@
 #include <grpcpp/generic/generic_stub.h>
 #include <grpc/support/log.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wuninitialized"
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#include <folly/futures/Future.h>
-#pragma GCC diagnostic pop
-#pragma GCC diagnostic pop
+#include <expected>
+#include <future>
 
 #include <sisl/logging/logging.h>
 #include <sisl/utility/obj_life_counter.hpp>
@@ -77,10 +73,10 @@ template < typename ReqT, typename RespT >
 class ClientRpcDataFuture;
 
 template < typename T >
-using Result = folly::Expected< T, ::grpc::Status >;
+using Result = std::expected< T, ::grpc::Status >;
 
 template < typename T >
-using AsyncResult = folly::SemiFuture< Result< T > >;
+using AsyncResult = std::future< Result< T > >;
 
 using GenericClientRpcData = ClientRpcData< grpc::ByteBuffer, grpc::ByteBuffer >;
 using generic_rpc_comp_cb_t = rpc_comp_cb_t< grpc::ByteBuffer, grpc::ByteBuffer >;
@@ -155,18 +151,18 @@ public:
 template < typename ReqT, typename RespT >
 class ClientRpcDataFuture : public ClientRpcDataInternal< ReqT, RespT > {
 public:
-    ClientRpcDataFuture(folly::Promise< Result< RespT > >&& promise) : m_promise{std::move(promise)} {}
+    ClientRpcDataFuture(std::promise< Result< RespT > >&& promise) : m_promise{std::move(promise)} {}
 
     virtual void handle_response([[maybe_unused]] bool ok = true) override {
         // For unary call, ok is always true, `status_` will indicate error if there are any.
         if (this->m_status.ok()) {
-            m_promise.setValue(this->m_reply);
+            m_promise.set_value(this->m_reply);
         } else {
-            m_promise.setValue(folly::makeUnexpected(this->m_status));
+            m_promise.set_value(std::unexpected(this->m_status));
         }
     }
 
-    folly::Promise< Result< RespT > > m_promise;
+    std::promise< Result< RespT > > m_promise;
 };
 
 class GenericClientResponse : public ObjLifeCounter< GenericClientResponse > {
@@ -195,11 +191,11 @@ private:
  */
 class GenericRpcDataFutureBlob : public ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer > {
 public:
-    GenericRpcDataFutureBlob(folly::Promise< Result< GenericClientResponse > >&& promise);
+    GenericRpcDataFutureBlob(std::promise< Result< GenericClientResponse > >&& promise);
     virtual void handle_response([[maybe_unused]] bool ok = true) override;
 
 private:
-    folly::Promise< Result< GenericClientResponse > > m_promise;
+    std::promise< Result< GenericClientResponse > > m_promise;
 };
 
 template < typename ReqT, typename RespT >
@@ -427,10 +423,11 @@ public:
         AsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
                                         uint32_t deadline,
                                         const std::vector< std::pair< std::string, std::string > >& metadata) {
-            auto [p, sf] = folly::makePromiseContract< Result< RespT > >();
+            std::promise< Result< RespT > > p;
+            auto sf = p.get_future();
             auto data = new ClientRpcDataFuture< ReqT, RespT >(std::move(p));
             prepare_and_send_unary(data, request, method, deadline, metadata);
-            return std::move(sf);
+            return sf;
         }
 
         template < typename ReqT, typename RespT >

@@ -213,14 +213,12 @@ public:
                 } else {
                     EchoRequest req;
                     req.set_message(std::to_string(i));
-                    echo_stub->call_unary< EchoRequest, EchoReply >(req, &EchoService::StubInterface::AsyncEcho, 1)
-                        .deferValue([req, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "echo request {} failed, status {}: {}", req.message(),
-                                           e.error().error_code(), e.error().error_message());
-                            validate_echo_reply(req, e.value(), grpc::Status::OK);
-                            return folly::Unit();
-                        })
-                        .get();
+                    auto e =
+                        echo_stub->call_unary< EchoRequest, EchoReply >(req, &EchoService::StubInterface::AsyncEcho, 1)
+                            .get();
+                    RELEASE_ASSERT(e.has_value(), "echo request {} failed, status {}: {}", req.message(),
+                                   e.error().error_code(), e.error().error_message());
+                    validate_echo_reply(req, e.value(), grpc::Status::OK);
                 }
             } else if ((i % 3) == 0) {
                 // divide all numbers divisible by 3 and not by 2 into three equal buckets
@@ -244,14 +242,12 @@ public:
                 } else {
                     PingRequest req;
                     req.set_seqno(i);
-                    ping_stub->call_unary< PingRequest, PingReply >(req, &PingService::StubInterface::AsyncPing, 1)
-                        .deferValue([req, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "ping request {} failed, status {}: {}", req.seqno(),
-                                           e.error().error_code(), e.error().error_message());
-                            validate_ping_reply(req, e.value(), grpc::Status::OK);
-                            return folly::Unit();
-                        })
-                        .get();
+                    auto e =
+                        ping_stub->call_unary< PingRequest, PingReply >(req, &PingService::StubInterface::AsyncPing, 1)
+                            .get();
+                    RELEASE_ASSERT(e.has_value(), "ping request {} failed, status {}: {}", req.seqno(),
+                                   e.error().error_code(), e.error().error_message());
+                    validate_ping_reply(req, e.value(), grpc::Status::OK);
                 }
             } else {
                 // divide all numbers not divisible by 2 and 3 into three equal buckets
@@ -259,7 +255,7 @@ public:
                 static int mess_size[] = {16, 64, 64 * 1024, 16 * 1024, 16 * 1024 * 1024, 64 * 1024 * 1024 - 1024};
                 static std::random_device rd;
                 static std::mt19937 gen(rd());
-                static std::uniform_int_distribution< int > distrib(0, sizeof(mess_size)/sizeof(mess_size[0]) -1);
+                static std::uniform_int_distribution< int > distrib(0, sizeof(mess_size) / sizeof(mess_size[0]) - 1);
                 if ((j++ % 4) == 0) {
                     int size = mess_size[distrib(gen)];
                     LOGDEBUGMOD(grpc_server, "Testing call_unary with size {}", size);
@@ -288,14 +284,10 @@ public:
                     DataMessage req(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
                     grpc::ByteBuffer cli_buf;
                     SerializeToByteBuffer(cli_buf, req);
-                    generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
-                        .deferValue([req, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
-                                           e.error().error_code(), e.error().error_message());
-                            validate_generic_reply(req, e.value(), grpc::Status::OK);
-                            return folly::Unit();
-                        })
-                        .get();
+                    auto e = generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1).get();
+                    RELEASE_ASSERT(e.has_value(), "generic request {} failed, status {}: {}", req.m_seqno,
+                                   e.error().error_code(), e.error().error_message());
+                    validate_generic_reply(req, e.value(), grpc::Status::OK);
 
                 } else {
                     int size = mess_size[distrib(gen)];
@@ -303,14 +295,10 @@ public:
                     DataMessage req(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
                     sisl::io_blob_list_t cli_buf;
                     SerializeToBlob(cli_buf, req);
-                    generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1)
-                        .deferValue([req, cli_buf, this](auto e) {
-                            RELEASE_ASSERT(e.hasValue(), "generic request {} failed, status {}: {}", req.m_seqno,
-                                           e.error().error_code(), e.error().error_message());
-                            validate_generic_reply(req, std::move(e.value()), grpc::Status::OK, cli_buf);
-                            return folly::Unit();
-                        })
-                        .get();
+                    auto e = generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1).get();
+                    RELEASE_ASSERT(e.has_value(), "generic request {} failed, status {}: {}", req.m_seqno,
+                                   e.error().error_code(), e.error().error_message());
+                    validate_generic_reply(req, std::move(e.value()), grpc::Status::OK, cli_buf);
                 }
             }
         }
