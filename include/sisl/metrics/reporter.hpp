@@ -28,21 +28,25 @@ enum ReportFormat { kUnknownFormat, kTextFormat, kJsonFormat, kProtoBufferFormat
 
 class ReportCounter {
 public:
+    virtual ~ReportCounter() = default;
     virtual void set_value(double value) = 0;
 };
 
 class ReportGauge {
 public:
+    virtual ~ReportGauge() = default;
     virtual void set_value(double value) = 0;
 };
 
 class ReportHistogram {
 public:
+    virtual ~ReportHistogram() = default;
     virtual void set_value(std::vector< double >& bucket_values, double sum) = 0;
 };
 
 class ReportSumCount {
 public:
+    virtual ~ReportSumCount() = default;
     virtual void set_value(int64_t count, double sum) = 0;
 };
 
