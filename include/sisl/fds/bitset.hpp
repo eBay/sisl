@@ -1078,14 +1078,11 @@ private:
         word_ptr->set_reset_bits(offset, count, value);
 
         // set rest of words
-        uint64_t current_bit{start + count};
         uint64_t bits_remaining{nbits - count};
         const bitword_type* const end_words_ptr{m_s->end_words_const()};
         while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
             count = static_cast< uint8_t >((bits_remaining > word_size()) ? word_size() : bits_remaining);
             word_ptr->set_reset_bits(0, count, value);
-
-            current_bit += count;
             bits_remaining -= count;
         }
 
@@ -1116,14 +1113,11 @@ private:
         if (!word_ptr->is_bits_set_reset(offset, count, expected)) { return false; }
 
         // test rest of words
-        uint64_t current_bit{start + count};
         bits_remaining -= count;
         const bitword_type* const end_words_ptr{m_s->end_words_const()};
         while ((bits_remaining > 0) && (++word_ptr != end_words_ptr)) {
             count = static_cast< uint8_t >((bits_remaining > word_size()) ? word_size() : bits_remaining);
             if (!word_ptr->is_bits_set_reset(0, count, expected)) { return false; }
-
-            current_bit += count;
             bits_remaining -= count;
         }
 

@@ -325,7 +325,7 @@ private:
 
     void _foreach_all(int64_t start_idx, bool completed_only, const auto& cb) {
         auto holder = std::shared_lock< std::shared_mutex >(m_lock);
-        auto search_bit = std::max(0l, (start_idx - m_slot_ref_idx));
+        uint64_t search_bit{static_cast< uint64_t >(std::max(int64_t{0}, (start_idx - m_slot_ref_idx)))};
         do {
             search_bit = completed_only ? m_comp_slot_bits.get_next_set_bit(search_bit)
                                         : m_active_slot_bits.get_next_set_bit(search_bit);

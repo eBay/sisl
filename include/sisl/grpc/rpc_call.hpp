@@ -40,7 +40,7 @@ SISL_LOGGING_DECL(grpc_server)
                                             fmt::make_format_args(args...));                                           \
                             return true;                                                                               \
                         }),                                                                                            \
-                        msg, ##__VA_ARGS__);
+                        msg __VA_OPT__(, ) __VA_ARGS__);
 
 namespace sisl {
 class RpcDataAbstract : public boost::intrusive_ref_counter< RpcDataAbstract, boost::thread_safe_counter > {

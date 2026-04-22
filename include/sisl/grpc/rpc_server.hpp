@@ -34,7 +34,7 @@ using rpc_thread_start_cb_t = std::function< void(uint32_t) >;
 ENUM(ServerState, uint8_t, VOID, INITED, RUNNING, SHUTTING_DOWN, TERMINATED)
 
 class GrpcServer : private boost::noncopyable {
-    friend class RPCHelper;
+    friend struct RPCHelper;
 
 public:
     GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
