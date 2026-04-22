@@ -224,7 +224,7 @@ TEST(SimpleCacheSize, TriggerEvict) {
         ASSERT_TRUE(simple_cache->insert(std::make_shared< Entry >(i, fmt::format("test{}", i))));
         ASSERT_LE(evictor_ptr->filled_size(), cache_size);
     }
-    uint32_t cache_hits{0};
+    [[maybe_unused]] uint32_t cache_hits{0};
     for(uint32_t i = 0; i < num_iters; i++) {
         std::shared_ptr< Entry > e = std::make_shared< Entry >(0);
         if(simple_cache->get(i, e)) {
