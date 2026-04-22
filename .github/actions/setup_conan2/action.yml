@@ -44,4 +44,6 @@ runs:
         CC=clang-18 CXX=clang++-18 conan profile detect --name default --force
         sed -i 's,compiler.libcxx=.*$,compiler.libcxx=libc++,g' ~/.conan2/profiles/default
         sed -i 's,compiler.cppstd=.*$,compiler.cppstd=gnu23,g' ~/.conan2/profiles/default
+        echo "CC=clang-18" >> $GITHUB_ENV
+        echo "CXX=clang++-18" >> $GITHUB_ENV
       if: ${{ inputs.compiler == 'clang' }}
