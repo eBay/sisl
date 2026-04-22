@@ -20,6 +20,10 @@ on:
         required: false
         type: string
         default: 'None'
+      compiler:
+        required: false
+        type: string
+        default: 'gcc'
       testing:
         required: false
         type: string
@@ -57,6 +61,14 @@ on:
           - 'Coverage'
           - 'None'
         default: 'None'
+      compiler:
+        description: 'Compiler'
+        required: false
+        type: choice
+        options:
+          - gcc
+          - clang
+        default: 'gcc'
       testing:
         description: 'Build and Run'
         required: true
@@ -87,6 +99,7 @@ jobs:
       uses: ebay/sisl/.github/actions/setup_conan2@master
       with:
         platform: ${{ inputs.platform }}
+        compiler: ${{ inputs.compiler }}
       if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Load Conan Cache
@@ -94,7 +107,7 @@ jobs:
       uses: ebay/sisl/.github/actions/load_conan2@master
       with:
         testing: ${{ inputs.testing }}
-        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
+        key_prefix: SislDeps14-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.compiler }}
 
     - name: Prepare Recipes
       run: |
@@ -115,7 +128,7 @@ jobs:
     - name: Save Conan Cache
       uses: ebay/sisl/.github/actions/store_conan2@master
       with:
-        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
+        key_prefix: SislDeps14-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.compiler }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Create and Test Package
