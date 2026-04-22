@@ -55,7 +55,7 @@ status_response sobject::run_callback(const status_request& request) const {
         if (response.json["children"] == nullptr) { response.json["children"] = nlohmann::json::object(); }
 
         if (response.json["children"][child_type] == nullptr) {
-            response.json["children"][child_type] == nlohmann::json::array();
+            response.json["children"][child_type] = nlohmann::json::array();
         }
 
         if (request.do_recurse) {
@@ -132,7 +132,7 @@ status_response sobject_manager::get_object_status(const std::string& name, cons
     return iter->second->run_callback(request);
 }
 
-status_response sobject_manager::get_child_type_status( const status_request& request) {
+status_response sobject_manager::get_child_type_status(const status_request& request) {
     status_response response;
     auto iter = m_object_store.find(request.obj_name);
     if (iter == m_object_store.end()) { return status_error("Object identifier not found"); }

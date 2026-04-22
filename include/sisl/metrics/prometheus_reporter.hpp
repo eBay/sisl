@@ -73,7 +73,7 @@ public:
                               const hist_bucket_boundaries_t& bkt_boundaries) :
             m_histogram(family.Add(label_pairs, bkt_boundaries)), m_bkt_boundaries{bkt_boundaries} {}
 
-    virtual void set_value(std::vector< double >& bucket_values, double sum) {
+    virtual void set_value(std::vector< double >& bucket_values, double sum) override {
         // Since histogram doesn't have reset facility (PR is yet to be accepted in the main repo),
         // we are doing a placement new to reconstruct the entire object to force to call its constructor. This
         // way we don't need to register histogram again to family.
@@ -117,7 +117,7 @@ public:
 
     std::shared_ptr< ReportCounter > add_counter(const std::string& name, const std::string& desc,
                                                  const std::string& instance_name,
-                                                 const metric_label& label_pair = {"", ""}) {
+                                                 const metric_label& label_pair = {"", ""}) override {
         prometheus::Family< prometheus::Counter >* family_ptr;
 
         std::unique_lock lk(m_mutex);
@@ -142,7 +142,7 @@ public:
 
     std::shared_ptr< ReportGauge > add_gauge(const std::string& name, const std::string& desc,
                                              const std::string& instance_name,
-                                             const metric_label& label_pair = {"", ""}) {
+                                             const metric_label& label_pair = {"", ""}) override {
         prometheus::Family< prometheus::Gauge >* family_ptr;
 
         std::unique_lock lk(m_mutex);
@@ -168,7 +168,7 @@ public:
     std::shared_ptr< ReportHistogram > add_histogram(const std::string& name, const std::string& desc,
                                                      const std::string& instance_name,
                                                      const hist_bucket_boundaries_t& bkt_boundaries,
-                                                     const metric_label& label_pair = {"", ""}) {
+                                                     const metric_label& label_pair = {"", ""}) override {
         prometheus::Family< prometheus::Histogram >* family_ptr = nullptr;
 
         std::unique_lock lk(m_mutex);
@@ -243,7 +243,7 @@ public:
         family_ptr->Remove(&prc->m_counter);
     }
 
-    virtual void remove_gauge(const std::string& name, const std::shared_ptr< ReportGauge >& rg) {
+    virtual void remove_gauge(const std::string& name, const std::shared_ptr< ReportGauge >& rg) override {
         std::unique_lock lk(m_mutex);
         auto it = m_gauge_families.find(name);
         if (it == m_gauge_families.end()) {
@@ -256,7 +256,7 @@ public:
         family_ptr->Remove(&prg->m_gauge);
     }
 
-    virtual void remove_histogram(const std::string& name, const std::shared_ptr< ReportHistogram >& rh) {
+    virtual void remove_histogram(const std::string& name, const std::shared_ptr< ReportHistogram >& rh) override {
         std::unique_lock lk(m_mutex);
         auto it = m_histogram_families.find(name);
         if (it == m_histogram_families.end()) {
@@ -269,7 +269,7 @@ public:
         family_ptr->Remove(&prh->m_histogram);
     }
 
-    virtual void remove_sum_count(const std::string& name, const std::shared_ptr< ReportSumCount >& rsc) {
+    virtual void remove_sum_count(const std::string& name, const std::shared_ptr< ReportSumCount >& rsc) override {
         std::unique_lock lk(m_mutex);
 
         // Remove sum counter
@@ -293,7 +293,7 @@ public:
         }
     }
 
-    std::string serialize(ReportFormat format) {
+    std::string serialize(ReportFormat format) override {
         if (format != m_cur_serializer_format) {
             // If user wants different formatter now, change the serializer
             switch (format) {

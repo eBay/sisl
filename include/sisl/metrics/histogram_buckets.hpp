@@ -89,7 +89,7 @@ public:
 #undef X
 
     HistogramBuckets() {
-#define X(name, ...) name = {{__VA_ARGS__}};
+#define X(name, ...) name = {__VA_ARGS__};
         HIST_BKTS_TYPES
 #undef X
     }
