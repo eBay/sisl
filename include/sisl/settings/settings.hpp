@@ -219,6 +219,7 @@ static bool diff_vector(const reflection::Schema* schema, const reflection::Fiel
 
 class SettingsFactoryBase : public boost::noncopyable {
 public:
+    virtual ~SettingsFactoryBase() = default;
     virtual void load() = 0;
     virtual bool reload() = 0;
     virtual void save() = 0;

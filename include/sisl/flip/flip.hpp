@@ -880,7 +880,7 @@ private:
             auto i = 0U;
             bool matched = true;
             for_each(arglist, [this, fspec, &i, &matched](auto& v) {
-                if (!condition_matches(v, fspec.conditions()[i++])) { matched = false; }
+                if (!this->condition_matches(v, fspec.conditions()[i++])) { matched = false; }
             });
 
             // One or more conditions does not match.
