@@ -131,6 +131,8 @@ using tstring = std::integer_sequence< char, chars... >;
 #if defined __clang__ or defined __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+#if defined __clang__
 #pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
 #endif
 
