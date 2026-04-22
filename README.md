@@ -4,8 +4,8 @@
 
 > *Pronounced "sizzle" — because your code should too.*
 
-A C++20 library of high-performance data structures, utilities, and infrastructure components built for systems that
-can't afford to be slow. sisl lives on top of folly, Boost, and the STL — filling gaps, wrapping complexity, and
+A C++23 library of high-performance data structures, utilities, and infrastructure components built for systems that
+can't afford to be slow. sisl lives on top of Boost and the STL — filling gaps, wrapping complexity, and
 outperforming the standard approaches where it matters most.
 
 The library spans three categories:
@@ -24,7 +24,7 @@ cd sisl
 conan build -s:h build_type=Debug --build missing .
 ```
 
-> **Note:** Requires [Conan 2](https://conan.io/) and a C++20-capable compiler (GCC 13+ / Clang 16+).
+> **Note:** Requires [Conan 2](https://conan.io/) and a C++23-capable compiler (GCC 14+ / Clang 17+).
 
 ### Build Options
 
@@ -70,7 +70,7 @@ See [src/wisr/README.md](src/wisr/README.md) for the full story.
 A collection of data structures for high-performance or specialized use cases:
 
 - **Bitset** — Concurrent, resizable, serializable bitset with bulk operations that
-  `std::bitset`, `boost::dynamic_bitset`, and `folly::AtomicBitset` don't provide
+  `std::bitset` and `boost::dynamic_bitset` don't provide
 - **StreamTracker** — Tracks sequential integer-keyed completions and sweeps contiguous ranges;
   essential for stream processing without exclusive locks
 - **ThreadBuffer** — Per-thread object storage that survives thread exit, the backbone of WISR

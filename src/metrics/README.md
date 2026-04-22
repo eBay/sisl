@@ -28,7 +28,7 @@ uses the facility and as soon as thread comes in, it calls all registered caller
 its instance for this thread. Thus each thread can access these objects in lock-free manner. This is different than a 
 thread-local variable that OS/language provides, in that this thread buffer can be a member in a class/struct and can be
 non-static. Apart from that it provides method to access a specific threads buffer or all the thread buffers from a
-non-participating thread as well. So far it is very similar to *folly::ThreadLocalPtr*. However, sisl::ThreadBuffer 
+non-participating thread as well. So far it is very similar to a thread-local unique_ptr, however sisl::ThreadBuffer 
 provides one more critical functionality which is exit safety. Once thread has exited, typically that threads version of
 buffer is also gone. This might be ok for several scenarios, but on some occasions it is important to retain the thread 
 buffer even after thread exits. One such requirement is for wait free metrics collection. 
