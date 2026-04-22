@@ -553,7 +553,12 @@ public:
     }
 
     void stop_rpc_server() {
-        if (m_grpc_server) { m_grpc_server->Shutdown(); }
+        if (m_grpc_server) {
+            // Run Shutdown() on a fresh thread to prevent gRPC's internal stack
+            // frames from aliasing ASAN-poisoned addresses in the caller's stack.
+            std::thread t{[this] { m_grpc_server->Shutdown(); }};
+            t.join();
+        }
         m_flip_server_thread->join();
         m_flip_server_thread.reset();
         m_flip_server.reset();
