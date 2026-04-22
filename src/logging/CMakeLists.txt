@@ -22,6 +22,9 @@ target_sources(sisl_logging PRIVATE
   ${LOGGING_SOURCE_FILES}
 )
 target_link_libraries(sisl_logging PUBLIC ${LOGGING_DEPS} -rdynamic)
+if(${breakpad_FOUND})
+  target_compile_definitions(sisl_logging PRIVATE SISL_HAS_BREAKPAD)
+endif()
 
 add_executable(logging_example)
 target_sources(logging_example PRIVATE

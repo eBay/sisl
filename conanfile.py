@@ -71,17 +71,17 @@ class SISLConan(ConanFile):
     def build_requirements(self):
         self.test_requires("gtest/1.17.0")
         if self.options.metrics:
-            self.test_requires("benchmark/1.9.4")
+            self.test_requires("benchmark/1.9.5")
 
     def requirements(self):
         # Required
         self.requires("boost/1.85.0", transitive_headers=True)
         self.requires("cxxopts/3.3.1", transitive_headers=True)
         self.requires("nlohmann_json/3.12.0", transitive_headers=True)
-        self.requires("spdlog/1.14.1", transitive_headers=True)
+        self.requires("spdlog/1.17.0", transitive_headers=True)
         self.requires("zmarok-semver/1.1.0", transitive_headers=True)
         self.requires("lz4/1.10.0", override=True)
-        if self.settings.os in ["Linux"]:
+        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
             self.requires("breakpad/cci.20210521")
 
         # ARM needs unreleased versionof libunwind
@@ -90,13 +90,13 @@ class SISLConan(ConanFile):
 
         if self.options.metrics:
             self.requires("flatbuffers/24.12.23", transitive_headers=True)
-            self.requires("folly/nu2.2023.12.18.00", transitive_headers=True)
-            self.requires("prometheus-cpp/1.1.0", transitive_headers=True)
+            self.requires("folly/nu2.2024.08.12.00.1", transitive_headers=True)
+            self.requires("prometheus-cpp/1.3.0", transitive_headers=True)
             self.requires("snappy/[^1.2]", transitive_headers=True)
             self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
 
         if self.options.grpc:
-            self.requires("grpc/1.54.3", transitive_headers=True)
+            self.requires("grpc/1.69.0", transitive_headers=True)
 
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
@@ -165,7 +165,7 @@ class SISLConan(ConanFile):
 
         # Pin generator tool paths to conan-managed binaries.
         # cmake's find_program will otherwise pick up incompatible system tools
-        # (e.g. Arch Linux ships protoc 34.x which is incompatible with grpc 1.54.3).
+        # (e.g. Arch Linux ships protoc 34.x while grpc 1.69.0 pulls protobuf 4.x via conan).
         if self.options.metrics:
             tc.cache_variables["FLATBUFFERS_FLATC_EXECUTABLE"] = join(
                 self.dependencies["flatbuffers"].package_folder, "bin", "flatc")
@@ -221,10 +221,11 @@ class SISLConan(ConanFile):
         self.cpp_info.components["logging"].requires.extend([
                 "options",
                 "boost::boost",
-                "breakpad::breakpad",
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
+        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
+            self.cpp_info.components["logging"].requires.append("breakpad::breakpad")
         self.cpp_info.components["sobject"].requires.extend([
                 "logging",
                 "nlohmann_json::nlohmann_json",

@@ -1,11 +1,10 @@
-name: Sisl v13 Build
+name: Symbiosis v14 Build
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - stable/v12.x
-      - master
+      - dev/v14.x
 
 jobs:
   Build:

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <sisl/logging/logging.h>
-#if defined(__linux__)
+#if defined(__linux__) && defined(SISL_HAS_BREAKPAD)
 #include <breakpad/client/linux/handler/exception_handler.h>
 #endif
 
@@ -20,7 +20,7 @@ static void flush_logs() { // flush all logs
     std::this_thread::sleep_for(std::chrono::milliseconds{250});
 }
 
-#if defined(__linux__)
+#if defined(__linux__) && defined(SISL_HAS_BREAKPAD)
 static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, [[maybe_unused]] void*,
                          bool succeeded) {
     std::cerr << std::endl << "Minidump path: " << descriptor.path() << std::endl;
@@ -29,7 +29,7 @@ static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, 
 #endif
 
 static void bt_dumper([[maybe_unused]] const SignalType signal_number) {
-#if defined(__linux__)
+#if defined(__linux__) && defined(SISL_HAS_BREAKPAD)
     google_breakpad::ExceptionHandler::WriteMinidump(get_base_dir().string(), dumpCallback, nullptr);
 #endif
 }

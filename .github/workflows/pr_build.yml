@@ -1,11 +1,10 @@
-name: Sisl v13 Build
+name: Symbiosis v14 PR
 
 on:
   workflow_dispatch:
   pull_request:
     branches:
-      - stable/v12.x
-      - master
+      - dev/v14.x
 
 jobs:
   Build:

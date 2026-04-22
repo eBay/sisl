@@ -86,9 +86,9 @@ class FollyConan(ConanFile):
             self.requires("libiberty/9.1.0")
             self.requires("libunwind/1.8.0")
         if self.settings.os == "Linux":
-            self.requires("liburing/2.6")
+            self.requires("liburing/2.11")
         # INFO: Folly does not support fmt 11 on MSVC: https://github.com/facebook/folly/issues/2250
-        self.requires("fmt/10.2.1", transitive_headers=True, transitive_libs=True)
+        self.requires("fmt/12.1.0", transitive_headers=True, transitive_libs=True)
 
     def build_requirements(self):
         # INFO: Required due ZIP_LISTS CMake feature in conan_deps.cmake
