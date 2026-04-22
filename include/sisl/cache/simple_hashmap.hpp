@@ -18,8 +18,6 @@
 
 #include <boost/intrusive/slist.hpp>
 #include <boost/functional/hash.hpp>
-#include <folly/Traits.h>
-#include <folly/small_vector.h>
 #if defined __clang__ or defined __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
