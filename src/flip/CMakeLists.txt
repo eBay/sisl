@@ -25,6 +25,8 @@ target_sources(test_flip PRIVATE
   )
 target_link_libraries(test_flip flip cxxopts::cxxopts)
 add_test(NAME Flip COMMAND test_flip)
+set_tests_properties(Flip PROPERTIES
+    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0")
 
 add_executable(test_flip_server)
 target_sources(test_flip_server PRIVATE

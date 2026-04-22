@@ -40,7 +40,7 @@ TEST_F(ObjLifeTest, BasicCount) {
     sisl::ObjCounterRegistry::enable_metrics_reporting();
     {
         auto ip2 = std::make_unique< TestClass< char*, unsigned int > >();
-        sisl::ObjCounterRegistry::foreach ([this](const std::string& name, int64_t created, int64_t alive) {
+        sisl::ObjCounterRegistry::foreach ([](const std::string& name, int64_t created, int64_t alive) {
             if (name == "TestClass<char*, unsigned int>") {
                 ASSERT_EQ(created, 2);
                 ASSERT_EQ(alive, 2);
@@ -53,7 +53,7 @@ TEST_F(ObjLifeTest, BasicCount) {
         });
     }
 
-    sisl::ObjCounterRegistry::foreach ([this](const std::string& name, int64_t created, int64_t alive) {
+    sisl::ObjCounterRegistry::foreach ([](const std::string& name, int64_t created, int64_t alive) {
         if (name == "TestClass<char*, unsigned int>") {
             ASSERT_EQ(created, 2);
             ASSERT_EQ(alive, 1);
