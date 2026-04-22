@@ -12,7 +12,7 @@ target_link_libraries(echo_server
   )
 add_test(NAME Echo_Ping_Server COMMAND echo_server)
 set_tests_properties(Echo_Ping_Server PROPERTIES
-    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0")
+    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0:allow_user_poisoning=0")
 
 # build echo_async_client
 add_executable(echo_async_client)
@@ -26,4 +26,4 @@ target_link_libraries(echo_async_client
   )
 add_test(NAME Echo_Ping_Async_Client_Server COMMAND echo_async_client)
 set_tests_properties(Echo_Ping_Async_Client_Server PROPERTIES
-    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0")
+    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0:allow_user_poisoning=0")

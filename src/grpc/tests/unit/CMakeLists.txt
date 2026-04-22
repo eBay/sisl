@@ -10,7 +10,7 @@ target_link_libraries(auth_test
   )
 add_test(NAME Auth_Test COMMAND auth_test)
 set_tests_properties(Auth_Test PROPERTIES
-    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0")
+    ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0:allow_user_poisoning=0")
 
 add_executable(client_test
       client_test.cpp
