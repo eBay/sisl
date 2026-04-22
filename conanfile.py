@@ -47,7 +47,7 @@ class SISLConan(ConanFile):
             )
 
     def _min_cppstd(self):
-        return 20
+        return 23
 
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):

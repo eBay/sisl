@@ -6,7 +6,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON) # turn on folder hierarchies
 
 include (cmake/Flags.cmake)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 enable_testing()
 find_package(GTest QUIET REQUIRED)
@@ -56,11 +56,7 @@ if (CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif ()
 
-if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
-    # add compiler options
-    add_flags("-fconcepts" Languages "CXX")
-    
-    # add warning options
+if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     add_flags("-Wall -Wextra -Werror -Wpedantic")
 endif()
 
