@@ -28,15 +28,7 @@
 #include <type_traits>
 #include <vector>
 
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-#include <folly/SharedMutex.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
+#include <shared_mutex>
 
 #include <sisl/logging/logging.h>
 #include "bitword.hpp"
@@ -185,7 +177,7 @@ private:
 
     sisl::byte_array m_buf;
     bitset_serialized* m_s{nullptr};
-    mutable folly::SharedMutex m_lock;
+    mutable std::shared_mutex m_lock;
     static constexpr uint64_t m_word_mask{bitword_type::bits() - 1};
 
 #ifndef NDEBUG

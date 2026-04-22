@@ -18,15 +18,7 @@
 
 #include <boost/intrusive/slist.hpp>
 #include <boost/functional/hash.hpp>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-#include <folly/SharedMutex.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
+#include <shared_mutex>
 
 #include <sisl/fds/utils.hpp>
 #include <sisl/utility/enum.hpp>
@@ -114,7 +106,7 @@ template < typename K, typename V >
 class SimpleHashBucket {
 private:
 #ifndef GLOBAL_HASHSET_LOCK
-    mutable folly::SharedMutex m_lock;
+    mutable std::shared_mutex m_lock;
 #endif
     typedef boost::intrusive::slist< SingleEntryHashNode< V > > hash_node_list_t;
     hash_node_list_t m_list;
@@ -133,7 +125,7 @@ public:
 
     bool insert(const K& input_key, const V& input_value, bool overwrite_ok) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 #endif
         SingleEntryHashNode< V >* n = nullptr;
         auto it = m_list.begin();
@@ -162,7 +154,7 @@ public:
 
     bool get(const K& input_key, V& out_val) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
 #endif
         bool found{false};
         for (const auto& n : m_list) {
@@ -181,7 +173,7 @@ public:
 
     bool erase(const K& input_key, V& out_val) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 #endif
         return erase_unsafe(input_key, out_val, true /* call_access_cb */);
     }
@@ -202,7 +194,7 @@ public:
 
     bool upsert_or_delete(const K& input_key, auto&& update_or_delete_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 #endif
         SingleEntryHashNode< V >* n = nullptr;
 
@@ -238,7 +230,7 @@ public:
 
     bool update(const K& input_key, auto&& update_cb) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
 #endif
         bool found{false};
         for (auto& n : m_list) {
