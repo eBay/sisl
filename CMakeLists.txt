@@ -6,7 +6,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON) # turn on folder hierarchies
 
 include (cmake/Flags.cmake)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 enable_testing()
 find_package(GTest QUIET REQUIRED)
@@ -27,22 +27,23 @@ endif()
 if (DEFINED MALLOC_IMPL)
     if (${MALLOC_IMPL} STREQUAL "jemalloc")
         add_flags("-DUSE_JEMALLOC=1")
-        # turn off memory sanitizer if using jemalloc otherwise folly will cause double definition errors
-        if (DEFINED MEMORY_SANITIZER_ON) 
-            unset(MEMORY_SANITIZER_ON CACHE)
+        if (DEFINED ADDRESS_SANITIZER_ON)
+            unset(ADDRESS_SANITIZER_ON CACHE)
+        endif()
+        if (DEFINED THREAD_SANITIZER_ON)
+            unset(THREAD_SANITIZER_ON CACHE)
         endif()
     elseif (${MALLOC_IMPL} STREQUAL "tcmalloc")
         add_flags("-DUSING_TCMALLOC=1")
     endif()
 endif()
 
-if (DEFINED MEMORY_SANITIZER_ON)
-    if (${MEMORY_SANITIZER_ON}) 
-        include (cmake/mem_sanitizer.cmake)
-        message(STATUS "********* WARNING: Running with Memory Sanitizer ON *********")
-    endif()
-else ()
-    message(STATUS "********* WARNING: Running with Memory Sanitizer OFF *********")
+if ((DEFINED THREAD_SANITIZER_ON) AND (${THREAD_SANITIZER_ON}))
+    set(SANITIZER_TYPE "thread")
+    include(cmake/sanitize.cmake)
+elseif ((DEFINED ADDRESS_SANITIZER_ON) AND (${ADDRESS_SANITIZER_ON}))
+    set(SANITIZER_TYPE "address")
+    include(cmake/sanitize.cmake)
 endif()
 
 include(cmake/settings_gen.cmake)
@@ -57,11 +58,7 @@ if (CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif ()
 
-if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")) 
-    # add compiler options
-    add_flags("-fconcepts" Languages "CXX")
-    
-    # add warning options
+if((${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU") OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     add_flags("-Wall -Wextra -Werror -Wpedantic")
 endif()
 

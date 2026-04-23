@@ -16,7 +16,7 @@
  *********************************************************************************/
 #pragma once
 
-#include <folly/SharedMutex.h>
+#include <shared_mutex>
 #include <sisl/metrics/metrics_group_impl.hpp>
 #include <sisl/metrics/metrics.hpp>
 
@@ -83,13 +83,13 @@ public:
     }
 
     void complete(int64_t start_idx, int64_t end_idx) {
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
         auto start_bit = start_idx - m_slot_ref_idx;
         m_comp_slot_bits.set_bits(start_bit, end_idx - start_idx + 1);
     }
 
     void rollback(int64_t new_end_idx) {
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
         // Special case: allow rollback exactly to (start_idx - 1), which clears all slots >= start
         if (new_end_idx + 1 == m_slot_ref_idx) {
             m_active_slot_bits.reset_bits(0, m_active_slot_bits.size());
@@ -107,7 +107,7 @@ public:
     }
 
     T& at(int64_t idx) const {
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
         if (idx < m_slot_ref_idx) { throw std::out_of_range("Slot idx is not in range"); }
 
         size_t nbit = idx - m_slot_ref_idx;
@@ -129,7 +129,7 @@ public:
             bool is_completed = false;
         } ret;
 
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
         if (idx < m_slot_ref_idx) {
             ret.is_out_of_range = true;
         } else {
@@ -146,7 +146,7 @@ public:
     }
 
     size_t truncate(int64_t idx) {
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 
         auto upto_bit = idx - m_slot_ref_idx + 1;
         if (upto_bit <= 0) { return m_slot_ref_idx - 1; }
@@ -156,7 +156,7 @@ public:
     size_t truncate() {
         if (AutoTruncate && (m_cmpltd_count_since_last_truncate.load(std::memory_order_acquire) == 0)) { return 0; }
 
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 
         // Find the first bit with 0 in it
         auto first_incomplete_bit = m_comp_slot_bits.get_next_reset_bit(0);
@@ -200,12 +200,12 @@ public:
     void foreach_all_active(int64_t start_idx, const auto& cb) { _foreach_all(start_idx, false, cb); }
 
     int64_t completed_upto(int64_t search_hint_idx = 0) const {
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
         return _upto(true /* completed */, search_hint_idx);
     }
 
     int64_t active_upto(int64_t search_hint_idx = 0) const {
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
         return _upto(false /* completed */, search_hint_idx);
     }
 
@@ -281,7 +281,7 @@ private:
     }
 
     void do_resize(size_t atleast_count) {
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 
         // Check if we already resized enough
         if (atleast_count < m_alloced_slots) { return; }
@@ -315,7 +315,7 @@ private:
     }
 
     void _foreach_contiguous(int64_t start_idx, bool completed_only, const auto& cb) {
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
         auto upto = _upto(completed_only, start_idx);
         for (auto idx = start_idx; idx <= upto; ++idx) {
             auto proceed = cb(idx, upto, *(get_slot_data(idx - m_slot_ref_idx)));
@@ -324,8 +324,8 @@ private:
     }
 
     void _foreach_all(int64_t start_idx, bool completed_only, const auto& cb) {
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
-        auto search_bit = std::max(0l, (start_idx - m_slot_ref_idx));
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
+        uint64_t search_bit{static_cast< uint64_t >(std::max(int64_t{0}, (start_idx - m_slot_ref_idx)))};
         do {
             search_bit = completed_only ? m_comp_slot_bits.get_next_set_bit(search_bit)
                                         : m_active_slot_bits.get_next_set_bit(search_bit);
@@ -339,7 +339,7 @@ private:
 
 private:
     // Mutex to protect the completion of last commit info
-    mutable folly::SharedMutex m_lock;
+    mutable std::shared_mutex m_lock;
 
     // A bitset that covers the completion and truncation
     sisl::AtomicBitset m_comp_slot_bits;

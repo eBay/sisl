@@ -67,7 +67,6 @@ void parallel_update() {
                 glob_raw_status->is_paused = true;
             }
         }
-        std::cout << "Updated all status\n";
     });
     t.detach();
 }
@@ -78,7 +77,6 @@ void test_atomic_gets(benchmark::State& state) {
             glob_atomic_status->is_shutdown.store(true);
             glob_atomic_status->is_paused.store(true);
         }
-        std::cout << "Updated all status\n";
     });
 
     for (auto _ : state) { // Loops upto iteration count
@@ -109,7 +107,6 @@ void test_urcu_gets(benchmark::State& state) {
                 s->is_paused = true;
             });
         }
-        std::cout << "Updated all status\n";
         rcu_unregister_thread();
     });
 

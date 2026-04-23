@@ -66,16 +66,17 @@ protected:
     }
 
     void TearDown() override {
-        m_evictor.reset();
         m_cache.reset();
+        m_evictor.reset();
         file_delete(g_num_chunks);
     }
 
     void write(const uint32_t chunk_num, const uint32_t start_blk, const uint32_t end_blk) {
         uint32_t size = (end_blk - start_blk + 1) * g_blk_size;
-        sisl::io_blob b{uintptr_cast(generate_data(size)), size, false};
+        auto b = generate_data(size);
         file_write(chunk_num, start_blk, b);
         m_cache->insert(chunk_num, start_blk, end_blk - start_blk + 1, std::move(b));
+        b.buf_free();
     }
 
     void read(const uint32_t chunk_num, const uint32_t start_blk, const uint32_t end_blk) {
@@ -95,6 +96,7 @@ protected:
                 auto nblks = (cache_it != vec.end()) ? cache_it->first.m_nth - cur_blk : end_blk - cur_blk + 1;
                 sisl::io_blob file_data = file_read(chunk_num, cur_blk, nblks);
                 m_cache->insert(chunk_num, cur_blk, nblks, std::move(file_data));
+                file_data.buf_free();
                 m_cache_missed_nblks += nblks;
                 cur_blk += nblks;
             }
@@ -123,7 +125,9 @@ private:
             LOGINFO("File {} being filled with random bytes for size={}", fname, chunk_size);
             while (filled_size < chunk_size) {
                 uint32_t this_size = std::min(uint32_cast(chunk_size - filled_size), max_blk_size);
-                auto size = ::write(fd, generate_data(this_size), this_size);
+                auto data = generate_data(this_size);
+                auto size = ::write(fd, voidptr_cast(data.bytes()), this_size);
+                data.buf_free();
                 ASSERT_EQ(size, this_size);
                 filled_size += this_size;
             }
@@ -131,13 +135,14 @@ private:
     }
 
     using random_bytes_engine = std::independent_bits_engine< std::default_random_engine, 64, unsigned long >;
-    void* generate_data(const uint32_t buf_size) {
+    sisl::io_blob generate_data(const uint32_t buf_size) {
+        sisl::io_blob blob{buf_size, 0};
         random_bytes_engine rbe;
-        uint64_t* buf = new uint64_t[buf_size / 8];
+        auto* buf = r_cast< uint64_t* >(blob.bytes());
         for (uint32_t s{0}; s < buf_size / 8; ++s) {
             buf[s] = rbe();
         }
-        return r_cast< void* >(buf);
+        return blob;
     }
 
     void file_delete(const uint32_t nchunks) {
@@ -209,6 +214,7 @@ TEST_F(RangeCacheTest, RandomData) {
         const uint32_t start_blk = blk_generator(g_re);
         uint32_t nblks = nblks_generator(g_re);
         if (nblks + start_blk > last_blk) { nblks = last_blk - start_blk; }
+        if (nblks == 0) { continue; }
 
         LOGINFO("INFO: Doing op={} on chunk={} for blks=[{}-{}]", enum_name(op), chunk_num, start_blk,
                 start_blk + nblks - 1);
@@ -227,9 +233,11 @@ TEST_F(RangeCacheTest, RandomData) {
     }
     LOGINFO("Executed read_ops={}, blks_read={} write_ops={} blks_written={}", nread_ops, nblks_read, nwrite_ops,
             nblks_written);
-    LOGINFO("Cache hits={} ({}%) Cache Misses={} ({}%), Avg pieces per cache hit entry={}", m_cache_hit_nblks,
-            (100 * m_cache_hit_nblks) / nblks_read, m_cache_missed_nblks, (100 * m_cache_missed_nblks) / nblks_read,
-            m_cache_hit_nblks / m_cache_pieces);
+    if (nblks_read > 0 && m_cache_pieces > 0) {
+        LOGINFO("Cache hits={} ({}%) Cache Misses={} ({}%), Avg pieces per cache hit entry={}", m_cache_hit_nblks,
+                (100 * m_cache_hit_nblks) / nblks_read, m_cache_missed_nblks, (100 * m_cache_missed_nblks) / nblks_read,
+                m_cache_hit_nblks / m_cache_pieces);
+    }
 }
 
 SISL_OPTIONS_ENABLE(logging, test_rangecache)

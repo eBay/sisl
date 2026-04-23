@@ -8,7 +8,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Setup Conan and Export Recipes
+    - name: Save Conan Package List
       shell: bash
       run: |
         conan cache save --no-source --file ~/conan_cache_save.tgz -l ~/pkglist.json

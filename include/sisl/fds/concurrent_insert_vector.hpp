@@ -98,7 +98,7 @@ public:
     iterator end() { return iterator{*this, true /* end_iterator */}; }
 
     void foreach_entry(auto&& cb) {
-        tvector_.access_all_threads([this, &cb](std::vector< T > const* tvec, bool, bool) {
+        tvector_.access_all_threads([&cb](std::vector< T > const* tvec, bool, bool) {
             if (tvec) {
                 for (auto const& e : *tvec) {
                     cb(e);
@@ -111,7 +111,7 @@ public:
     size_t size() const {
         size_t sz{0};
         const_cast< ExitSafeThreadBuffer< std::vector< T >, size_t >& >(tvector_).access_all_threads(
-            [this, &sz](std::vector< T > const* tvec, bool, bool) {
+            [&sz](std::vector< T > const* tvec, bool, bool) {
                 if (tvec) { sz += tvec->size(); }
                 return false;
             });

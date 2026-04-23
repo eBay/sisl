@@ -132,6 +132,9 @@ using tstring = std::integer_sequence< char, chars... >;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #endif
+#if defined __clang__
+#pragma GCC diagnostic ignored "-Wgnu-string-literal-operator-template"
+#endif
 
 template < typename T, T... chars >
 constexpr tstring< chars... > operator""_tstr() {
@@ -149,7 +152,7 @@ template < typename >
 class NamedGauge;
 
 template < typename >
-class NamedHistogram;
+struct NamedHistogram;
 
 template < char... elements >
 class NamedCounter< tstring< elements... > > {
@@ -292,12 +295,10 @@ private:
 #define COUNTER_DECREMENT_IF_ELSE(group, cond, namea, nameb, ...)                                                      \
     __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedCounter, counter_decrement, cond, namea, nameb, __VA_ARGS__)
 
-#define COUNTER_VALUE(group, name)                                                                                     \
-    ((group).m_impl_ptr->counter_get(COUNTER_INDEX(name)))
+#define COUNTER_VALUE(group, name) ((group).m_impl_ptr->counter_get(COUNTER_INDEX(name)))
 
 #define GAUGE_UPDATE(group, name, ...) __VALIDATE_AND_EXECUTE(group, NamedGauge, gauge_update, name, __VA_ARGS__)
-#define GAUGE_VALUE(group, name)                                                                                       \
-    ((group).m_impl_ptr->gauge_get(GAUGE_INDEX(name)))
+#define GAUGE_VALUE(group, name) ((group).m_impl_ptr->gauge_get(GAUGE_INDEX(name)))
 #define GAUGE_UPDATE_IF_ELSE(group, cond, namea, nameb, ...)                                                           \
     __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedGauge, gauge_update, cond, namea, nameb, __VA_ARGS__)
 
@@ -306,8 +307,7 @@ private:
 #define HISTOGRAM_OBSERVE_IF_ELSE(group, cond, namea, nameb, ...)                                                      \
     __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedHistogram, histogram_observe, cond, namea, nameb, __VA_ARGS__)
 
-#define HISTOGRAM_VALUE(group, name)                                                                                   \
-    ((group).m_impl_ptr->histogram_get(HISTOGRAM_INDEX(name)))
+#define HISTOGRAM_VALUE(group, name) ((group).m_impl_ptr->histogram_get(HISTOGRAM_INDEX(name)))
 
 #if 0
 #define COUNTER_INCREMENT(group, name, ...)                                                                            \

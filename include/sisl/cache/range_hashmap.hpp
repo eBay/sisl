@@ -19,17 +19,8 @@
 #include <boost/intrusive/slist.hpp>
 #include <vector>
 #include <string>
-#include <folly/Traits.h>
-#include <folly/small_vector.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#pragma GCC diagnostic ignored "-Wattributes"
-#endif
-#include <folly/SharedMutex.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
+#include <boost/container/small_vector.hpp>
+#include <shared_mutex>
 
 #include <sisl/fds/buffer.hpp>
 #include <sisl/fds/utils.hpp>
@@ -250,7 +241,7 @@ private:
 
     K m_base_key;
     big_offset_t m_base_nth;
-    folly::small_vector< ValueEntryRange, 8, folly::small_vector_policy::policy_size_type< small_count_t > > m_values;
+    boost::container::small_vector< ValueEntryRange, 8 > m_values;
 
 public:
     MultiEntryHashNode(const K& base_key, big_offset_t nth) : m_base_key{base_key}, m_base_nth{nth} {}
@@ -464,7 +455,7 @@ template < typename K >
 class HashBucket {
 private:
 #ifndef GLOBAL_HASHSET_LOCK
-    mutable folly::SharedMutex m_lock;
+    mutable std::shared_mutex m_lock;
 #endif
     typedef boost::intrusive::slist< MultiEntryHashNode< K > > hash_node_list_t;
     hash_node_list_t m_list;
@@ -483,7 +474,7 @@ public:
 
     void insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 #endif
         const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;
@@ -511,7 +502,7 @@ public:
     big_count_t get(const RangeKey< K >& input_key,
                     std::vector< std::pair< RangeKey< K >, sisl::byte_view > >& out_values) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::shared_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::shared_lock< std::shared_mutex >(m_lock);
 #endif
         big_count_t ret{0};
         const auto input_nth_rounded = input_key.rounded_nth();
@@ -533,7 +524,7 @@ public:
 
     void erase(const RangeKey< K >& input_key) {
 #ifndef GLOBAL_HASHSET_LOCK
-        auto holder = std::unique_lock< folly::SharedMutex >(m_lock);
+        auto holder = std::unique_lock< std::shared_mutex >(m_lock);
 #endif
         const auto input_nth_rounded = input_key.rounded_nth();
         MultiEntryHashNode< K >* n = nullptr;

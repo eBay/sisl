@@ -1,4 +1,4 @@
-name: Conan Build
+name: sisl Build
 
 on:
   workflow_call:
@@ -16,10 +16,18 @@ on:
       malloc-impl:
         required: true
         type: string
+      sanitize:
+        required: false
+        type: string
+        default: 'False'
       tooling:
         required: false
         type: string
         default: 'None'
+      compiler:
+        required: false
+        type: string
+        default: 'gcc'
       testing:
         required: false
         type: string
@@ -50,13 +58,30 @@ on:
           - libc
           - tcmalloc
           - jemalloc
+      sanitize:
+        description: 'Sanitizer'
+        required: false
+        type: choice
+        options:
+          - 'False'
+          - 'address'
+          - 'thread'
+        default: 'False'
       tooling:
         required: false
         type: choice
-          - 'Sanitize'
+        options:
           - 'Coverage'
           - 'None'
         default: 'None'
+      compiler:
+        description: 'Compiler'
+        required: false
+        type: choice
+        options:
+          - gcc
+          - clang
+        default: 'gcc'
       testing:
         description: 'Build and Run'
         required: true
@@ -71,30 +96,30 @@ jobs:
     runs-on: ${{ inputs.platform }}
     steps:
     - name: Retrieve Code
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
       with:
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'True' }}
 
     - name: Retrieve Recipe
-      uses: actions/checkout@main
+      uses: actions/checkout@v4
       with:
-        repository: ebay/sisl
+        repository: eBay/sisl
         ref: ${{ inputs.branch }}
       if: ${{ inputs.testing == 'False' }}
 
     - name: Setup Conan
-      uses: ebay/sisl/.github/actions/setup_conan2@master
+      uses: ./.github/actions/setup_conan2
       with:
         platform: ${{ inputs.platform }}
-      if: ${{ inputs.testing == 'True' || steps.restore-cache.outputs.cache-hit != 'true' }}
+        compiler: ${{ inputs.compiler }}
 
     - name: Load Conan Cache
       id: restore-cache
-      uses: ebay/sisl/.github/actions/load_conan2@master
+      uses: ./.github/actions/load_conan2
       with:
         testing: ${{ inputs.testing }}
-        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
+        key_prefix: SislDeps14-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.compiler }}
 
     - name: Prepare Recipes
       run: |
@@ -109,21 +134,20 @@ jobs:
             --format=json \
             --build missing \
             . > ~/build.json
-        conan list --graph ~/build.json --graph-binaries=build --format=json > ~/pkglist.json
+        conan list --graph ~/build.json --graph-binaries=build,cache --format=json > ~/pkglist.json
       if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Save Conan Cache
-      uses: ebay/sisl/.github/actions/store_conan2@master
+      uses: ./.github/actions/store_conan2
       with:
-        key_prefix: SislDeps13-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}
+        key_prefix: SislDeps14-${{ inputs.platform }}-${{ inputs.build-type }}-${{ inputs.malloc-impl }}-${{ inputs.compiler }}
       if: ${{ github.event_name != 'pull_request' && steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Create and Test Package
       run: |
-        sanitize=$([[ "${{ inputs.tooling }}" == "Sanitize" ]] && echo "True" || echo "False")
         conan create \
             -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
-            -o sisl/*:sanitize=${sanitize} \
+            -o sisl/*:sanitize=${{ inputs.sanitize }} \
             -s:h build_type=${{ inputs.build-type }} \
             --build missing \
             .
@@ -131,12 +155,16 @@ jobs:
 
     - name: Code Coverage Run
       run: |
-        python -m pip install gcovr
-        conan build \
+        conan install \
             -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
             -o sisl/*:coverage=True \
             -s:h build_type=${{ inputs.build-type }} \
             --build missing \
+            .
+        conan build \
+            -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
+            -o sisl/*:coverage=True \
+            -s:h build_type=${{ inputs.build-type }} \
             .
         gcovr --cobertura ./coverage.xml
       if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}
@@ -144,6 +172,8 @@ jobs:
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v5
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        slug: szmyd/sisl
         files: ./coverage.xml
         disable_search: true
       if: ${{ inputs.testing == 'True' && inputs.tooling == 'Coverage' }}

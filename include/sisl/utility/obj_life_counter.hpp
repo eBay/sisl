@@ -32,6 +32,7 @@
 namespace sisl {
 
 class ObjCounterMetrics;
+// inst() and ~ObjCounterRegistry() are defined after ObjCounterMetrics (unique_ptr requires complete type at both sites)
 class ObjCounterRegistry {
 public:
     using pair_of_atomic_ptrs = std::pair< std::atomic< int64_t >*, std::atomic< int64_t >* >;
@@ -43,10 +44,8 @@ private:
     std::shared_ptr< ThreadRegistry > m_treg{ThreadRegistry::get_instance_ptr()};
 
 public:
-    static ObjCounterRegistry& inst() {
-        static ObjCounterRegistry instance;
-        return instance;
-    }
+    ~ObjCounterRegistry();
+    static ObjCounterRegistry& inst();
 
     static decltype(m_tracker_map)& tracker() { return inst().m_tracker_map; }
 
@@ -105,6 +104,13 @@ public:
 private:
     std::unordered_map< std::string, std::pair< uint64_t, uint64_t > > m_name_gauge_map;
 };
+
+inline ObjCounterRegistry::~ObjCounterRegistry() = default;
+
+inline ObjCounterRegistry& ObjCounterRegistry::inst() {
+    static ObjCounterRegistry instance;
+    return instance;
+}
 
 inline void ObjCounterRegistry::enable_metrics_reporting() {
     auto& t{tracker()};

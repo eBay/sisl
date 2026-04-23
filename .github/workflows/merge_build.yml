@@ -1,60 +1,84 @@
-name: Sisl v13 Build
+name: sisl Merge Build
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - stable/v12.x
-      - master
+      - dev/v14.x
+  pull_request:
+    branches:
+      - dev/v14.x
 
 jobs:
-  Build:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: ["ubuntu-24.04"]
-        build-type: ["Debug", "Release"]
-        malloc-impl: ["libc", "tcmalloc"]
-        tooling: ["Sanitize", "Coverage", "None"]
-        exclude:
-          - build-type: Debug
-            tooling: None
-          - build-type: Debug
-            malloc-impl: tcmalloc
-          - build-type: Release
-            malloc-impl: libc
-          - build-type: Release
-            tooling: Sanitize
-          - build-type: Release
-            tooling: Coverage
+  GccThreadSanitize:
     uses: ./.github/workflows/build_dependencies.yml
     with:
-      platform: ${{ matrix.platform }}
+      platform: "ubuntu-24.04"
       branch: ${{ github.ref }}
-      build-type: ${{ matrix.build-type }}
-      malloc-impl: ${{ matrix.malloc-impl }}
-      tooling: ${{ matrix.tooling }}
+      build-type: "Debug"
+      malloc-impl: "libc"
+      sanitize: "thread"
+      tooling: "None"
+      compiler: "gcc"
       testing: 'True'
-  ChainBuild:
-    runs-on: "ubuntu-24.04"
-    steps:
-    - name: Start IOManager Build
-      run: |
-        curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/eBay/iomanager/actions/workflows/merge_build.yml/dispatches \
-          -d '{"ref":"master","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}
-    - name: Start NuraftMesg Build
-      run: |
-        curl -L \
-          -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
-          -H "X-GitHub-Api-Version: 2022-11-28" \
-          https://api.github.com/repos/eBay/nuraft_mesg/actions/workflows/conan_build.yml/dispatches \
-          -d '{"ref":"main","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}
+
+  GccAddressSanitize:
+    uses: ./.github/workflows/build_dependencies.yml
+    with:
+      platform: "ubuntu-24.04"
+      branch: ${{ github.ref }}
+      build-type: "Debug"
+      malloc-impl: "libc"
+      sanitize: "address"
+      tooling: "None"
+      compiler: "gcc"
+      testing: 'True'
+
+  GccCoverage:
+    uses: ./.github/workflows/build_dependencies.yml
+    with:
+      platform: "ubuntu-24.04"
+      branch: ${{ github.ref }}
+      build-type: "Debug"
+      malloc-impl: "libc"
+      sanitize: "False"
+      tooling: "Coverage"
+      compiler: "gcc"
+      testing: 'True'
+
+  ClangRelease:
+    uses: ./.github/workflows/build_dependencies.yml
+    with:
+      platform: "ubuntu-24.04"
+      branch: ${{ github.ref }}
+      build-type: "Release"
+      malloc-impl: "libc"
+      sanitize: "False"
+      tooling: "None"
+      compiler: "clang"
+      testing: 'True'
+
+  # ChainBuild: disabled until iomanager and nuraft_mesg migrate to dev/v14.x
+  # ChainBuild:
+  #   runs-on: "ubuntu-24.04"
+  #   steps:
+  #   - name: Start IOManager Build
+  #     run: |
+  #       curl -L \
+  #         -X POST \
+  #         -H "Accept: application/vnd.github+json" \
+  #         -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
+  #         -H "X-GitHub-Api-Version: 2022-11-28" \
+  #         https://api.github.com/repos/eBay/iomanager/actions/workflows/merge_build.yml/dispatches \
+  #         -d '{"ref":"dev/v14.x","inputs":{}}'
+  #     if: ${{ github.ref == 'refs/heads/dev/v14.x' }}
+  #   - name: Start NuraftMesg Build
+  #     run: |
+  #       curl -L \
+  #         -X POST \
+  #         -H "Accept: application/vnd.github+json" \
+  #         -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
+  #         -H "X-GitHub-Api-Version: 2022-11-28" \
+  #         https://api.github.com/repos/eBay/nuraft_mesg/actions/workflows/conan_build.yml/dispatches \
+  #         -d '{"ref":"dev/v14.x","inputs":{}}'
+  #     if: ${{ github.ref == 'refs/heads/dev/v14.x' }}

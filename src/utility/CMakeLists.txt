@@ -21,6 +21,8 @@ target_sources(test_status_factory PRIVATE
   )
 target_link_libraries(test_status_factory sisl_metrics benchmark::benchmark)
 add_test(NAME StatusFactory COMMAND test_status_factory)
+set_tests_properties(StatusFactory PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tsan.supp")
 
 add_executable(test_enum)
 target_sources(test_enum PRIVATE

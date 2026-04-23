@@ -40,7 +40,7 @@ SISL_LOGGING_DECL(grpc_server)
                                             fmt::make_format_args(args...));                                           \
                             return true;                                                                               \
                         }),                                                                                            \
-                        msg, ##__VA_ARGS__);
+                        msg __VA_OPT__(, ) __VA_ARGS__);
 
 namespace sisl {
 class RpcDataAbstract : public boost::intrusive_ref_counter< RpcDataAbstract, boost::thread_safe_counter > {
@@ -225,13 +225,13 @@ public:
         return m_client_req_context; */
         return fmt::format("{}_{}", m_ctx.peer(), request_id());
     }
-    size_t get_rpc_idx() const { return m_rpc_info->m_rpc_idx; }
+    size_t get_rpc_idx() const override { return m_rpc_info->m_rpc_idx; }
 
     RpcData(rpc_call_static_info_t* rpc_info, size_t queue_idx) :
             RpcDataAbstract{queue_idx},
             m_rpc_info{rpc_info},
-            m_request{google::protobuf::Arena::CreateMessage< ReqT >(&m_arena_req)},
-            m_response{google::protobuf::Arena::CreateMessage< RespT >(&m_arena_resp)},
+            m_request{google::protobuf::Arena::Create< ReqT >(&m_arena_req)},
+            m_response{google::protobuf::Arena::Create< RespT >(&m_arena_resp)},
             // m_rpc_context{google::protobuf::Arena::Create< context_t >(&m_arena_req, *this)},
             m_responder(&m_ctx),
             m_streaming_responder(&m_ctx) {}

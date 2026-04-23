@@ -1,4 +1,4 @@
-name: Check Modified File
+name: Require Version Bump
 
 on:
   pull_request:
@@ -10,12 +10,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - name: Check if file is modified
+      - name: Check if version is modified
         run: |
-          if git diff -r HEAD^1 HEAD -- conanfile.py | egrep "[ ]+version = "; then
+          if git diff -r HEAD^1 HEAD -- conanfile.py | grep -E "[ ]+version = "; then
             echo "Version is updated with this PR, OK"
           else
             echo "Conan version is not updated with this PR. Please update that to allow PR merge"

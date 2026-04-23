@@ -89,43 +89,49 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 
 #define LOGTRACEMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                                   \
-        _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
+        _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                    \
     }
 
 #define LOGDEBUGMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                                   \
-        _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
+        _l->debug(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                    \
     }
 
 #define LOGINFOMOD_USING_LOGGER(mod, logger, msg, ...)                                                                 \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::info)) {                                    \
-        _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
+        _l->info(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                     \
     }
 
 #define LOGWARNMOD_USING_LOGGER(mod, logger, msg, ...)                                                                 \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::warn)) {                                    \
-        _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                 \
+        _l->warn(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                     \
     }
 
 #define LOGERRORMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::err)) {                                     \
-        _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                                \
+        _l->error(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                    \
     }
 
 #define LOGCRITICALMOD_USING_LOGGER(mod, logger, msg, ...)                                                             \
     if (auto& _cl{sisl::logging::GetCriticalLogger()}; _cl && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {  \
-        _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
+        _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                \
     }                                                                                                                  \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::critical)) {                                \
-        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
+        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                 \
     }
 
-#define LOGTRACEMOD(mod, msg, ...) LOGTRACEMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
-#define LOGDEBUGMOD(mod, msg, ...) LOGDEBUGMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
-#define LOGINFOMOD(mod, msg, ...) LOGINFOMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
-#define LOGWARNMOD(mod, msg, ...) LOGWARNMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
-#define LOGERRORMOD(mod, msg, ...) LOGERRORMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
-#define LOGCRITICALMOD(mod, msg, ...) LOGCRITICALMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
+#define LOGTRACEMOD(mod, msg, ...)                                                                                     \
+    LOGTRACEMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGDEBUGMOD(mod, msg, ...)                                                                                     \
+    LOGDEBUGMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGINFOMOD(mod, msg, ...)                                                                                      \
+    LOGINFOMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGWARNMOD(mod, msg, ...)                                                                                      \
+    LOGWARNMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGERRORMOD(mod, msg, ...)                                                                                     \
+    LOGERRORMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGCRITICALMOD(mod, msg, ...)                                                                                  \
+    LOGCRITICALMOD_USING_LOGGER(mod, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
 
 template < typename T >
 const T& unmove(T&& x) {
@@ -160,49 +166,50 @@ const T& unmove(T&& x) {
 
 // With custom formatter and custom logger
 #define LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
-    _LOG_WITH_CUSTOM_FORMATTER(trace, trace, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+    _LOG_WITH_CUSTOM_FORMATTER(trace, trace, mod, logger, false, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGDEBUGMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
-    _LOG_WITH_CUSTOM_FORMATTER(debug, debug, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+    _LOG_WITH_CUSTOM_FORMATTER(debug, debug, mod, logger, false, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGINFOMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                  \
-    _LOG_WITH_CUSTOM_FORMATTER(info, info, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+    _LOG_WITH_CUSTOM_FORMATTER(info, info, mod, logger, false, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGWARNMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                  \
-    _LOG_WITH_CUSTOM_FORMATTER(warn, warn, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+    _LOG_WITH_CUSTOM_FORMATTER(warn, warn, mod, logger, false, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGERRORMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
-    _LOG_WITH_CUSTOM_FORMATTER(err, error, mod, logger, false, formatter, msg, ##__VA_ARGS__)
+    _LOG_WITH_CUSTOM_FORMATTER(err, error, mod, logger, false, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                              \
-    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, mod, logger, true, formatter, msg, ##__VA_ARGS__)
+    _LOG_WITH_CUSTOM_FORMATTER(critical, critical, mod, logger, true, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 
 // With custom formatter
 #define LOGTRACEMOD_FMT(mod, formatter, msg, ...)                                                                      \
-    LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
+    LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGDEBUGMOD_FMT(mod, formatter, msg, ...)                                                                      \
-    LOGDEBUGMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
+    LOGDEBUGMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGINFOMOD_FMT(mod, formatter, msg, ...)                                                                       \
-    LOGINFOMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
+    LOGINFOMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGWARNMOD_FMT(mod, formatter, msg, ...)                                                                       \
-    LOGWARNMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
+    LOGWARNMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGERRORMOD_FMT(mod, formatter, msg, ...)                                                                      \
-    LOGERRORMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
+    LOGERRORMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGCRITICALMOD_FMT(mod, formatter, msg, ...)                                                                   \
-    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetCriticalLogger(), msg, ##__VA_ARGS__)            \
-    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg, ##__VA_ARGS__)
+    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetCriticalLogger(),                                \
+                                    msg __VA_OPT__(, ) __VA_ARGS__)                                                    \
+    LOGCRITICALMOD_FMT_USING_LOGGER(mod, formatter, sisl::logging::GetLogger(), msg __VA_OPT__(, ) __VA_ARGS__)
 
-#define LOGTRACE(msg, ...) LOGTRACEMOD(base, msg, ##__VA_ARGS__)
-#define LOGDEBUG(msg, ...) LOGDEBUGMOD(base, msg, ##__VA_ARGS__)
-#define LOGINFO(msg, ...) LOGINFOMOD(base, msg, ##__VA_ARGS__)
-#define LOGWARN(msg, ...) LOGWARNMOD(base, msg, ##__VA_ARGS__)
-#define LOGERROR(msg, ...) LOGERRORMOD(base, msg, ##__VA_ARGS__)
-#define LOGCRITICAL(msg, ...) LOGCRITICALMOD(base, msg, ##__VA_ARGS__)
+#define LOGTRACE(msg, ...) LOGTRACEMOD(base, msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGDEBUG(msg, ...) LOGDEBUGMOD(base, msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGINFO(msg, ...) LOGINFOMOD(base, msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGWARN(msg, ...) LOGWARNMOD(base, msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGERROR(msg, ...) LOGERRORMOD(base, msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGCRITICAL(msg, ...) LOGCRITICALMOD(base, msg __VA_OPT__(, ) __VA_ARGS__)
 
 #ifndef NDEBUG
 #define DLOGCRITICAL(...) LOGCRITICAL(__VA_ARGS__)
@@ -237,11 +244,11 @@ const T& unmove(T&& x) {
 #define LOGCRITICAL_AND_FLUSH(msg, ...)                                                                                \
     {                                                                                                                  \
         auto& _cl{sisl::logging::GetCriticalLogger()};                                                                 \
-        _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                            \
+        _cl->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                \
         _cl->flush();                                                                                                  \
                                                                                                                        \
         auto& _l{sisl::logging::GetLogger()};                                                                          \
-        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS, ##__VA_ARGS__);                                             \
+        _l->critical(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                 \
         _l->flush();                                                                                                   \
     }
 
@@ -254,15 +261,15 @@ const T& unmove(T&& x) {
     }
 
 #define _LOG_AND_ASSERT(is_log_assert, msg, ...)                                                                       \
-    LOGCRITICAL_AND_FLUSH(msg, ##__VA_ARGS__);                                                                         \
+    LOGCRITICAL_AND_FLUSH(msg __VA_OPT__(, ) __VA_ARGS__);                                                             \
     _ABORT_OR_DUMP(is_log_assert)
 
 #define _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ...)                                                        \
-    LOGCRITICALMOD_FMT(base, formatter, msg, ##__VA_ARGS__)                                                            \
+    LOGCRITICALMOD_FMT(base, formatter, msg __VA_OPT__(, ) __VA_ARGS__)                                                \
     _ABORT_OR_DUMP(is_log_assert)
 
-#define LOGDFATAL(msg, ...) _LOG_AND_ASSERT(1, msg, ##__VA_ARGS__)
-#define LOGFATAL(msg, ...) _LOG_AND_ASSERT(0, msg, ##__VA_ARGS__)
+#define LOGDFATAL(msg, ...) _LOG_AND_ASSERT(1, msg __VA_OPT__(, ) __VA_ARGS__)
+#define LOGFATAL(msg, ...) _LOG_AND_ASSERT(0, msg __VA_OPT__(, ) __VA_ARGS__)
 
 /*
  * RELEASE_ASSERT:  If condition is not met: Logs the message, aborts both in release and debug build
@@ -272,10 +279,12 @@ const T& unmove(T&& x) {
 // #if __cplusplus > 201703L
 #if 0
 #define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
-    [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }
+    [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg __VA_OPT__(, ) __VA_ARGS__); }
 #else
 #define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
-    if (LOGGING_PREDICT_FALSE(!(cond))) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg, ##__VA_ARGS__); }
+    if (LOGGING_PREDICT_FALSE(!(cond))) {                                                                              \
+        _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg __VA_OPT__(, ) __VA_ARGS__);                                 \
+    }
 #endif
 
 #define _FMT_LOG_MSG(...) sisl::logging::format_log_msg(__VA_ARGS__).c_str()
@@ -287,26 +296,25 @@ const T& unmove(T&& x) {
             fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(args...));                \
             return true;                                                                                               \
         },                                                                                                             \
-        m, ##__VA_ARGS__)
-#define RELEASE_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(0, cond, formatter, msg, ##__VA_ARGS__)
+        m __VA_OPT__(, ) __VA_ARGS__)
+#define RELEASE_ASSERT_FMT(cond, formatter, msg, ...)                                                                  \
+    _GENERIC_ASSERT(0, cond, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 #define RELEASE_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                            \
     _GENERIC_ASSERT(0, ((val1)cmp(val2)), formatter, _FMT_LOG_MSG(__VA_ARGS__), val1, #cmp, val2)
 #define RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                           \
-    RELEASE_ASSERT_CMP(                                                                                                \
-        val1, cmp, val2,                                                                                               \
-        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            sisl::logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                    \
-            return true;                                                                                               \
-        },                                                                                                             \
-        ##__VA_ARGS__)
+    RELEASE_ASSERT_CMP(val1, cmp, val2, [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {         \
+        sisl::logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                        \
+        return true;                                                                                                   \
+    } __VA_OPT__(, ) __VA_ARGS__)
 
-#define RELEASE_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, <=, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, <, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >=, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >, val2, ##__VA_ARGS__)
-#define RELEASE_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT((void*)val1, !=, nullptr, ##__VA_ARGS__)
+#define RELEASE_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define RELEASE_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define RELEASE_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, <=, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define RELEASE_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, <, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define RELEASE_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >=, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define RELEASE_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_CMP_DEFAULT_FMT(val1, >, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define RELEASE_ASSERT_NOTNULL(val1, ...)                                                                              \
+    RELEASE_ASSERT_CMP_DEFAULT_FMT((void*)val1, !=, nullptr __VA_OPT__(, ) __VA_ARGS__)
 
 #define LOGMSG_ASSERT(cond, m, ...)                                                                                    \
     _GENERIC_ASSERT(                                                                                                   \
@@ -315,40 +323,38 @@ const T& unmove(T&& x) {
             fmt::vformat_to(fmt::appender{buf}, fmt::string_view{msg}, fmt::make_format_args(args...));                \
             return true;                                                                                               \
         },                                                                                                             \
-        m, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(1, cond, formatter, msg, ##__VA_ARGS__)
+        m __VA_OPT__(, ) __VA_ARGS__)
+#define LOGMSG_ASSERT_FMT(cond, formatter, msg, ...) _GENERIC_ASSERT(1, cond, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
 #define LOGMSG_ASSERT_CMP(val1, cmp, val2, formatter, ...)                                                             \
     _GENERIC_ASSERT(1, ((val1)cmp(val2)), formatter, sisl::logging::format_log_msg(__VA_ARGS__).c_str(), val1, #cmp,   \
                     val2)
 
 #define LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, cmp, val2, ...)                                                            \
-    LOGMSG_ASSERT_CMP(                                                                                                 \
-        val1, cmp, val2,                                                                                               \
-        [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {                                         \
-            sisl::logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                    \
-            return true;                                                                                               \
-        },                                                                                                             \
-        ##__VA_ARGS__)
+    LOGMSG_ASSERT_CMP(val1, cmp, val2, [](fmt::memory_buffer& buf, const char* msg, auto&&... args) -> bool {          \
+        sisl::logging::_cmp_assert_with_msg(buf, msg, std::forward< decltype(args) >(args)...);                        \
+        return true;                                                                                                   \
+    } __VA_OPT__(, ) __VA_ARGS__)
 
-#define LOGMSG_ASSERT_EQ(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_NE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_LE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, <=, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_LT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, <, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_GE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >= val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_GT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >, val2, ##__VA_ARGS__)
-#define LOGMSG_ASSERT_NOTNULL(val1, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT((void*)val1, !=, nullptr, ##__VA_ARGS__)
+#define LOGMSG_ASSERT_EQ(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, ==, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define LOGMSG_ASSERT_NE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, !=, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define LOGMSG_ASSERT_LE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, <=, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define LOGMSG_ASSERT_LT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, <, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define LOGMSG_ASSERT_GE(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >= val2 __VA_OPT__(, ) __VA_ARGS__)
+#define LOGMSG_ASSERT_GT(val1, val2, ...) LOGMSG_ASSERT_CMP_DEFAULT_FMT(val1, >, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define LOGMSG_ASSERT_NOTNULL(val1, ...)                                                                               \
+    LOGMSG_ASSERT_CMP_DEFAULT_FMT((void*)val1, !=, nullptr __VA_OPT__(, ) __VA_ARGS__)
 
 #ifndef NDEBUG
-#define DEBUG_ASSERT(cond, msg, ...) RELEASE_ASSERT(cond, msg, ##__VA_ARGS__)
+#define DEBUG_ASSERT(cond, msg, ...) RELEASE_ASSERT(cond, msg __VA_OPT__(, ) __VA_ARGS__)
 #define DEBUG_ASSERT_CMP(...) RELEASE_ASSERT_CMP(__VA_ARGS__)
 #define DEBUG_ASSERT_FMT(...) RELEASE_ASSERT_FMT(__VA_ARGS__)
-#define DEBUG_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_EQ(val1, val2, ##__VA_ARGS__)
-#define DEBUG_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_NE(val1, val2, ##__VA_ARGS__)
-#define DEBUG_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_LE(val1, val2, ##__VA_ARGS__)
-#define DEBUG_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_LT(val1, val2, ##__VA_ARGS__)
-#define DEBUG_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_GE(val1, val2, ##__VA_ARGS__)
-#define DEBUG_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_GT(val1, val2, ##__VA_ARGS__)
-#define DEBUG_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_NOTNULL((void*)val1, ##__VA_ARGS__)
+#define DEBUG_ASSERT_EQ(val1, val2, ...) RELEASE_ASSERT_EQ(val1, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define DEBUG_ASSERT_NE(val1, val2, ...) RELEASE_ASSERT_NE(val1, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define DEBUG_ASSERT_LE(val1, val2, ...) RELEASE_ASSERT_LE(val1, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define DEBUG_ASSERT_LT(val1, val2, ...) RELEASE_ASSERT_LT(val1, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define DEBUG_ASSERT_GE(val1, val2, ...) RELEASE_ASSERT_GE(val1, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define DEBUG_ASSERT_GT(val1, val2, ...) RELEASE_ASSERT_GT(val1, val2 __VA_OPT__(, ) __VA_ARGS__)
+#define DEBUG_ASSERT_NOTNULL(val1, ...) RELEASE_ASSERT_NOTNULL((void*)val1 __VA_OPT__(, ) __VA_ARGS__)
 #else
 #define DEBUG_ASSERT(cond, msg, ...)
 #define DEBUG_ASSERT_CMP(...)

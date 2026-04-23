@@ -9,7 +9,7 @@ required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "13.2.5"
+    version = "14.0.0"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -23,7 +23,7 @@ class SISLConan(ConanFile):
                 "shared": ['True', 'False'],
                 "fPIC": ['True', 'False'],
                 "coverage": ['True', 'False'],
-                "sanitize": ['True', 'False'],
+                "sanitize": ['address', 'thread', 'False'],
                 'metrics': ['False', 'True'],
                 'grpc': ['False', 'True'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
@@ -44,10 +44,11 @@ class SISLConan(ConanFile):
                 "cmake/*",
                 "include/*",
                 "src/*",
+                "tsan.supp",
             )
 
     def _min_cppstd(self):
-        return 20
+        return 23
 
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
@@ -71,17 +72,17 @@ class SISLConan(ConanFile):
     def build_requirements(self):
         self.test_requires("gtest/1.17.0")
         if self.options.metrics:
-            self.test_requires("benchmark/1.9.4")
+            self.test_requires("benchmark/1.9.5")
 
     def requirements(self):
         # Required
         self.requires("boost/1.85.0", transitive_headers=True)
         self.requires("cxxopts/3.3.1", transitive_headers=True)
         self.requires("nlohmann_json/3.12.0", transitive_headers=True)
-        self.requires("spdlog/1.14.1", transitive_headers=True)
+        self.requires("spdlog/1.17.0", transitive_headers=True)
         self.requires("zmarok-semver/1.1.0", transitive_headers=True)
         self.requires("lz4/1.10.0", override=True)
-        if self.settings.os in ["Linux"]:
+        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
             self.requires("breakpad/cci.20210521")
 
         # ARM needs unreleased versionof libunwind
@@ -90,13 +91,12 @@ class SISLConan(ConanFile):
 
         if self.options.metrics:
             self.requires("flatbuffers/24.12.23", transitive_headers=True)
-            self.requires("folly/nu2.2023.12.18.00", transitive_headers=True)
-            self.requires("prometheus-cpp/1.1.0", transitive_headers=True)
+            self.requires("prometheus-cpp/1.3.0", transitive_headers=True)
             self.requires("snappy/[^1.2]", transitive_headers=True)
             self.requires("userspace-rcu/nu2.0.14.0", transitive_headers=True)
 
         if self.options.grpc:
-            self.requires("grpc/1.54.3", transitive_headers=True)
+            self.requires("grpc/1.69.0", transitive_headers=True)
 
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
@@ -106,8 +106,8 @@ class SISLConan(ConanFile):
 
     def layout(self):
         self.folders.source = "."
-        if self.options.get_safe("sanitize"):
-            self.folders.build = join("build", "Sanitized")
+        if self.options.get_safe("sanitize") and self.options.sanitize != "False":
+            self.folders.build = join("build", f"Sanitized-{self.options.sanitize}")
         elif self.options.get_safe("coverage"):
             self.folders.build = join("build", "Coverage")
         else:
@@ -151,8 +151,8 @@ class SISLConan(ConanFile):
         # This generates "conan_toolchain.cmake" in self.generators_folder
         tc = CMakeToolchain(self)
         tc.variables["CONAN_CMAKE_SILENT_OUTPUT"] = "ON"
-        tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
-        tc.variables["MEMORY_SANITIZER_ON"] = "OFF"
+        tc.variables["ADDRESS_SANITIZER_ON"] = "OFF"
+        tc.variables["THREAD_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
         tc.variables['MALLOC_IMPL'] = self.options.malloc_impl
         tc.preprocessor_definitions["PACKAGE_VERSION"] = self.version
@@ -160,12 +160,15 @@ class SISLConan(ConanFile):
         if self.settings.build_type == "Debug":
             if self.options.get_safe("coverage"):
                 tc.variables['BUILD_COVERAGE'] = 'ON'
-            elif self.options.get_safe("sanitize"):
-                tc.variables['MEMORY_SANITIZER_ON'] = 'ON'
+            elif self.options.get_safe("sanitize") and self.options.sanitize != "False":
+                if self.options.sanitize == "thread":
+                    tc.variables['THREAD_SANITIZER_ON'] = 'ON'
+                else:
+                    tc.variables['ADDRESS_SANITIZER_ON'] = 'ON'
 
         # Pin generator tool paths to conan-managed binaries.
         # cmake's find_program will otherwise pick up incompatible system tools
-        # (e.g. Arch Linux ships protoc 34.x which is incompatible with grpc 1.54.3).
+        # (e.g. Arch Linux ships protoc 34.x while grpc 1.69.0 pulls protobuf 4.x via conan).
         if self.options.metrics:
             tc.cache_variables["FLATBUFFERS_FLATC_EXECUTABLE"] = join(
                 self.dependencies["flatbuffers"].package_folder, "bin", "flatc")
@@ -187,7 +190,7 @@ class SISLConan(ConanFile):
         cmake.configure()
         cmake.build()
         if not self.conf.get("tools.build:skip_test", default=False):
-            cmake.test()
+            self.run(f"ctest --test-dir '{self.build_folder}' --output-on-failure")
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
@@ -221,10 +224,11 @@ class SISLConan(ConanFile):
         self.cpp_info.components["logging"].requires.extend([
                 "options",
                 "boost::boost",
-                "breakpad::breakpad",
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
+        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
+            self.cpp_info.components["logging"].requires.append("breakpad::breakpad")
         self.cpp_info.components["sobject"].requires.extend([
                 "logging",
                 "nlohmann_json::nlohmann_json",
@@ -250,12 +254,10 @@ class SISLConan(ConanFile):
                     ])
             self.cpp_info.components["metrics"].requires.extend([
                     "logging",
-                    "folly::folly",
                     "prometheus-cpp::prometheus-cpp",
                     ])
             self.cpp_info.components["buffer"].requires.extend([
                     "metrics",
-                    "folly::folly",
                     "snappy::snappy",
                     "userspace-rcu::userspace-rcu",
                     ])
@@ -285,12 +287,17 @@ class SISLConan(ConanFile):
                 component.defines.append("_FILE_OFFSET_BITS=64")
                 component.defines.append("_LARGEFILE64")
                 component.system_libs.extend(["dl", "pthread"])
-                component.exelinkflags.extend(["-export-dynamic"])
-            if  self.options.get_safe("sanitize"):
-                component.sharedlinkflags.append("-fsanitize=address")
-                component.exelinkflags.append("-fsanitize=address")
-                component.sharedlinkflags.append("-fsanitize=undefined")
-                component.exelinkflags.append("-fsanitize=undefined")
+                if self.settings.compiler != "clang":
+                    component.exelinkflags.extend(["-export-dynamic"])
+            if self.options.get_safe("sanitize") and self.options.sanitize != "False":
+                if self.options.sanitize == "thread":
+                    component.sharedlinkflags.append("-fsanitize=thread")
+                    component.exelinkflags.append("-fsanitize=thread")
+                else:
+                    component.sharedlinkflags.append("-fsanitize=address")
+                    component.exelinkflags.append("-fsanitize=address")
+                    component.sharedlinkflags.append("-fsanitize=undefined")
+                    component.exelinkflags.append("-fsanitize=undefined")
             if self.options.malloc_impl == 'jemalloc':
                 component.defines.append("USE_JEMALLOC=1")
                 component.requires.extend(["jemalloc::jemalloc"])

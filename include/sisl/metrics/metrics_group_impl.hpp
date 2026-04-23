@@ -49,7 +49,7 @@ enum class _publish_as : uint8_t {
     publish_as_counter,
     publish_as_gauge,
     publish_as_histogram,
-    publish_as_sum_count,  // NEW: publish only sum/count, not buckets
+    publish_as_sum_count, // NEW: publish only sum/count, not buckets
 };
 
 /****************************** Counter ************************************/
@@ -58,21 +58,26 @@ public:
     friend class AtomicCounterValue;
 
     CounterValue() = default;
-    CounterValue(const CounterValue&) = default;
-    CounterValue(CounterValue&&) noexcept = default;
+    CounterValue(const CounterValue& other) : m_value{other.m_value.load(std::memory_order_relaxed)} {}
+    CounterValue(CounterValue&& other) noexcept : m_value{other.m_value.load(std::memory_order_relaxed)} {}
     CounterValue& operator=(const CounterValue&) = delete;
     CounterValue& operator=(CounterValue&&) noexcept = delete;
 
-    void increment(const int64_t value = 1) { m_value += value; }
-    void decrement(const int64_t value = 1) { m_value -= value; }
-    int64_t get() const { return m_value; }
+    void increment(const int64_t value = 1) {
+        m_value.store(m_value.load(std::memory_order_relaxed) + value, std::memory_order_relaxed);
+    }
+    void decrement(const int64_t value = 1) {
+        m_value.store(m_value.load(std::memory_order_relaxed) - value, std::memory_order_relaxed);
+    }
+    int64_t get() const { return m_value.load(std::memory_order_relaxed); }
     int64_t merge(const CounterValue& other) {
-        this->m_value += other.m_value;
-        return this->m_value;
+        const int64_t new_val = m_value.load(std::memory_order_relaxed) + other.m_value.load(std::memory_order_relaxed);
+        m_value.store(new_val, std::memory_order_relaxed);
+        return new_val;
     }
 
 private:
-    int64_t m_value{0};
+    std::atomic< int64_t > m_value{0};
 };
 
 class CounterStaticInfo {
@@ -83,7 +88,7 @@ public:
                       const metric_label& label_pair = {"", ""});
 
     CounterStaticInfo(const CounterStaticInfo&) = default;
-    CounterStaticInfo(CounterStaticInfo&&) noexcept = delete;
+    CounterStaticInfo(CounterStaticInfo&&) noexcept = default;
     CounterStaticInfo& operator=(const CounterStaticInfo&) = delete;
     CounterStaticInfo& operator=(CounterStaticInfo&&) noexcept = delete;
 
@@ -107,7 +112,7 @@ public:
                        _publish_as ptype = _publish_as::publish_as_counter);
 
     CounterDynamicInfo(const CounterDynamicInfo&) = default;
-    CounterDynamicInfo(CounterDynamicInfo&&) noexcept = delete;
+    CounterDynamicInfo(CounterDynamicInfo&&) noexcept = default;
     CounterDynamicInfo& operator=(const CounterDynamicInfo&) = delete;
     CounterDynamicInfo& operator=(CounterDynamicInfo&&) noexcept = delete;
 
@@ -164,7 +169,7 @@ public:
                     const metric_label& label_pair = {"", ""});
 
     GaugeStaticInfo(const GaugeStaticInfo&) = default;
-    GaugeStaticInfo(GaugeStaticInfo&&) noexcept = delete;
+    GaugeStaticInfo(GaugeStaticInfo&&) noexcept = default;
     GaugeStaticInfo& operator=(const GaugeStaticInfo&) = delete;
     GaugeStaticInfo& operator=(GaugeStaticInfo&&) noexcept = delete;
 
@@ -187,7 +192,7 @@ public:
     GaugeDynamicInfo(const GaugeStaticInfo& static_info, const std::string& instance_name);
 
     GaugeDynamicInfo(const GaugeDynamicInfo&) = default;
-    GaugeDynamicInfo(GaugeDynamicInfo&&) noexcept = delete;
+    GaugeDynamicInfo(GaugeDynamicInfo&&) noexcept = default;
     GaugeDynamicInfo& operator=(const GaugeDynamicInfo&) = delete;
     GaugeDynamicInfo& operator=(GaugeDynamicInfo&&) noexcept = delete;
 
@@ -241,7 +246,7 @@ public:
                         const hist_bucket_boundaries_t& bkt_boundaries = HistogramBucketsType(DefaultBuckets));
 
     HistogramStaticInfo(const HistogramStaticInfo&) = default;
-    HistogramStaticInfo(HistogramStaticInfo&&) noexcept = delete;
+    HistogramStaticInfo(HistogramStaticInfo&&) noexcept = default;
     HistogramStaticInfo& operator=(const HistogramStaticInfo&) = delete;
     HistogramStaticInfo& operator=(HistogramStaticInfo&&) noexcept = delete;
 
@@ -266,9 +271,9 @@ private:
 struct HistogramStatistics {
     int64_t count{0};
     double average{0.0};
-    double p50{0.0};  // 50th percentile (median)
-    double p95{0.0};  // 95th percentile
-    double p99{0.0};  // 99th percentile
+    double p50{0.0}; // 50th percentile (median)
+    double p95{0.0}; // 95th percentile
+    double p99{0.0}; // 99th percentile
 };
 
 class HistogramDynamicInfo {
@@ -313,7 +318,8 @@ private:
     }
 
 private:
-    std::variant< std::shared_ptr< ReportHistogram >, std::shared_ptr< ReportGauge >, std::shared_ptr< ReportSumCount > >
+    std::variant< std::shared_ptr< ReportHistogram >, std::shared_ptr< ReportGauge >,
+                  std::shared_ptr< ReportSumCount > >
         m_report_histogram_gauge;
 };
 
@@ -369,7 +375,7 @@ private:
 
 public:
     MetricsGroupImpl(const std::string& grp_name, const std::string& inst_name);
-    ~MetricsGroupImpl();
+    virtual ~MetricsGroupImpl();
 
     MetricsGroupImpl(const MetricsGroupImpl&) = delete;
     MetricsGroupImpl(MetricsGroupImpl&&) noexcept = delete;

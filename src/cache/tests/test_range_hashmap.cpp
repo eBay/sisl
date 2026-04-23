@@ -40,17 +40,32 @@ static std::uniform_int_distribution< uint8_t > g_op_generator{0, 2};
 struct RangeHashMapTest : public testing::Test {
 protected:
     std::unique_ptr< RangeHashMap< uint32_t > > m_map;
-    std::unordered_map< uint32_t, sisl::blob > m_shadow_map;
+    std::unordered_map< uint32_t, sisl::io_blob > m_shadow_map;
     sisl::Bitset m_inserted_slots{g_max_offset};
 
 protected:
     void SetUp() override { m_map = std::make_unique< RangeHashMap< uint32_t > >(1000, extract_value, nullptr); }
 
+    void TearDown() override {
+        for (auto& [k, v] : m_shadow_map) {
+            v.buf_free();
+        }
+    }
+
     void insert_range(const uint32_t start, const uint32_t end) {
-        m_map->insert(RangeKey{1u, start, end - start + 1}, create_data(start, end));
+        auto range_blob = create_data(start, end);
+        m_map->insert(RangeKey{1u, start, end - start + 1}, range_blob);
+        range_blob.buf_free();
 
         for (auto i{start}; i <= end; ++i) {
-            m_shadow_map.insert({i, create_data(i, i)});
+            auto new_blob = create_data(i, i);
+            auto it = m_shadow_map.find(i);
+            if (it != m_shadow_map.end()) {
+                it->second.buf_free();
+                it->second = new_blob;
+            } else {
+                m_shadow_map.emplace(i, new_blob);
+            }
             m_inserted_slots.set_bit(i);
         }
     }
@@ -76,7 +91,11 @@ protected:
         m_map->erase(RangeKey{1u, start, end - start + 1});
 
         for (auto i{start}; i <= end; ++i) {
-            m_shadow_map.erase(i);
+            auto it = m_shadow_map.find(i);
+            if (it != m_shadow_map.end()) {
+                it->second.buf_free();
+                m_shadow_map.erase(it);
+            }
             m_inserted_slots.reset_bit(i);
         }
     }
@@ -158,6 +177,7 @@ TEST_F(RangeHashMapTest, RandomEverythingTest) {
         const big_offset_t offset = offset_generator(g_re);
         big_count_t size = g_size_generator(g_re);
         if (size + offset >= g_max_offset) { size = g_max_offset - offset - 1; }
+        if (size == 0) { continue; }
 
         LOGINFO("INFO: Doing op={} offset_range={}-{}", enum_name(op), offset, offset + size - 1);
 

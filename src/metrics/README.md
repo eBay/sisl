@@ -28,7 +28,7 @@ uses the facility and as soon as thread comes in, it calls all registered caller
 its instance for this thread. Thus each thread can access these objects in lock-free manner. This is different than a 
 thread-local variable that OS/language provides, in that this thread buffer can be a member in a class/struct and can be
 non-static. Apart from that it provides method to access a specific threads buffer or all the thread buffers from a
-non-participating thread as well. So far it is very similar to *folly::ThreadLocalPtr*. However, sisl::ThreadBuffer 
+non-participating thread as well. So far it is very similar to a thread-local unique_ptr, however sisl::ThreadBuffer 
 provides one more critical functionality which is exit safety. Once thread has exited, typically that threads version of
 buffer is also gone. This might be ok for several scenarios, but on some occasions it is important to retain the thread 
 buffer even after thread exits. One such requirement is for wait free metrics collection. 
@@ -54,4 +54,12 @@ inconsistency on sample, shouldn't skew the results and in general its an accept
 
 ### WISR RCU Framework
 
-<More to be added soon>
+In this method each thread's metric values live inside a `wisr_framework`-managed per-thread buffer protected by
+userspace RCU (liburcu). Writers enter an RCU read-side critical section (`rcu_read_lock`) to reach their slot and
+update it — this is wait-free and requires no compare-and-swap. Readers call `synchronize_rcu()` to wait for all
+in-flight read-side sections to drain, then rotate the per-thread buffers and merge the retired copies. This
+completely avoids signals and is preferred for components where even signal delivery latency is unacceptable.
+
+The trade-off versus `ThreadBufferWithSignal` is that `synchronize_rcu()` on the read path can block for the
+duration of the longest in-flight writer critical section (typically sub-microsecond). For scrape-triggered reporting
+(once per minute) this cost is negligible.

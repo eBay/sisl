@@ -237,41 +237,33 @@ void test_basic_callback_flip() {
     flip::Flip flip;
     flip::FlipClient fclient(&flip);
 
-    std::atomic<int> callback_count{0};
+    std::atomic< int > callback_count{0};
     int received_trigger = 0;
 
     // Single flip spec: "match" parameter controls condition matching
     flip::FlipCondition cond_match = fclient.create_condition("match", flip::Operator::EQUAL, 1);
     flip::FlipCondition cond_trigger = fclient.create_condition("trigger", flip::Operator::DONT_CARE, 0);
     flip::FlipFrequency freq;
-    freq.set_count(2);  // Only allow 2 triggers
+    freq.set_count(2); // Only allow 2 triggers
     freq.set_percent(100);
 
-    fclient.inject_callback_flip<void, int, int>(
-        "test_callback",
-        {cond_match, cond_trigger},
-        freq,
-        std::function<void(int, int)>([&](int match, int trigger) {
-            match++;
-            callback_count++;
-            received_trigger = trigger;
-        })
-    );
+    fclient.inject_callback_flip< void, int, int >("test_callback", {cond_match, cond_trigger}, freq,
+                                                   std::function< void(int, int) >([&](int /* match */, int trigger) {
+                                                       callback_count++;
+                                                       received_trigger = trigger;
+                                                   }));
 
     // ====== Test 1: Condition not met (match=0) ======
-    RELEASE_ASSERT(!flip.callback_flip("test_callback", 0, 100),
-                   "callback_flip should return false when match=0");
+    RELEASE_ASSERT(!flip.callback_flip("test_callback", 0, 100), "callback_flip should return false when match=0");
     RELEASE_ASSERT_EQ(callback_count.load(), 0, "Callback should not be called when match=0");
 
     // ====== Test 2: Condition met, first trigger (match=1) ======
-    RELEASE_ASSERT(flip.callback_flip("test_callback", 1, 200),
-                   "callback_flip should return true when match=1");
+    RELEASE_ASSERT(flip.callback_flip("test_callback", 1, 200), "callback_flip should return true when match=1");
     RELEASE_ASSERT_EQ(callback_count.load(), 1, "Callback should be called once");
     RELEASE_ASSERT_EQ(received_trigger, 200, "Received trigger parameter should be 200");
 
     // ====== Test 3: Condition met, second trigger (match=1) ======
-    RELEASE_ASSERT(flip.callback_flip("test_callback", 1, 300),
-                   "callback_flip should return true for second trigger");
+    RELEASE_ASSERT(flip.callback_flip("test_callback", 1, 300), "callback_flip should return true for second trigger");
     RELEASE_ASSERT_EQ(callback_count.load(), 2, "Callback should be called twice");
     RELEASE_ASSERT_EQ(received_trigger, 300, "Received trigger parameter should be 300");
 
@@ -297,19 +289,14 @@ void test_callback_flip_reference_param() {
     freq.set_count(1);
     freq.set_percent(100);
 
-    fclient.inject_callback_flip<void, int, int&>(
-        "test_reference",
-        {cond1, cond2},
-        freq,
-        std::function<void(int, int&)>([&captured_value](int, int& data) {
-            captured_value = data;  // Capture the original value
-            data = 999;  // Modify the original
-        })
-    );
+    fclient.inject_callback_flip< void, int, int& >("test_reference", {cond1, cond2}, freq,
+                                                    std::function< void(int, int&) >([&captured_value](int, int& data) {
+                                                        captured_value = data; // Capture the original value
+                                                        data = 999;            // Modify the original
+                                                    }));
 
     received_value = 42;
-    RELEASE_ASSERT(flip.callback_flip("test_reference", 1, received_value),
-                   "callback_flip should return true");
+    RELEASE_ASSERT(flip.callback_flip("test_reference", 1, received_value), "callback_flip should return true");
     RELEASE_ASSERT_EQ(captured_value, 42, "Callback should receive original value");
     RELEASE_ASSERT_EQ(received_value, 999, "Original should be modified by callback");
 
@@ -326,22 +313,18 @@ void test_callback_retval_flip() {
     freq.set_count(1);
     freq.set_percent(100);
 
-    fclient.inject_callback_retval_flip<int, int>(
-        "test_retval_callback",
-        {cond},
-        freq,
-        std::function<int(int)>([](int input) -> int {
-            return input * 2;  // Return double the input
-        })
-    );
+    fclient.inject_callback_retval_flip< int, int >("test_retval_callback", {cond}, freq,
+                                                    std::function< int(int) >([](int input) -> int {
+                                                        return input * 2; // Return double the input
+                                                    }));
 
     // First trigger
-    auto result = flip.get_callback_flip<int>("test_retval_callback", 42);
+    auto result = flip.get_callback_flip< int >("test_retval_callback", 42);
     RELEASE_ASSERT(result, "get_callback_flip should return a value");
     RELEASE_ASSERT_EQ(result.get(), 84, "Return value should be double input");
 
     // Count exhausted - should return boost::none
-    result = flip.get_callback_flip<int>("test_retval_callback", 42);
+    result = flip.get_callback_flip< int >("test_retval_callback", 42);
     RELEASE_ASSERT(!result, "get_callback_flip should return boost::none when exhausted");
 
     LOGINFO("test_callback_retval_flip PASSED");
@@ -352,22 +335,18 @@ void test_callback_exception_handling() {
     flip::Flip flip;
     flip::FlipClient fclient(&flip);
 
-    std::atomic<int> callback_count{0};
+    std::atomic< int > callback_count{0};
 
     flip::FlipCondition cond = fclient.create_condition("val", flip::Operator::DONT_CARE, 0);
     flip::FlipFrequency freq;
     freq.set_count(2);
     freq.set_percent(100);
 
-    fclient.inject_callback_flip<void, int>(
-        "test_exception",
-        {cond},
-        freq,
-        std::function<void(int)>([&callback_count](int) {
-            callback_count++;
-            throw std::runtime_error("Test exception in callback");
-        })
-    );
+    fclient.inject_callback_flip< void, int >("test_exception", {cond}, freq,
+                                              std::function< void(int) >([&callback_count](int) {
+                                                  callback_count++;
+                                                  throw std::runtime_error("Test exception in callback");
+                                              }));
 
     // First trigger - should catch exception and return true (callback was called)
     // Note: callback_flip returns true to indicate the flip point was TRIGGERED, not that the
@@ -378,8 +357,7 @@ void test_callback_exception_handling() {
     RELEASE_ASSERT_EQ(callback_count.load(), 1, "Callback should be called once despite exception");
 
     // Second trigger - same behavior
-    RELEASE_ASSERT(flip.callback_flip("test_exception", 2),
-                   "callback_flip should return true for second trigger");
+    RELEASE_ASSERT(flip.callback_flip("test_exception", 2), "callback_flip should return true for second trigger");
     RELEASE_ASSERT_EQ(callback_count.load(), 2, "Callback should be called twice");
 
     LOGINFO("test_callback_exception_handling PASSED");
@@ -390,27 +368,21 @@ void test_callback_thread_safety() {
     flip::Flip flip;
     flip::FlipClient fclient(&flip);
 
-    std::atomic<int> callback_count{0};
+    std::atomic< int > callback_count{0};
     constexpr int num_threads = 4;
     constexpr int triggers_per_thread = 10;
 
     flip::FlipCondition cond = fclient.create_condition("val", flip::Operator::DONT_CARE, 0);
     flip::FlipFrequency freq;
-    freq.set_count(num_threads * triggers_per_thread);  // Allow all triggers
+    freq.set_count(num_threads * triggers_per_thread); // Allow all triggers
     freq.set_percent(100);
 
-    fclient.inject_callback_flip<void, int>(
-        "test_concurrent",
-        {cond},
-        freq,
-        std::function<void(int)>([&callback_count](int) {
-            callback_count++;
-        })
-    );
+    fclient.inject_callback_flip< void, int >("test_concurrent", {cond}, freq,
+                                              std::function< void(int) >([&callback_count](int) { callback_count++; }));
 
-    std::vector<std::thread> threads;
+    std::vector< std::thread > threads;
     for (int t = 0; t < num_threads; ++t) {
-        threads.emplace_back([&flip, triggers_per_thread]() {
+        threads.emplace_back([&flip]() {
             for (int i = 0; i < triggers_per_thread; ++i) {
                 flip.callback_flip("test_concurrent", i);
             }
@@ -445,9 +417,9 @@ void test_callback_coordination() {
     flip::FlipClient fclient(&flip);
 
     // Shared state captured by both callbacks for coordination
-    std::atomic<bool> checkpoint_a_reached{false};
-    std::atomic<bool> checkpoint_b_started{false};
-    std::atomic<int> execution_order{0};
+    std::atomic< bool > checkpoint_a_reached{false};
+    std::atomic< bool > checkpoint_b_started{false};
+    std::atomic< int > execution_order{0};
     int order_a = -1;
     int order_b = -1;
     std::string data_from_a;
@@ -459,11 +431,8 @@ void test_callback_coordination() {
     freq.set_percent(100);
 
     // Callback A: Signal checkpoint and pass data
-    fclient.inject_callback_flip<void, std::string&>(
-        "checkpoint_a",
-        {cond},
-        freq,
-        std::function<void(std::string&)>([&](std::string& data) {
+    fclient.inject_callback_flip< void, std::string& >(
+        "checkpoint_a", {cond}, freq, std::function< void(std::string&) >([&](std::string& data) {
             // Simulate some processing
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -474,15 +443,11 @@ void test_callback_coordination() {
             checkpoint_a_reached.store(true);
 
             LOGINFO("Checkpoint A reached, order={}, data={}", order_a, data);
-        })
-    );
+        }));
 
     // Callback B: Wait for checkpoint A before proceeding
-    fclient.inject_callback_flip<void, std::string&>(
-        "checkpoint_b",
-        {cond},
-        freq,
-        std::function<void(std::string&)>([&](std::string& data) {
+    fclient.inject_callback_flip< void, std::string& >(
+        "checkpoint_b", {cond}, freq, std::function< void(std::string&) >([&](std::string& data) {
             checkpoint_b_started.store(true);
             LOGINFO("Checkpoint B started, waiting for A...");
 
@@ -504,8 +469,7 @@ void test_callback_coordination() {
             order_b = execution_order.fetch_add(1);
 
             LOGINFO("Checkpoint B completed, order={}, data={}", order_b, data);
-        })
-    );
+        }));
 
     // Simulate business code: Thread B starts first but must wait for A
     std::string result_a, result_b;
@@ -558,17 +522,19 @@ int main(int argc, char* argv[]) {
     flip::FlipSpec delay_ret_fspec;
     create_delay_ret_fspec(&delay_ret_fspec);
 
-    flip::Flip flip;
-    flip.start_rpc_server();
-    flip.add(ret_fspec);
-    flip.add(check_fspec);
-    flip.add(delay_fspec);
-    flip.add(delay_ret_fspec);
+    {
+        flip::Flip flip;
+        flip.start_rpc_server();
+        flip.add(ret_fspec);
+        flip.add(check_fspec);
+        flip.add(delay_fspec);
+        flip.add(delay_ret_fspec);
 
-    run_and_validate_ret_flip(&flip);
-    run_and_validate_check_flip(&flip);
-    run_and_validate_delay_flip(&flip);
-    run_and_validate_delay_return_flip(&flip);
+        run_and_validate_ret_flip(&flip);
+        run_and_validate_check_flip(&flip);
+        run_and_validate_delay_flip(&flip);
+        run_and_validate_delay_return_flip(&flip);
+    } // gRPC server shut down before callback tests to avoid ASAN stack-after-scope false positive
 
     // Run callback tests
     test_basic_callback_flip();

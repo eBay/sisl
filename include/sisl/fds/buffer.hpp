@@ -26,10 +26,7 @@
 #include <malloc.h>
 #include <sys/uio.h>
 #endif
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#include <folly/small_vector.h>
-#pragma GCC diagnostic pop
+#include <boost/container/small_vector.hpp>
 #include <sisl/metrics/metrics.hpp>
 #include <sisl/utility/enum.hpp>
 #include "utils.hpp"
@@ -79,7 +76,7 @@ public:
     void set_size(uint32_t s) { size_ = s; }
 };
 
-using sg_iovs_t = folly::small_vector< iovec, 4 >;
+using sg_iovs_t = boost::container::small_vector< iovec, 4 >;
 struct sg_list {
     uint64_t size; // total size of data pointed by iovs;
     sg_iovs_t iovs;
@@ -319,7 +316,7 @@ template < typename T, std::size_t Alignment = 512 >
 using aligned_vector = std::vector< T, AlignedTypeAllocator< T, Alignment > >;
 
 struct io_blob;
-using io_blob_list_t = folly::small_vector< sisl::io_blob, 4 >;
+using io_blob_list_t = boost::container::small_vector< sisl::io_blob, 4 >;
 
 struct io_blob : public blob {
 protected:
@@ -457,7 +454,9 @@ public:
         m_view.set_bytes(v.m_view.cbytes() + offset);
         m_view.set_size(sz);
     }
-    byte_view(const sisl::io_blob& b) : byte_view(b.size(), b.is_aligned()) {}
+    byte_view(const sisl::io_blob& b) : byte_view(b.size(), b.is_aligned() ? 512u : 0u) {
+        std::memcpy(m_base_buf->bytes(), b.cbytes(), b.size());
+    }
 
     ~byte_view() = default;
     byte_view(const byte_view& other) = default;
