@@ -67,7 +67,7 @@ conan build -s:h build_type=Release \
     -c tools.build:skip_test=True .
 
 # Debug + AddressSanitizer
-conan build -s:h build_type=Debug -o sisl/*:sanitize=True .
+conan build -s:h build_type=Debug -o sisl/*:sanitize=address .
 
 # Coverage report
 conan build -s:h build_type=Debug -o sisl/*:coverage=True .
