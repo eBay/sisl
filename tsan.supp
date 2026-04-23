@@ -16,14 +16,24 @@ race:test_urcu_gets
 race:parallel_update
 race:test_raw_gets
 
-# test_flip / echo_server / echo_async_client: gRPC/absl EventEngine TSAN false positives.
+# test_flip / echo_server / echo_async_client / auth_test: gRPC/absl TSAN false positives.
 # All races are within gRPC/absl internal lock-free initialization and EventEngine management
-# code; none involve sisl code. Races surface through allocator templates and unqualified
-# functions (DoAllocWithArena) that require namespace-level suppression.
+# code. Suppressions cover three layers:
+#   1. grpc_core / grpc_event_engine::experimental / absl — internal gRPC/absl namespaces
+#   2. grpc:: / google::protobuf — the C++ public API layer (CQ-based happens-before invisible to TSAN)
+#   3. sisl gRPC wrappers — races surface here because gRPC's completion queue delivery
+#      provides happens-before that TSAN cannot model; operator new tracking makes TSAN
+#      believe the allocating thread is still writing when the CQ thread reads the object.
 race:grpc_event_engine::experimental
 race:grpc_core
 race:absl::lts_20250127
 race:DoAllocWithArena
+race:grpc::
+race:google::protobuf
+race:sisl::RpcTag
+race:sisl::RpcData
+race:sisl::ClientRpcData
+race:sisl::GrpcAsyncClientWorker
 
 # wisr_vector_test: URCU false positives — urcu_scoped_ptr::_make_and_exchange swaps in a new
 # buffer while writers read through the URCU pointer; synchronize_rcu() provides the

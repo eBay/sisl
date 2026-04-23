@@ -150,7 +150,6 @@ class SISLConan(ConanFile):
         # This generates "conan_toolchain.cmake" in self.generators_folder
         tc = CMakeToolchain(self)
         tc.variables["CONAN_CMAKE_SILENT_OUTPUT"] = "ON"
-        tc.variables["CTEST_OUTPUT_ON_FAILURE"] = "ON"
         tc.variables["ADDRESS_SANITIZER_ON"] = "OFF"
         tc.variables["THREAD_SANITIZER_ON"] = "OFF"
         tc.variables["BUILD_COVERAGE"] = "OFF"
@@ -190,7 +189,7 @@ class SISLConan(ConanFile):
         cmake.configure()
         cmake.build()
         if not self.conf.get("tools.build:skip_test", default=False):
-            cmake.test()
+            cmake.test(cli_args=["--output-on-failure"])
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
