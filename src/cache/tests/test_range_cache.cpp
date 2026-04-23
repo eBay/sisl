@@ -96,6 +96,7 @@ protected:
                 auto nblks = (cache_it != vec.end()) ? cache_it->first.m_nth - cur_blk : end_blk - cur_blk + 1;
                 sisl::io_blob file_data = file_read(chunk_num, cur_blk, nblks);
                 m_cache->insert(chunk_num, cur_blk, nblks, std::move(file_data));
+                file_data.buf_free();
                 m_cache_missed_nblks += nblks;
                 cur_blk += nblks;
             }
