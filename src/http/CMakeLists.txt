@@ -11,6 +11,11 @@ target_link_libraries(sisl_http PUBLIC
   Pistache::Pistache
   )
 
+if(TARGET sisl_metrics)
+  target_link_libraries(sisl_http PUBLIC sisl_metrics)
+  target_compile_definitions(sisl_http PUBLIC PROMETHEUS_METRICS_REPORTER)
+endif()
+
 add_executable(test_http_server)
 target_sources(test_http_server PRIVATE
   tests/test_http_server.cpp
