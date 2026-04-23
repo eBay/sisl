@@ -73,9 +73,10 @@ protected:
 
     void write(const uint32_t chunk_num, const uint32_t start_blk, const uint32_t end_blk) {
         uint32_t size = (end_blk - start_blk + 1) * g_blk_size;
-        sisl::io_blob b{uintptr_cast(generate_data(size)), size, false};
+        auto b = generate_data(size);
         file_write(chunk_num, start_blk, b);
         m_cache->insert(chunk_num, start_blk, end_blk - start_blk + 1, std::move(b));
+        b.buf_free();
     }
 
     void read(const uint32_t chunk_num, const uint32_t start_blk, const uint32_t end_blk) {
@@ -123,7 +124,9 @@ private:
             LOGINFO("File {} being filled with random bytes for size={}", fname, chunk_size);
             while (filled_size < chunk_size) {
                 uint32_t this_size = std::min(uint32_cast(chunk_size - filled_size), max_blk_size);
-                auto size = ::write(fd, generate_data(this_size), this_size);
+                auto data = generate_data(this_size);
+                auto size = ::write(fd, voidptr_cast(data.bytes()), this_size);
+                data.buf_free();
                 ASSERT_EQ(size, this_size);
                 filled_size += this_size;
             }
@@ -131,13 +134,14 @@ private:
     }
 
     using random_bytes_engine = std::independent_bits_engine< std::default_random_engine, 64, unsigned long >;
-    void* generate_data(const uint32_t buf_size) {
+    sisl::io_blob generate_data(const uint32_t buf_size) {
+        sisl::io_blob blob{buf_size, 0};
         random_bytes_engine rbe;
-        uint64_t* buf = new uint64_t[buf_size / 8];
+        auto* buf = r_cast< uint64_t* >(blob.bytes());
         for (uint32_t s{0}; s < buf_size / 8; ++s) {
             buf[s] = rbe();
         }
-        return r_cast< void* >(buf);
+        return blob;
     }
 
     void file_delete(const uint32_t nchunks) {

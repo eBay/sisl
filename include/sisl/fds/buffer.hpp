@@ -454,7 +454,9 @@ public:
         m_view.set_bytes(v.m_view.cbytes() + offset);
         m_view.set_size(sz);
     }
-    byte_view(const sisl::io_blob& b) : byte_view(b.size(), b.is_aligned()) {}
+    byte_view(const sisl::io_blob& b) : byte_view(b.size(), b.is_aligned() ? 512u : 0u) {
+        std::memcpy(m_base_buf->bytes(), b.bytes(), b.size());
+    }
 
     ~byte_view() = default;
     byte_view(const byte_view& other) = default;
