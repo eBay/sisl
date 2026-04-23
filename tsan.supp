@@ -16,16 +16,14 @@ race:test_urcu_gets
 race:parallel_update
 race:test_raw_gets
 
-# test_flip: gRPC/absl EventEngine TSAN false positives — gRPC internal lock-free algorithms
-# and absl synchronization primitives cannot be fully modeled by TSAN. All races occur in
-# gRPC/absl internal code (EventEngine threads, absl containers, AnyInvocable management);
-# these match patterns in gRPC's own upstream TSAN suppression list.
-race:grpc_event_engine::experimental::SelfDeletingClosure
-race:grpc_event_engine::experimental::TimerManager
-race:grpc_event_engine::experimental::PosixEnginePollerManager
-race:absl::lts_20250127::synchronization_internal
-race:absl::lts_20250127::container_internal::HashSetResizeHelper
-race:absl::lts_20250127::internal_any_invocable::RemoteManagerTrivial
+# test_flip / echo_server / echo_async_client: gRPC/absl EventEngine TSAN false positives.
+# All races are within gRPC/absl internal lock-free initialization and EventEngine management
+# code; none involve sisl code. Races surface through allocator templates and unqualified
+# functions (DoAllocWithArena) that require namespace-level suppression.
+race:grpc_event_engine::experimental
+race:grpc_core
+race:absl::lts_20250127
+race:DoAllocWithArena
 
 # wisr_vector_test: URCU false positives — urcu_scoped_ptr::_make_and_exchange swaps in a new
 # buffer while writers read through the URCU pointer; synchronize_rcu() provides the
