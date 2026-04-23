@@ -58,7 +58,14 @@ protected:
         range_blob.buf_free();
 
         for (auto i{start}; i <= end; ++i) {
-            m_shadow_map.insert({i, create_data(i, i)});
+            auto new_blob = create_data(i, i);
+            auto it = m_shadow_map.find(i);
+            if (it != m_shadow_map.end()) {
+                it->second.buf_free();
+                it->second = new_blob;
+            } else {
+                m_shadow_map.emplace(i, new_blob);
+            }
             m_inserted_slots.set_bit(i);
         }
     }
