@@ -58,21 +58,26 @@ public:
     friend class AtomicCounterValue;
 
     CounterValue() = default;
-    CounterValue(const CounterValue&) = default;
-    CounterValue(CounterValue&&) noexcept = default;
+    CounterValue(const CounterValue& other) : m_value{other.m_value.load(std::memory_order_relaxed)} {}
+    CounterValue(CounterValue&& other) noexcept : m_value{other.m_value.load(std::memory_order_relaxed)} {}
     CounterValue& operator=(const CounterValue&) = delete;
     CounterValue& operator=(CounterValue&&) noexcept = delete;
 
-    void increment(const int64_t value = 1) { m_value += value; }
-    void decrement(const int64_t value = 1) { m_value -= value; }
-    int64_t get() const { return m_value; }
+    void increment(const int64_t value = 1) {
+        m_value.store(m_value.load(std::memory_order_relaxed) + value, std::memory_order_relaxed);
+    }
+    void decrement(const int64_t value = 1) {
+        m_value.store(m_value.load(std::memory_order_relaxed) - value, std::memory_order_relaxed);
+    }
+    int64_t get() const { return m_value.load(std::memory_order_relaxed); }
     int64_t merge(const CounterValue& other) {
-        this->m_value += other.m_value;
-        return this->m_value;
+        const int64_t new_val = m_value.load(std::memory_order_relaxed) + other.m_value.load(std::memory_order_relaxed);
+        m_value.store(new_val, std::memory_order_relaxed);
+        return new_val;
     }
 
 private:
-    int64_t m_value{0};
+    std::atomic< int64_t > m_value{0};
 };
 
 class CounterStaticInfo {
