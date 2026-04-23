@@ -8,3 +8,10 @@
 # can reach the close — pipe buffer ordering provides the happens-before that TSAN cannot model.
 race:sisl::FileWatcher::run
 race:sisl::FileWatcher::stop
+
+# test_status_factory benchmarks: URCU races are false positives (synchronize_rcu() provides
+# the happens-before that TSAN cannot model); parallel_update/test_raw_gets races are
+# intentional — the benchmark deliberately exercises unsynchronized access as a baseline.
+race:test_urcu_gets
+race:parallel_update
+race:test_raw_gets
