@@ -1,8 +1,12 @@
 if (SANITIZER_TYPE STREQUAL "thread")
-    # -Wno-tsan: GCC 13+ warns on atomic_thread_fence which TSAN cannot fully intercept;
-    # suppress to avoid -Werror failures on a known GCC/TSAN limitation.
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g -O1 -fno-omit-frame-pointer -Wno-tsan")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread -g -O1 -fno-omit-frame-pointer -Wno-tsan")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g -O1 -fno-omit-frame-pointer")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread -g -O1 -fno-omit-frame-pointer")
+    # GCC 13+ warns on atomic_thread_fence which TSAN cannot fully intercept; clang lacks this
+    # warning entirely and rejects -Wno-tsan under -Werror.
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-tsan")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-tsan")
+    endif()
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
     message(STATUS "********* WARNING: Running with Thread Sanitizer ON *********")
 else()

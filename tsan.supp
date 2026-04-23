@@ -15,3 +15,9 @@ race:sisl::FileWatcher::stop
 race:test_urcu_gets
 race:parallel_update
 race:test_raw_gets
+
+# wisr_vector_test: URCU false positives — urcu_scoped_ptr::_make_and_exchange swaps in a new
+# buffer while writers read through the URCU pointer; synchronize_rcu() provides the
+# happens-before that TSAN cannot model.
+race:sisl::wisr_framework
+race:sisl::urcu_scoped_ptr
