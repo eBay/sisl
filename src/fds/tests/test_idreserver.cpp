@@ -58,18 +58,8 @@ void run_parallel(uint32_t nthreads, const std::function< void(uint32_t) >& thr_
 }
 
 struct IDReserverTest : public testing::Test {
-public:
-    IDReserverTest(const IDReserverTest&) = delete;
-    IDReserverTest(IDReserverTest&&) noexcept = delete;
-    IDReserverTest& operator=(const IDReserverTest&) = delete;
-    IDReserverTest& operator=(IDReserverTest&&) noexcept = delete;
-    ~IDReserverTest() override = default;
-
 protected:
     IDReserver m_reserver;
-
-    void SetUp() override {}
-    void TearDown() override {}
 };
 } // namespace
 
