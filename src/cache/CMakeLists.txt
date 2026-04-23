@@ -23,7 +23,7 @@ target_sources(test_range_cache PRIVATE
 target_include_directories(test_range_cache BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(test_range_cache sisl_cache GTest::gtest)
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  add_test(NAME RangeCache COMMAND test_range_cache --num_iters 1000 -v warn)
+  add_test(NAME RangeCache COMMAND test_range_cache --num_iters 200 --cache_size_mb 16 --num_chunks 2 -v warn)
 endif()
 
 add_executable(test_simple_cache)

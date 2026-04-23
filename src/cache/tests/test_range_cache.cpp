@@ -66,8 +66,8 @@ protected:
     }
 
     void TearDown() override {
-        m_evictor.reset();
         m_cache.reset();
+        m_evictor.reset();
         file_delete(g_num_chunks);
     }
 
@@ -213,6 +213,7 @@ TEST_F(RangeCacheTest, RandomData) {
         const uint32_t start_blk = blk_generator(g_re);
         uint32_t nblks = nblks_generator(g_re);
         if (nblks + start_blk > last_blk) { nblks = last_blk - start_blk; }
+        if (nblks == 0) { continue; }
 
         LOGINFO("INFO: Doing op={} on chunk={} for blks=[{}-{}]", enum_name(op), chunk_num, start_blk,
                 start_blk + nblks - 1);
@@ -231,9 +232,11 @@ TEST_F(RangeCacheTest, RandomData) {
     }
     LOGINFO("Executed read_ops={}, blks_read={} write_ops={} blks_written={}", nread_ops, nblks_read, nwrite_ops,
             nblks_written);
-    LOGINFO("Cache hits={} ({}%) Cache Misses={} ({}%), Avg pieces per cache hit entry={}", m_cache_hit_nblks,
-            (100 * m_cache_hit_nblks) / nblks_read, m_cache_missed_nblks, (100 * m_cache_missed_nblks) / nblks_read,
-            m_cache_hit_nblks / m_cache_pieces);
+    if (nblks_read > 0 && m_cache_pieces > 0) {
+        LOGINFO("Cache hits={} ({}%) Cache Misses={} ({}%), Avg pieces per cache hit entry={}", m_cache_hit_nblks,
+                (100 * m_cache_hit_nblks) / nblks_read, m_cache_missed_nblks, (100 * m_cache_missed_nblks) / nblks_read,
+                m_cache_hit_nblks / m_cache_pieces);
+    }
 }
 
 SISL_OPTIONS_ENABLE(logging, test_rangecache)
