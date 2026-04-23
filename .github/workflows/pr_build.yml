@@ -35,7 +35,7 @@ jobs:
       tooling: ${{ matrix.tooling }}
       compiler: 'gcc'
       testing: 'True'
-  ClangBuild:
+  ClangThreadSanitize:
     uses: ./.github/workflows/build_dependencies.yml
     with:
       platform: "ubuntu-24.04"
