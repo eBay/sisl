@@ -80,6 +80,13 @@ target_sources(test_sg_list PRIVATE
 target_link_libraries(test_sg_list sisl_buffer GTest::gtest)
 add_test(NAME SgList COMMAND test_sg_list)
 
+add_executable(test_idreserver)
+target_sources(test_idreserver PRIVATE
+  tests/test_idreserver.cpp
+  )
+target_link_libraries(test_idreserver sisl_buffer GTest::gtest)
+add_test(NAME IdReserver COMMAND test_idreserver)
+
 
 if (DEFINED MALLOC_IMPL)
   if (${MALLOC_IMPL} STREQUAL "jemalloc")
