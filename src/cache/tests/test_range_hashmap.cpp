@@ -177,6 +177,7 @@ TEST_F(RangeHashMapTest, RandomEverythingTest) {
         const big_offset_t offset = offset_generator(g_re);
         big_count_t size = g_size_generator(g_re);
         if (size + offset >= g_max_offset) { size = g_max_offset - offset - 1; }
+        if (size == 0) { continue; }
 
         LOGINFO("INFO: Doing op={} offset_range={}-{}", enum_name(op), offset, offset + size - 1);
 
