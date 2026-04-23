@@ -15,9 +15,6 @@ target_sources(test_range_hashmap PRIVATE
 target_include_directories(test_range_hashmap BEFORE PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(test_range_hashmap sisl_cache GTest::gtest)
 add_test(NAME RangeHashMap COMMAND test_range_hashmap --num_iters 10000 -v warn)
-if ((DEFINED ADDRESS_SANITIZER_ON AND ADDRESS_SANITIZER_ON) OR (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON))
-  set_tests_properties(RangeHashMap PROPERTIES DISABLED TRUE)
-endif()
 
 add_executable(test_range_cache)
 target_sources(test_range_cache PRIVATE

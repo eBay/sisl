@@ -41,3 +41,8 @@ if (${flatbuffers_FOUND})
     add_subdirectory(grpc)
   endif()
 endif()
+
+find_package(Pistache QUIET)
+if(${Pistache_FOUND})
+  add_subdirectory(http)
+endif()
