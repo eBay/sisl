@@ -28,15 +28,18 @@ sobject_ptr sobject::get_child(const std::string& name) {
 }
 
 void sobject::add_child(const sobject_ptr child) {
-    // Add a child to current object.
-    std::unique_lock lock{m_mtx};
-    LOGINFO("Parent {}/{} added child {}/{}", type(), name(), child->type(), child->name());
-    m_children.emplace(child->name(), child);
+    {
+        std::unique_lock lock{m_mtx};
+        LOGINFO("Parent {}/{} added child {}/{}", type(), name(), child->type(), child->name());
+        m_children.emplace(child->name(), child);
+    }
+    // Call add_object_type without holding m_mtx: manager lock must be acquired
+    // after releasing per-object locks to preserve the global lock order
+    // (manager → per-object), which get_status() relies on.
     m_mgr->add_object_type(type(), child->type());
 }
 
 void sobject::add_child_type(const std::string& child_type) {
-    std::unique_lock lock{m_mtx};
     LOGINFO("Added type parent {} child {}", type(), child_type);
     m_mgr->add_object_type(type(), child_type);
 }
