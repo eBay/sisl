@@ -49,3 +49,4 @@ race:default_free
 # happens-before that TSAN cannot model.
 race:sisl::wisr_framework
 race:sisl::urcu_scoped_ptr
+
