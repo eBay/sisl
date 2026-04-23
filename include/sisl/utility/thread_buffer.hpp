@@ -307,14 +307,20 @@ public:
 
     T* get() {
         auto tnum = ThreadLocalContext::my_thread_num();
-        assert(m_buffers[tnum].get() != nullptr);
-        return m_buffers[tnum].get();
+        // Use data()[tnum] directly to avoid sparse_vector::fill_void() reading size(),
+        // which races with concurrent emplace_back() in on_thread_state_change().
+        // The slot is guaranteed to exist: on_thread_state_change(ATTACHED) allocates
+        // it before this thread can call get(), and reserve() prevents reallocation.
+        T* slot = m_buffers.data()[tnum].get();
+        assert(slot != nullptr);
+        return slot;
     }
 
     const T* get() const {
         auto tnum = ThreadLocalContext::my_thread_num();
-        assert(m_buffers[tnum].get() != nullptr);
-        return m_buffers[tnum].get();
+        const T* slot = m_buffers.data()[tnum].get();
+        assert(slot != nullptr);
+        return slot;
     }
 
     T& operator*() { return *(get()); }
