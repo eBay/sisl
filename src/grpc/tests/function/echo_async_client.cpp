@@ -120,6 +120,13 @@ static void SerializeToBlob(sisl::io_blob_list_t& buffer, const DataMessage& msg
 static const std::string GENERIC_CLIENT_MESSAGE{gen_random_string(MAX_GRPC_RECV_SIZE)};
 static const std::string GENERIC_METHOD{"SendData"};
 
+// TSAN adds ~20x overhead; 1 s is too tight for large (up to 64 MB) payloads.
+#ifdef __SANITIZE_THREAD__
+static constexpr uint32_t k_rpc_deadline{30};
+#else
+static constexpr uint32_t k_rpc_deadline{1};
+#endif
+
 class TestClient {
 public:
     static constexpr int GRPC_CALL_COUNT = 400;
@@ -201,7 +208,7 @@ public:
                         [req, this](EchoReply& reply, ::grpc::Status& status) {
                             validate_echo_reply(req, reply, status);
                         },
-                        1);
+                        k_rpc_deadline);
                 } else if (i % 3 == 1) {
                     echo_stub->call_rpc< EchoRequest, EchoReply >(
                         [i](EchoRequest& req) { req.set_message(std::to_string(i)); },
@@ -209,13 +216,14 @@ public:
                         [this](ClientRpcData< EchoRequest, EchoReply >& cd) {
                             validate_echo_reply(cd.req(), cd.reply(), cd.status());
                         },
-                        1);
+                        k_rpc_deadline);
                 } else {
                     EchoRequest req;
                     req.set_message(std::to_string(i));
-                    auto e =
-                        echo_stub->call_unary< EchoRequest, EchoReply >(req, &EchoService::StubInterface::AsyncEcho, 1)
-                            .get();
+                    auto e = echo_stub
+                                 ->call_unary< EchoRequest, EchoReply >(req, &EchoService::StubInterface::AsyncEcho,
+                                                                        k_rpc_deadline)
+                                 .get();
                     RELEASE_ASSERT(e.has_value(), "echo request {} failed, status {}: {}", req.message(),
                                    e.error().error_code(), e.error().error_message());
                     validate_echo_reply(req, e.value(), grpc::Status::OK);
@@ -231,20 +239,21 @@ public:
                         [req, this](PingReply& reply, ::grpc::Status& status) {
                             validate_ping_reply(req, reply, status);
                         },
-                        1);
+                        k_rpc_deadline);
                 } else if (j % 3 == 1) {
                     ping_stub->call_rpc< PingRequest, PingReply >(
                         [i](PingRequest& req) { req.set_seqno(i); }, &PingService::StubInterface::AsyncPing,
                         [this](ClientRpcData< PingRequest, PingReply >& cd) {
                             validate_ping_reply(cd.req(), cd.reply(), cd.status());
                         },
-                        1);
+                        k_rpc_deadline);
                 } else {
                     PingRequest req;
                     req.set_seqno(i);
-                    auto e =
-                        ping_stub->call_unary< PingRequest, PingReply >(req, &PingService::StubInterface::AsyncPing, 1)
-                            .get();
+                    auto e = ping_stub
+                                 ->call_unary< PingRequest, PingReply >(req, &PingService::StubInterface::AsyncPing,
+                                                                        k_rpc_deadline)
+                                 .get();
                     RELEASE_ASSERT(e.has_value(), "ping request {} failed, status {}: {}", req.seqno(),
                                    e.error().error_code(), e.error().error_message());
                     validate_ping_reply(req, e.value(), grpc::Status::OK);
@@ -267,7 +276,7 @@ public:
                         [req, this](grpc::ByteBuffer& reply, ::grpc::Status& status) {
                             validate_generic_reply(req, reply, status);
                         },
-                        1);
+                        k_rpc_deadline);
                 } else if (((j++ % 4) == 1)) {
                     int size = mess_size[distrib(gen)];
                     LOGDEBUGMOD(grpc_server, "Testing call_rpc with size {}", size);
@@ -277,14 +286,14 @@ public:
                                            [data_msg, this](GenericClientRpcData& cd) {
                                                validate_generic_reply(data_msg, cd.reply(), cd.status());
                                            },
-                                           1);
+                                           k_rpc_deadline);
                 } else if (((j++ % 4) == 2)) {
                     int size = mess_size[distrib(gen)];
                     LOGDEBUGMOD(grpc_server, "Testing call_unary with size {}", size);
                     DataMessage req(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
                     grpc::ByteBuffer cli_buf;
                     SerializeToByteBuffer(cli_buf, req);
-                    auto e = generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1).get();
+                    auto e = generic_stub->call_unary(cli_buf, GENERIC_METHOD, k_rpc_deadline).get();
                     RELEASE_ASSERT(e.has_value(), "generic request {} failed, status {}: {}", req.m_seqno,
                                    e.error().error_code(), e.error().error_message());
                     validate_generic_reply(req, e.value(), grpc::Status::OK);
@@ -295,7 +304,7 @@ public:
                     DataMessage req(i, GENERIC_CLIENT_MESSAGE.substr(0, size));
                     sisl::io_blob_list_t cli_buf;
                     SerializeToBlob(cli_buf, req);
-                    auto e = generic_stub->call_unary(cli_buf, GENERIC_METHOD, 1).get();
+                    auto e = generic_stub->call_unary(cli_buf, GENERIC_METHOD, k_rpc_deadline).get();
                     RELEASE_ASSERT(e.has_value(), "generic request {} failed, status {}: {}", req.m_seqno,
                                    e.error().error_code(), e.error().error_message());
                     validate_generic_reply(req, std::move(e.value()), grpc::Status::OK, cli_buf);

@@ -34,6 +34,15 @@ race:sisl::RpcTag
 race:sisl::RpcData
 race:sisl::ClientRpcData
 race:sisl::GrpcAsyncClientWorker
+# gpr_*/grpc_slice/TcpSend: gRPC C-layer memory and I/O — lock-free slice-buffer management
+# and TCP send paths that share buffers across event_engine threads without TSAN-visible fences.
+race:gpr_
+race:TcpSend
+race:grpc_slice_buffer
+race:grpc_handler_private_op_data
+# c-ares: global init/shutdown and thread mutex use lock-free patterns invisible to TSAN.
+race:ares_
+race:default_free
 
 # wisr_vector_test: URCU false positives — urcu_scoped_ptr::_make_and_exchange swaps in a new
 # buffer while writers read through the URCU pointer; synchronize_rcu() provides the
