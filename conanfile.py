@@ -287,7 +287,8 @@ class SISLConan(ConanFile):
                 component.defines.append("_FILE_OFFSET_BITS=64")
                 component.defines.append("_LARGEFILE64")
                 component.system_libs.extend(["dl", "pthread"])
-                component.exelinkflags.extend(["-export-dynamic"])
+                if self.settings.compiler != "clang":
+                    component.exelinkflags.extend(["-export-dynamic"])
             if self.options.get_safe("sanitize") and self.options.sanitize != "False":
                 if self.options.sanitize == "thread":
                     component.sharedlinkflags.append("-fsanitize=thread")
