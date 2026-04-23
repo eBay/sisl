@@ -26,6 +26,7 @@ class SISLConan(ConanFile):
                 "sanitize": ['address', 'thread', 'False'],
                 'metrics': ['False', 'True'],
                 'grpc': ['False', 'True'],
+                'http': ['False', 'True'],
                 'malloc_impl' : ['libc', 'tcmalloc', 'jemalloc'],
               }
     default_options = {
@@ -35,6 +36,7 @@ class SISLConan(ConanFile):
                 'sanitize': False,
                 'metrics': True,
                 'grpc': True,
+                'http': True,
                 'malloc_impl': 'libc',
             }
 
@@ -58,8 +60,9 @@ class SISLConan(ConanFile):
         if not self.options.metrics and self.options.grpc:
             raise ConanInvalidConfiguration("gRPC support requires metrics option!")
 
-        if self.settings.compiler in ["gcc"]:
-            self.options['pistache'].with_ssl: True
+        if self.options.http:
+            if self.settings.os not in ["Linux"]:
+                raise ConanInvalidConfiguration("http option requires Linux (Pistache constraint)")
         if self.options.shared:
             self.options.rm_safe("fPIC")
         if self.settings.build_type == "Debug":
@@ -97,6 +100,9 @@ class SISLConan(ConanFile):
 
         if self.options.grpc:
             self.requires("grpc/1.69.0", transitive_headers=True)
+
+        if self.options.http:
+            self.requires("pistache/nbi.0.0.5.1", transitive_headers=True)
 
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
@@ -143,6 +149,10 @@ class SISLConan(ConanFile):
             self.cpp.build.components["flip"].includedirs = ["src/flip"]
             self.cpp.build.components["flip"].libdirs = ["src/flip"]
             self.cpp.package.components["flip"].libs = ["flip"]
+
+        if self.options.http:
+            self.cpp.build.components["http"].libdirs = ["src/http"]
+            self.cpp.package.components["http"].libs = ["sisl_http"]
 
         self.cpp.package.includedirs = ["include"] # includedirs is already set to 'include' by
         self.cpp.package.libdirs = ["lib"]
@@ -279,6 +289,12 @@ class SISLConan(ConanFile):
                     ])
             self.cpp_info.components["sisl"].requires.extend([
                     "grpc",
+                    ])
+
+        if self.options.http:
+            self.cpp_info.components["http"].requires.extend([
+                    "logging",
+                    "pistache::pistache",
                     ])
 
         for component in self.cpp_info.components.values():

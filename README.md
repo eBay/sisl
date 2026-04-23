@@ -25,6 +25,7 @@ A C++23 library of high-performance data structures, utilities, and infrastructu
   - [Utility](#utility)
   - [Sobject](#sobject)
   - [File Watcher](#file-watcher)
+  - [HTTP Server](#http-server)
 - [Platform Support](#platform-support)
 - [Contributing](#contributing)
 - [License](#license)
@@ -54,6 +55,7 @@ conan build -s:h build_type=Debug --build missing .
 |--------|---------|-------------|
 | `metrics` | `True` | Metrics, WISR, FDS, Cache, and Settings components |
 | `grpc` | `True` | gRPC transport and Flip fault injection (requires `metrics`) |
+| `http` | `True` | HTTP server component built on Pistache (Linux only) |
 | `malloc_impl` | `libc` | Memory allocator: `libc`, `tcmalloc`, or `jemalloc` |
 | `sanitize` | `False` | Enable sanitizer: `address` (AddressSanitizer + UBSan) or `thread` (ThreadSanitizer) |
 | `coverage` | `False` | Enable gcov code coverage |
@@ -376,6 +378,36 @@ watcher.register_listener("/etc/myapp/config.json", "cfg-reload",
     [](const std::string& path, bool deleted) {
         if (!deleted) Settings::instance().reload(path);
     });
+```
+
+### HTTP Server
+
+A Pistache-based HTTP server with middleware auth, SSL support, and per-route access control (Linux only). Routes are classified as `localhost` (local callers only), `safe` (no auth), or `regular` (subject to token verification).
+
+```cpp
+sisl::HttpServer server{5000, /*threads=*/4, /*max_request_size=*/4000000, token_verifier};
+
+server.setup_routes({
+    {Pistache::Http::Method::Get,  "/status", handle_status, sisl::url_type::safe},
+    {Pistache::Http::Method::Post, "/config", handle_config, sisl::url_type::regular},
+});
+
+// When compiled with metrics=True, wire up /metrics scrape automatically:
+server.register_metrics_endpoint();
+
+server.start();
+// ...
+server.stop();
+```
+
+SSL can be enabled at construction or hot-swapped at runtime:
+
+```cpp
+// SSL from the start:
+sisl::HttpServer secure{ssl_cert, ssl_key, 5443, 4, 4000000, token_verifier};
+
+// Hot-swap certs without dropping the port:
+server.restart(new_cert, new_key);
 ```
 
 ---
