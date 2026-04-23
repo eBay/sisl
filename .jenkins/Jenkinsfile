@@ -28,6 +28,7 @@ pipeline {
             steps {
                 script {
                     TAG = "${VER}@"
+                    CONAN_FLAGS = "--name ${PROJECT}"
                 }
             }
         }

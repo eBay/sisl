@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - stable/v12.x
-      - master
+      - stable/v13.x
 
 jobs:
   Build:

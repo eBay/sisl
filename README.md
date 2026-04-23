@@ -1,6 +1,6 @@
 # SymbiosisLib (sisl)
-[![Conan Build](https://github.com/eBay/sisl/actions/workflows/merge_build.yml/badge.svg?branch=master)](https://github.com/eBay/sisl/actions/workflows/merge_build.yml)
-[![CodeCov](https://codecov.io/gh/eBay/sisl/branch/master/graph/badge.svg)](https://codecov.io/gh/eBay/Sisl)
+[![Conan Build (stable/v13.x)](https://github.com/eBay/sisl/actions/workflows/merge_build.yml/badge.svg?branch=stable%2Fv13.x)](https://github.com/eBay/sisl/actions/workflows/merge_build.yml)
+[![CodeCov](https://codecov.io/gh/szmyd/sisl/branch/master/graph/badge.svg)](https://codecov.io/gh/szmyd/sisl)
 
 > *Pronounced "sizzle" — because your code should too.*
 
