@@ -44,6 +44,7 @@ class SISLConan(ConanFile):
                 "cmake/*",
                 "include/*",
                 "src/*",
+                "tsan.supp",
             )
 
     def _min_cppstd(self):
