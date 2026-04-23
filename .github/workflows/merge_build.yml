@@ -20,6 +20,7 @@ jobs:
       sanitize: "thread"
       tooling: "None"
       compiler: "gcc"
+      conan-channel: "dev"
       testing: 'True'
 
   GccAddressSanitize:
@@ -32,6 +33,7 @@ jobs:
       sanitize: "address"
       tooling: "None"
       compiler: "gcc"
+      conan-channel: "dev"
       testing: 'True'
 
   GccCoverage:
@@ -44,6 +46,7 @@ jobs:
       sanitize: "False"
       tooling: "Coverage"
       compiler: "gcc"
+      conan-channel: "dev"
       testing: 'True'
 
   ClangRelease:
@@ -56,6 +59,7 @@ jobs:
       sanitize: "False"
       tooling: "None"
       compiler: "clang"
+      conan-channel: "dev"
       testing: 'True'
 
   # ChainBuild: disabled until iomanager and nuraft_mesg migrate to dev/v14.x
