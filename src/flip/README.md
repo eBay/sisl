@@ -356,23 +356,6 @@ Python library is available under ***src/client/python/flip_rpc_client.py***
 Libraries are defined in class **FlipRPCClient**. Examples of how to use library is provided by the python script
 ***src/client/python/flip_client_example.py***
 
-### Nodejs GRPC Client
-
-There is a current implementation using GRPC for a project called "NuData/MonstorDB.git" which has nodejs client to inject the fault. Example of
-grpc service is provided in path "MonstorDB/nodejs-test/test/support/monstor_client/inject_fault.js" and examples of how to use is
-in "MonstorDB/nodejst-test/test/support/run_grpc_client.js"
-
-Example:
-```javascript
-await test.do_inject_fault(
-        "op_error_in_bson",
-        [{name : "op_type", oper : FlipOperator.EQUAL.ordinal, value : {string_value : "INSERT"} }], // Conditions}
-        { returns : { return : { int_value : 6 } } }, // Returns BSON_DOCUMENT_CORRUPTED
-        1,  // count
-        100 // percentage
-)
-```
-
 
 ## Local Client
 If the code that needs to be fault injected and tested is a library in itself and that there is separate unit tests which runs

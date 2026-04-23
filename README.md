@@ -54,7 +54,7 @@ conan build -s:h build_type=Debug --build missing .
 | `metrics` | `True` | Metrics, WISR, FDS, Cache, and Settings components |
 | `grpc` | `True` | gRPC transport and Flip fault injection (requires `metrics`) |
 | `malloc_impl` | `libc` | Memory allocator: `libc`, `tcmalloc`, or `jemalloc` |
-| `sanitize` | `False` | Enable AddressSanitizer + UBSan |
+| `sanitize` | `False` | Enable sanitizer: `address` (AddressSanitizer + UBSan) or `thread` (ThreadSanitizer) |
 | `coverage` | `False` | Enable gcov code coverage |
 
 ```bash
@@ -383,7 +383,8 @@ watcher.register_listener("/etc/myapp/config.json", "cfg-reload",
 
 | Platform | Status |
 |----------|--------|
-| Linux x86_64 | Fully supported |
+| Linux x86_64 (GCC) | Fully supported |
+| Linux x86_64 (Clang) | Supported — crash dumps (breakpad) not available |
 | Linux ARM64 | Supported |
 | macOS | Supported — crash dumps (breakpad) not available |
 | Windows | Not supported |
@@ -396,7 +397,7 @@ Issues, bug reports, and pull requests are welcome. Please:
 
 1. Follow the code style — run `clang-format -style=file -i` on every modified file
 2. Add tests for new functionality (`src/<component>/tests/`)
-3. Ensure tests pass with AddressSanitizer (`-o sisl/*:sanitize=True`)
+3. Ensure tests pass with AddressSanitizer (`-o sisl/*:sanitize=address`) and ThreadSanitizer (`-o sisl/*:sanitize=thread`)
 4. Submit pull requests against `master`
 
 ---

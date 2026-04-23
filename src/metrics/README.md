@@ -54,4 +54,12 @@ inconsistency on sample, shouldn't skew the results and in general its an accept
 
 ### WISR RCU Framework
 
-<More to be added soon>
+In this method each thread's metric values live inside a `wisr_framework`-managed per-thread buffer protected by
+userspace RCU (liburcu). Writers enter an RCU read-side critical section (`rcu_read_lock`) to reach their slot and
+update it — this is wait-free and requires no compare-and-swap. Readers call `synchronize_rcu()` to wait for all
+in-flight read-side sections to drain, then rotate the per-thread buffers and merge the retired copies. This
+completely avoids signals and is preferred for components where even signal delivery latency is unacceptable.
+
+The trade-off versus `ThreadBufferWithSignal` is that `synchronize_rcu()` on the read path can block for the
+duration of the longest in-flight writer critical section (typically sub-microsecond). For scrape-triggered reporting
+(once per minute) this cost is negligible.
