@@ -296,6 +296,9 @@ class SISLConan(ConanFile):
                     "logging",
                     "pistache::pistache",
                     ])
+            if self.options.metrics:
+                self.cpp_info.components["http"].requires.append("metrics")
+                self.cpp_info.components["http"].defines.append("PROMETHEUS_METRICS_REPORTER")
 
         for component in self.cpp_info.components.values():
             if self.settings.os in ["Linux", "FreeBSD"]:

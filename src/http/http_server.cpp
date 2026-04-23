@@ -194,9 +194,10 @@ bool HttpServer::is_local_addr(std::string const& addr) const { return m_local_i
 void HttpServer::register_metrics_endpoint() {
     setup_route(
         Pistache::Http::Method::Get, "/metrics",
-        [](Pistache::Http::Request const&, Pistache::Http::ResponseWriter response) {
+        [](Pistache::Rest::Request const&, Pistache::Http::ResponseWriter response) {
             response.send(Pistache::Http::Code::Ok,
                           sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat));
+            return Pistache::Rest::Route::Result::Ok;
         },
         url_type::safe);
 }
