@@ -139,7 +139,6 @@ const T& unmove(T&& x) {
 }
 
 /* Extension macros to support custom formatting of messages */
-#if __cplusplus > 201703L
 #define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...)                            \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                     \
         fmt::memory_buffer _log_buf{};                                                                                 \
@@ -150,19 +149,6 @@ const T& unmove(T&& x) {
             if (is_flush) { _l->flush(); }                                                                             \
         }                                                                                                              \
     }
-#else
-#define _LOG_WITH_CUSTOM_FORMATTER(lvl, method, mod, logger, is_flush, formatter, msg, ...)                            \
-    if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::lvl)) {                                     \
-        fmt::memory_buffer _log_buf{};                                                                                 \
-        const auto& cb{formatter};                                                                                     \
-        if (LOGGING_PREDICT_TRUE(cb(_log_buf, msg __VA_OPT__(, ) __VA_ARGS__))) {                                      \
-            fmt::vformat_to(fmt::appender{_log_buf}, fmt::string_view{"{}"}, fmt::make_format_args('\0'));             \
-            _l->method(_log_buf.data());                                                                               \
-            if (is_flush) { _l->flush(); }                                                                             \
-        }                                                                                                              \
-    }
-
-#endif
 
 // With custom formatter and custom logger
 #define LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
@@ -276,16 +262,10 @@ const T& unmove(T&& x) {
  * LOGMSG_ASSERT:   If condition is not met: Logs the message with stack trace, aborts in debug build only.
  * DEBUG_ASSERT:    No-op in release build, for debug build, if condition is not met, logs the message and aborts
  */
-// #if __cplusplus > 201703L
-#if 0
-#define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
-    [[unlikely]] if (!(cond)) { _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg __VA_OPT__(, ) __VA_ARGS__); }
-#else
 #define _GENERIC_ASSERT(is_log_assert, cond, formatter, msg, ...)                                                      \
     if (LOGGING_PREDICT_FALSE(!(cond))) {                                                                              \
         _LOG_AND_ASSERT_FMT(is_log_assert, formatter, msg __VA_OPT__(, ) __VA_ARGS__);                                 \
     }
-#endif
 
 #define _FMT_LOG_MSG(...) sisl::logging::format_log_msg(__VA_ARGS__).c_str()
 

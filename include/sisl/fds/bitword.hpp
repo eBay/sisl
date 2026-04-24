@@ -19,9 +19,7 @@
 #include <array>
 #include <algorithm>
 #include <atomic>
-#if __cplusplus > 201703L
 #include <bit>
-#endif
 #include <cassert>
 #include <cstdint>
 #include <iostream>
@@ -75,152 +73,22 @@ static constexpr std::array< uint64_t, 64 > consecutive_bitmask = {
 template < typename DataType >
 static constexpr uint8_t logBase2(const DataType v) {
     static_assert(std::is_unsigned< DataType >::value, "logBase2: DataType must be unsigned.");
-#if __cplusplus > 201703L
     return static_cast< uint8_t >((v == DataType{}) ? 255 : (sizeof(DataType) * 8 - 1) - std::countl_zero(v));
-#else
-#if defined __GNUC__ && defined __x86_64
-    return static_cast< uint8_t >((v == DataType{}) ? 255 : 63 - __builtin_clzll(static_cast< uint64_t >(v)));
-#else
-    constexpr std::array< uint8_t, 256 > LogTable256{
-        255, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
-        5,   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-        6,   6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-        6,   6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-        7,   7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-        7,   7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-        7,   7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7};
-
-    uint8_t r{0};
-
-    if constexpr (sizeof(DataType) == 8) {
-        if (const uint64_t t1{v >> 32}) {
-            if (const uint64_t t2{t1 >> 16}) {
-                if (const uint64_t t3{t2 >> 8}) {
-                    r = 56 + LogTable256[static_cast< uint8_t >(t3)];
-                } else {
-                    r = 48 + LogTable256[static_cast< uint8_t >(t2)];
-                }
-            } else {
-                if (const uint64_t t2{t1 >> 8}) {
-                    r = 40 + LogTable256[static_cast< uint8_t >(t2)];
-                } else {
-                    r = 32 + LogTable256[static_cast< uint8_t >(t1)];
-                }
-            }
-        } else {
-            if (const uint64_t t1{v >> 16}) {
-                if (const uint64_t t2{t1 >> 8}) {
-                    r = 24 + LogTable256[static_cast< uint8_t >(t2)];
-                } else {
-                    r = 16 + LogTable256[static_cast< uint8_t >(t1)];
-                }
-            } else {
-                if (const uint64_t t1{v >> 8}) {
-                    r = 8 + LogTable256[static_cast< uint8_t >(t1)];
-                } else {
-                    r = LogTable256[static_cast< uint8_t >(v)];
-                }
-            }
-        }
-    } else if constexpr (sizeof(DataType) == 4) {
-        if (const uint32_t t1{v >> 16}) {
-            if (const uint32_t t2{t1 >> 8}) {
-                r = 24 + LogTable256[static_cast< uint8_t >(t2)];
-            } else {
-                r = 16 + LogTable256[static_cast< uint8_t >(t1)];
-            }
-        } else {
-            if (const uint32_t t1{v >> 8}) {
-                r = 8 + LogTable256[static_cast< uint8_t >(t1)];
-            } else {
-                r = LogTable256[static_cast< uint8_t >(v)];
-            }
-        }
-    } else if constexpr (sizeof(DataType) == 2) {
-        if (const uint16_t t1{static_cast< uint16_t >(v >> 8)}) {
-            r = 8 + LogTable256[static_cast< uint8_t >(t1)];
-        } else {
-            r = LogTable256[static_cast< uint8_t >(v)];
-        }
-    } else {
-        r = LogTable256[static_cast< uint8_t >(v)];
-    }
-
-    return r;
-#endif
-#endif
 }
 
-#if __cplusplus > 201703L
 template < typename DataType >
 static inline constexpr uint8_t get_trailing_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countr_zero(std::make_unsigned_t< DataType >(v)));
-#else
-#if defined __GNUC__ && defined __x86_64
-static inline uint8_t get_trailing_zeros(const uint64_t v) {
-    return static_cast< uint8_t >((v == 0) ? 64 : __builtin_ctzll(v));
-#else
-static constexpr uint8_t get_trailing_zeros(const uint64_t v) {
-    constexpr std::array< uint8_t, 64 > MultiplyDeBruijnBitPosition{
-        0,  47, 1,  56, 48, 27, 2,  60, 57, 49, 41, 37, 28, 16, 3,  61, 54, 58, 35, 52, 50, 42,
-        21, 44, 38, 32, 29, 23, 17, 11, 4,  62, 46, 55, 26, 59, 40, 36, 15, 53, 34, 51, 20, 43,
-        31, 22, 10, 45, 25, 39, 14, 33, 19, 30, 9,  24, 13, 18, 8,  12, 7,  6,  5,  63};
-
-    if (!v) return 64;
-    return MultiplyDeBruijnBitPosition[((v ^ (v - 1)) * static_cast< uint64_t >(0x03F79D71B4CB0A89)) >> 58];
-#endif
-#endif
 }
 
-#if __cplusplus > 201703L
 template < typename DataType >
 static inline constexpr uint8_t get_set_bit_count(const DataType v) {
     return static_cast< uint8_t >(std::popcount(std::make_unsigned_t< DataType >(v)));
-#else
-#if defined __GNUC__ && defined __x86_64
-static inline uint8_t get_set_bit_count(const uint64_t v) {
-    return static_cast< uint8_t >(__builtin_popcountll(v));
-#else
-static constexpr uint8_t get_set_bit_count(const uint64_t v) {
-    constexpr uint64_t m1{0x5555555555555555}; // binary: 0101...
-    constexpr uint64_t m2{0x3333333333333333}; // binary: 00110011..
-    constexpr uint64_t m4{0x0f0f0f0f0f0f0f0f}; // binary:  4 zeros,  4 ones ...
-    // constexpr uint64_t m8{0x00ff00ff00ff00ff};   // binary:  8 zeros,  8 ones ...
-    // constexpr uint64_t m16{0x0000ffff0000ffff};  // binary: 16 zeros, 16 ones ...
-    // constexpr uint64_t m32{0x00000000ffffffff};  // binary: 32 zeros, 32 ones
-    constexpr uint64_t h01{0x0101010101010101}; // the sum of 256 to the power of 0,1,2,3...
-
-    uint64_t x{v};
-    x -= (x >> 1) & m1;                             // put count of each 2 bits into those 2 bits
-    x = (x & m2) + ((x >> 2) & m2);                 // put count of each 4 bits into those 4 bits
-    x = (x + (x >> 4)) & m4;                        // put count of each 8 bits into those 8 bits
-    return static_cast< uint8_t >((x * h01) >> 56); // returns left 8 bits of x + (x<<8) + (x<<16) + (x<<24) + ...
-#endif
-#endif
 }
 
-#if __cplusplus > 201703L
 template < typename DataType >
 static inline constexpr uint8_t get_leading_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countl_zero(std::make_unsigned_t< DataType >(v)));
-#else
-#if defined __GNUC__ && defined __x86_64
-static inline uint8_t get_leading_zeros(const uint64_t v) {
-    return static_cast< uint8_t >((v == 0) ? 64 : __builtin_clzll(v));
-#else
-static inline constexpr uint8_t get_leading_zeros(const uint64_t v) {
-    if (!v) return 64;
-
-    uint64_t x{v};
-    x |= (x >> 1);
-    x |= (x >> 2);
-    x |= (x >> 4);
-    x |= (x >> 8);
-    x |= (x >> 16);
-    x |= (x >> 32);
-    return (64 - get_set_bit_count(x));
-#endif
-#endif
 }
 
 ENUM(bit_match_type, uint8_t, no_match, full_match, lsb_match, mid_match, msb_match)

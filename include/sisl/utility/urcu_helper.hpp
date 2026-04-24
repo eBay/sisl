@@ -16,18 +16,7 @@
  *********************************************************************************/
 #pragma once
 
-#if __cplusplus <= 201703L
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#endif
 #include <urcu.h>
-#if defined __clang__ or defined __GNUC__
-#pragma GCC diagnostic pop
-#endif
-#else
-#include <urcu.h>
-#endif
 
 #include <memory>
 #include <set>

@@ -112,9 +112,7 @@ TEST_F(BitwordTest, TestTrailingZeros) {
     ASSERT_EQ(get_trailing_zeros(0x01), static_cast< uint8_t >(0));
     ASSERT_EQ(get_trailing_zeros(0x02), static_cast< uint8_t >(1));
     ASSERT_EQ(get_trailing_zeros(static_cast< uint64_t >(0x00)), static_cast< uint8_t >(64));
-#if __cplusplus > 201703L
     ASSERT_EQ(get_trailing_zeros(static_cast< uint32_t >(0x00)), static_cast< uint8_t >(32));
-#endif
     ASSERT_EQ(get_trailing_zeros(0xf000000000), static_cast< uint8_t >(36));
     ASSERT_EQ(get_trailing_zeros(0xf00f000000000), static_cast< uint8_t >(36));
     ASSERT_EQ(get_trailing_zeros(0x8000000000000000), static_cast< uint8_t >(63));
@@ -123,10 +121,8 @@ TEST_F(BitwordTest, TestTrailingZeros) {
 TEST_F(BitwordTest, TestLeadingZeros) {
     ASSERT_EQ(get_leading_zeros(static_cast< uint64_t >(0x01)), static_cast< uint8_t >(63));
     ASSERT_EQ(get_leading_zeros(static_cast< uint64_t >(0x00)), static_cast< uint8_t >(64));
-#if __cplusplus > 201703L
     ASSERT_EQ(get_leading_zeros(static_cast< uint32_t >(0x01)), static_cast< uint8_t >(31));
     ASSERT_EQ(get_leading_zeros(static_cast< uint32_t >(0x00)), static_cast< uint8_t >(32));
-#endif
     ASSERT_EQ(get_leading_zeros(0xFFFFFFFFFFFFFFFF), static_cast< uint8_t >(0));
     ASSERT_EQ(get_leading_zeros(0x7FFFFFFFFFFFFFFF), static_cast< uint8_t >(1));
     ASSERT_EQ(get_leading_zeros(0x0FFFFFFFFFFFFFFF), static_cast< uint8_t >(4));

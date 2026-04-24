@@ -113,22 +113,12 @@ void InitModules::init_modules(std::initializer_list< const char* > mods_list) {
 }
 
 std::shared_ptr< spdlog::logger >& GetLogger() {
-#if __cplusplus > 201703L
-    [[unlikely]] if (!(logger_thread_ctx.m_logger)) {
-#else
-    if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_logger))) {
-#endif
-        logger_thread_ctx.m_logger = glob_spdlog_logger;
-    }
+    [[unlikely]] if (!(logger_thread_ctx.m_logger)) { logger_thread_ctx.m_logger = glob_spdlog_logger; }
     return logger_thread_ctx.m_logger;
 }
 
 std::shared_ptr< spdlog::logger >& GetCriticalLogger() {
-#if __cplusplus > 201703L
     [[unlikely]] if (!(logger_thread_ctx.m_critical_logger)) {
-#else
-    if (LOGGING_PREDICT_FALSE(!(logger_thread_ctx.m_critical_logger))) {
-#endif
         logger_thread_ctx.m_critical_logger = glob_critical_logger;
     }
     return logger_thread_ctx.m_critical_logger;
@@ -294,9 +284,8 @@ static std::string setup_modules() {
 
     for (size_t mod_num{0}; mod_num < glob_num_mods; ++mod_num) {
         const std::string& mod_name{glob_enabled_mods[mod_num]};
-        fmt::vformat_to(
-            std::back_inserter(out_str), fmt::string_view{"{}={}, "},
-            fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name))));
+        fmt::vformat_to(std::back_inserter(out_str), fmt::string_view{"{}={}, "},
+                        fmt::make_format_args(mod_name, spdlog::level::to_string_view(GetModuleLogLevel(mod_name))));
     }
 
     return out_str;

@@ -164,15 +164,17 @@ private:
 
     static sisl::byte_array make_byte_array_with_deleter(const uint32_t sz, const uint32_t alignment = 0,
                                                          const buftag tag = buftag::bitset) {
-        return std::shared_ptr< byte_array_impl >{
-            new byte_array_impl{sz, alignment, tag}, [](byte_array_impl* const ptr) {
-                if (ptr) {
-                    // beginning of buffer is bitset_serialized
-                    bitset_serialized* const bitset_serialized_ptr{reinterpret_cast< bitset_serialized* >(ptr)};
-                    bitset_serialized_ptr->destroy(true);
-                    delete ptr;
-                }
-            }};
+        return std::shared_ptr< byte_array_impl >{new byte_array_impl{sz, alignment, tag},
+                                                  [](byte_array_impl* const ptr) {
+                                                      if (ptr) {
+                                                          // bitset_serialized is placement-new'd into ptr->bytes(), not
+                                                          // at ptr itself
+                                                          bitset_serialized* const bitset_serialized_ptr{
+                                                              reinterpret_cast< bitset_serialized* >(ptr->bytes())};
+                                                          bitset_serialized_ptr->destroy(true);
+                                                          delete ptr;
+                                                      }
+                                                  }};
     }
 
     sisl::byte_array m_buf;
