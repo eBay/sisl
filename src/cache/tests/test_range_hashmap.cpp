@@ -205,6 +205,76 @@ TEST_F(RangeHashMapTest, RandomEverythingTest) {
             nblks_read, ninsert_ops, nblks_inserted, nerase_ops, nblks_erased);
 }
 
+// Covers RangeKey::compute_hash() and RangeKey::operator< (lines 56-77 in range_hashmap.hpp).
+// These are never called by the map itself (which uses its own static compute_hash); must invoke directly.
+TEST(RangeKeyTest, HashAndOrdering) {
+    RangeKey< uint32_t > k1{1u, 100, 50};
+    RangeKey< uint32_t > k2{1u, 200, 50};
+    RangeKey< uint32_t > k3{2u, 100, 50};
+    RangeKey< uint32_t > k4{1u, 100, 60};
+    RangeKey< uint32_t > k5{1u, 100, 50}; // same as k1
+
+    // compute_hash: same key -> same hash
+    EXPECT_EQ(k1.compute_hash(), k5.compute_hash());
+    // different nth -> different hash
+    EXPECT_NE(k1.compute_hash(), k2.compute_hash());
+
+    // operator<: compare by base_key, then nth, then count
+    EXPECT_TRUE(k1 < k2); // same base, lower nth
+    EXPECT_FALSE(k2 < k1);
+    EXPECT_TRUE(k1 < k3); // lower base_key
+    EXPECT_FALSE(k3 < k1);
+    EXPECT_TRUE(k1 < k4); // same base+nth, lower count
+    EXPECT_FALSE(k4 < k1);
+    EXPECT_FALSE(k1 < k5); // equal
+    EXPECT_FALSE(k5 < k1);
+}
+
+// Covers call_access_cb invocation (lines 129-130, 315-319, 372-376 in range_hashmap.hpp).
+// The existing tests pass nullptr for the callback; here we provide a real one.
+TEST(RangeHashMapCbTest, AccessCallbackInvoked) {
+    struct CallRecord {
+        hash_op_t op;
+        uint32_t nth;
+        int64_t new_size;
+    };
+    std::vector< CallRecord > calls;
+
+    auto cb = [&calls](const ValueEntryBase&, const RangeKey< uint32_t >& key, const hash_op_t op, int64_t new_size) {
+        calls.push_back({op, static_cast< uint32_t >(key.m_nth), new_size});
+    };
+
+    constexpr uint32_t per_val = 128;
+    auto extractor = [](const sisl::byte_view& inp, big_offset_t nth, big_count_t count) -> sisl::byte_view {
+        return sisl::byte_view{inp, nth * per_val, count * per_val};
+    };
+
+    RangeHashMap< uint32_t > map{64, extractor, cb};
+
+    auto make_blob = [&](uint32_t start, uint32_t end) {
+        sisl::io_blob blob{per_val * (end - start + 1), 0};
+        std::fill(blob.bytes(), blob.bytes() + blob.size(), 0xAB);
+        return blob;
+    };
+
+    // INSERT creates a new entry -> CREATE callback
+    auto b1 = make_blob(0, 9);
+    map.insert(RangeKey< uint32_t >{1u, 0, 10}, b1);
+    b1.buf_free();
+
+    // INSERT overlapping an existing entry: triggers RESIZE on the shrunk portion and CREATE for new
+    auto b2 = make_blob(5, 14);
+    map.insert(RangeKey< uint32_t >{1u, 5, 10}, b2);
+    b2.buf_free();
+
+    EXPECT_FALSE(calls.empty());
+
+    // ERASE: triggers DELETE callback for entries being removed
+    size_t before_erase = calls.size();
+    map.erase(RangeKey< uint32_t >{1u, 0, 15});
+    EXPECT_GT(calls.size(), before_erase);
+}
+
 SISL_OPTIONS_ENABLE(logging, test_hashmap)
 SISL_OPTION_GROUP(test_hashmap,
                   (max_offset, "", "max_offset", "max number of offset",

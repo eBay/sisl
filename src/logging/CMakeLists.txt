@@ -31,3 +31,10 @@ target_sources(logging_example PRIVATE
   test/example.cpp
   )
 target_link_libraries(logging_example sisl_logging)
+
+add_executable(test_logging)
+target_sources(test_logging PRIVATE
+  test/test_logging.cpp
+  )
+target_link_libraries(test_logging sisl_logging GTest::gtest)
+add_test(NAME Logging COMMAND test_logging -c)

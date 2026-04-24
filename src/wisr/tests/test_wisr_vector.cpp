@@ -141,6 +141,66 @@ protected:
 
 TEST_F(WaitFreeWriteVectorTest, insert_parallel_test) {}
 
+// Covers wisr_list push_front/emplace_front and wisr_ds_wrapper::merge (wisr_ds.hpp lines 109-121, 39-43)
+TEST(WisrListTest, PushFrontAndDrain) {
+    sisl::wisr_list< int > lst;
+    lst.push_front(1);
+    lst.push_front(2);
+    lst.emplace_front(3);
+
+    auto copy = lst.get_copy_and_reset();
+    EXPECT_EQ(copy->size(), 3u);
+
+    // After reset, next drain should be empty
+    auto empty_copy = lst.get_copy_and_reset();
+    EXPECT_TRUE(empty_copy->empty());
+}
+
+// Covers wisr_framework::delayed(), get_unmerged_and_reset(), reset(), foreach_thread_member(),
+// insert_access() — methods that wisr_ds does not expose (wisr_framework.hpp lines 50-100)
+TEST(WisrFrameworkTest, DirectFrameworkAccess) {
+    sisl::wisr_framework< sisl::vector_wrapper< int >, size_t > fw{16};
+
+    // insert_access: get a scoped pointer and push directly
+    {
+        auto acc = fw.insert_access();
+        acc.get()->push_back(10);
+        acc.get()->push_back(20);
+    }
+
+    // delayed(): returns the base object without rotating thread buffers first
+    // Just verify the call doesn't crash; content may or may not include the above inserts
+    EXPECT_NE(fw.delayed(), nullptr);
+
+    // now(): merges thread bufs then returns base
+    auto* base = fw.now();
+    EXPECT_NE(base, nullptr);
+    EXPECT_GE(base->size(), 2u);
+
+    // get_unmerged_and_reset(): returns per-thread DS pointers without merging
+    fw.insertable([](sisl::vector_wrapper< int >* ptr) { ptr->push_back(99); });
+    auto unmerged = fw.get_unmerged_and_reset();
+    for (auto* p : unmerged) {
+        delete p; // caller owns these
+    }
+
+    // foreach_thread_member(): visits each thread's buffer
+    bool visited = false;
+    fw.foreach_thread_member([&visited](const sisl::vector_wrapper< int >* ptr) {
+        visited = true;
+        (void)ptr;
+    });
+    // visited may be false if no thread bufs exist; just verify no crash
+    (void)visited;
+
+    // reset(): discards all thread-local buffers
+    EXPECT_NO_THROW(fw.reset());
+
+    // get_copy_and_reset() after reset
+    auto copy = fw.get_copy_and_reset();
+    EXPECT_NE(copy, nullptr);
+}
+
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

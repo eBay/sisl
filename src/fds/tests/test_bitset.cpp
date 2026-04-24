@@ -912,6 +912,60 @@ TEST_F(BitsetTest, SerializeDeserializeAtomicBitset) {
     EXPECT_EQ(bset1, bset2);
 }
 
+// Covers resize() on the non-thread-safe Bitset instantiation (lines 770-773 in bitset.hpp).
+// Uses word-aligned sizes so new-word fill counts are predictable (resize value=true fills
+// complete new words, not individual bits within the expanded logical range).
+TEST(BitsetPlainTest, Resize) {
+    constexpr uint64_t ws{64}; // word size for default Bitset (uint64_t words)
+    sisl::Bitset bset{ws * 2}; // 128 bits
+    bset.set_bits(0, ws);      // set bits 0-63
+    EXPECT_EQ(bset.size(), ws * 2);
+    EXPECT_EQ(bset.get_set_count(), ws);
+
+    // expand with value=false: new word stays zero
+    bset.resize(ws * 3);
+    EXPECT_EQ(bset.size(), ws * 3);
+    EXPECT_EQ(bset.get_set_count(), ws);
+
+    // expand with value=true: new complete word is filled with 1s
+    bset.resize(ws * 4, true);
+    EXPECT_EQ(bset.size(), ws * 4);
+    EXPECT_EQ(bset.get_set_count(), ws * 2); // 64 original + 64 new
+
+    // shrink back to first word
+    bset.resize(ws);
+    EXPECT_EQ(bset.size(), ws);
+    EXPECT_EQ(bset.get_set_count(), ws);
+}
+
+// Covers the out-of-range throw in shrink_head() (line 755 in bitset.hpp)
+TEST(BitsetPlainTest, ShrinkHeadOutOfRange) {
+    sisl::Bitset bset{100};
+    EXPECT_THROW(bset.shrink_head(101), std::out_of_range);
+    EXPECT_NO_THROW(bset.shrink_head(100));
+    EXPECT_EQ(bset.size(), 0u);
+}
+
+// Covers the rhs_offset>0 branches in equals() (lines 418, 443 in bitset.hpp).
+// EqualityLogicCheck only tests lhs_offset!=rhs_offset where rhs_offset==0; here both are non-zero.
+TEST(BitsetPlainTest, EqualityDifferingNonzeroOffsets) {
+    sisl::Bitset a{205}, b{211};
+    a.set_bits(0, 205);
+    b.set_bits(0, 211);
+    a.shrink_head(5);  // 200 bits, offset=5
+    b.shrink_head(11); // 200 bits, offset=11
+
+    EXPECT_TRUE(a == b);
+    EXPECT_TRUE(b == a);
+
+    b.reset_bit(50);
+    EXPECT_FALSE(a == b);
+    EXPECT_FALSE(b == a);
+
+    b.set_bit(50);
+    EXPECT_TRUE(a == b);
+}
+
 SISL_OPTIONS_ENABLE(logging, test_bitset)
 
 SISL_OPTION_GROUP(test_bitset,
