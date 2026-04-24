@@ -52,6 +52,10 @@ class SISLConan(ConanFile):
     def _min_cppstd(self):
         return 23
 
+    def config_options(self):
+        if self.settings.compiler == "clang":
+            self.options.http = False
+
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
             check_min_cppstd(self, self._min_cppstd())
