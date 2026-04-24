@@ -417,9 +417,9 @@ server.restart(new_cert, new_key);
 | Platform | Status |
 |----------|--------|
 | Linux x86_64 (GCC) | Fully supported |
-| Linux x86_64 (Clang) | Supported — crash dumps (breakpad) not available |
+| Linux x86_64 (Clang) | Supported — crash dumps (breakpad) and HTTP server not available |
 | Linux ARM64 | Supported |
-| macOS | Supported — crash dumps (breakpad) not available |
+| macOS (AppleClang) | Supported — crash dumps (breakpad) and HTTP server not available |
 | Windows | Not supported |
 
 ---
