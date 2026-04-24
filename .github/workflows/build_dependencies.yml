@@ -143,7 +143,6 @@ jobs:
             --format=json \
             --build missing \
             . > ~/build.json
-        conan list --graph ~/build.json --graph-binaries=build,cache --format=json > ~/pkglist.json
       if: ${{ steps.restore-cache.outputs.cache-hit != 'true' }}
 
     - name: Save Conan Cache
