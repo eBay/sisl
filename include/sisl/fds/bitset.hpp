@@ -1161,8 +1161,7 @@ private:
 
         // copy to resized
         const uint64_t move_nwords{std::min(m_s->m_words_cap - shrink_words, new_cap)};
-        std::uninitialized_copy(std::next(m_s->get_words_const(), shrink_words), m_s->end_words_const(),
-                                new_s->get_words());
+        std::uninitialized_copy_n(std::next(m_s->get_words_const(), shrink_words), move_nwords, new_s->get_words());
         if (new_cap > move_nwords) {
             // Fill in the remaining space with value passed
             std::uninitialized_fill(std::next(new_s->get_words(), move_nwords), new_s->end_words(),
