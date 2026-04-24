@@ -444,7 +444,12 @@ public:
         m_view.set_bytes(m_base_buf->cbytes());
         m_view.set_size(m_base_buf->size());
     }
-    byte_view(byte_array buf) : byte_view(std::move(buf), 0u, buf->size()) {}
+    byte_view(byte_array buf) {
+        auto sz = buf->size();
+        m_base_buf = std::move(buf);
+        m_view.set_bytes(m_base_buf->cbytes());
+        m_view.set_size(sz);
+    }
     byte_view(byte_array buf, uint32_t offset, uint32_t sz) {
         m_base_buf = std::move(buf);
         m_view.set_bytes(m_base_buf->cbytes() + offset);
