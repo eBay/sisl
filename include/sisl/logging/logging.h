@@ -16,6 +16,7 @@
  *********************************************************************************/
 #pragma once
 
+#undef SPDLOG_FUNCTION
 #define SPDLOG_FUNCTION __PRETTY_FUNCTION__
 #define SPDLOG_NO_NAME
 
