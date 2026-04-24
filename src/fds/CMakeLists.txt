@@ -21,7 +21,7 @@ add_executable(test_atomic_status_counter)
 target_sources(test_atomic_status_counter PRIVATE
   tests/test_atomic_status_counter.cpp
   )
-target_link_libraries(test_atomic_status_counter sisl_logging GTest::gtest atomic)
+target_link_libraries(test_atomic_status_counter sisl_logging GTest::gtest $<$<PLATFORM_ID:Linux>:atomic>)
 add_test(NAME AtomicStatusCounter COMMAND test_atomic_status_counter)
 
 add_executable(test_bitset)

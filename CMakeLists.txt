@@ -65,6 +65,10 @@ endif()
 if(UNIX)
     # enable proper GNU extensions
     add_flags("-D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE")
+    if(APPLE)
+        # _POSIX_C_SOURCE hides Darwin extensions (ipv6_mreq, NI_MAXHOST, etc.); restore them
+        add_flags("-D_DARWIN_C_SOURCE")
+    endif()
 endif()
 
 include_directories(BEFORE

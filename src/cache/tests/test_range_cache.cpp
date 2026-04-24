@@ -21,10 +21,8 @@
 #include <filesystem>
 #include <cstdint>
 
-#ifdef __linux__
 #include <fcntl.h>
 #include <unistd.h>
-#endif
 
 #include <sisl/logging/logging.h>
 #include <sisl/options/options.h>
@@ -112,8 +110,12 @@ private:
                 LOGINFO("File {} doesn't exists, creating a file for size {}", fname, chunk_size);
                 fd = ::open(fname.c_str(), O_RDWR | O_CREAT, 0666);
                 ASSERT_NE(fd, -1) << "Open of file " << fname << " failed";
+#ifdef __linux__
                 const auto ret{fallocate(fd, 0, 0, chunk_size)};
-                ASSERT_EQ(ret, 0) << "fallocate of file " << fname << " for size " << chunk_size << " failed";
+#else
+                const auto ret{ftruncate(fd, chunk_size)};
+#endif
+                ASSERT_EQ(ret, 0) << "fallocate/ftruncate of file " << fname << " for size " << chunk_size << " failed";
             } else {
                 fd = ::open(fname.c_str(), O_RDWR | O_CREAT, 0666);
                 ASSERT_NE(fd, -1) << "Open of file " << fname << " failed";

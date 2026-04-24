@@ -26,6 +26,7 @@
 
 using namespace sisl;
 
+SISL_OPTIONS_ENABLE(logging)
 SISL_LOGGING_INIT(test_stream_tracker)
 
 namespace {

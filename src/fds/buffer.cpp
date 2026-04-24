@@ -15,6 +15,9 @@
  *
  *********************************************************************************/
 #include <cstring>
+#ifdef __APPLE__
+extern "C" size_t malloc_size(const void*);
+#endif
 #include "sisl/fds/buffer.hpp"
 
 namespace sisl {
@@ -32,7 +35,11 @@ void AlignedAllocatorImpl::aligned_free(uint8_t* const b, const sisl::buftag tag
 uint8_t* AlignedAllocatorImpl::aligned_realloc(uint8_t* const old_buf, const size_t align, const size_t new_sz,
                                                const size_t old_sz) {
     // Glibc does not have an implementation of efficient realloc and hence we are using alloc/copy method here
+#ifdef __linux__
     const size_t old_real_size{(old_sz == 0) ? ::malloc_usable_size(static_cast< void* >(old_buf)) : old_sz};
+#else
+    const size_t old_real_size{(old_sz == 0) ? ::malloc_size(static_cast< void* >(old_buf)) : old_sz};
+#endif
     if (old_real_size >= new_sz) return old_buf;
 
     uint8_t* const new_buf{this->aligned_alloc(align, sisl::round_up(new_sz, align), buftag::common)};

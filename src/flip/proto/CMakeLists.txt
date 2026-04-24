@@ -16,6 +16,11 @@ target_link_libraries(flip_proto
       protobuf::libprotobuf
       gRPC::grpc++
   )
+# protobuf map.h uses CLOCK_UPTIME_RAW (behind _DARWIN_C_SOURCE guard) without including <time.h>
+if(APPLE)
+  target_compile_definitions(flip_proto PRIVATE _DARWIN_C_SOURCE)
+  target_compile_options(flip_proto PRIVATE "SHELL:-include time.h")
+endif()
 
 add_custom_target(flip_py_proto ALL)
 protobuf_generate(LANGUAGE python TARGET flip_py_proto PROTOS flip_server.proto)

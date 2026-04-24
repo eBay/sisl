@@ -296,7 +296,7 @@ TEST(histogramTest, directHistogramAccess) {
     EXPECT_GT(stats.p99, 0.0);
 }
 
-// SISL_OPTIONS_ENABLE(logging)
+SISL_OPTIONS_ENABLE(logging)
 int main(int argc, char* argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     // sisl::logging::SetLogger("metrics_wrapper_test");

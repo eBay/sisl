@@ -131,8 +131,9 @@ class SISLConan(ConanFile):
 
         self.cpp.build.components["sobject"].libdirs = ["src/sobject"]
         self.cpp.package.components["sobject"].libs = ["sisl_sobject"]
-        self.cpp.build.components["file_watcher"].libdirs = ["src/file_watcher"]
-        self.cpp.package.components["file_watcher"].libs = ["sisl_file_watcher"]
+        if self.settings.os in ["Linux"]:
+            self.cpp.build.components["file_watcher"].libdirs = ["src/file_watcher"]
+            self.cpp.package.components["file_watcher"].libs = ["sisl_file_watcher"]
         self.cpp.build.components["version"].libdirs = ["src/version"]
         self.cpp.package.components["version"].libs = ["sisl_version"]
         self.cpp.package.components["sisl"].libs = [""]
@@ -247,18 +248,18 @@ class SISLConan(ConanFile):
                 "logging",
                 "nlohmann_json::nlohmann_json",
                 ])
-        self.cpp_info.components["file_watcher"].requires.extend([
-                "logging",
-                ])
+        if self.settings.os in ["Linux"]:
+            self.cpp_info.components["file_watcher"].requires.extend([
+                    "logging",
+                    ])
         self.cpp_info.components["version"].requires.extend([
                 "logging",
                 "zmarok-semver::zmarok-semver",
                 ])
-        self.cpp_info.components["sisl"].requires.extend([
-                "file_watcher",
-                "sobject",
-                "version",
-                ])
+        sisl_requires = ["sobject", "version"]
+        if self.settings.os in ["Linux"]:
+            sisl_requires.append("file_watcher")
+        self.cpp_info.components["sisl"].requires.extend(sisl_requires)
 
         if self.options.metrics:
             self.cpp_info.components["settings"].requires.extend([

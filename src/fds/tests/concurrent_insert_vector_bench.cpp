@@ -21,7 +21,11 @@
 
 #include <benchmark/benchmark.h>
 #include <sisl/logging/logging.h>
+#include <sisl/options/options.h>
 #include <sisl/fds/concurrent_insert_vector.hpp>
+
+SISL_OPTIONS_ENABLE(logging)
+SISL_LOGGING_INIT()
 
 using namespace sisl;
 

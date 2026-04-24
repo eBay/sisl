@@ -24,8 +24,8 @@
 #include <boost/preprocessor/stringize.hpp>
 #ifdef __linux__
 #include <malloc.h>
-#include <sys/uio.h>
 #endif
+#include <sys/uio.h>
 #include <boost/container/small_vector.hpp>
 #include <sisl/metrics/metrics.hpp>
 #include <sisl/utility/enum.hpp>

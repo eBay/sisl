@@ -419,7 +419,7 @@ server.restart(new_cert, new_key);
 | Linux x86_64 (GCC) | Fully supported |
 | Linux x86_64 (Clang) | Supported — crash dumps (breakpad) and HTTP server not available |
 | Linux ARM64 | Supported |
-| macOS (AppleClang) | Supported — crash dumps (breakpad) and HTTP server not available |
+| macOS (AppleClang) | Supported — crash dumps (breakpad), HTTP server, and file_watcher not available |
 | Windows | Not supported |
 
 ---
