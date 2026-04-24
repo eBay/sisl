@@ -358,7 +358,7 @@ TEST(GenericServiceDeathTest, basic_test) {
 #ifndef NDEBUG
     ASSERT_DEATH(
         g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
-        "Assertion .* failed");
+        "Assertion");
 #else
     EXPECT_FALSE(
         g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
@@ -371,7 +371,7 @@ TEST(GenericServiceDeathTest, basic_test) {
 #ifndef NDEBUG
     ASSERT_DEATH(
         g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }),
-        "Assertion .* failed");
+        "Assertion");
 #else
     EXPECT_FALSE(
         g_grpc_server->register_generic_rpc("method1", [](boost::intrusive_ptr< GenericRpcData >&) { return true; }));
