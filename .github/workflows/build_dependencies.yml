@@ -16,6 +16,10 @@ on:
       malloc-impl:
         required: true
         type: string
+      sanitize:
+        required: false
+        type: string
+        default: 'False'
       tooling:
         required: false
         type: string
@@ -50,10 +54,18 @@ on:
           - libc
           - tcmalloc
           - jemalloc
+      sanitize:
+        required: false
+        type: choice
+        options:
+          - 'False'
+          - 'address'
+          - 'thread'
+        default: 'False'
       tooling:
         required: false
         type: choice
-          - 'Sanitize'
+        options:
           - 'Coverage'
           - 'None'
         default: 'None'
@@ -120,10 +132,9 @@ jobs:
 
     - name: Create and Test Package
       run: |
-        sanitize=$([[ "${{ inputs.tooling }}" == "Sanitize" ]] && echo "True" || echo "False")
         conan create \
             -o sisl/*:malloc_impl=${{ inputs.malloc-impl }} \
-            -o sisl/*:sanitize=${sanitize} \
+            -o sisl/*:sanitize=${{ inputs.sanitize }} \
             -s:h build_type=${{ inputs.build-type }} \
             --build missing \
             .

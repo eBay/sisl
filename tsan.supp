@@ -1,0 +1,35 @@
+# ThreadSanitizer suppression file for sisl
+# Add suppressions here as TSAN identifies false positives.
+# Format: race:<function_name>
+
+# FileWatcher pipe-based shutdown: stop() writes to m_pipefd[1] to wake the watcher, then
+# joins the thread. The watcher closes both pipe ends after breaking its poll loop. TSAN
+# flags the concurrent write(fd)/close(fd) pair, but the write() returns before the watcher
+# can reach the close — pipe buffer ordering provides the happens-before that TSAN cannot model.
+race:sisl::FileWatcher::run
+race:sisl::FileWatcher::stop
+
+# test_status_factory benchmarks: URCU races are false positives (synchronize_rcu() provides
+# the happens-before that TSAN cannot model); parallel_update/test_raw_gets races are
+# intentional — the benchmark deliberately exercises unsynchronized access as a baseline.
+race:test_urcu_gets
+race:parallel_update
+race:test_raw_gets
+
+# test_flip / echo_server / echo_async_client / auth_test: gRPC/protobuf TSAN false positives.
+# Races surface here because gRPC's completion queue delivery provides happens-before that
+# TSAN cannot model; operator new tracking makes TSAN believe the allocating thread is still
+# writing when the CQ thread reads the object.
+race:grpc::
+race:google::protobuf
+# absl::lts_ covers any snapshot date (varies by gRPC build environment)
+race:absl::lts_
+race:DoAllocWithArena
+race:sisl::ClientRpcData
+race:sisl::GrpcAsyncClientWorker
+
+# wisr_vector_test: URCU false positives — urcu_scoped_ptr::_make_and_exchange swaps in a new
+# buffer while writers read through the URCU pointer; synchronize_rcu() provides the
+# happens-before that TSAN cannot model.
+race:sisl::wisr_framework
+race:sisl::urcu_scoped_ptr

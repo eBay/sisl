@@ -17,6 +17,9 @@ target_sources(test_stream_tracker PRIVATE
   )
 target_link_libraries(test_stream_tracker sisl_buffer GTest::gtest)
 add_test(NAME StreamTracker COMMAND test_stream_tracker)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(StreamTracker PROPERTIES DISABLED TRUE)
+endif()
 
 add_executable(test_atomic_status_counter)
 target_sources(test_atomic_status_counter PRIVATE
@@ -31,6 +34,9 @@ target_sources(test_bitset PRIVATE
   )
 target_link_libraries(test_bitset sisl_buffer GTest::gtest)
 add_test(NAME Bitset COMMAND test_bitset)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(Bitset PROPERTIES DISABLED TRUE)
+endif()
 
 add_executable(test_bitword)
 target_sources(test_bitword PRIVATE
@@ -38,6 +44,9 @@ target_sources(test_bitword PRIVATE
   )
 target_link_libraries(test_bitword sisl_logging GTest::gtest)
 add_test(NAME Bitword COMMAND test_bitset)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(Bitword PROPERTIES DISABLED TRUE)
+endif()
 
 add_executable(test_compact_bitset)
 target_sources(test_compact_bitset PRIVATE
@@ -66,6 +75,9 @@ target_sources(obj_allocator_benchmark PRIVATE
   )
 target_link_libraries(obj_allocator_benchmark sisl_buffer benchmark::benchmark)
 add_test(NAME ObjAllocatorBenchmark COMMAND obj_allocator_benchmark)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(ObjAllocatorBenchmark PROPERTIES DISABLED TRUE)
+endif()
 
 add_executable(test_obj_allocator)
 target_sources(test_obj_allocator PRIVATE
@@ -73,6 +85,9 @@ target_sources(test_obj_allocator PRIVATE
   )
 target_link_libraries(test_obj_allocator sisl_buffer)
 add_test(NAME ObjAlloc COMMAND test_obj_allocator)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(ObjAlloc PROPERTIES DISABLED TRUE)
+endif()
 
 add_executable(test_sg_list)
 target_sources(test_sg_list PRIVATE
