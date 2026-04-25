@@ -17,18 +17,7 @@ runs:
           conan list --graph ~/build.json --graph-binaries="${state}" --format=json > "${f}"
           pkgfiles+=("${f}")
         done
-        python3 -c "
-import json, pathlib, os, sys
-merged = {}
-for f in sys.argv[1:]:
-    try:
-        lc = json.loads(pathlib.Path(f).read_text()).get('Local Cache', {})
-        for pkg, revs in lc.items():
-            merged.setdefault(pkg, {}).update(revs)
-    except Exception:
-        pass
-pathlib.Path(os.path.expanduser('~/pkglist.json')).write_text(json.dumps({'Local Cache': merged}))
-" -- "${pkgfiles[@]}"
+        python3 -c "import json,pathlib,os,sys; m={}; [m.setdefault(p,{}).update(r) for f in sys.argv[1:] if pathlib.Path(f).exists() for p,r in json.loads(pathlib.Path(f).read_text()).get('Local Cache',{}).items()]; pathlib.Path(os.path.expanduser('~/pkglist.json')).write_text(json.dumps({'Local Cache':m}))" -- "${pkgfiles[@]}"
         conan cache save --no-source --file ~/conan_cache_save.tgz -l ~/pkglist.json
 
     - name: Save Cache
