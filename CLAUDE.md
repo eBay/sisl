@@ -9,7 +9,7 @@ All building goes through Conan 2, which drives CMake internally.
 **First-time setup** — export the vendored 3rd-party Conan recipes (run once):
 
 ```bash
-./prepare_v2.sh   # exports folly/nu2.2023.12.18.00 and userspace-rcu/nu2.0.14.0
+./prepare_v2.sh   # exports userspace-rcu/nu2.0.14.0
 ```
 
 **Common build commands:**
@@ -62,6 +62,7 @@ ctest --test-dir build/Debug --output-on-failure -R MetricsFarm
 | `malloc_impl` | `libc` | `libc`, `tcmalloc`, `jemalloc`; jemalloc disables sanitizers |
 | `metrics` | `True` | Enables metrics, WISR, FDS, cache, settings subsystems |
 | `grpc` | `True` | Requires `metrics=True` |
+| `http` | `True` | HTTP server (Linux only; auto-disabled under Clang) |
 | `coverage` | `False` | Debug only; incompatible with `sanitize` |
 
 **Code formatting:**
@@ -86,13 +87,15 @@ sisl_options  (boost, cxxopts)
        ├─ sisl_file_watcher
        ├─ sisl_version  (zmarok-semver)
        └─ [metrics=True]
-            sisl_metrics  (folly, prometheus-cpp, userspace-rcu)
-              └─ sisl_buffer/fds  (folly, snappy)
+            sisl_metrics  (prometheus-cpp, userspace-rcu)
+              └─ sisl_buffer/fds  (snappy)
                    └─ sisl_cache
             sisl_settings  (flatbuffers, userspace-rcu)
             └─ [grpc=True]
                  flip       (gRPC, protobuf — proto codegen)
                  sisl_grpc  (sisl_buffer + gRPC)
+       └─ [http=True, Linux only]
+            sisl_http  (Pistache)
 ```
 
 The source lives in `src/<component>/` and the public headers in `include/sisl/`. The root CMakeLists adds `include/` globally so `#include <sisl/...>` works everywhere.
@@ -114,17 +117,17 @@ Components using the settings framework call `settings_gen_cpp()` from `cmake/se
 - `cmake/sanitize.cmake` — sets compiler/linker flags based on `SANITIZER_TYPE` (`"address"` or `"thread"`)
 - CMakeLists.txt root checks `THREAD_SANITIZER_ON` / `ADDRESS_SANITIZER_ON` variables (set by `conanfile.py` → CMakeToolchain)
 - `tsan.supp` — TSAN suppressions; tests that use it set `ENVIRONMENT "TSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tsan.supp"` via `set_tests_properties`
-- Tests that abort under TSAN due to folly `SharedMutex` (folly precompiled without TSAN) are set `DISABLED TRUE` — this affects all tests that transitively link `sisl_metrics` or `sisl_buffer`. This is a v13.x limitation; v14.x removes folly.
+- Tests that cannot run under TSAN (gRPC/absl false positives that can't be suppressed) are set `DISABLED TRUE` in their CMakeLists.
 
 ### CI
 
-Four named jobs run on `ubuntu-24.04` for PRs and merges to `stable/v13.x`:
+Four named jobs run on `ubuntu-24.04` for PRs and merges to `dev/v14.x`. All use `conan-channel: "dev"`.
 
-| Job | Build type | Malloc | Sanitizer |
-|---|---|---|---|
-| GccThreadSanitize | Debug | libc | thread |
-| GccAddressSanitize | Debug | libc | address |
-| GccCoverage | Debug | libc | none (coverage=True) |
-| GccRelease | Release | tcmalloc | none |
+| Job | Compiler | Build type | Malloc | Sanitizer |
+|---|---|---|---|---|
+| GccThreadSanitize | GCC | Debug | libc | thread |
+| GccAddressSanitize | GCC | Debug | libc | address |
+| GccCoverage | GCC | Debug | libc | none (coverage=True) |
+| ClangRelease | Clang | Release | tcmalloc | none |
 
-Merges to `stable/v13.x` chain-trigger builds in `eBay/iomanager` (stable/v12.x) and `eBay/nuraft_mesg` (stable/v4.x). Conan dependency cache key: `SislDeps13-<platform>-<build_type>-<malloc_impl>`.
+ChainBuild (iomanager / nuraft_mesg) is commented out pending their migration to `dev/v14.x`.
