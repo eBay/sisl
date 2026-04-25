@@ -26,7 +26,14 @@ std::once_flag VersionMgr::m_init_flag;
 
 void VersionMgr::createAndInit() {
     m_instance = new VersionMgr();
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
     auto ver{version::Semver200_version(BOOST_PP_STRINGIZE(PACKAGE_VERSION))};
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
     m_instance->m_version_map["sisl"] = ver;
 }
 
