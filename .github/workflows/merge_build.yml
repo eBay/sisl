@@ -55,7 +55,7 @@ jobs:
       platform: "ubuntu-24.04"
       branch: ${{ github.ref }}
       build-type: "Release"
-      malloc-impl: "libc"
+      malloc-impl: "tcmalloc"
       sanitize: "False"
       tooling: "None"
       compiler: "clang"
