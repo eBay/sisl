@@ -22,7 +22,7 @@ race:test_raw_gets
 # writing when the CQ thread reads the object.
 race:grpc::
 race:google::protobuf
-race:absl::lts_20230125
+race:absl::lts_        # matches any lts snapshot (date varies by gRPC build environment)
 race:DoAllocWithArena
 race:sisl::ClientRpcData
 race:sisl::GrpcAsyncClientWorker
