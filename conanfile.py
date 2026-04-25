@@ -70,10 +70,10 @@ class SISLConan(ConanFile):
         if self.options.shared:
             self.options.rm_safe("fPIC")
         if self.settings.build_type == "Debug":
-            if self.options.coverage and self.options.sanitize:
+            if self.options.coverage and self.options.sanitize != "False":
                 raise ConanInvalidConfiguration("Sanitizer does not work with Code Coverage!")
             if self.conf.get("tools.build:skip_test", default=False):
-                if self.options.coverage or self.options.sanitize:
+                if self.options.coverage or self.options.sanitize != "False":
                     raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build_requirements(self):

@@ -13,8 +13,8 @@ if (DEFINED ADDRESS_SANITIZER_ON AND ADDRESS_SANITIZER_ON)
     set_tests_properties(Auth_Test PROPERTIES
         ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0:allow_user_poisoning=0")
 elseif (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
-    # Skipped under TSAN: all assertions pass but gRPC EventEngine (PickFirst LB,
-    # DNS resolver, transport ops) produces false-positive races invisible to TSAN.
+    # Skipped under TSAN: all assertions pass but gRPC internals (PickFirst LB,
+    # DNS resolver, transport ops) produce false-positive races invisible to TSAN.
     set_tests_properties(Auth_Test PROPERTIES DISABLED TRUE)
 endif()
 

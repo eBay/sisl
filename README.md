@@ -57,8 +57,8 @@ conan build -s:h build_type=Debug --build missing .
 | `grpc` | `True` | gRPC transport and Flip fault injection (requires `metrics`) |
 | `http` | `True` | HTTP server component built on Pistache (Linux only) |
 | `malloc_impl` | `libc` | Memory allocator: `libc`, `tcmalloc`, or `jemalloc` |
-| `sanitize` | `False` | Enable sanitizer: `address` (AddressSanitizer + UBSan) or `thread` (ThreadSanitizer) |
-| `coverage` | `False` | Enable gcov code coverage |
+| `sanitize` | `False` | Sanitizer to enable in Debug builds: `address` (ASan+UBSan), `thread` (TSan), or `False` |
+| `coverage` | `False` | Enable gcov code coverage (Debug only) |
 
 ```bash
 # Release build with tcmalloc, skip tests
