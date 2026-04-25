@@ -5,35 +5,55 @@ on:
   push:
     branches:
       - stable/v13.x
+  pull_request:
+    branches:
+      - stable/v13.x
 
 jobs:
-  Build:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: ["ubuntu-24.04"]
-        build-type: ["Debug", "Release"]
-        malloc-impl: ["libc", "tcmalloc"]
-        tooling: ["Sanitize", "Coverage", "None"]
-        exclude:
-          - build-type: Debug
-            tooling: None
-          - build-type: Debug
-            malloc-impl: tcmalloc
-          - build-type: Release
-            malloc-impl: libc
-          - build-type: Release
-            tooling: Sanitize
-          - build-type: Release
-            tooling: Coverage
+  GccThreadSanitize:
     uses: ./.github/workflows/build_dependencies.yml
     with:
-      platform: ${{ matrix.platform }}
+      platform: "ubuntu-24.04"
       branch: ${{ github.ref }}
-      build-type: ${{ matrix.build-type }}
-      malloc-impl: ${{ matrix.malloc-impl }}
-      tooling: ${{ matrix.tooling }}
+      build-type: "Debug"
+      malloc-impl: "libc"
+      sanitize: "thread"
+      tooling: "None"
       testing: 'True'
+
+  GccAddressSanitize:
+    uses: ./.github/workflows/build_dependencies.yml
+    with:
+      platform: "ubuntu-24.04"
+      branch: ${{ github.ref }}
+      build-type: "Debug"
+      malloc-impl: "libc"
+      sanitize: "address"
+      tooling: "None"
+      testing: 'True'
+
+  GccCoverage:
+    uses: ./.github/workflows/build_dependencies.yml
+    with:
+      platform: "ubuntu-24.04"
+      branch: ${{ github.ref }}
+      build-type: "Debug"
+      malloc-impl: "libc"
+      sanitize: "False"
+      tooling: "Coverage"
+      testing: 'True'
+
+  GccRelease:
+    uses: ./.github/workflows/build_dependencies.yml
+    with:
+      platform: "ubuntu-24.04"
+      branch: ${{ github.ref }}
+      build-type: "Release"
+      malloc-impl: "tcmalloc"
+      sanitize: "False"
+      tooling: "None"
+      testing: 'True'
+
   ChainBuild:
     runs-on: "ubuntu-24.04"
     steps:
@@ -45,8 +65,8 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/eBay/iomanager/actions/workflows/merge_build.yml/dispatches \
-          -d '{"ref":"master","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}
+          -d '{"ref":"stable/v12.x","inputs":{}}'
+      if: ${{ github.ref == 'refs/heads/stable/v13.x' }}
     - name: Start NuraftMesg Build
       run: |
         curl -L \
@@ -55,5 +75,5 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.CHAIN_BUILD_TOKEN }}"\
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/eBay/nuraft_mesg/actions/workflows/conan_build.yml/dispatches \
-          -d '{"ref":"main","inputs":{}}'
-      if: ${{ github.ref == 'refs/heads/master' }}
+          -d '{"ref":"stable/v4.x","inputs":{}}'
+      if: ${{ github.ref == 'refs/heads/stable/v13.x' }}

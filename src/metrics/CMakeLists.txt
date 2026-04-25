@@ -23,6 +23,9 @@ target_sources(metrics_farm_test PRIVATE
   )
 target_link_libraries(metrics_farm_test sisl_metrics GTest::gtest)
 add_test(NAME MetricsFarm COMMAND metrics_farm_test)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(MetricsFarm PROPERTIES DISABLED TRUE)
+endif()
 
 add_executable(metrics_wrapper_test)
 target_sources(metrics_wrapper_test PRIVATE
@@ -30,6 +33,9 @@ target_sources(metrics_wrapper_test PRIVATE
   )
 target_link_libraries(metrics_wrapper_test sisl_metrics GTest::gtest)
 add_test(NAME MetricsWrapper COMMAND metrics_wrapper_test)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(MetricsWrapper PROPERTIES DISABLED TRUE)
+endif()
 
 add_executable(metrics_benchmark)
 target_sources(metrics_benchmark PRIVATE
@@ -37,3 +43,6 @@ target_sources(metrics_benchmark PRIVATE
   )
 target_link_libraries(metrics_benchmark sisl_metrics benchmark::benchmark)
 add_test(NAME MetricsBenchmark COMMAND metrics_benchmark)
+if (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    set_tests_properties(MetricsBenchmark PROPERTIES DISABLED TRUE)
+endif()

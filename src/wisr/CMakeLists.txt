@@ -7,6 +7,8 @@ target_sources(wisr_vector_test PRIVATE
   )
 target_link_libraries(wisr_vector_test sisl_metrics benchmark::benchmark GTest::gtest)
 add_test(NAME WisrVector COMMAND wisr_vector_test)
+set_tests_properties(WisrVector PROPERTIES
+    ENVIRONMENT "TSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tsan.supp")
 
 add_executable(wisr_vector_benchmark)
 target_sources(wisr_vector_benchmark PRIVATE

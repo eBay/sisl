@@ -33,7 +33,7 @@ conan build -s:h build_type=Debug --build missing .
 | `metrics` | `True` | Metrics, WISR, FDS, Cache, and Settings components |
 | `grpc` | `True` | gRPC transport and Flip fault injection |
 | `malloc_impl` | `libc` | Memory allocator: `libc`, `tcmalloc`, or `jemalloc` |
-| `sanitize` | `False` | Enable AddressSanitizer + UBSan (Debug only) |
+| `sanitize` | `False` | Sanitizer to enable in Debug builds: `address` (ASan+UBSan), `thread` (TSan), or `False` |
 | `coverage` | `False` | Enable gcov code coverage (Debug only) |
 
 ```bash
