@@ -24,6 +24,6 @@ jobs:
           if git diff -r HEAD^1 HEAD -- conanfile.py | grep -E "[ ]+version = "; then
             echo "Version is updated with this PR, OK"
           else
-            echo "Conan version is not updated with this PR. Please update that to allow PR merge"
+            echo -e "Conan version is not updated with this PR. Please update that to allow PR merge\nChanged files: ${non_test}"
             exit 1
           fi
