@@ -106,7 +106,7 @@ class SISLConan(ConanFile):
             self.requires("grpc/1.69.0", transitive_headers=True)
 
         if self.options.http:
-            self.requires("pistache/nbi.0.0.5.1", transitive_headers=True)
+            self.requires("pistache/0.4.25", transitive_headers=True)
 
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
