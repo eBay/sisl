@@ -413,7 +413,7 @@ public:
     io_blob_safe& operator=(io_blob_safe&& other) {
         if (blob::bytes_ != nullptr) { this->buf_free(m_tag); }
 
-        *((io_blob*)this) = std::move(*((io_blob*)&other));
+        static_cast< io_blob& >(*this) = std::move(static_cast< io_blob& >(other));
         m_tag = other.m_tag;
 
         other.bytes_ = nullptr;

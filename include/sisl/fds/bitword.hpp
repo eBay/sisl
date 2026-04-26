@@ -71,23 +71,23 @@ static constexpr std::array< uint64_t, 64 > consecutive_bitmask = {
     (bit_mask[61] - 1), (bit_mask[62] - 1), (bit_mask[63] - 1), ~static_cast< uint64_t >(0)};
 
 template < typename DataType >
-static constexpr uint8_t logBase2(const DataType v) {
-    static_assert(std::is_unsigned< DataType >::value, "logBase2: DataType must be unsigned.");
+constexpr uint8_t logBase2(const DataType v) {
+    static_assert(std::is_unsigned_v< DataType >, "logBase2: DataType must be unsigned.");
     return static_cast< uint8_t >((v == DataType{}) ? 255 : (sizeof(DataType) * 8 - 1) - std::countl_zero(v));
 }
 
 template < typename DataType >
-static inline constexpr uint8_t get_trailing_zeros(const DataType v) {
+constexpr uint8_t get_trailing_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countr_zero(std::make_unsigned_t< DataType >(v)));
 }
 
 template < typename DataType >
-static inline constexpr uint8_t get_set_bit_count(const DataType v) {
+constexpr uint8_t get_set_bit_count(const DataType v) {
     return static_cast< uint8_t >(std::popcount(std::make_unsigned_t< DataType >(v)));
 }
 
 template < typename DataType >
-static inline constexpr uint8_t get_leading_zeros(const DataType v) {
+constexpr uint8_t get_leading_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countl_zero(std::make_unsigned_t< DataType >(v)));
 }
 
@@ -139,12 +139,12 @@ struct bit_match_result {
 template < typename Word >
 class Bitword {
 public:
-    typedef typename std::decay_t< Word > word_type;
+    using word_type = std::decay_t< Word >;
     static constexpr uint8_t bits() { return (sizeof(word_type) * 8); }
-    typedef typename word_type::word_t word_t;
+    using word_t = typename word_type::word_t;
     static_assert(std::is_unsigned_v< word_t > && (sizeof(word_t) <= 16),
                   "Underlying type must be unsigned of 128 bits or less.");
-    typedef typename word_type::value_type value_type;
+    using value_type = typename word_type::value_type;
 
     Bitword() { m_bits.set(0); }
     explicit Bitword(const word_type& b) { m_bits.set(b.get()); }
@@ -453,9 +453,9 @@ std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, trait
 template < typename WType >
 class unsafe_bits {
 public:
-    typedef std::decay_t< WType > word_t;
+    using word_t = std::decay_t< WType >;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
-    typedef word_t value_type;
+    using value_type = word_t;
 
     unsafe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     unsafe_bits(const unsafe_bits&) = delete;
@@ -501,9 +501,9 @@ private:
 template < typename WType >
 class safe_bits {
 public:
-    typedef std::decay_t< WType > word_t;
+    using word_t = std::decay_t< WType >;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
-    typedef std::atomic< word_t > value_type;
+    using value_type = std::atomic< word_t >;
 
     safe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     safe_bits(const safe_bits&) = delete;

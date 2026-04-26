@@ -29,17 +29,17 @@
 
 namespace sisl {
 
-typedef uint8_t small_offset_t;
-typedef uint16_t small_count_t;
-typedef std::pair< small_offset_t, small_offset_t > small_range_t;
+using small_offset_t = uint8_t;
+using small_count_t = uint16_t;
+using small_range_t = std::pair< small_offset_t, small_offset_t >;
 
-typedef uint32_t big_offset_t;
-typedef uint32_t big_count_t;
-typedef std::pair< big_offset_t, big_offset_t > big_range_t;
+using big_offset_t = uint32_t;
+using big_count_t = uint32_t;
+using big_range_t = std::pair< big_offset_t, big_offset_t >;
 
-static constexpr big_count_t max_n_per_node = (s_cast< uint64_t >(1) << (sizeof(small_offset_t) * 8));
-static constexpr small_offset_t max_offset_in_node = std::numeric_limits< small_offset_t >::max();
-static constexpr size_t s_start_seed = 0; // TODO: Pickup a better seed
+inline constexpr big_count_t max_n_per_node = (s_cast< uint64_t >(1) << (sizeof(small_offset_t) * 8));
+inline constexpr small_offset_t max_offset_in_node = std::numeric_limits< small_offset_t >::max();
+inline constexpr size_t s_start_seed = 0;
 
 template < typename K >
 struct RangeKey {
@@ -80,7 +80,7 @@ class HashBucket;
 
 ENUM(hash_op_t, uint8_t, CREATE, ACCESS, DELETE, RESIZE)
 
-typedef std::function< sisl::byte_view(const sisl::byte_view&, big_offset_t, big_count_t) > value_extractor_cb_t;
+using value_extractor_cb_t = std::function< sisl::byte_view(const sisl::byte_view&, big_offset_t, big_count_t) >;
 
 class ValueEntryRange;
 

@@ -44,7 +44,7 @@ public:
     static constexpr size_t compaction_threshold = alloc_blk_size / 2;
     static constexpr auto null_processor = []([[maybe_unused]] auto... x) -> bool { return true; };
 
-    static_assert(std::is_trivially_copyable< T >::value, "Cannot use StreamTracker for non-trivally copyable classes");
+    static_assert(std::is_trivially_copyable_v< T >, "Cannot use StreamTracker for non-trivally copyable classes");
 
     // Initialize the stream vector with start index
     StreamTracker(const char* name = "StreamTracker", int64_t start_idx = -1) :
