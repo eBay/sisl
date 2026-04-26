@@ -33,7 +33,7 @@ ENUM(url_type, uint8_t,
      safe,      // can be called from any host without auth
      regular);  // subject to normal auth rules
 
-enum class http_method : uint8_t { Get, Post, Put, Delete, Patch, Head, Options };
+enum class http_method : uint8_t { Get, Post, Put, Delete, Patch, Options };
 
 using http_handler = httplib::Server::Handler;
 

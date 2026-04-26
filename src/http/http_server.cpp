@@ -143,9 +143,6 @@ void HttpServer::setup_route(http_method method, std::string resource, http_hand
     case http_method::Patch:
         m_server->Patch(resource, handler);
         break;
-    case http_method::Head:
-        m_server->Head(resource, handler);
-        break;
     case http_method::Options:
         m_server->Options(resource, handler);
         break;

@@ -57,6 +57,8 @@ class SISLConan(ConanFile):
             check_min_cppstd(self, self._min_cppstd())
 
     def configure(self):
+        if self.options.http:
+            self.options["cpp-httplib"].with_openssl = True
         if not self.options.metrics and self.options.grpc:
             raise ConanInvalidConfiguration("gRPC support requires metrics option!")
 
@@ -82,7 +84,7 @@ class SISLConan(ConanFile):
         self.requires("spdlog/1.17.0", transitive_headers=True)
         self.requires("zmarok-semver/1.1.0", transitive_headers=True)
         self.requires("lz4/1.10.0", override=True)
-        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
+        if self.settings.os in ["Linux"]:
             self.requires("breakpad/cci.20210521")
 
         # ARM needs unreleased versionof libunwind
@@ -235,7 +237,7 @@ class SISLConan(ConanFile):
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
-        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
+        if self.settings.os in ["Linux"]:
             self.cpp_info.components["logging"].requires.append("breakpad::breakpad")
         self.cpp_info.components["sobject"].requires.extend([
                 "logging",
@@ -305,8 +307,7 @@ class SISLConan(ConanFile):
                 component.defines.append("_FILE_OFFSET_BITS=64")
                 component.defines.append("_LARGEFILE64")
                 component.system_libs.extend(["dl", "pthread"])
-                if self.settings.compiler != "clang":
-                    component.exelinkflags.extend(["-export-dynamic"])
+                component.exelinkflags.extend(["-export-dynamic"])
             if self.options.get_safe("sanitize") and self.options.sanitize != "False":
                 if self.options.sanitize == "thread":
                     component.sharedlinkflags.append("-fsanitize=thread")
