@@ -40,32 +40,33 @@
 #define sisl_unlikely(x) (x)
 #endif
 
-typedef std::chrono::steady_clock Clock;
-
 /*************** Clock/Time Related Methods/Definitions **************/
-#define CURRENT_CLOCK(name) Clock::time_point name = Clock::now()
+#define CURRENT_CLOCK(name) sisl::Clock::time_point name = sisl::Clock::now()
 
-inline uint64_t get_elapsed_time_ns(const Clock::time_point& t) {
-    const std::chrono::nanoseconds ns{std::chrono::duration_cast< std::chrono::nanoseconds >(Clock::now() - t)};
+inline uint64_t get_elapsed_time_ns(const std::chrono::steady_clock::time_point& t) {
+    const std::chrono::nanoseconds ns{
+        std::chrono::duration_cast< std::chrono::nanoseconds >(std::chrono::steady_clock::now() - t)};
     return ns.count();
 }
 
-inline uint64_t get_elapsed_time_us(const Clock::time_point& t) {
+inline uint64_t get_elapsed_time_us(const std::chrono::steady_clock::time_point& t) {
     return get_elapsed_time_ns(t) / static_cast< uint64_t >(1000);
 }
-inline uint64_t get_elapsed_time_ms(const Clock::time_point& t) {
+inline uint64_t get_elapsed_time_ms(const std::chrono::steady_clock::time_point& t) {
     return get_elapsed_time_ns(t) / static_cast< uint64_t >(1000000);
 }
-inline uint64_t get_elapsed_time_sec(const Clock::time_point& t) {
+inline uint64_t get_elapsed_time_sec(const std::chrono::steady_clock::time_point& t) {
     return get_elapsed_time_ns(t) / static_cast< uint64_t >(1000000000);
 }
 
-inline uint64_t get_elapsed_time_ns(const Clock::time_point& t1, const Clock::time_point& t2) {
+inline uint64_t get_elapsed_time_ns(const std::chrono::steady_clock::time_point& t1,
+                                    const std::chrono::steady_clock::time_point& t2) {
     const std::chrono::nanoseconds ns{std::chrono::duration_cast< std::chrono::nanoseconds >(t2 - t1)};
     return ns.count();
 }
 
-inline uint64_t get_elapsed_time_us(const Clock::time_point& t1, const Clock::time_point& t2) {
+inline uint64_t get_elapsed_time_us(const std::chrono::steady_clock::time_point& t1,
+                                    const std::chrono::steady_clock::time_point& t2) {
     return get_elapsed_time_ns(t1, t2) / static_cast< uint64_t >(1000);
 }
 
@@ -113,12 +114,12 @@ constexpr std::array< char const, N1 + N2 - 1 > const_concat(char const (&a1)[N1
 #define const_concat_string(s1, s2) (&(const_concat(s1, s2)[0]))
 
 template < class P, class M >
-inline size_t offset_of(const M P::*member) {
+inline size_t offset_of(const M P::* member) {
     return reinterpret_cast< size_t >(&(reinterpret_cast< const volatile P* >(NULL)->*member));
 }
 
 template < class P, class M >
-inline P* container_of(const M* ptr, const M P::*member) {
+inline P* container_of(const M* ptr, const M P::* member) {
     return reinterpret_cast< P* >(reinterpret_cast< uint8_t* >(const_cast< M* >(ptr)) - offset_of(member));
 }
 
@@ -128,6 +129,8 @@ static uint64_t constexpr get_mask() {
 }
 
 namespace sisl {
+using Clock = std::chrono::steady_clock;
+
 inline uint64_t round_up(const uint64_t num_to_round, const uint64_t multiple) {
     assert(multiple > static_cast< uint64_t >(0));
     if (!(multiple & (multiple - 1))) {

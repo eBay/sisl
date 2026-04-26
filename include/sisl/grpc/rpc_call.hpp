@@ -324,7 +324,7 @@ private:
     // This method will be called either (i) when the server is notified that the request has been canceled, or (ii)
     // when the request completes normally. The implementation should distinguish these cases by querying the
     // grpc::ServerContext associated with the request.
-    RpcDataAbstract* on_request_completed(bool ok) {
+    RpcDataAbstract* on_request_completed([[maybe_unused]] bool ok) {
         RPC_SERVER_LOG(TRACE, "request completed with is_ok={}", ok);
         if (m_ctx.IsCancelled()) {
             m_is_canceled.store(true, std::memory_order_release);

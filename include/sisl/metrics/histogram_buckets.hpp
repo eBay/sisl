@@ -34,10 +34,10 @@ using hist_bucket_boundaries_t = std::vector< double >;
       200000, 300000, 2000000)                                                                                         \
     X(LowResolutionLatecyBuckets, 100, 500, 1000, 5000, 10000, 50000, 100000, 200000, 300000, 2000000)                 \
                                                                                                                        \
-    X(ExponentialOfTwoBuckets, 1, exp2(4), exp2(7), exp2(10), exp2(13), exp2(16), exp2(19), exp2(22), exp2(25),        \
-      exp2(28), exp2(31))                                                                                              \
+    X(ExponentialOfTwoBuckets, 1, ipow2(4), ipow2(7), ipow2(10), ipow2(13), ipow2(16), ipow2(19), ipow2(22),           \
+      ipow2(25), ipow2(28), ipow2(31))                                                                                 \
                                                                                                                        \
-    X(OpSizeBuckets, exp2(12), exp2(13), exp2(16), exp2(20), exp2(22))                                                 \
+    X(OpSizeBuckets, ipow2(12), ipow2(13), ipow2(16), ipow2(20), ipow2(22))                                            \
                                                                                                                        \
     X(LinearUpto64Buckets, 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64)                            \
                                                                                                                        \
@@ -64,7 +64,7 @@ constexpr size_t _get_max_hist_bkts(V&&... v) {
     return max_size;
 }
 
-constexpr int64_t exp2(const int64_t exponent) { return exponent == 0 ? 1 : 2 * exp2(exponent - 1); }
+constexpr int64_t ipow2(const int64_t exponent) { return exponent == 0 ? 1 : 2 * ipow2(exponent - 1); }
 
 #define HistogramBucketsType(name) (sisl::HistogramBuckets::getInstance().name)
 

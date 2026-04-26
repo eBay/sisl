@@ -24,7 +24,7 @@
 
 #include <sisl/fds/buffer.hpp>
 #include <sisl/fds/utils.hpp>
-#include <sisl/utility/enum.hpp>
+#include <sisl/cache/cache_common.hpp>
 #include <sisl/cache/hash_entry_base.hpp>
 
 namespace sisl {
@@ -77,8 +77,6 @@ struct RangeKey {
 
 template < typename K >
 class HashBucket;
-
-ENUM(hash_op_t, uint8_t, CREATE, ACCESS, DELETE, RESIZE)
 
 using value_extractor_cb_t = std::function< sisl::byte_view(const sisl::byte_view&, big_offset_t, big_count_t) >;
 

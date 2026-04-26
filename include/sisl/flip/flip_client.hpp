@@ -15,6 +15,7 @@
  *
  *********************************************************************************/
 #pragma once
+#include <span>
 #include "flip.hpp"
 
 namespace flip {
@@ -37,7 +38,7 @@ public:
         return fcond;
     }
 
-    bool inject_noreturn_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+    bool inject_noreturn_flip(std::string flip_name, std::span< const FlipCondition > conditions,
                               const FlipFrequency& freq) {
         FlipSpec fspec;
 
@@ -49,7 +50,7 @@ public:
     }
 
     template < typename T >
-    bool inject_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+    bool inject_retval_flip(std::string flip_name, std::span< const FlipCondition > conditions,
                             const FlipFrequency& freq, const T& retval) {
         FlipSpec fspec;
 
@@ -60,7 +61,7 @@ public:
         return true;
     }
 
-    bool inject_delay_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+    bool inject_delay_flip(std::string flip_name, std::span< const FlipCondition > conditions,
                            const FlipFrequency& freq, uint64_t delay_usec) {
         FlipSpec fspec;
 
@@ -72,7 +73,7 @@ public:
     }
 
     template < typename T >
-    bool inject_delay_and_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+    bool inject_delay_and_retval_flip(std::string flip_name, std::span< const FlipCondition > conditions,
                                       const FlipFrequency& freq, uint64_t delay_usec, const T& retval) {
         FlipSpec fspec;
 
@@ -86,7 +87,7 @@ public:
 
     // Inject callback flip (no return value) - deduces Args from std::function
     template < typename Ret, typename... Args >
-    bool inject_callback_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+    bool inject_callback_flip(std::string flip_name, std::span< const FlipCondition > conditions,
                               const FlipFrequency& freq, std::function< Ret(Args...) > callback) {
         FlipSpec fspec;
 
@@ -99,7 +100,7 @@ public:
 
     // Inject callback flip (with return value) - deduces Args from std::function
     template < typename T, typename... Args >
-    bool inject_callback_retval_flip(std::string flip_name, const std::vector< FlipCondition >& conditions,
+    bool inject_callback_retval_flip(std::string flip_name, std::span< const FlipCondition > conditions,
                                      const FlipFrequency& freq, std::function< T(Args...) > callback) {
         FlipSpec fspec;
 
@@ -113,7 +114,7 @@ public:
     uint32_t remove_flip(const std::string& flip_name) { return m_flip->remove(flip_name); }
 
 private:
-    void _create_flip_spec(std::string flip_name, const std::vector< FlipCondition >& conditions,
+    void _create_flip_spec(std::string flip_name, std::span< const FlipCondition > conditions,
                            const FlipFrequency& freq, FlipSpec& out_fspec) {
         *(out_fspec.mutable_flip_name()) = flip_name;
         for (auto& c : conditions) {

@@ -16,6 +16,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <span>
 #include <string>
 #include <thread>
 #include <unordered_set>
@@ -55,7 +56,8 @@ public:
     // All routes must be registered before start()
     void setup_route(http_method method, std::string resource, http_handler handler,
                      url_type const& type = url_type::regular);
-    void setup_routes(std::vector< http_route > const& routes);
+    void setup_routes(std::span< const http_route > routes);
+    void setup_routes(std::initializer_list< http_route > routes) { setup_routes(std::span< const http_route >{routes}); }
 
     void start();
     void stop();

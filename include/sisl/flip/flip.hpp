@@ -62,7 +62,7 @@ void for_each(TTuple&& tuple, TCallable&& callable, TArgs&&... args) {
 }
 
 struct flip_name_compare {
-    bool operator()(const std::string& lhs, const std::string& rhs) const { return lhs < rhs; }
+    bool operator()(std::string_view lhs, std::string_view rhs) const { return lhs < rhs; }
 };
 
 // Forward declaration for type erasure

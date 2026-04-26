@@ -19,6 +19,7 @@
 #include <chrono>
 #include <thread>
 #include <string>
+#include <string_view>
 #include <memory>
 #include <functional>
 #include <sisl/logging/logging.h>
@@ -60,9 +61,9 @@ std::unique_ptr< std::thread > make_unique_thread(const std::string name, F&& f,
 }
 
 template < class T >
-void name_thread([[maybe_unused]] T& t, std::string const& name) {
+void name_thread([[maybe_unused]] T& t, std::string_view name) {
 #if defined(_POSIX_THREADS) && !defined(__APPLE__)
-    if (auto ret = pthread_setname_np(t.native_handle(), name.substr(0, 15).c_str()); ret != 0)
+    if (auto ret = pthread_setname_np(t.native_handle(), std::string{name.substr(0, 15)}.c_str()); ret != 0)
         LOGERROR("Set name of thread to {} failed ret={}", name, ret);
 #else
     LOGINFO("No ability to set thread name: {}", name);

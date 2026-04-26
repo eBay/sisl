@@ -167,20 +167,20 @@ void GrpcAsyncClient::GenericAsyncStub::call_rpc(const generic_req_builder_cb_t&
     prepare_and_send_unary_generic(cd, cd->m_req, method, deadline);
 }
 
-AsyncResult< grpc::ByteBuffer > GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
-                                                                              const std::string& method,
-                                                                              uint32_t deadline) {
-    std::promise< Result< grpc::ByteBuffer > > p;
+GrpcAsyncResult< grpc::ByteBuffer > GrpcAsyncClient::GenericAsyncStub::call_unary(const grpc::ByteBuffer& request,
+                                                                                  const std::string& method,
+                                                                                  uint32_t deadline) {
+    std::promise< GrpcResult< grpc::ByteBuffer > > p;
     auto sf = p.get_future();
     auto data = new GenericClientRpcDataFuture(std::move(p));
     prepare_and_send_unary_generic(data, request, method, deadline);
     return sf;
 }
 
-AsyncResult< GenericClientResponse > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
-                                                                                   const std::string& method,
-                                                                                   uint32_t deadline) {
-    std::promise< Result< GenericClientResponse > > p;
+GrpcAsyncResult< GenericClientResponse > GrpcAsyncClient::GenericAsyncStub::call_unary(const io_blob_list_t& request,
+                                                                                       const std::string& method,
+                                                                                       uint32_t deadline) {
+    std::promise< GrpcResult< GenericClientResponse > > p;
     auto sf = p.get_future();
     auto data = new GenericRpcDataFutureBlob(std::move(p));
     grpc::ByteBuffer cli_byte_buf;
@@ -231,7 +231,7 @@ io_blob GenericClientResponse::response_blob() {
     return size ? io_blob{m_single_slice.begin(), size, false /* is_aligned */} : io_blob{};
 }
 
-GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(std::promise< Result< GenericClientResponse > >&& promise) :
+GenericRpcDataFutureBlob::GenericRpcDataFutureBlob(std::promise< GrpcResult< GenericClientResponse > >&& promise) :
         m_promise{std::move(promise)} {}
 
 void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {

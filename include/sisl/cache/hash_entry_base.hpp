@@ -19,8 +19,6 @@
 #include <boost/intrusive/list.hpp>
 #include <sisl/metrics/metrics.hpp>
 
-using namespace boost::intrusive;
-
 namespace sisl {
 #pragma pack(1)
 class ValueEntryBase {
@@ -40,7 +38,8 @@ class ValueEntryBase {
     };
 
 public:
-    mutable list_member_hook< link_mode< auto_unlink > > m_member_hook;
+    mutable boost::intrusive::list_member_hook< boost::intrusive::link_mode< boost::intrusive::auto_unlink > >
+        m_member_hook;
     mutable cache_info m_u;
 
 public:

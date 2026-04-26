@@ -9,13 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 
 - **C++23 required.** Minimum standard raised from C++20 to C++23.
+- **cpp-libhttp** Added to replace pistache.
+- **Pistache removed.** All pistache dependencies eliminated.
 - **Folly removed.** All folly dependencies eliminated:
   - `folly::SharedMutex` replaced with `std::shared_mutex` in `fds/bitset.hpp`, `fds/stream_tracker.hpp`, `cache/range_hashmap.hpp`, `cache/simple_hashmap.hpp`
   - `folly::small_vector` replaced with `boost::container::small_vector`
   - `folly::Synchronized` replaced with `std::mutex` + `std::lock_guard` in metrics
   - `folly::Promise` / `folly::Future` replaced with `std::promise` / `std::future` in gRPC client
   - `folly::ThreadLocalPtr` replaced with `thread_local std::unique_ptr` in `fds/freelist_allocator.hpp`
-  - `Result<T>` is now `std::expected<T, grpc::Status>`; `AsyncResult<T>` is now `std::future<Result<T>>`
+  - `GrpcResult<T>` is now `std::expected<T, grpc::Status>`; `GrpcAsyncResult<T>` is now `std::future<GrpcResult<T>>`
 
 ### Bug Fixes
 

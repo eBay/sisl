@@ -372,7 +372,7 @@ public:
 
     bool is_aligned() const { return aligned_; }
 
-    static io_blob from_string(const std::string& s) {
+    static io_blob from_string(std::string_view s) {
         return io_blob{r_cast< const uint8_t* >(s.data()), uint32_cast(s.size()), false};
     }
 
