@@ -44,7 +44,7 @@ public:
         return std::vector< T >::operator[](index);
     }
 
-    bool index_exists(const size_t index) const { return (index < std::vector< T >::size()); }
+    [[nodiscard]] bool index_exists(const size_t index) const { return (index < std::vector< T >::size()); }
 
     T& at(const size_t index) {
         fill_void(index);

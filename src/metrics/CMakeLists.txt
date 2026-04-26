@@ -5,8 +5,10 @@ target_sources(sisl_metrics PRIVATE
     metrics.cpp
     metrics_atomic.cpp
     metrics_group_impl.cpp
-    metrics_rcu.cpp 
-    metrics_tlocal.cpp 
+    metrics_rcu.cpp
+    metrics_tlocal.cpp
+    obj_life_counter.cpp
+    prometheus_reporter.cpp
   )
 target_link_libraries(sisl_metrics PUBLIC
     sisl_logging

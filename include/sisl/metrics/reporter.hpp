@@ -22,7 +22,7 @@
 #include "histogram_buckets.hpp"
 
 namespace sisl {
-typedef std::pair< std::string, std::string > metric_label;
+using metric_label = std::pair< std::string, std::string >;
 
 enum ReportFormat { kUnknownFormat, kTextFormat, kJsonFormat, kProtoBufferFormat };
 

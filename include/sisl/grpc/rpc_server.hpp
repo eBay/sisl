@@ -81,7 +81,7 @@ public:
                       const sisl::request_call_cb_t< ServiceT, ReqT, RespT, false >& request_call_cb,
                       const sisl::rpc_handler_cb_t< ServiceT, ReqT, RespT, false >& rpc_handler,
                       const sisl::rpc_completed_cb_t< ServiceT, ReqT, RespT, false >& done_handler = nullptr) {
-        DEBUG_ASSERT_EQ(ServerState::RUNNING, m_state, "register service in non-INITED state");
+        DEBUG_ASSERT_EQ(ServerState::RUNNING, m_state, "register rpc in non-RUNNING state");
 
         auto it = m_services.find(ServiceT::service_full_name());
         if (it == m_services.end()) {

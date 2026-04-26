@@ -427,7 +427,7 @@ public:
 using byte_array_impl = io_blob_safe;
 
 using byte_array = std::shared_ptr< io_blob_safe >;
-inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0, buftag tag = buftag::common) {
+[[nodiscard]] inline byte_array make_byte_array(uint32_t sz, uint32_t alignment = 0, buftag tag = buftag::common) {
     return std::make_shared< io_blob_safe >(sz, alignment, tag);
 }
 
@@ -489,7 +489,7 @@ public:
     // Extract the byte_array so that caller can safely use the underlying byte_array. If the view represents the
     // entire array, it will not do any copy. If view represents only portion of array, create a copy of the byte array
     // and returns that value
-    byte_array extract(uint32_t alignment = 0) const {
+    [[nodiscard]] byte_array extract(uint32_t alignment = 0) const {
         if (can_do_shallow_copy()) {
             return m_base_buf;
         } else {

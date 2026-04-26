@@ -8,11 +8,11 @@
 
 namespace sisl {
 
-using file_event_cb_t = std::function< void(const std::string, const bool) >;
+using file_event_cb_t = std::function< void(const std::string&, const bool) >;
 
 // structure to hold file contents and closures to be run
 struct FileInfo {
-    FileInfo() {}
+    FileInfo() = default;
     std::string m_filepath;
     // file contents
     std::string m_filecontents;

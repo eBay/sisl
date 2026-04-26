@@ -28,8 +28,8 @@ namespace sisl {
 
 template < typename T >
 class atomic_counter {
-    typedef std::decay_t< T > value_type;
-    static_assert(std::is_integral< value_type >::value, "atomic_counter needs integer");
+    using value_type = std::decay_t< T >;
+    static_assert(std::is_integral_v< value_type >, "atomic_counter needs integer");
 
 public:
     atomic_counter() : m_count{value_type{}} {}
@@ -52,7 +52,7 @@ public:
         return count + n;
     }
 
-    bool increment_test_eq(const value_type check, const value_type n = 1) {
+    [[nodiscard]] bool increment_test_eq(const value_type check, const value_type n = 1) {
         const value_type count{m_count.fetch_add(n, std::memory_order_release)};
         assert((n >= 0) ? count <= std::numeric_limits< value_type >::max() - n
                         : count >= std::numeric_limits< value_type >::min() - n);
@@ -64,7 +64,7 @@ public:
         return false;
     }
 
-    bool increment_test_ge(const value_type check, const value_type n = 1) {
+    [[nodiscard]] bool increment_test_ge(const value_type check, const value_type n = 1) {
         const value_type count{m_count.fetch_add(n, std::memory_order_release)};
         assert((n >= 0) ? count <= std::numeric_limits< value_type >::max() - n
                         : count >= std::numeric_limits< value_type >::min() - n);
@@ -95,7 +95,7 @@ public:
         return count - n;
     }
 
-    bool decrement_testz(const value_type n = 1) {
+    [[nodiscard]] bool decrement_testz(const value_type n = 1) {
         const value_type count{m_count.fetch_sub(n, std::memory_order_release)};
         assert((n >= 0) ? count >= std::numeric_limits< value_type >::min() + n
                         : count <= std::numeric_limits< value_type >::max() + n);
@@ -107,7 +107,7 @@ public:
         return false;
     }
 
-    bool decrement_test_eq(const value_type check, const value_type n = 1) {
+    [[nodiscard]] bool decrement_test_eq(const value_type check, const value_type n = 1) {
         const value_type count{m_count.fetch_sub(n, std::memory_order_release)};
         assert((n >= 0) ? count >= std::numeric_limits< value_type >::min() + n
                         : count <= std::numeric_limits< value_type >::max() + n);
@@ -119,7 +119,7 @@ public:
         return false;
     }
 
-    bool decrement_test_le(const value_type check, const value_type n = 1) {
+    [[nodiscard]] bool decrement_test_le(const value_type check, const value_type n = 1) {
         const value_type count{m_count.fetch_sub(n, std::memory_order_release)};
         assert((n >= 0) ? count >= std::numeric_limits< value_type >::min() + n
                         : count <= std::numeric_limits< value_type >::max() + n);
@@ -143,14 +143,14 @@ public:
         return {false, count - n};
     }
 
-    bool test_eq(const value_type check) const {
+    [[nodiscard]] bool test_eq(const value_type check) const {
         if (get() != check) { return false; }
 
         std::atomic_thread_fence(std::memory_order_acquire);
         return true;
     }
 
-    bool test_le(const value_type check) const {
+    [[nodiscard]] bool test_le(const value_type check) const {
         if (get() > check) { return false; }
 
         std::atomic_thread_fence(std::memory_order_acquire);
@@ -165,7 +165,7 @@ public:
         return {true, count};
     }
 
-    bool test_ge(const value_type check) const {
+    [[nodiscard]] bool test_ge(const value_type check) const {
         if (get() < check) { return false; }
 
         std::atomic_thread_fence(std::memory_order_acquire);
@@ -181,7 +181,7 @@ public:
     }
 
     // This is not the most optimized version of testing, since it has to
-    bool testz() const {
+    [[nodiscard]] bool testz() const {
         if (get() == 0) {
             std::atomic_thread_fence(std::memory_order_acquire);
             return true;

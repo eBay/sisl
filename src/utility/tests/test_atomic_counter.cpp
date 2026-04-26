@@ -106,12 +106,12 @@ TEST_F(AtomicCounterTest, TestIncrementEqual) {
 
 TEST_F(AtomicCounterTest, TestIncrementEqualDeath) {
     atomic_counter< uint8_t > uac{255};
-    ASSERT_DEBUG_DEATH(uac.increment_test_eq(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)uac.increment_test_eq(1, 1), "");
 
     atomic_counter< int8_t > sac1{127};
-    ASSERT_DEBUG_DEATH(sac1.increment_test_eq(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)sac1.increment_test_eq(1, 1), "");
     atomic_counter< int8_t > sac2{-128};
-    ASSERT_DEBUG_DEATH(sac2.increment_test_eq(1, -1), "");
+    ASSERT_DEBUG_DEATH((void)sac2.increment_test_eq(1, -1), "");
 }
 
 TEST_F(AtomicCounterTest, TestDecrementEqual) {
@@ -128,12 +128,12 @@ TEST_F(AtomicCounterTest, TestDecrementEqual) {
 
 TEST_F(AtomicCounterTest, TestDecrementEqualDeath) {
     atomic_counter< uint8_t > uac{};
-    ASSERT_DEBUG_DEATH(uac.decrement_test_eq(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)uac.decrement_test_eq(1, 1), "");
 
     atomic_counter< int8_t > sac1{-128};
-    ASSERT_DEBUG_DEATH(sac1.decrement_test_eq(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)sac1.decrement_test_eq(1, 1), "");
     atomic_counter< int8_t > sac2{127};
-    ASSERT_DEBUG_DEATH(sac2.decrement_test_eq(1, -1), "");
+    ASSERT_DEBUG_DEATH((void)sac2.decrement_test_eq(1, -1), "");
 }
 
 TEST_F(AtomicCounterTest, TestIncrementGreaterEqual) {
@@ -158,12 +158,12 @@ TEST_F(AtomicCounterTest, TestIncrementGreaterEqual) {
 
 TEST_F(AtomicCounterTest, TestIncrementGreaterEqualDeath) {
     atomic_counter< uint8_t > uac{255};
-    ASSERT_DEBUG_DEATH(uac.increment_test_ge(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)uac.increment_test_ge(1, 1), "");
 
     atomic_counter< int8_t > sac1{127};
-    ASSERT_DEBUG_DEATH(sac1.increment_test_ge(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)sac1.increment_test_ge(1, 1), "");
     atomic_counter< int8_t > sac2{-128};
-    ASSERT_DEBUG_DEATH(sac2.increment_test_ge(1, -1), "");
+    ASSERT_DEBUG_DEATH((void)sac2.increment_test_ge(1, -1), "");
 }
 
 TEST_F(AtomicCounterTest, TestIncrementGreaterEqualWithCount) {
@@ -224,12 +224,12 @@ TEST_F(AtomicCounterTest, TestDecrementLessEqual) {
 
 TEST_F(AtomicCounterTest, TestDecrementLessEqualDeath) {
     atomic_counter< uint8_t > uac{};
-    ASSERT_DEBUG_DEATH(uac.decrement_test_le(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)uac.decrement_test_le(1, 1), "");
 
     atomic_counter< int8_t > sac1{-128};
-    ASSERT_DEBUG_DEATH(sac1.decrement_test_le(1, 1), "");
+    ASSERT_DEBUG_DEATH((void)sac1.decrement_test_le(1, 1), "");
     atomic_counter< int8_t > sac2{127};
-    ASSERT_DEBUG_DEATH(sac2.decrement_test_le(1, -1), "");
+    ASSERT_DEBUG_DEATH((void)sac2.decrement_test_le(1, -1), "");
 }
 
 TEST_F(AtomicCounterTest, TestDecrementLessEqualWithCount) {
@@ -287,12 +287,12 @@ TEST_F(AtomicCounterTest, TestDecrementZero) {
 
 TEST_F(AtomicCounterTest, TestDecrementZeroDeath) {
     atomic_counter< uint8_t > uac{};
-    ASSERT_DEBUG_DEATH(uac.decrement_testz(1), "");
+    ASSERT_DEBUG_DEATH((void)uac.decrement_testz(1), "");
 
     atomic_counter< int8_t > sac1{-128};
-    ASSERT_DEBUG_DEATH(sac1.decrement_testz(1), "");
+    ASSERT_DEBUG_DEATH((void)sac1.decrement_testz(1), "");
     atomic_counter< int8_t > sac2{127};
-    ASSERT_DEBUG_DEATH(sac2.decrement_testz(-1), "");
+    ASSERT_DEBUG_DEATH((void)sac2.decrement_testz(-1), "");
 }
 
 TEST_F(AtomicCounterTest, TestZero) {

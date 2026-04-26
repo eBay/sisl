@@ -251,9 +251,8 @@ public:
         std::uninitialized_copy(start_ptr, end_ptr, m_s->get_words());
     }
 
-    template < typename IteratorType,
-               typename = std::enable_if_t< std::is_same_v<
-                   std::decay_t< typename std::iterator_traits< IteratorType >::value_type >, word_t > > >
+    template < typename IteratorType >
+        requires(std::is_same_v< std::decay_t< typename std::iterator_traits< IteratorType >::value_type >, word_t >)
     explicit BitsetImpl(const IteratorType& start_itr, const IteratorType& end_itr, const uint64_t id = 0,
                         const uint32_t alignment_size = 0) {
         const size_t num_words{static_cast< size_t >(std::distance(start_itr, end_itr))};

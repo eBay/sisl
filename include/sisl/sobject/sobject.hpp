@@ -28,7 +28,7 @@
 
 namespace sisl {
 
-typedef struct status_request {
+struct status_request {
     nlohmann::json json;
     bool do_recurse{false};
     int verbose_level = 0;
@@ -37,11 +37,11 @@ typedef struct status_request {
     std::vector< std::string > obj_path;
     int batch_size = 10;
     std::string next_cursor;
-} status_request;
+};
 
-typedef struct status_response {
+struct status_response {
     nlohmann::json json;
-} status_response;
+};
 
 using status_callback_type = std::function< status_response(const status_request&) >;
 class sobject;
@@ -94,7 +94,7 @@ public:
     sobject_ptr create_object(const std::string& type, const std::string& name, status_callback_type cb);
     status_response get_status(const status_request& request);
 
-    status_response get_child_type_status( const status_request& request);
+    status_response get_child_type_status(const status_request& request);
     status_response get_object_by_path(const status_request& request);
     status_response get_object_status(const std::string& name, const status_request& request);
     status_response get_objects(const status_request& request);
