@@ -40,6 +40,15 @@ A C++23 library of high-performance data structures, utilities, and infrastructu
 - CMake 3.22+
 - C++23-capable compiler: GCC 14+ or Clang 17+
 
+The library targets C++23 throughout. Key language features in use:
+
+| Feature | Where used |
+|---------|-----------|
+| `std::expected<T,E>` | gRPC `Result<T>` / `AsyncResult<T>` return types |
+| `requires` constraints | Range constructors on FDS containers and WISR types |
+| `[[nodiscard]]` | All predicate and factory APIs |
+| `std::to_underlying` | Enum helpers |
+
 ### Build
 
 ```bash
@@ -189,7 +198,7 @@ sisl::ObjectAllocator< MyObj >::free_object(obj);
 
 #### ConcurrentInsertVector
 
-Lock-free, append-only vector for concurrent producers. Readers take a snapshot.
+Lock-free, append-only vector for concurrent producers. Readers take a snapshot. Range constructors on `ConcurrentInsertVector`, `ThreadVector`, `Bitset`, and WISR containers use C++20 `requires` constraints instead of SFINAE, so template errors are human-readable.
 
 #### io_blob / io_blob_list_t
 
@@ -250,11 +259,13 @@ Async and sync client/server helpers on top of sisl's buffer and metrics infrast
 
 ```cpp
 // Async client — future-based
+// Result<T>      = std::expected<T, grpc::Status>   (C++23)
+// AsyncResult<T> = std::future<Result<T>>
 auto stub = client->make_stub< EchoService >("worker-1");
 AsyncResult< EchoReply > fut =
     stub->call_unary< EchoRequest, EchoReply >(req,
         &EchoService::StubInterface::AsyncEcho, /*deadline_s=*/5);
-auto result = fut.get();   // Result<EchoReply> = std::expected<EchoReply, grpc::Status>
+auto result = fut.get();
 if (!result) { LOGERROR("RPC failed: {}", result.error().error_message()); }
 
 // Async client — callback-based
@@ -291,7 +302,7 @@ if (ref.decrement_testz()) { /* last reference — safe to delete */ }
 if (ref.increment_test_eq(max_outstanding)) { /* trigger backpressure */ }
 ```
 
-`decrement_testz`, `increment_test_ge`, `decrement_test_le`, and their `_with_count` variants are all provided with proper fencing.
+`decrement_testz`, `increment_test_ge`, `decrement_test_le`, and their `_with_count` variants are all provided with proper fencing. All predicate methods are `[[nodiscard]]` — silently discarding a test result is a compile error.
 
 #### enum
 
