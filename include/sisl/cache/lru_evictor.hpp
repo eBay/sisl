@@ -84,7 +84,7 @@ private:
         void init(LRUEvictor* evictor, const uint32_t partition_num, const uint64_t max_size) {
             m_evictor = evictor;
             m_partition_num = partition_num;
-            m_max_size = int64_cast(max_size);
+            m_max_size = static_cast< int64_t >(max_size);
         }
         bool add_record(CacheRecord& record);
         void remove_record(CacheRecord& record);

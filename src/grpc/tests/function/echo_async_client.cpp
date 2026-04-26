@@ -113,7 +113,8 @@ static void SerializeToBlob(sisl::io_blob_list_t& buffer, const DataMessage& msg
     std::string str_msg;
     msg.SerializeToString(str_msg);
     auto buf = sisl::io_blob(str_msg.size());
-    std::memcpy(voidptr_cast(buf.bytes()), c_voidptr_cast(str_msg.data()), str_msg.size());
+    std::memcpy(reinterpret_cast< void* >(buf.bytes()), reinterpret_cast< const void* >(str_msg.data()),
+                str_msg.size());
     buffer.emplace_back(buf);
 }
 

@@ -126,9 +126,9 @@ private:
             static constexpr uint32_t max_blk_size = (1 * 1024 * 1024);
             LOGINFO("File {} being filled with random bytes for size={}", fname, chunk_size);
             while (filled_size < chunk_size) {
-                uint32_t this_size = std::min(uint32_cast(chunk_size - filled_size), max_blk_size);
+                uint32_t this_size = std::min(static_cast< uint32_t >(chunk_size - filled_size), max_blk_size);
                 auto data = generate_data(this_size);
-                auto size = ::write(fd, voidptr_cast(data.bytes()), this_size);
+                auto size = ::write(fd, reinterpret_cast< void* >(data.bytes()), this_size);
                 data.buf_free();
                 ASSERT_EQ(size, this_size);
                 filled_size += this_size;
@@ -140,7 +140,7 @@ private:
     sisl::io_blob generate_data(const uint32_t buf_size) {
         sisl::io_blob blob{buf_size, 0};
         random_bytes_engine rbe;
-        auto* buf = r_cast< uint64_t* >(blob.bytes());
+        auto* buf = reinterpret_cast< uint64_t* >(blob.bytes());
         for (uint32_t s{0}; s < buf_size / 8; ++s) {
             buf[s] = rbe();
         }
@@ -160,14 +160,16 @@ private:
     }
 
     void file_write(const uint32_t chunk_num, const uint32_t start_blk, sisl::io_blob& b) {
-        const auto written = ::pwrite(m_fds[chunk_num], voidptr_cast(b.bytes()), b.size(), (start_blk * g_blk_size));
+        const auto written =
+            ::pwrite(m_fds[chunk_num], reinterpret_cast< void* >(b.bytes()), b.size(), (start_blk * g_blk_size));
         RELEASE_ASSERT_EQ(written, b.size(), "Not entire data is written to file");
     }
 
     sisl::io_blob file_read(const uint32_t chunk_num, const uint32_t blk, const uint32_t nblks) {
         sisl::io_blob b{nblks * g_blk_size, 0};
-        const auto read_size = ::pread(m_fds[chunk_num], voidptr_cast(b.bytes()), b.size(), (blk * g_blk_size));
-        RELEASE_ASSERT_EQ(uint32_cast(read_size), b.size(), "Not entire data is read from file");
+        const auto read_size =
+            ::pread(m_fds[chunk_num], reinterpret_cast< void* >(b.bytes()), b.size(), (blk * g_blk_size));
+        RELEASE_ASSERT_EQ(static_cast< uint32_t >(read_size), b.size(), "Not entire data is read from file");
         return b;
     }
 
@@ -211,7 +213,7 @@ TEST_F(RangeCacheTest, RandomData) {
     auto num_iters = SISL_OPTIONS["num_iters"].as< uint32_t >();
     LOGINFO("INFO: Do random read/write operations on all chunks for {} iters", num_iters);
     for (uint32_t i{0}; i < num_iters; ++i) {
-        const op_t op = s_cast< op_t >(op_generator(g_re));
+        const op_t op = static_cast< op_t >(op_generator(g_re));
         const auto chunk_num = chunk_generator(g_re);
         const uint32_t start_blk = blk_generator(g_re);
         uint32_t nblks = nblks_generator(g_re);

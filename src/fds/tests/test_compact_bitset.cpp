@@ -38,7 +38,7 @@ protected:
 public:
     CompactBitsetTest() :
             testing::Test(),
-            m_buf{uint32_cast(
+            m_buf{static_cast< uint32_t >(
                 sisl::round_up(SISL_OPTIONS["buf_size"].as< uint32_t >(), CompactBitSet::size_multiples()))} {}
     CompactBitsetTest(const CompactBitsetTest&) = delete;
     CompactBitsetTest(CompactBitsetTest&&) noexcept = delete;
@@ -104,7 +104,7 @@ TEST_F(CompactBitsetTest, RandomBitsWithReload) {
     for (uint64_t i{0}; i < num_bits / 2; ++i) {
         auto bit = bit_gen(re);
         shadow_bset.set(bit);
-        m_bset->set_bit(s_cast< CompactBitSet::bit_count_t >(bit));
+        m_bset->set_bit(static_cast< CompactBitSet::bit_count_t >(bit));
     }
 
     auto validate = [this, &shadow_bset]() {

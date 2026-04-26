@@ -95,7 +95,7 @@ public:
             return;
         }
         if ((new_end_idx < m_slot_ref_idx) ||
-            (new_end_idx >= (m_slot_ref_idx + int64_cast(m_active_slot_bits.size())))) {
+            (new_end_idx >= (m_slot_ref_idx + static_cast< int64_t >(m_active_slot_bits.size())))) {
             throw std::out_of_range("Slot idx is not in range");
         }
 

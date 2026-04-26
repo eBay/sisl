@@ -246,7 +246,7 @@ TEST(counterTest, wrapperTest) {
         std::cerr << "Diff patch " << std::setw(4) << patch << "\n";
     }
 
-    auto prometheus_bytes = MetricsFarm::getInstance().report(ReportFormat::kTextFormat);
+    auto prometheus_bytes = MetricsFarm::getInstance().report(ReportFormat::TEXT_FORMAT);
     // std::cout << "Prometheus serialized format: " << prometheus_bytes << "\n";
 }
 

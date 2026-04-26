@@ -42,6 +42,11 @@
 namespace sisl {
 namespace logging {
 
+// Public one-arg wrapper declared in logging.h. The internal two-arg overloads are static
+// (internal linkage) inside stacktrace_debug.h / stacktrace_release.h; they cannot be
+// referenced from other TUs. This wrapper closes the ABI hole.
+void log_stack_trace(const bool all_threads) { log_stack_trace(all_threads, 0); }
+
 typedef struct SignalHandlerData {
     SignalHandlerData(std::string name, const sig_handler_t handler) : name{std::move(name)}, handler{handler} {}
     std::string name;
@@ -83,11 +88,10 @@ static void exit_with_default_sighandler(const SignalType fatal_signal_id) {
     }
 
     // If core dump file generation is enabled and the signal is one that generates a core dump, re-raise the signal
-    const std::unordered_set<SignalType> core_dump_signals = {SIGABRT, SIGFPE, SIGSEGV, SIGILL};
+    const std::unordered_set< SignalType > core_dump_signals = {SIGABRT, SIGFPE, SIGSEGV, SIGILL};
     if (SISL_OPTIONS["enable_core_dump"].count() && core_dump_signals.count(fatal_signal_id) > 0) {
         std::cerr << "\n"
-                  << __FUNCTION__ << ":" << __LINE__ << ". Raising signal "
-                  << fatal_signal_id << "   \n\n"
+                  << __FUNCTION__ << ":" << __LINE__ << ". Raising signal " << fatal_signal_id << "   \n\n"
                   << std::flush;
         std::raise(fatal_signal_id);
         return;

@@ -258,11 +258,12 @@ public:
 
     T* allocate(std::size_t nelems) {
         if (nelems > std::numeric_limits< std::size_t >::max() / sizeof(T)) { throw std::bad_array_new_length(); }
-        return r_cast< T* >(AlignedAllocator::allocator().aligned_alloc(Alignment, nelems * sizeof(T), buftag::common));
+        return reinterpret_cast< T* >(
+            AlignedAllocator::allocator().aligned_alloc(Alignment, nelems * sizeof(T), buftag::common));
     }
 
     void deallocate(T* ptr, [[maybe_unused]] std::size_t nbytes) {
-        AlignedAllocator::allocator().aligned_free(uintptr_cast(ptr), buftag::common);
+        AlignedAllocator::allocator().aligned_free(reinterpret_cast< uint8_t* >(ptr), buftag::common);
     }
 };
 
@@ -373,14 +374,14 @@ public:
     bool is_aligned() const { return aligned_; }
 
     static io_blob from_string(std::string_view s) {
-        return io_blob{r_cast< const uint8_t* >(s.data()), uint32_cast(s.size()), false};
+        return io_blob{reinterpret_cast< const uint8_t* >(s.data()), static_cast< uint32_t >(s.size()), false};
     }
 
     static io_blob_list_t sg_list_to_ioblob_list(const sg_list& sglist) {
         io_blob_list_t ret_list;
         for (const auto& iov : sglist.iovs) {
-            ret_list.emplace_back(r_cast< uint8_t* >(const_cast< void* >(iov.iov_base)), uint32_cast(iov.iov_len),
-                                  false);
+            ret_list.emplace_back(reinterpret_cast< uint8_t* >(const_cast< void* >(iov.iov_base)),
+                                  static_cast< uint32_t >(iov.iov_len), false);
         }
         return ret_list;
     }
@@ -508,7 +509,9 @@ public:
                         "Invalid byte_view");
     }
 
-    std::string get_string() const { return std::string(r_cast< const char* >(bytes()), uint64_cast(size())); }
+    std::string get_string() const {
+        return std::string(reinterpret_cast< const char* >(bytes()), static_cast< uint64_t >(size()));
+    }
 
 private:
     byte_array m_base_buf;

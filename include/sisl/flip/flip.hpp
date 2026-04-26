@@ -199,15 +199,6 @@ struct val_converter< int > {
     int operator()(const ParamValue& val) { return (val.kind_case() == ParamValue::kIntValue) ? val.int_value() : 0; }
 };
 
-#if 0
-template <>
-struct val_converter<const int> {
-    const int operator()(const ParamValue &val) {
-        return (val.kind_case() == ParamValue::kIntValue) ? val.int_value() : 0;
-    }
-};
-#endif
-
 template <>
 struct val_converter< long > {
     long operator()(const ParamValue& val) {

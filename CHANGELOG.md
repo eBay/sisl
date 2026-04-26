@@ -31,4 +31,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Added / updated**: boost/1.85.0, spdlog/1.17.0, nlohmann_json/3.12.0, cxxopts/3.3.1, flatbuffers/24.12.23, prometheus-cpp/1.3.0, grpc/1.69.0, gtest/1.17.0, benchmark/1.9.5
 - **Removed**: folly (all versions)
 
+[14.0.1]: https://github.com/eBay/sisl/compare/v14.0.0...dev/v14.x
 [14.0.0]: https://github.com/eBay/sisl/compare/stable/v13.x...dev/v14.x

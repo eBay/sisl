@@ -68,6 +68,10 @@ if(UNIX)
     if(APPLE)
         # _POSIX_C_SOURCE hides Darwin extensions (ipv6_mreq, NI_MAXHOST, etc.); restore them
         add_flags("-D_DARWIN_C_SOURCE")
+        # Conan-generated cmake configs expand transitive absolute-path libraries at each step,
+        # so the same .a can appear more than once on the link line; ld ignores extras safely.
+        string(APPEND CMAKE_EXE_LINKER_FLAGS " -Wl,-no_warn_duplicate_libraries")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " -Wl,-no_warn_duplicate_libraries")
     endif()
 endif()
 

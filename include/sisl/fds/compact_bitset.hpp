@@ -14,6 +14,7 @@
  * specific language governing permissions and limitations under the License.
  *
  *********************************************************************************/
+#pragma once
 #include <cstdint>
 #include <sisl/fds/bitword.hpp>
 #include <sisl/fds/utils.hpp>
@@ -46,16 +47,16 @@ public:
 
     explicit CompactBitSet(bit_count_t nbits) {
         DEBUG_ASSERT_GT(nbits, 0, "compact bitset should have nbits > 0");
-        nbits_ = s_cast< bit_count_t >(sisl::round_up(nbits, word_size_bits()));
+        nbits_ = static_cast< bit_count_t >(sisl::round_up(nbits, word_size_bits()));
         size_t const buf_size = nbits_ / 8;
 
         uint8_t* buf = new uint8_t[buf_size];
         std::memset(buf, 0, buf_size);
-        s_ = r_cast< serialized* >(buf);
+        s_ = reinterpret_cast< serialized* >(buf);
         allocated_ = true;
     }
 
-    CompactBitSet(sisl::blob buf, bool init_bits) : s_{r_cast< serialized* >(buf.bytes())} {
+    CompactBitSet(sisl::blob buf, bool init_bits) : s_{reinterpret_cast< serialized* >(buf.bytes())} {
         DEBUG_ASSERT_GT(buf.size(), 0, "compact bitset initialized with empty buffer");
         DEBUG_ASSERT_EQ(buf.size() % word_size_bytes(), 0, "compact bitset buffer size must be multiple of word size");
         nbits_ = buf.size() * 8;
@@ -63,7 +64,7 @@ public:
     }
 
     ~CompactBitSet() {
-        if (allocated_) { delete[] uintptr_cast(s_); }
+        if (allocated_) { delete[] reinterpret_cast< uint8_t* >(s_); }
     }
 
     bit_count_t size() const { return nbits_; }

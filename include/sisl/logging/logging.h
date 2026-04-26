@@ -252,9 +252,9 @@ const T& unmove(T&& x) {
     }
 
 #define _ABORT_OR_DUMP(is_log_assert)                                                                                  \
-    assert(0);                                                                                                         \
     if (is_log_assert) {                                                                                               \
-        if (sisl::logging::is_crash_handler_installed()) { raise(SIGUSR3); }                                           \
+        sisl::logging::log_stack_trace(false);                                                                         \
+        assert(0);                                                                                                     \
     } else {                                                                                                           \
         abort();                                                                                                       \
     }

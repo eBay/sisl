@@ -37,8 +37,8 @@ using namespace sisl;
 
 class Group1Metrics : public MetricsGroup {
 public:
-    explicit Group1Metrics(const char* inst_name)
-        : MetricsGroup("Group1", inst_name, group_impl_type_t::thread_buf_signal) {
+    explicit Group1Metrics(const char* inst_name) :
+            MetricsGroup("Group1", inst_name, group_impl_type_t::thread_buf_signal) {
         REGISTER_COUNTER(counter1, "Counter1");
         REGISTER_COUNTER(counter2, "Counter2");
         REGISTER_COUNTER(counter3, "Counter3");
@@ -49,8 +49,8 @@ public:
 
 class Group2Metrics : public MetricsGroup {
 public:
-    explicit Group2Metrics(const char* inst_name)
-        : MetricsGroup("Group2", inst_name, group_impl_type_t::thread_buf_signal) {
+    explicit Group2Metrics(const char* inst_name) :
+            MetricsGroup("Group2", inst_name, group_impl_type_t::thread_buf_signal) {
         REGISTER_GAUGE(gauge1, "Gauge1");
         REGISTER_GAUGE(gauge2, "Gauge2");
         register_me_to_farm();
@@ -162,8 +162,8 @@ TEST(FarmTest, gather) {
 // Helper class for DirectAccess tests
 class TestMetrics : public MetricsGroup {
 public:
-    explicit TestMetrics(const char* inst_name, group_impl_type_t type = group_impl_type_t::rcu)
-        : MetricsGroup("TestGroup", inst_name, type) {
+    explicit TestMetrics(const char* inst_name, group_impl_type_t type = group_impl_type_t::rcu) :
+            MetricsGroup("TestGroup", inst_name, type) {
         REGISTER_COUNTER(test_counter, "Test counter");
         REGISTER_GAUGE(test_gauge, "Test gauge");
         REGISTER_HISTOGRAM(test_histogram, "Test histogram");
@@ -213,10 +213,14 @@ INSTANTIATE_TEST_SUITE_P(AllImplementations, DirectAccessTest,
                                            group_impl_type_t::thread_buf_signal),
                          [](const ::testing::TestParamInfo< group_impl_type_t >& info) {
                              switch (info.param) {
-                             case group_impl_type_t::rcu: return "RCU";
-                             case group_impl_type_t::atomic: return "Atomic";
-                             case group_impl_type_t::thread_buf_signal: return "ThreadLocal";
-                             default: return "Unknown";
+                             case group_impl_type_t::rcu:
+                                 return "RCU";
+                             case group_impl_type_t::atomic:
+                                 return "Atomic";
+                             case group_impl_type_t::thread_buf_signal:
+                                 return "ThreadLocal";
+                             default:
+                                 return "Unknown";
                              }
                          });
 
@@ -240,7 +244,7 @@ TEST(FarmTest, TestHistogramSumCount) {
     HISTOGRAM_OBSERVE(*mg, test_latency, 30);
 
     // Get Prometheus output
-    auto output = sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat);
+    auto output = sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::TEXT_FORMAT);
 
     // Should contain sum and count, not buckets
     EXPECT_TRUE(output.find("test_latency_sum") != std::string::npos);

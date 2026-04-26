@@ -22,7 +22,7 @@ namespace sisl {
 LRUEvictor::LRUEvictor(const int64_t max_size, const uint32_t num_partitions) : Evictor(max_size, num_partitions) {
     m_partitions = std::make_unique< LRUPartition[] >(num_partitions);
     for (uint32_t i{0}; i < num_partitions; ++i) {
-        m_partitions[i].init(this, i, uint64_cast(max_size / num_partitions));
+        m_partitions[i].init(this, i, static_cast< uint64_t >(max_size / num_partitions));
     }
 }
 
