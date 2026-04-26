@@ -57,14 +57,16 @@ public:
     void setup_route(http_method method, std::string resource, http_handler handler,
                      url_type const& type = url_type::regular);
     void setup_routes(std::span< const http_route > routes);
-    void setup_routes(std::initializer_list< http_route > routes) { setup_routes(std::span< const http_route >{routes}); }
+    void setup_routes(std::initializer_list< http_route > routes) {
+        setup_routes(std::span< const http_route >{routes});
+    }
 
     void start();
     void stop();
     void restart(std::string const& ssl_cert, std::string const& ssl_key);
 
 #ifdef PROMETHEUS_METRICS_REPORTER
-    // Registers GET /metrics → MetricsFarm::report(kTextFormat). Call before start().
+    // Registers GET /metrics → MetricsFarm::report(TEXT_FORMAT). Call before start().
     void register_metrics_endpoint();
 #endif
 

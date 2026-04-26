@@ -154,7 +154,7 @@ TEST_F(SimpleCacheTest, RandomData) {
     auto num_iters = SISL_OPTIONS["num_iters"].as< uint32_t >();
     LOGINFO("INFO: Do random read/write operations on all chunks for {} iters", num_iters);
     for (uint32_t i{0}; i < num_iters; ++i) {
-        const op_t op = s_cast< op_t >(op_generator(g_re));
+        const op_t op = static_cast< op_t >(op_generator(g_re));
         const uint32_t id = key_generator(g_re);
 
         LOGDEBUG("INFO: Doing op={} for key=({})", enum_name(op), id);
@@ -187,7 +187,7 @@ TEST_F(SimpleCacheTest, MultiThreaded) {
         threads.emplace_back([this]() {
             for (uint32_t j{0}; j < 20000; ++j) {
                 const uint32_t id = g_re() % m_total_keys;
-                const op_t op = s_cast< op_t >(g_re() % 3);
+                const op_t op = static_cast< op_t >(g_re() % 3);
                 std::shared_ptr< Entry > e = std::make_shared< Entry >(0);
                 switch (op) {
                 case op_t::READ:

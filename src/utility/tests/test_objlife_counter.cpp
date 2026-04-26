@@ -68,7 +68,7 @@ TEST_F(ObjLifeTest, BasicCount) {
     const nlohmann::json j{sisl::MetricsFarm::getInstance().get_result_in_json()};
     std::cout << "Json output = " << j.dump(2);
 
-    const auto prom_format{sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat)};
+    const auto prom_format{sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::TEXT_FORMAT)};
     std::cout << "Prometheus Output = " << prom_format;
     EXPECT_TRUE(prom_format.find(R"(TestClass_double__sisl::blob_{entity="Singleton",type="alive"} 1)") !=
                 std::string::npos);

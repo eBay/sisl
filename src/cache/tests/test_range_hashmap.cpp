@@ -173,7 +173,7 @@ TEST_F(RangeHashMapTest, RandomEverythingTest) {
     LOGINFO("INFO: Do completely random read/insert/erase operations for {} entries for {} iters", g_max_offset,
             num_iters);
     for (uint32_t i{0}; i < num_iters; ++i) {
-        const op_t op = s_cast< op_t >(g_op_generator(g_re));
+        const op_t op = static_cast< op_t >(g_op_generator(g_re));
         const big_offset_t offset = offset_generator(g_re);
         big_count_t size = g_size_generator(g_re);
         if (size + offset >= g_max_offset) { size = g_max_offset - offset - 1; }

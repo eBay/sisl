@@ -219,41 +219,4 @@ static int spaceship_oper(const T& left, const T& right) {
 #define bind_this(method, nparams)                                                                                     \
     std::bind(&method, this BOOST_PP_REPEAT_FROM_TO(1, BOOST_PP_INC(nparams), _PLACEHOLDER_PARAM, std::placeholders::_))
 
-#define r_cast reinterpret_cast
-#define s_cast static_cast
-#define d_cast dynamic_cast
-#define dp_cast std::dynamic_pointer_cast
-#define sp_cast std::static_pointer_cast
-
-#define uintptr_cast reinterpret_cast< uint8_t* >
-#define voidptr_cast reinterpret_cast< void* >
-#define c_voidptr_cast reinterpret_cast< const void* >
-#define charptr_cast reinterpret_cast< char* >
-#define c_charptr_cast reinterpret_cast< const char* >
-#define int_cast static_cast< int >
-#define uint32_cast static_cast< uint32_t >
-#define int64_cast static_cast< int64_t >
-#define uint64_cast static_cast< uint64_t >
-#define size_cast static_cast< size_t >
-
 } // namespace sisl
-
-#if 0
-template < typename T >
-using d_cast = dynamic_cast< T >;
-
-template < typename T >
-using s_cast = static_cast< T >;
-
-template < typename T >
-using r_cast = reinterpret_cast< T >;
-
-using void_cast = reinterpret_cast< void* >;
-using uint8p_cast = reinterpret_cast< uint8_t* >;
-
-template < typename T >
-using dp_cast = std::dynamic_pointer_cast< T >;
-
-template < typename T >
-using sp_cast = std::static_pointer_cast< T >;
-#endif

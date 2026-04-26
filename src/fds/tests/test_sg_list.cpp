@@ -112,7 +112,7 @@ public:
 
     void TearDown() override {
         for (auto& iov : sgl.iovs) {
-            auto data_ptr = r_cast< uint32_t* >(iov.iov_base);
+            auto data_ptr = reinterpret_cast< uint32_t* >(iov.iov_base);
             delete data_ptr;
         }
     }
@@ -137,10 +137,10 @@ TEST_F(SgListTestOffset, TestMoveOffsetAligned) {
     for (uint16_t i = 0; i < data_vec.size(); ++i) {
         auto const iovs = sgitr.next_iovs(SZ);
         ASSERT_EQ(iovs.size(), 1);
-        auto rand_num = r_cast< uint32_t* >(iovs[0].iov_base);
+        auto rand_num = reinterpret_cast< uint32_t* >(iovs[0].iov_base);
         EXPECT_EQ(*rand_num, data_vec[i]);
 
-        rand_num = r_cast< uint32_t* >(ioblob_list[i].bytes());
+        rand_num = reinterpret_cast< uint32_t* >(ioblob_list[i].bytes());
         EXPECT_EQ(*rand_num, data_vec[i]);
         EXPECT_EQ(ioblob_list[i].size(), SZ);
     }
@@ -154,7 +154,7 @@ TEST_F(SgListTestOffset, TestMoveOffsetAligned) {
         }
         auto const iovs = sgitr1.next_iovs(SZ);
         ASSERT_EQ(iovs.size(), 1);
-        auto rand_num = r_cast< uint32_t* >(iovs[0].iov_base);
+        auto rand_num = reinterpret_cast< uint32_t* >(iovs[0].iov_base);
         EXPECT_EQ(*rand_num, data_vec[i]);
     }
 }

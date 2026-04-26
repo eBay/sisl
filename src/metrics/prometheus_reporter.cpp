@@ -72,7 +72,7 @@ void PrometheusReportSumCount::set_value(int64_t count, double sum) {
 PrometheusReporter::PrometheusReporter() {
     m_registry = std::make_shared< prometheus::Registry >();
     m_serializer = std::make_unique< prometheus::TextSerializer >();
-    m_cur_serializer_format = kTextFormat;
+    m_cur_serializer_format = TEXT_FORMAT;
 }
 
 std::shared_ptr< ReportCounter > PrometheusReporter::add_counter(const std::string& name, const std::string& desc,
@@ -234,12 +234,12 @@ void PrometheusReporter::remove_sum_count(const std::string& name, const std::sh
 std::string PrometheusReporter::serialize(ReportFormat format) {
     if (format != m_cur_serializer_format) {
         switch (format) {
-        case ReportFormat::kTextFormat:
+        case ReportFormat::TEXT_FORMAT:
             m_serializer = std::make_unique< prometheus::TextSerializer >();
             break;
         default:
             assert(0);
-            format = ReportFormat::kTextFormat;
+            format = ReportFormat::TEXT_FORMAT;
             m_serializer = std::make_unique< prometheus::TextSerializer >();
         }
         m_cur_serializer_format = format;

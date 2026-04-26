@@ -62,7 +62,9 @@ static std::pair< std::string, grpc::ByteBuffer > create_test_byte_buffer(uint32
     return std::pair{concat_str, grpc::ByteBuffer{slices.data(), slices.size()}};
 }
 
-static std::string blob_to_string(io_blob const& b) { return std::string(c_charptr_cast(b.cbytes()), b.size()); }
+static std::string blob_to_string(io_blob const& b) {
+    return std::string(reinterpret_cast< const char* >(b.cbytes()), b.size());
+}
 
 static void do_test(std::string const& msg, grpc::ByteBuffer& bbuf) {
     GenericClientResponse resp1(bbuf);

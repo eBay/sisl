@@ -59,12 +59,12 @@ TEST_F(SettingsTest, LoadReload) {
     init();
 
     LOGINFO("Step 1: Validating default load");
-    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad), 100UL)
-        << "Incorrect load of dbConnectionOptimalLoad - default load";
+    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->dbconnection->db_connection_optimal_load), 100UL)
+        << "Incorrect load of db_connection_optimal_load - default load";
     SETTINGS(test_app_schema, s, {
-        ASSERT_EQ(s.config.database.databaseHost, "") << "Incorrect load of databaseHost - default load";
-        ASSERT_EQ(s.config.database.databasePort, 27017u) << "Incorrect load of databasePort - default load";
-        ASSERT_EQ(s.config.database.numThreads, 8u) << "Incorrect load of numThreads - default load";
+        ASSERT_EQ(s.config.database.database_host, "") << "Incorrect load of database_host - default load";
+        ASSERT_EQ(s.config.database.database_port, 27017u) << "Incorrect load of database_port - default load";
+        ASSERT_EQ(s.config.database.num_threads, 8u) << "Incorrect load of num_threads - default load";
     });
     sisl::SettingsFactoryRegistry::instance().save_all();
     ASSERT_EQ(std::filesystem::exists("/tmp/test_app_schema.json"), true) << "Expect settings save to create the file";
@@ -73,21 +73,21 @@ TEST_F(SettingsTest, LoadReload) {
 
     LOGINFO("Step 2: Reload by dumping the settings to json, edit hotswap variable and reload it");
     nlohmann::json j = nlohmann::json::parse(SETTINGS_FACTORY(test_app_schema).get_json());
-    j["config"]["dbconnection"]["dbConnectionOptimalLoad"] = 800;
+    j["config"]["dbconnection"]["db_connection_optimal_load"] = 800;
     ASSERT_EQ(SETTINGS_FACTORY(test_app_schema).reload_json(j.dump()), false)
         << "Incorrectly asking restart when hotswap variable is changed and reloaded";
-    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad), 800UL)
-        << "Incorrect load of dbConnectionOptimalLoad - after reload json";
+    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->dbconnection->db_connection_optimal_load), 800UL)
+        << "Incorrect load of db_connection_optimal_load - after reload json";
     SETTINGS(test_app_schema, s, {
-        ASSERT_EQ(s.config.database.databaseHost, "") << "Incorrect load of databaseHost - after reload json";
-        ASSERT_EQ(s.config.database.databasePort, 27017u) << "Incorrect load of databasePort - after reload json";
-        ASSERT_EQ(s.config.database.numThreads, 8u) << "Incorrect load of numThreads - after reload json";
+        ASSERT_EQ(s.config.database.database_host, "") << "Incorrect load of database_host - after reload json";
+        ASSERT_EQ(s.config.database.database_port, 27017u) << "Incorrect load of database_port - after reload json";
+        ASSERT_EQ(s.config.database.num_threads, 8u) << "Incorrect load of num_threads - after reload json";
     });
 
     LOGINFO("Step 3: Reload by dumping the settings to json, edit non-hotswap variable and dump to file and reload "
             "settings");
     j = nlohmann::json::parse(SETTINGS_FACTORY(test_app_schema).get_json());
-    j["config"]["database"]["databasePort"] = 25000u;
+    j["config"]["database"]["database_port"] = 25000u;
     {
         std::ofstream file(g_schema_file);
         file << j;
@@ -97,39 +97,39 @@ TEST_F(SettingsTest, LoadReload) {
 
     LOGINFO("Step 4: Simulate the app restart and validate new values");
     init();
-    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad), 800UL)
-        << "Incorrect load of dbConnectionOptimalLoad - after restart";
+    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->dbconnection->db_connection_optimal_load), 800UL)
+        << "Incorrect load of db_connection_optimal_load - after restart";
     SETTINGS(test_app_schema, s, {
-        ASSERT_EQ(s.config.database.databaseHost, "") << "Incorrect load of databaseHost - after reload json";
-        ASSERT_EQ(s.config.database.databasePort, 25000u) << "Incorrect load of databasePort - after reload json";
-        ASSERT_EQ(s.config.database.numThreads, 8u) << "Incorrect load of numThreads - after reload json";
+        ASSERT_EQ(s.config.database.database_host, "") << "Incorrect load of database_host - after reload json";
+        ASSERT_EQ(s.config.database.database_port, 25000u) << "Incorrect load of database_port - after reload json";
+        ASSERT_EQ(s.config.database.num_threads, 8u) << "Incorrect load of num_threads - after reload json";
     });
     sisl::SettingsFactoryRegistry::instance().save_all();
 }
 
 TEST_F(SettingsTest, OverrideConfig) {
     LOGINFO("Step 1: Validating overridden config load");
-    init({"test_app_schema.config.database.databaseHost:myhost.com",
-          "test_app_schema.config.glog.FLAGS_logbuflevel:100"});
-    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->database->databaseHost), "myhost.com")
-        << "Incorrect load of databaseHost with override config";
-    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->glog->FLAGS_logbuflevel), 100)
-        << "Incorrect load of FLAGS_logbuflevel with override config";
+    init({"test_app_schema.config.database.database_host:myhost.com",
+          "test_app_schema.config.glog.flags_logbuflevel:100"});
+    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->database->database_host), "myhost.com")
+        << "Incorrect load of database_host with override config";
+    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->glog->flags_logbuflevel), 100)
+        << "Incorrect load of flags_logbuflevel with override config";
     SETTINGS(test_app_schema, s, {
-        ASSERT_EQ(s.config.database.databasePort, 27017u) << "Incorrect load of databasePort - default load";
-        ASSERT_EQ(s.config.database.numThreads, 8u) << "Incorrect load of numThreads - default load";
+        ASSERT_EQ(s.config.database.database_port, 27017u) << "Incorrect load of database_port - default load";
+        ASSERT_EQ(s.config.database.num_threads, 8u) << "Incorrect load of num_threads - default load";
     });
     sisl::SettingsFactoryRegistry::instance().save_all();
 
     LOGINFO("Step 2: Simulate restart and default load saved the previously overridden config");
     init();
-    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->database->databaseHost), "myhost.com")
-        << "Incorrect load of databaseHost with override config";
-    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->glog->FLAGS_logbuflevel), 100)
-        << "Incorrect load of FLAGS_logbuflevel with override config";
+    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->database->database_host), "myhost.com")
+        << "Incorrect load of database_host with override config";
+    ASSERT_EQ(SETTINGS_VALUE(test_app_schema, config->glog->flags_logbuflevel), 100)
+        << "Incorrect load of flags_logbuflevel with override config";
     SETTINGS(test_app_schema, s, {
-        ASSERT_EQ(s.config.database.databasePort, 27017u) << "Incorrect load of databasePort - default load";
-        ASSERT_EQ(s.config.database.numThreads, 8u) << "Incorrect load of numThreads - default load";
+        ASSERT_EQ(s.config.database.database_port, 27017u) << "Incorrect load of database_port - default load";
+        ASSERT_EQ(s.config.database.num_threads, 8u) << "Incorrect load of num_threads - default load";
     });
 }
 
@@ -142,38 +142,38 @@ int main(int argc, char* argv[]) {
     // MY_SETTINGS_FACTORY.load_file("/tmp/settings_in.json");
 
     LOGINFO("After Initial load values are:");
-    LOGINFO("dbConnectionOptimalLoad = {} ",
-            SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
+    LOGINFO("db_connection_optimal_load = {} ",
+            SETTINGS_VALUE(test_app_schema, config->dbconnection->db_connection_optimal_load));
     MY_SETTINGS_FACTORY.save("/tmp/settings_out");
     SETTINGS(test_app_schema, s, {
-        LOGINFO("databaseHost = {}", s.config.database.databaseHost);
-        LOGINFO("databasePort = {}", s.config.database.databasePort);
-        LOGINFO("numThreads = {}", s.config.database.numThreads);
+        LOGINFO("database_host = {}", s.config.database.database_host);
+        LOGINFO("database_port = {}", s.config.database.database_port);
+        LOGINFO("num_threads = {}", s.config.database.num_threads);
     });
 
     LOGINFO("Reload - 1 file: restart needed {}", MY_SETTINGS_FACTORY.reload_file("/tmp/settings_out.json"));
 
     nlohmann::json j;
     j = nlohmann::json::parse(MY_SETTINGS_FACTORY.get_json());
-    j["config"]["dbconnection"]["dbConnectionOptimalLoad"] = 800;
+    j["config"]["dbconnection"]["db_connection_optimal_load"] = 800;
     LOGINFO("Reload - 2 json after changes, restart needed {} ", MY_SETTINGS_FACTORY.reload_json(j.dump()));
     LOGINFO("After reload - 2: values are:");
-    LOGINFO("dbConnectionOptimalLoad = {} ",
-            SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
+    LOGINFO("db_connection_optimal_load = {} ",
+            SETTINGS_VALUE(test_app_schema, config->dbconnection->db_connection_optimal_load));
     SETTINGS(test_app_schema, s, {
-        LOGINFO("databasePort = {}", s.config.database.databasePort);
-        LOGINFO("numThreads = {}", s.config.database.numThreads);
+        LOGINFO("database_port = {}", s.config.database.database_port);
+        LOGINFO("num_threads = {}", s.config.database.num_threads);
     });
 
     j = nlohmann::json::parse(MY_SETTINGS_FACTORY.get_json());
-    j["config"]["database"]["databasePort"] = 25000;
+    j["config"]["database"]["database_port"] = 25000;
     LOGINFO("Reload - 3 json after changes, restart needed {} ", MY_SETTINGS_FACTORY.reload_json(j.dump()));
     LOGINFO("After reload - 3: values are:");
-    LOGINFO("dbConnectionOptimalLoad = {} ",
-            SETTINGS_VALUE(test_app_schema, config->dbconnection->dbConnectionOptimalLoad));
+    LOGINFO("db_connection_optimal_load = {} ",
+            SETTINGS_VALUE(test_app_schema, config->dbconnection->db_connection_optimal_load));
     SETTINGS(test_app_schema, s, {
-        LOGINFO("databasePort = {}", s.config.database.databasePort);
-        LOGINFO("numThreads = {}", s.config.database.numThreads);
+        LOGINFO("database_port = {}", s.config.database.database_port);
+        LOGINFO("num_threads = {}", s.config.database.num_threads);
     });
 
     MY_SETTINGS_FACTORY.save("/tmp/settings_out");

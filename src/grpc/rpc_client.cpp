@@ -227,7 +227,7 @@ io_blob GenericClientResponse::response_blob() {
         m_response_buf.Clear(); // Since we dumped everything to a single slice, we don't need bytebyffer anymore
     }
 
-    auto const size = uint32_cast(m_single_slice.size());
+    auto const size = static_cast< uint32_t >(m_single_slice.size());
     return size ? io_blob{m_single_slice.begin(), size, false /* is_aligned */} : io_blob{};
 }
 

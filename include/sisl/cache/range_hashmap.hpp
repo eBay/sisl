@@ -37,7 +37,7 @@ using big_offset_t = uint32_t;
 using big_count_t = uint32_t;
 using big_range_t = std::pair< big_offset_t, big_offset_t >;
 
-inline constexpr big_count_t max_n_per_node = (s_cast< uint64_t >(1) << (sizeof(small_offset_t) * 8));
+inline constexpr big_count_t max_n_per_node = (1ULL << (sizeof(small_offset_t) * 8));
 inline constexpr small_offset_t max_offset_in_node = std::numeric_limits< small_offset_t >::max();
 inline constexpr size_t s_start_seed = 0;
 
@@ -248,8 +248,8 @@ public:
         small_range_t input_range = to_relative_range(input_key);
 
         // First binary_search for the location, if there is a valid
-        auto [idx, found] = binary_search(-1, int_cast(m_values.size()), input_range.first);
-        while (idx < int_cast(m_values.size())) {
+        auto [idx, found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.first);
+        while (idx < static_cast< int >(m_values.size())) {
             if (input_range.second >= m_values[idx].m_range.first) {
                 out_values.emplace_back(extract_matched_kv(m_values[idx], input_range));
                 m_values[idx].access_cb(this, hash_op_t::ACCESS);
@@ -270,8 +270,8 @@ public:
     void insert(const RangeKey< K >& input_key, sisl::byte_view&& value) {
         const small_range_t input_range = to_relative_range(input_key);
 
-        auto [l_idx, l_found] = binary_search(-1, int_cast(m_values.size()), input_range.first);
-        auto [r_idx, r_found] = binary_search(-1, int_cast(m_values.size()), input_range.second);
+        auto [l_idx, l_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.first);
+        auto [r_idx, r_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.second);
 
         bool is_move_to_left = l_found && (input_range.first > m_values[l_idx].m_range.first);
         bool is_move_to_right = r_found && (input_range.second < m_values[r_idx].m_range.second);
@@ -303,7 +303,7 @@ public:
             LOGDEBUG("Node({}) To insert: shrinking entry by moving right at idx={}, new value=[{}]", to_string(),
                      r_idx, m_values[r_idx].to_string());
         } else {
-            r_idx = std::min(r_idx + 1, int_cast(m_values.size()));
+            r_idx = std::min(r_idx + 1, static_cast< int >(m_values.size()));
         }
 
         // Erase all intermediate entries
@@ -327,8 +327,8 @@ public:
 
     small_count_t erase(const RangeKey< K >& input_key) {
         const small_range_t input_range = to_relative_range(input_key);
-        auto [l_idx, l_found] = binary_search(-1, int_cast(m_values.size()), input_range.first);
-        auto [r_idx, r_found] = binary_search(-1, int_cast(m_values.size()), input_range.second);
+        auto [l_idx, l_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.first);
+        auto [r_idx, r_found] = binary_search(-1, static_cast< int >(m_values.size()), input_range.second);
 
         bool is_move_to_left = l_found && (input_range.first > m_values[l_idx].m_range.first);
         bool is_move_to_right = r_found && (input_range.second < m_values[r_idx].m_range.second);
@@ -361,7 +361,7 @@ public:
             LOGDEBUG("Node({}) To erase: shrinking entry by moving right at idx={}, new value=[{}]", to_string(), r_idx,
                      m_values[r_idx].to_string());
         } else {
-            r_idx = std::min(r_idx + 1, int_cast(m_values.size()));
+            r_idx = std::min(r_idx + 1, static_cast< int >(m_values.size()));
         }
 
         if (r_idx > l_idx) {
@@ -375,7 +375,7 @@ public:
             m_values.erase(m_values.begin() + l_idx, m_values.begin() + r_idx);
         }
 
-        return s_cast< small_count_t >(m_values.size());
+        return static_cast< small_count_t >(m_values.size());
     }
 
     std::string to_string() const { return fmt::format("BaseKey={} Nth_Offset={}", m_base_key, m_base_nth); }
@@ -414,7 +414,8 @@ private:
     }
 
     RangeKey< K > to_big_key(const small_range_t range) const {
-        return RangeKey< K >{m_base_key, m_base_nth + range.first, uint32_cast(range.second) - range.first + 1};
+        return RangeKey< K >{m_base_key, m_base_nth + range.first,
+                             static_cast< uint32_t >(range.second) - range.first + 1};
     }
 
     std::pair< RangeKey< K >, sisl::byte_view > extract_matched_kv(const ValueEntryRange& ventry,

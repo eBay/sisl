@@ -24,7 +24,7 @@
 namespace sisl {
 using metric_label = std::pair< std::string, std::string >;
 
-enum ReportFormat { kUnknownFormat, kTextFormat, kJsonFormat, kProtoBufferFormat };
+enum ReportFormat { UNKNOWN_FORMAT, TEXT_FORMAT, JSON_FORMAT, PROTO_BUFFER_FORMAT };
 
 class ReportCounter {
 public:

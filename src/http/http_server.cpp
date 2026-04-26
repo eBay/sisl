@@ -220,7 +220,7 @@ void HttpServer::register_metrics_endpoint() {
     setup_route(
         http_method::Get, "/metrics",
         [](httplib::Request const&, httplib::Response& res) {
-            res.set_content(sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat), "text/plain");
+            res.set_content(sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::TEXT_FORMAT), "text/plain");
         },
         url_type::safe);
 }

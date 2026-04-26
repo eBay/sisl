@@ -65,7 +65,8 @@ namespace sisl {
     auto status = cli_byte_buf.DumpToSingleSlice(&slice);
     if (status.ok()) {
         cli_buf.buf_alloc(slice.size());
-        std::memcpy(voidptr_cast(cli_buf.bytes()), c_voidptr_cast(slice.begin()), slice.size());
+        std::memcpy(reinterpret_cast< void* >(cli_buf.bytes()), reinterpret_cast< const void* >(slice.begin()),
+                    slice.size());
     }
     return status;
 }
