@@ -129,9 +129,6 @@ using rpc_handler_cb_t = std::function< bool(const rpc_data_ptr_t< ServiceT, Req
 template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
 using rpc_completed_cb_t = std::function< void(const rpc_data_ptr_t< ServiceT, ReqT, RespT, streaming >&) >;
 
-template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
-using rpc_call_static_info_t = RpcStaticInfo< ServiceT, ReqT, RespT, streaming >;
-
 template < typename ReqT, typename RespT >
 using rpc_sync_handler_cb_t = std::function< ::grpc::Status(const ReqT&, RespT&) >;
 
@@ -164,6 +161,9 @@ public:
     size_t m_rpc_idx;
     std::string m_rpc_name;
 };
+
+template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
+using rpc_call_static_info_t = RpcStaticInfo< ServiceT, ReqT, RespT, streaming >;
 
 /**
  * This class represents an incoming request and its associated context
