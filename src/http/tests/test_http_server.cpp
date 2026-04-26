@@ -90,10 +90,7 @@ public:
     }
 };
 
-Pistache::Rest::Route::Result ok_handler(Pistache::Rest::Request const&, Pistache::Http::ResponseWriter resp) {
-    resp.send(Pistache::Http::Code::Ok, "ok");
-    return Pistache::Rest::Route::Result::Ok;
-}
+void ok_handler(httplib::Request const&, httplib::Response& res) { res.set_content("ok", "text/plain"); }
 
 } // namespace
 
@@ -101,9 +98,9 @@ Pistache::Rest::Route::Result ok_handler(Pistache::Rest::Request const&, Pistach
 
 TEST(HttpServer, UrlClassification) {
     sisl::HttpServer server{next_port()};
-    server.setup_route(Pistache::Http::Method::Get, "/safe", ok_handler, sisl::url_type::safe);
-    server.setup_route(Pistache::Http::Method::Get, "/local", ok_handler, sisl::url_type::localhost);
-    server.setup_route(Pistache::Http::Method::Get, "/regular", ok_handler, sisl::url_type::regular);
+    server.setup_route(sisl::http_method::Get, "/safe", ok_handler, sisl::url_type::safe);
+    server.setup_route(sisl::http_method::Get, "/local", ok_handler, sisl::url_type::localhost);
+    server.setup_route(sisl::http_method::Get, "/regular", ok_handler, sisl::url_type::regular);
 
     EXPECT_TRUE(server.is_safe_url("/safe"));
     EXPECT_FALSE(server.is_safe_url("/local"));
@@ -128,7 +125,7 @@ TEST(HttpServer, SecureZoneFlag) {
 TEST(HttpServer, SafeRouteReturns200) {
     uint16_t port = next_port();
     sisl::HttpServer server{port};
-    server.setup_route(Pistache::Http::Method::Get, "/health", ok_handler, sisl::url_type::safe);
+    server.setup_route(sisl::http_method::Get, "/health", ok_handler, sisl::url_type::safe);
     server.start();
     ASSERT_TRUE(wait_for_server(port));
 
@@ -140,7 +137,7 @@ TEST(HttpServer, SafeRouteReturns200) {
 TEST(HttpServer, RegularRouteNoVerifierReturns200) {
     uint16_t port = next_port();
     sisl::HttpServer server{port};
-    server.setup_route(Pistache::Http::Method::Get, "/data", ok_handler, sisl::url_type::regular);
+    server.setup_route(sisl::http_method::Get, "/data", ok_handler, sisl::url_type::regular);
     server.start();
     ASSERT_TRUE(wait_for_server(port));
 
@@ -152,7 +149,7 @@ TEST(HttpServer, RegularRouteNoVerifierReturns200) {
 TEST(HttpServer, LocalhostRouteFromLoopbackReturns200) {
     uint16_t port = next_port();
     sisl::HttpServer server{port};
-    server.setup_route(Pistache::Http::Method::Get, "/local", ok_handler, sisl::url_type::localhost);
+    server.setup_route(sisl::http_method::Get, "/local", ok_handler, sisl::url_type::localhost);
     server.start();
     ASSERT_TRUE(wait_for_server(port));
 
@@ -166,7 +163,7 @@ TEST(HttpServer, RegularRouteNoTokenReturns401) {
     uint16_t port = next_port();
     MockVerifier verifier;
     sisl::HttpServer server{port, 1, 4000000, &verifier};
-    server.setup_route(Pistache::Http::Method::Get, "/secure", ok_handler, sisl::url_type::regular);
+    server.setup_route(sisl::http_method::Get, "/secure", ok_handler, sisl::url_type::regular);
     server.start();
     ASSERT_TRUE(wait_for_server(port));
 
@@ -179,7 +176,7 @@ TEST(HttpServer, RegularRouteValidTokenReturns200) {
     uint16_t port = next_port();
     MockVerifier verifier;
     sisl::HttpServer server{port, 1, 4000000, &verifier};
-    server.setup_route(Pistache::Http::Method::Get, "/secure", ok_handler, sisl::url_type::regular);
+    server.setup_route(sisl::http_method::Get, "/secure", ok_handler, sisl::url_type::regular);
     server.start();
     ASSERT_TRUE(wait_for_server(port));
 
@@ -192,7 +189,7 @@ TEST(HttpServer, RegularRouteInvalidTokenReturns401) {
     uint16_t port = next_port();
     MockVerifier verifier;
     sisl::HttpServer server{port, 1, 4000000, &verifier};
-    server.setup_route(Pistache::Http::Method::Get, "/secure", ok_handler, sisl::url_type::regular);
+    server.setup_route(sisl::http_method::Get, "/secure", ok_handler, sisl::url_type::regular);
     server.start();
     ASSERT_TRUE(wait_for_server(port));
 

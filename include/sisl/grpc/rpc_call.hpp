@@ -115,21 +115,33 @@ using AsyncRpcDataPtr = boost::intrusive_ptr< RpcData< ServiceT, ReqT, RespT, fa
 template < typename ServiceT, typename ReqT, typename RespT >
 using StreamRpcDataPtr = boost::intrusive_ptr< RpcData< ServiceT, ReqT, RespT, true > >;
 
-#define RPC_DATA_PTR_SPEC boost::intrusive_ptr< RpcData< ServiceT, ReqT, RespT, streaming > >
-#define request_call_cb_t                                                                                              \
-    std::function< void(typename ServiceT::AsyncService*, ::grpc::ServerContext*, ReqT*,                               \
-                        ::grpc::ServerAsyncResponseWriter< RespT >*, ::grpc::CompletionQueue*,                         \
-                        ::grpc::ServerCompletionQueue*, void*) >
-#define rpc_handler_cb_t std::function< bool(const RPC_DATA_PTR_SPEC& rpc_call) >
-#define rpc_completed_cb_t std::function< void(const RPC_DATA_PTR_SPEC& rpc_call) >
-#define rpc_call_static_info_t RpcStaticInfo< ServiceT, ReqT, RespT, streaming >
-#define rpc_sync_handler_cb_t std::function< ::grpc::Status(const ReqT&, RespT&) >
+template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
+using rpc_data_ptr_t = boost::intrusive_ptr< RpcData< ServiceT, ReqT, RespT, streaming > >;
+
+template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
+using request_call_cb_t = std::function< void(typename ServiceT::AsyncService*, ::grpc::ServerContext*, ReqT*,
+                                              ::grpc::ServerAsyncResponseWriter< RespT >*, ::grpc::CompletionQueue*,
+                                              ::grpc::ServerCompletionQueue*, void*) >;
+
+template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
+using rpc_handler_cb_t = std::function< bool(const rpc_data_ptr_t< ServiceT, ReqT, RespT, streaming >&) >;
+
+template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
+using rpc_completed_cb_t = std::function< void(const rpc_data_ptr_t< ServiceT, ReqT, RespT, streaming >&) >;
+
+template < typename ReqT, typename RespT >
+using rpc_sync_handler_cb_t = std::function< ::grpc::Status(const ReqT&, RespT&) >;
 
 // This class represents all static information related to a specific RpcData, so these information does not need to be
 // built for every RPC
 template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
 class RpcStaticInfo : public RpcStaticInfoBase {
 public:
+    using request_call_cb_t = sisl::request_call_cb_t< ServiceT, ReqT, RespT, streaming >;
+    using rpc_handler_cb_t = sisl::rpc_handler_cb_t< ServiceT, ReqT, RespT, streaming >;
+    using rpc_completed_cb_t = sisl::rpc_completed_cb_t< ServiceT, ReqT, RespT, streaming >;
+    using rpc_sync_handler_cb_t = sisl::rpc_sync_handler_cb_t< ReqT, RespT >;
+
     RpcStaticInfo(GrpcServer* server, typename ServiceT::AsyncService& svc, const request_call_cb_t& call_cb,
                   const rpc_handler_cb_t& rpc_cb, const rpc_completed_cb_t& comp_cb, size_t idx,
                   const std::string& name) :
@@ -150,6 +162,9 @@ public:
     std::string m_rpc_name;
 };
 
+template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
+using rpc_call_static_info_t = RpcStaticInfo< ServiceT, ReqT, RespT, streaming >;
+
 /**
  * This class represents an incoming request and its associated context
  * Template argument 'streaming' should be understood as server streaming. If we later want
@@ -158,6 +173,9 @@ public:
 template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
 class RpcData : public RpcDataAbstract, sisl::ObjLifeCounter< RpcData< ServiceT, ReqT, RespT, streaming > > {
 public:
+    using rpc_data_ptr_t = sisl::rpc_data_ptr_t< ServiceT, ReqT, RespT, streaming >;
+    using rpc_call_static_info_t = sisl::rpc_call_static_info_t< ServiceT, ReqT, RespT, streaming >;
+
     static RpcDataAbstract* make(rpc_call_static_info_t* rpc_info, size_t queue_idx) {
         return new RpcData(rpc_info, queue_idx);
     }
@@ -167,8 +185,9 @@ public:
 
     const ReqT& request() const { return *m_request; }
 
-    template < bool mode = streaming >
-    std::enable_if_t< !mode, RespT& > response() {
+    RespT& response()
+        requires(!streaming)
+    {
         return *m_response;
     }
 
@@ -178,8 +197,9 @@ public:
     //@param is_last - true to indicate that this is the last chunk in a streaming response (where
     // applicable)
     // NOTE: this function MUST `unref()` this call
-    template < bool mode = streaming >
-    std::enable_if_t< !mode, void > send_response([[maybe_unused]] bool is_last = true) {
+    void send_response([[maybe_unused]] bool is_last = true)
+        requires(!streaming)
+    {
         do_non_streaming_send();
     }
 
@@ -196,8 +216,9 @@ public:
      *  Note: We must call send_response with is_last = true once even when the call return false at
      * last time to indicate use will not hold the RpcData anymore.
      */
-    template < bool mode = streaming >
-    std::enable_if_t< mode, bool > send_response(std::unique_ptr< RespT > response, bool is_last) {
+    bool send_response(std::unique_ptr< RespT > response, bool is_last)
+        requires(streaming)
+    {
         std::lock_guard< std::mutex > lock{m_streaming_mutex};
         if (is_last && !m_last) {
             m_last = true;
@@ -216,15 +237,7 @@ public:
     }
 
     ::grpc::string get_peer_info() { return m_ctx.peer(); }
-    std::string get_client_req_context() {
-        /*if (m_client_req_context.empty()) {
-            std::string* client_id_str = google::protobuf::Arena::Create< std::string >(
-                &m_arena_req, m_ctx.peer() + "_" + std::to_string(request_id()));
-            m_client_req_context = grpc::string_ref(*client_id_str);
-        }
-        return m_client_req_context; */
-        return fmt::format("{}_{}", m_ctx.peer(), request_id());
-    }
+    std::string get_client_req_context() { return fmt::format("{}_{}", m_ctx.peer(), request_id()); }
     size_t get_rpc_idx() const override { return m_rpc_info->m_rpc_idx; }
 
     RpcData(rpc_call_static_info_t* rpc_info, size_t queue_idx) :
@@ -282,7 +295,7 @@ private:
                     // 2) second one in here and unref after called send_response with is_last = true;
                     ref();
                 }
-                if (m_rpc_info->m_handler_cb(RPC_DATA_PTR_SPEC{this})) { send_response(); }
+                if (m_rpc_info->m_handler_cb(rpc_data_ptr_t{this})) { send_response(); }
             }
         }
 
@@ -317,7 +330,7 @@ private:
             m_is_canceled.store(true, std::memory_order_release);
             RPC_SERVER_LOG(DEBUG, "request is CANCELLED by the caller");
         }
-        if (m_rpc_info->m_comp_cb) { m_rpc_info->m_comp_cb(RPC_DATA_PTR_SPEC{this}); }
+        if (m_rpc_info->m_comp_cb) { m_rpc_info->m_comp_cb(rpc_data_ptr_t{this}); }
         return nullptr;
     }
 

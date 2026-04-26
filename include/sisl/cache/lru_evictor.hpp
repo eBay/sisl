@@ -24,20 +24,18 @@
 #include <sisl/fds/utils.hpp>
 #include <sisl/cache/evictor.hpp>
 
-using namespace boost::intrusive;
-
 namespace sisl {
 
 class LRUEvictor : public Evictor {
 public:
-    typedef std::function< bool(const ValueEntryBase&) > can_evict_cb_t;
+    using can_evict_cb_t = std::function< bool(const ValueEntryBase&) >;
 
     LRUEvictor(const int64_t max_size, const uint32_t num_partitions);
     LRUEvictor(const LRUEvictor&) = delete;
     LRUEvictor(LRUEvictor&&) noexcept = delete;
     LRUEvictor& operator=(const LRUEvictor&) = delete;
     LRUEvictor& operator=(LRUEvictor&&) noexcept = delete;
-    virtual ~LRUEvictor() = default;
+    ~LRUEvictor() override = default;
 
     bool add_record(uint64_t hash_code, CacheRecord& record) override;
     void remove_record(uint64_t hash_code, CacheRecord& record) override;
@@ -59,11 +57,13 @@ public:
     }
 
 private:
-    typedef list<
+    using EvictRecordList = boost::intrusive::list<
         ValueEntryBase,
-        member_hook< ValueEntryBase, list_member_hook< link_mode< auto_unlink > >, &ValueEntryBase::m_member_hook >,
-        constant_time_size< false > >
-        EvictRecordList;
+        boost::intrusive::member_hook<
+            ValueEntryBase,
+            boost::intrusive::list_member_hook< boost::intrusive::link_mode< boost::intrusive::auto_unlink > >,
+            &ValueEntryBase::m_member_hook >,
+        boost::intrusive::constant_time_size< false > >;
 
     class LRUPartition {
     private:
@@ -93,8 +93,8 @@ private:
 
         // for testing purpose
         int64_t filled_size() {
-            std::unique_lock guard{m_list_guard}; 
-            return m_filled_size; 
+            std::unique_lock guard{m_list_guard};
+            return m_filled_size;
         }
 
     private:

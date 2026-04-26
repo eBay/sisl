@@ -29,7 +29,7 @@
 #include "metrics_group_impl.hpp"
 
 namespace sisl {
-static_assert(std::is_trivially_copyable< HistogramValue >::value, "Expecting HistogramValue to be trivally copyable");
+static_assert(std::is_trivially_copyable_v< HistogramValue >, "Expecting HistogramValue to be trivally copyable");
 
 class HistogramStaticInfo;
 class PerThreadMetrics {

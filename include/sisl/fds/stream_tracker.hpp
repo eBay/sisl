@@ -23,9 +23,9 @@
 #include "bitset.hpp"
 
 namespace sisl {
-class StreamTrackerMetrics : public MetricsGroupWrapper {
+class StreamTrackerMetrics : public MetricsGroup {
 public:
-    explicit StreamTrackerMetrics(const char* inst_name) : MetricsGroupWrapper("StreamTracker", inst_name) {
+    explicit StreamTrackerMetrics(const char* inst_name) : MetricsGroup("StreamTracker", inst_name) {
         REGISTER_COUNTER(stream_tracker_unsweeped_completions, "How many completions are unsweeped yet", "", {"", ""},
                          _publish_as::publish_as_gauge);
 
@@ -39,14 +39,12 @@ public:
 
 template < typename T, bool AutoTruncate = false >
 class StreamTracker {
-    // using data_processing_t = std::function< bool(T&) >;
-
 public:
     static constexpr size_t alloc_blk_size = 10000;
     static constexpr size_t compaction_threshold = alloc_blk_size / 2;
     static constexpr auto null_processor = []([[maybe_unused]] auto... x) -> bool { return true; };
 
-    static_assert(std::is_trivially_copyable< T >::value, "Cannot use StreamTracker for non-trivally copyable classes");
+    static_assert(std::is_trivially_copyable_v< T >, "Cannot use StreamTracker for non-trivally copyable classes");
 
     // Initialize the stream vector with start index
     StreamTracker(const char* name = "StreamTracker", int64_t start_idx = -1) :
@@ -168,30 +166,6 @@ public:
             return m_slot_ref_idx - 1;
         }
         return do_truncate(first_incomplete_bit);
-    }
-
-    size_t do_truncate(int64_t upto_bit) {
-        // Move all the bits upto the first incomplete bit
-        m_comp_slot_bits.shrink_head(upto_bit);
-        m_active_slot_bits.shrink_head(upto_bit);
-
-        // Shrink the data as well upto first_incomplete_bit. Instead of memmoving every truncate which could also
-        // be frequent, we simply mark to skip that much data and then when we are really needed we compact them.
-        m_data_skip_count += upto_bit;
-        m_alloced_slots -= upto_bit;
-        if (m_data_skip_count > compaction_threshold) {
-            std::memmove((void*)&m_slot_data[0], (void*)&m_slot_data[m_data_skip_count], (sizeof(T) * m_alloced_slots));
-            m_data_skip_count = 0;
-        }
-
-        // auto prev_ref_idx = m_slot_ref_idx;
-        m_slot_ref_idx += upto_bit;
-        COUNTER_DECREMENT(m_metrics, stream_tracker_unsweeped_completions, upto_bit);
-
-        // TODO: Do a callback on how much has been moved forward to
-        // m_on_sweep_cb(m_slot_ref_idx - prev_ref_idx);
-
-        return m_slot_ref_idx - 1;
     }
 
     void foreach_contiguous_completed(int64_t start_idx, const auto& cb) { _foreach_contiguous(start_idx, true, cb); }
@@ -336,6 +310,23 @@ private:
     }
 
     T* get_slot_data(int64_t nbit) const { return &(m_slot_data[nbit + m_data_skip_count]); }
+
+    size_t do_truncate(int64_t upto_bit) {
+        m_comp_slot_bits.shrink_head(upto_bit);
+        m_active_slot_bits.shrink_head(upto_bit);
+
+        m_data_skip_count += upto_bit;
+        m_alloced_slots -= upto_bit;
+        if (m_data_skip_count > compaction_threshold) {
+            std::memmove((void*)&m_slot_data[0], (void*)&m_slot_data[m_data_skip_count], (sizeof(T) * m_alloced_slots));
+            m_data_skip_count = 0;
+        }
+
+        m_slot_ref_idx += upto_bit;
+        COUNTER_DECREMENT(m_metrics, stream_tracker_unsweeped_completions, upto_bit);
+
+        return m_slot_ref_idx - 1;
+    }
 
 private:
     // Mutex to protect the completion of last commit info

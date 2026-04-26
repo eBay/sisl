@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-find_package(Pistache REQUIRED)
+find_package(httplib REQUIRED)
 
 add_library(sisl_http)
 target_sources(sisl_http PRIVATE
@@ -8,8 +8,9 @@ target_sources(sisl_http PRIVATE
   )
 target_link_libraries(sisl_http PUBLIC
   sisl_logging
-  Pistache::Pistache
+  httplib::httplib
   )
+target_compile_definitions(sisl_http PUBLIC CPPHTTPLIB_OPENSSL_SUPPORT)
 
 if(TARGET sisl_metrics)
   target_link_libraries(sisl_http PUBLIC sisl_metrics)

@@ -62,7 +62,7 @@ ctest --test-dir build/Debug --output-on-failure -R MetricsFarm
 | `malloc_impl` | `libc` | `libc`, `tcmalloc`, `jemalloc`; jemalloc disables sanitizers |
 | `metrics` | `True` | Enables metrics, WISR, FDS, cache, settings subsystems |
 | `grpc` | `True` | Requires `metrics=True` |
-| `http` | `True` | HTTP server (Linux only; auto-disabled under Clang) |
+| `http` | `True` | HTTP server (cpp-httplib; cross-platform, Clang-compatible) |
 | `coverage` | `False` | Debug only; incompatible with `sanitize` |
 
 **Code formatting:**
@@ -82,7 +82,7 @@ The library is organized as separately-linkable Conan components. Dependencies f
 
 ```
 sisl_options  (boost, cxxopts)
-  └─ sisl_logging  (spdlog, nlohmann_json, breakpad/Linux; links -rdynamic)
+  └─ sisl_logging  (spdlog, nlohmann_json, breakpad/Linux+libstdc++; links -rdynamic)
        ├─ sisl_sobject
        ├─ sisl_file_watcher
        ├─ sisl_version  (zmarok-semver)
@@ -94,8 +94,8 @@ sisl_options  (boost, cxxopts)
             └─ [grpc=True]
                  flip       (gRPC, protobuf — proto codegen)
                  sisl_grpc  (sisl_buffer + gRPC)
-       └─ [http=True, Linux only]
-            sisl_http  (Pistache)
+       └─ [http=True]
+            sisl_http  (cpp-httplib)
 ```
 
 The source lives in `src/<component>/` and the public headers in `include/sisl/`. The root CMakeLists adds `include/` globally so `#include <sisl/...>` works everywhere.
@@ -128,6 +128,8 @@ Four named jobs run on `ubuntu-24.04` for PRs and merges to `dev/v14.x`. All use
 | GccThreadSanitize | GCC | Debug | libc | thread |
 | GccAddressSanitize | GCC | Debug | libc | address |
 | GccCoverage | GCC | Debug | libc | none (coverage=True) |
-| ClangRelease | Clang | Release | tcmalloc | none |
+| ClangRelease | Clang + libstdc++ | Release | tcmalloc | none |
+
+Breakpad is excluded when `compiler.libcxx == libc++` (libc++ enforces complete-type deletion in `unique_ptr`, which breakpad violates). Clang + libstdc++ builds fine.
 
 ChainBuild (iomanager / nuraft_mesg) is commented out pending their migration to `dev/v14.x`.

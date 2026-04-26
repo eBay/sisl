@@ -24,7 +24,7 @@ class TokenVerifyState {
 public:
     TokenVerifyState() = default;
     TokenVerifyState(VerifyCode const c, std::string const& m) : code(c), msg(m) {}
-    virtual ~TokenVerifyState() {}
+    virtual ~TokenVerifyState() = default;
     VerifyCode code;
     std::string msg;
 };
@@ -41,7 +41,7 @@ public:
 class GrpcTokenVerifier : public TokenVerifier {
 public:
     explicit GrpcTokenVerifier(std::string const& auth_header_key) : m_auth_header_key(auth_header_key) {}
-    virtual ~GrpcTokenVerifier() = default;
+    ~GrpcTokenVerifier() override = default;
 
     virtual grpc::Status verify_ctx(grpc::ServerContext const* srv_ctx) const = 0;
 

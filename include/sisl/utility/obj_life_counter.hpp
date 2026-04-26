@@ -32,7 +32,7 @@
 namespace sisl {
 
 class ObjCounterMetrics;
-// inst() and ~ObjCounterRegistry() are defined after ObjCounterMetrics (unique_ptr requires complete type at both sites)
+
 class ObjCounterRegistry {
 public:
     using pair_of_atomic_ptrs = std::pair< std::atomic< int64_t >*, std::atomic< int64_t >* >;
@@ -59,65 +59,18 @@ public:
     }
 
     static ObjCounterMetrics* metrics() { return inst().m_metrics.get(); }
-    static inline void enable_metrics_reporting();
+    static void enable_metrics_reporting();
 };
 
 class ObjCounterMetrics : public MetricsGroup {
 public:
-    ObjCounterMetrics(const std::vector< std::string >& v) : MetricsGroup("ObjectLife", "Singleton") {
-        for (const auto& name : v) {
-            // Transform the name to prometheus acceptable name,
-            std::string prom_name{name};
-            std::transform(prom_name.begin(), prom_name.end(), prom_name.begin(), [](unsigned char c) -> unsigned char {
-                if (c == '<' || c == '>' || c == ',' || c == '(' || c == ')' || c == ' ') {
-                    return '_';
-                } else if (c == '*') {
-                    return 'P';
-                } else {
-                    return c;
-                }
-            });
-
-            const auto idx{
-                this->m_impl_ptr->register_gauge(prom_name, prom_name + " created", prom_name, {"type", "created"})};
-            const auto nidx{
-                this->m_impl_ptr->register_gauge(prom_name, prom_name + " alive", prom_name, {"type", "alive"})};
-            assert(nidx == idx + 1);
-            m_name_gauge_map.emplace(name, std::make_pair(idx, nidx));
-        }
-        register_me_to_farm();
-        attach_gather_cb(std::bind(&ObjCounterMetrics::on_gather, this));
-    }
-    ~ObjCounterMetrics() { deregister_me_from_farm(); }
-
-    void on_gather() {
-        ObjCounterRegistry::foreach ([this](const std::string& name, const int64_t created, const int64_t alive) {
-            const auto it{m_name_gauge_map.find(name)};
-            if (it != m_name_gauge_map.cend()) {
-                const auto [create_idx, alive_idx] = it->second;
-                this->m_impl_ptr->gauge_update(create_idx, created);
-                this->m_impl_ptr->gauge_update(alive_idx, alive);
-            }
-        });
-    }
+    ObjCounterMetrics(const std::vector< std::string >& v);
+    ~ObjCounterMetrics();
+    void on_gather();
 
 private:
     std::unordered_map< std::string, std::pair< uint64_t, uint64_t > > m_name_gauge_map;
 };
-
-inline ObjCounterRegistry::~ObjCounterRegistry() = default;
-
-inline ObjCounterRegistry& ObjCounterRegistry::inst() {
-    static ObjCounterRegistry instance;
-    return instance;
-}
-
-inline void ObjCounterRegistry::enable_metrics_reporting() {
-    auto& t{tracker()};
-    std::vector< std::string > v;
-    std::transform(t.begin(), t.end(), std::back_inserter(v), [](const auto& p) { return p.first; });
-    inst().m_metrics = std::make_unique< ObjCounterMetrics >(v);
-}
 
 template < typename T >
 struct ObjTypeWrapper {
@@ -134,7 +87,7 @@ struct ObjTypeWrapper {
             ObjCounterRegistry::register_obj(typeid(T).name(), std::make_pair(pc, pa));
         }
     }
-    int m_dummy; // Dummy value initialized to trigger the registratrion
+    int m_dummy{0}; // Forces ODR-use of s_type to trigger registration
 };
 
 template < typename T >
@@ -150,7 +103,10 @@ struct ObjLifeCounter {
         s_alive.fetch_sub(1, std::memory_order_relaxed);
     }
 
-    ObjLifeCounter(const ObjLifeCounter&) noexcept { s_alive.fetch_add(1, std::memory_order_relaxed); }
+    ObjLifeCounter(const ObjLifeCounter&) noexcept {
+        s_created.fetch_add(1, std::memory_order_relaxed);
+        s_alive.fetch_add(1, std::memory_order_relaxed);
+    }
     static std::atomic< int64_t > s_created;
     static std::atomic< int64_t > s_alive;
     static ObjTypeWrapper< T > s_type;

@@ -138,7 +138,7 @@ public:
 
     void remove(urcu_data< T >* data) {
         std::lock_guard< std::mutex > lg(m_mutex);
-        m_batch.insert(data);
+        m_batch.erase(data);
     }
 
     template < typename... Args >

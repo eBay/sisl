@@ -22,7 +22,7 @@
 
 namespace sisl {
 
-typedef std::pair< std::string, version::Semver200_version > modinfo;
+using modinfo = std::pair< std::string, version::Semver200_version >;
 
 class VersionMgr {
 private:

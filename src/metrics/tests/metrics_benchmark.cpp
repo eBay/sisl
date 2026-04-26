@@ -216,7 +216,7 @@ void test_histogram_write_atomic(benchmark::State& state) {
 
 using namespace metrics;
 
-class GlobMetrics : public MetricsGroupWrapper {
+class GlobMetrics : public MetricsGroup {
 #define _REG_COUNTER(z, n, d) REGISTER_COUNTER(BOOST_PP_CAT(mycounter, n), "Test Counter", "");
 #define _REG_GAUGE(z, n, d) REGISTER_GAUGE(BOOST_PP_CAT(mygauge, n), "Test Gauge", "");
 #define _REG_HISTOGRAM(z, n, d) REGISTER_HISTOGRAM(BOOST_PP_CAT(myhist, n), "Test Histogram", "");

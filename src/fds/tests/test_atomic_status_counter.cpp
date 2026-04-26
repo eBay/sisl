@@ -43,9 +43,10 @@ protected:
 } // namespace
 
 TEST_F(AtomicStatusCounterTest, BasicStatusCounter) {
-    _status_counter< uint8_t, 0 > sc1{1};
-    EXPECT_EQ(sc1.to_integer(), static_cast< uint64_t >(1));
-    _status_counter< uint8_t, 0 > sc2{1, 2};
+    atomic_status_counter< uint8_t, 0 > asc1{1, 0};
+    EXPECT_EQ(asc1.m_val.load().to_integer(), static_cast< uint64_t >(1));
+    atomic_status_counter< uint8_t, 0 > asc2{1, 2};
+    const auto sc2{asc2.m_val.load()};
     const uint8_t counter_size_bits{sizeof(typename decltype(sc2)::counter_type) * 8};
     EXPECT_EQ(sc2.to_integer(), static_cast< uint64_t >(1) | (static_cast< uint64_t >(2) << counter_size_bits));
 }

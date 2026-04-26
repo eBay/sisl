@@ -9,7 +9,7 @@ required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "14.0.0"
+    version = "14.0.1"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -52,21 +52,16 @@ class SISLConan(ConanFile):
     def _min_cppstd(self):
         return 23
 
-    def config_options(self):
-        if self.settings.compiler == "clang":
-            self.options.http = False
-
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
             check_min_cppstd(self, self._min_cppstd())
 
     def configure(self):
+        if self.options.http:
+            self.options["cpp-httplib"].with_openssl = True
         if not self.options.metrics and self.options.grpc:
             raise ConanInvalidConfiguration("gRPC support requires metrics option!")
 
-        if self.options.http:
-            if self.settings.os not in ["Linux"]:
-                raise ConanInvalidConfiguration("http option requires Linux (Pistache constraint)")
         if self.options.shared:
             self.options.rm_safe("fPIC")
         if self.settings.build_type == "Debug":
@@ -89,7 +84,7 @@ class SISLConan(ConanFile):
         self.requires("spdlog/1.17.0", transitive_headers=True)
         self.requires("zmarok-semver/1.1.0", transitive_headers=True)
         self.requires("lz4/1.10.0", override=True)
-        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
+        if self.settings.os in ["Linux"] and self.settings.compiler.get_safe("libcxx") != "libc++":
             self.requires("breakpad/cci.20210521")
 
         # ARM needs unreleased versionof libunwind
@@ -106,7 +101,7 @@ class SISLConan(ConanFile):
             self.requires("grpc/1.69.0", transitive_headers=True)
 
         if self.options.http:
-            self.requires("pistache/0.4.25", transitive_headers=True)
+            self.requires("cpp-httplib/0.39.0", transitive_headers=True)
 
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
@@ -242,7 +237,7 @@ class SISLConan(ConanFile):
                 "nlohmann_json::nlohmann_json",
                 "spdlog::spdlog",
                 ])
-        if self.settings.os in ["Linux"] and self.settings.compiler != "clang":
+        if self.settings.os in ["Linux"] and self.settings.compiler.get_safe("libcxx") != "libc++":
             self.cpp_info.components["logging"].requires.append("breakpad::breakpad")
         self.cpp_info.components["sobject"].requires.extend([
                 "logging",
@@ -299,8 +294,9 @@ class SISLConan(ConanFile):
         if self.options.http:
             self.cpp_info.components["http"].requires.extend([
                     "logging",
-                    "pistache::pistache",
+                    "cpp-httplib::cpp-httplib",
                     ])
+            self.cpp_info.components["http"].defines.append("CPPHTTPLIB_OPENSSL_SUPPORT")
             if self.options.metrics:
                 self.cpp_info.components["http"].requires.append("metrics")
                 self.cpp_info.components["http"].defines.append("PROMETHEUS_METRICS_REPORTER")
@@ -311,8 +307,7 @@ class SISLConan(ConanFile):
                 component.defines.append("_FILE_OFFSET_BITS=64")
                 component.defines.append("_LARGEFILE64")
                 component.system_libs.extend(["dl", "pthread"])
-                if self.settings.compiler != "clang":
-                    component.exelinkflags.extend(["-export-dynamic"])
+                component.exelinkflags.extend(["-Wl,-export-dynamic"])
             if self.options.get_safe("sanitize") and self.options.sanitize != "False":
                 if self.options.sanitize == "thread":
                     component.sharedlinkflags.append("-fsanitize=thread")

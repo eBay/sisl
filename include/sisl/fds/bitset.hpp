@@ -251,9 +251,8 @@ public:
         std::uninitialized_copy(start_ptr, end_ptr, m_s->get_words());
     }
 
-    template < typename IteratorType,
-               typename = std::enable_if_t< std::is_same_v<
-                   std::decay_t< typename std::iterator_traits< IteratorType >::value_type >, word_t > > >
+    template < typename IteratorType >
+        requires(std::is_same_v< std::decay_t< typename std::iterator_traits< IteratorType >::value_type >, word_t >)
     explicit BitsetImpl(const IteratorType& start_itr, const IteratorType& end_itr, const uint64_t id = 0,
                         const uint32_t alignment_size = 0) {
         const size_t num_words{static_cast< size_t >(std::distance(start_itr, end_itr))};
@@ -469,7 +468,7 @@ public:
     }
 
     void set_id(const uint64_t id) {
-        ReadLockGuard lock{this};
+        WriteLockGuard lock{this};
         assert(m_s);
         m_s->m_id = id;
     }
@@ -718,16 +717,15 @@ public:
         const uint8_t offset{get_word_offset(start_bit)};
         const bitword_type* word_ptr{get_word_const(start_bit)};
         if (!word_ptr) { return ret; }
-        uint8_t nbit{};
-        if (word_ptr->get_next_set_bit(offset, &nbit)) { ret = start_bit + nbit - offset; }
+        if (const auto nbit = word_ptr->get_next_set_bit(offset)) { ret = start_bit + *nbit - offset; }
 
         if (ret == npos) {
             // test rest of whole words
             uint64_t current_bit{start_bit + (word_size() - offset)};
             uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
             while (bits_remaining > 0) {
-                if ((++word_ptr)->get_next_set_bit(0, &nbit)) {
-                    ret = current_bit + nbit;
+                if (const auto nbit = (++word_ptr)->get_next_set_bit(0)) {
+                    ret = current_bit + *nbit;
                     break;
                 }
                 current_bit += word_size();
@@ -875,16 +873,15 @@ public:
         const bitword_type* word_ptr{get_word_const(start_bit)};
         if (!word_ptr) { return ret; }
         const uint8_t offset{get_word_offset(start_bit)};
-        uint8_t nbit{};
-        if (word_ptr->get_next_reset_bit(offset, &nbit)) { ret = start_bit + nbit - offset; }
+        if (const auto nbit = word_ptr->get_next_reset_bit(offset)) { ret = start_bit + *nbit - offset; }
 
         if (ret == npos) {
             // test rest of whole words
             uint64_t current_bit{start_bit + (word_size() - offset)};
             uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
             while (bits_remaining > 0) {
-                if ((++word_ptr)->get_next_reset_bit(0, &nbit)) {
-                    ret = current_bit + nbit;
+                if (const auto nbit = (++word_ptr)->get_next_reset_bit(0)) {
+                    ret = current_bit + *nbit;
                     break;
                 }
                 current_bit += word_size();

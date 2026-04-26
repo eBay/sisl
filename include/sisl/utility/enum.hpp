@@ -32,8 +32,8 @@
 template < typename EnumType >
 class EnumSupportBase {
 public:
-    typedef EnumType enum_type;
-    typedef std::underlying_type_t< enum_type > underlying_type;
+    using enum_type = EnumType;
+    using underlying_type = std::underlying_type_t< enum_type >;
     static_assert(std::is_enum_v< enum_type >, "Type must be an enum type.");
     EnumSupportBase(const std::string& tokens_string) {
         underlying_type last_value{};
@@ -76,7 +76,6 @@ public:
                 if (m_value_to_tokens.size() != 0) ++last_value;
                 current_pos = ((delim != std::string::npos) ? delim + 1 : delim);
             }
-            // std::cout << token << ' ' << last_value << std::endl;
             m_value_to_tokens[last_value] = token;
             m_token_to_value[token] = last_value;
         }
@@ -110,7 +109,6 @@ private:
     std::unordered_map< std::string, underlying_type > m_token_to_value;
 };
 
-#define VENUM(EnumName, Underlying, ...) ENUM(EnumName, Underlying, __VA_ARGS__)
 #define ENUM(EnumName, Underlying, ...) BASE_ENUM(EnumName, EnumName, Underlying, __VA_ARGS__)
 #define SCOPED_ENUM_DEF(Scope, EnumName, Underlying, ...) BASE_ENUM(Scope::EnumName, EnumName, Underlying, __VA_ARGS__)
 #define SCOPED_ENUM_DECL(EnumName, Underlying)                                                                         \
@@ -121,8 +119,8 @@ private:
     enum class FQEnumName : Underlying { __VA_ARGS__ };                                                                \
                                                                                                                        \
     struct FQEnumName##Support : EnumSupportBase< EnumName > {                                                         \
-        typedef EnumName enum_type;                                                                                    \
-        typedef std::underlying_type_t< enum_type > underlying_type;                                                   \
+        using enum_type = EnumName;                                                                                    \
+        using underlying_type = std::underlying_type_t< enum_type >;                                                   \
         EnumName##Support(const std::string tokens) : EnumSupportBase< enum_type >{tokens} {};                         \
         EnumName##Support(const EnumName##Support&) = delete;                                                          \
         EnumName##Support(EnumName##Support&&) noexcept = delete;                                                      \

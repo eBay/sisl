@@ -30,9 +30,9 @@ RCU_REGISTER_INIT
 
 using namespace sisl;
 
-class TreeMetrics : public MetricsGroupWrapper {
+class TreeMetrics : public MetricsGroup {
 public:
-    explicit TreeMetrics(const char* inst_name) : MetricsGroupWrapper("Tree", inst_name) {
+    explicit TreeMetrics(const char* inst_name) : MetricsGroup("Tree", inst_name) {
         REGISTER_COUNTER(tree_node_count, "Total number of nodes in tree", "");
         REGISTER_COUNTER(tree_op_write_count, "Total number of write ops in tree", "tree_op_count",
                          {"op_type", "write"});
@@ -43,9 +43,9 @@ public:
     }
 };
 
-class CacheMetrics : public MetricsGroupWrapper {
+class CacheMetrics : public MetricsGroup {
 public:
-    explicit CacheMetrics(const char* inst_name) : MetricsGroupWrapper("Cache", inst_name) {
+    explicit CacheMetrics(const char* inst_name) : MetricsGroup("Cache", inst_name) {
         REGISTER_GAUGE(cache_size, "Total cache size");
         REGISTER_GAUGE(cache_eviction_pct, "Cache Eviction Percent");
         REGISTER_GAUGE(cache_writes_rate, "Cache Write rate", "");
@@ -58,9 +58,9 @@ public:
     }
 };
 
-class GlobalMetrics : public MetricsGroupWrapper {
+class GlobalMetrics : public MetricsGroup {
 public:
-    explicit GlobalMetrics() : MetricsGroupWrapper("Global") {
+    explicit GlobalMetrics() : MetricsGroup("Global") {
         REGISTER_COUNTER(num_open_connections, "Total number of connections", sisl::_publish_as::publish_as_gauge);
         REGISTER_GAUGE(mem_utilization, "Total memory utilization");
         REGISTER_HISTOGRAM(request_per_txn, "Distribution of request per transactions",

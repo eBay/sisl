@@ -77,9 +77,11 @@ public:
     }
 
     template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
-    bool register_rpc(const std::string& name, const request_call_cb_t& request_call_cb,
-                      const rpc_handler_cb_t& rpc_handler, const rpc_completed_cb_t& done_handler = nullptr) {
-        DEBUG_ASSERT_EQ(ServerState::RUNNING, m_state, "register service in non-INITED state");
+    bool register_rpc(const std::string& name,
+                      const sisl::request_call_cb_t< ServiceT, ReqT, RespT, false >& request_call_cb,
+                      const sisl::rpc_handler_cb_t< ServiceT, ReqT, RespT, false >& rpc_handler,
+                      const sisl::rpc_completed_cb_t< ServiceT, ReqT, RespT, false >& done_handler = nullptr) {
+        DEBUG_ASSERT_EQ(ServerState::RUNNING, m_state, "register rpc in non-RUNNING state");
 
         auto it = m_services.find(ServiceT::service_full_name());
         if (it == m_services.end()) {
@@ -99,7 +101,7 @@ public:
             // Register one call per cq.
             for (auto i = 0u; i < m_cqs.size(); ++i) {
                 auto rpc_call = RpcData< ServiceT, ReqT, RespT, false >::make(
-                    (rpc_call_static_info_t*)m_rpc_registry[rpc_idx].get(), i);
+                    static_cast< RpcStaticInfo< ServiceT, ReqT, RespT, false >* >(m_rpc_registry[rpc_idx].get()), i);
                 rpc_call->enqueue_call_request(*m_cqs[i]);
             }
         }
@@ -108,12 +110,15 @@ public:
     }
 
     template < typename ServiceT, typename ReqT, typename RespT, bool streaming = false >
-    bool register_sync_rpc(const std::string& name, const request_call_cb_t& request_call_cb,
-                           const rpc_sync_handler_cb_t& handler) {
-        return register_rpc(name, request_call_cb, [handler](const RPC_DATA_PTR_SPEC& rpc_data) -> bool {
-            rpc_data->set_status(handler(rpc_data->request(), rpc_data->response()));
-            return true;
-        });
+    bool register_sync_rpc(const std::string& name,
+                           const sisl::request_call_cb_t< ServiceT, ReqT, RespT, false >& request_call_cb,
+                           const sisl::rpc_sync_handler_cb_t< ReqT, RespT >& handler) {
+        return register_rpc< ServiceT, ReqT, RespT >(
+            name, request_call_cb,
+            [handler](const sisl::rpc_data_ptr_t< ServiceT, ReqT, RespT, false >& rpc_data) -> bool {
+                rpc_data->set_status(handler(rpc_data->request(), rpc_data->response()));
+                return true;
+            });
     }
 
     bool is_auth_enabled() const;
@@ -147,4 +152,4 @@ private:
     std::unordered_map< std::string, generic_rpc_handler_cb_t > m_generic_rpc_registry;
     std::shared_mutex m_generic_rpc_registry_mtx;
 };
-} // namespace sisl::grpc
+} // namespace sisl

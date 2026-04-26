@@ -23,6 +23,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <sstream>
 
 #include <fmt/format.h>
@@ -71,23 +72,23 @@ static constexpr std::array< uint64_t, 64 > consecutive_bitmask = {
     (bit_mask[61] - 1), (bit_mask[62] - 1), (bit_mask[63] - 1), ~static_cast< uint64_t >(0)};
 
 template < typename DataType >
-static constexpr uint8_t logBase2(const DataType v) {
-    static_assert(std::is_unsigned< DataType >::value, "logBase2: DataType must be unsigned.");
+constexpr uint8_t logBase2(const DataType v) {
+    static_assert(std::is_unsigned_v< DataType >, "logBase2: DataType must be unsigned.");
     return static_cast< uint8_t >((v == DataType{}) ? 255 : (sizeof(DataType) * 8 - 1) - std::countl_zero(v));
 }
 
 template < typename DataType >
-static inline constexpr uint8_t get_trailing_zeros(const DataType v) {
+constexpr uint8_t get_trailing_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countr_zero(std::make_unsigned_t< DataType >(v)));
 }
 
 template < typename DataType >
-static inline constexpr uint8_t get_set_bit_count(const DataType v) {
+constexpr uint8_t get_set_bit_count(const DataType v) {
     return static_cast< uint8_t >(std::popcount(std::make_unsigned_t< DataType >(v)));
 }
 
 template < typename DataType >
-static inline constexpr uint8_t get_leading_zeros(const DataType v) {
+constexpr uint8_t get_leading_zeros(const DataType v) {
     return static_cast< uint8_t >(std::countl_zero(std::make_unsigned_t< DataType >(v)));
 }
 
@@ -139,12 +140,12 @@ struct bit_match_result {
 template < typename Word >
 class Bitword {
 public:
-    typedef typename std::decay_t< Word > word_type;
+    using word_type = std::decay_t< Word >;
     static constexpr uint8_t bits() { return (sizeof(word_type) * 8); }
-    typedef typename word_type::word_t word_t;
+    using word_t = typename word_type::word_t;
     static_assert(std::is_unsigned_v< word_t > && (sizeof(word_t) <= 16),
                   "Underlying type must be unsigned of 128 bits or less.");
-    typedef typename word_type::value_type value_type;
+    using value_type = typename word_type::value_type;
 
     Bitword() { m_bits.set(0); }
     explicit Bitword(const word_type& b) { m_bits.set(b.get()); }
@@ -245,61 +246,36 @@ public:
         return (actual == expected);
     }
 
-    bool get_next_set_bit(const uint8_t start, uint8_t* const p_set_bit) const {
+    [[nodiscard]] std::optional< uint8_t > get_next_set_bit(const uint8_t start) const {
         assert(start < bits());
-        assert(p_set_bit);
         const word_t e{extract(start, bits())};
-        if (e) {
-            *p_set_bit = get_trailing_zeros(e) + start;
-            return true;
-        } else {
-            return false;
-        }
+        if (e) { return static_cast< uint8_t >(get_trailing_zeros(e) + start); }
+        return std::nullopt;
     }
 
-    bool get_next_reset_bit(const uint8_t start, uint8_t* const p_reset_bit) const {
+    [[nodiscard]] std::optional< uint8_t > get_next_reset_bit(const uint8_t start) const {
         assert(start < bits());
-        assert(p_reset_bit);
         const word_t e{~extract(start, bits())};
-        if (e == static_cast< word_t >(0)) {
-            return false;
-        } else {
-            *p_reset_bit = get_trailing_zeros(e) + start;
-            return (*p_reset_bit < bits());
-        }
+        if (e == static_cast< word_t >(0)) { return std::nullopt; }
+        const uint8_t p_reset_bit = static_cast< uint8_t >(get_trailing_zeros(e) + start);
+        return (p_reset_bit < bits()) ? std::make_optional(p_reset_bit) : std::nullopt;
     }
 
-    bool get_prev_set_bit(uint8_t start, uint8_t* p_set_bit) const {
+    [[nodiscard]] std::optional< uint8_t > get_prev_set_bit(const uint8_t start) const {
         const word_t e{extract(0, start + 1)};
-        if (e) {
-            *p_set_bit = logBase2(e);
-            return true;
-        } else {
-            return false;
-        }
+        if (e) { return logBase2(e); }
+        return std::nullopt;
     }
 
-    uint8_t get_next_reset_bits(const uint8_t start, uint8_t* const pcount) const {
+    // Returns {start_pos, count} of the next run of reset bits, or nullopt if none exist.
+    [[nodiscard]] std::optional< std::pair< uint8_t, uint8_t > > get_next_reset_bits(const uint8_t start) const {
         assert(start < bits());
-        assert(pcount);
-        *pcount = 0;
-        uint8_t first_0bit{0};
         const word_t e{extract(start, bits())};
-        if (e == 0) {
-            // Shortcut for all zeros
-            first_0bit = start;
-            *pcount = bits() - start;
-        } else {
-            // Find the first 0th bit in the word
-            first_0bit = static_cast< uint8_t >(get_trailing_zeros(~e) + start);
-            if (first_0bit >= bits()) {
-                // No more zero's here in our range.
-                first_0bit = bits();
-            } else {
-                *pcount = std::min< uint8_t >(get_trailing_zeros(e >> (first_0bit - start)), bits() - first_0bit);
-            }
-        }
-        return first_0bit;
+        if (e == 0) { return std::make_pair(start, static_cast< uint8_t >(bits() - start)); }
+        const uint8_t first_0bit = static_cast< uint8_t >(get_trailing_zeros(~e) + start);
+        if (first_0bit >= bits()) { return std::nullopt; }
+        const uint8_t count = std::min< uint8_t >(get_trailing_zeros(e >> (first_0bit - start)), bits() - first_0bit);
+        return std::make_pair(first_0bit, count);
     }
 
     // match the number of bits required at the beginning(lsb), middle(mid), end(msb) of the value
@@ -352,18 +328,12 @@ public:
         return result;
     }
 
-    bool set_next_reset_bit(const uint8_t start, const uint8_t maxbits, uint8_t* const p_bit) {
+    [[nodiscard]] std::optional< uint8_t > set_next_reset_bit(const uint8_t start, const uint8_t maxbits) {
         assert(start < bits());
-        assert(p_bit);
-        const bool found{get_next_reset_bit(start, p_bit)};
-        if (!found || (*p_bit >= maxbits)) { return false; }
-
+        const auto p_bit = get_next_reset_bit(start);
+        if (!p_bit || (*p_bit >= maxbits)) { return std::nullopt; }
         set_reset_bit(*p_bit, true);
-        return true;
-    }
-
-    bool set_next_reset_bit(const uint8_t start, uint8_t* const* p_bit) {
-        return set_next_reset_bit(start, bits(), p_bit);
+        return p_bit;
     }
 
     word_t right_shift(const uint8_t nbits) { return m_bits.right_shift(nbits); }
@@ -457,9 +427,9 @@ std::basic_ostream< charT, traits >& operator<<(std::basic_ostream< charT, trait
 template < typename WType >
 class unsafe_bits {
 public:
-    typedef std::decay_t< WType > word_t;
+    using word_t = std::decay_t< WType >;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
-    typedef word_t value_type;
+    using value_type = word_t;
 
     unsafe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     unsafe_bits(const unsafe_bits&) = delete;
@@ -505,9 +475,9 @@ private:
 template < typename WType >
 class safe_bits {
 public:
-    typedef std::decay_t< WType > word_t;
+    using word_t = std::decay_t< WType >;
     static_assert(std::is_unsigned_v< word_t >, "Underlying type must be unsigned.");
-    typedef std::atomic< word_t > value_type;
+    using value_type = std::atomic< word_t >;
 
     safe_bits(const word_t& t = static_cast< word_t >(0)) : m_Value{t} {}
     safe_bits(const safe_bits&) = delete;

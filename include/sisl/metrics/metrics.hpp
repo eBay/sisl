@@ -40,9 +40,6 @@
 #include "metrics_rcu.hpp"
 #include "metrics_tlocal.hpp"
 
-// TODO: Commenting out this tempoarily till the SISL_OPTIONS and SISL_LOGGING issue is resolved
-// SISL_LOGGING_DECL(vmod_metrics_framework)
-
 namespace sisl {
 
 class MetricsGroupStaticInfo;
@@ -117,8 +114,6 @@ public:
     std::string ensure_unique(const std::string& grp_name, const std::string& inst_name);
 };
 
-using MetricsGroupWrapper = MetricsGroup; // For backward compatibility reasons
-
 } // namespace sisl
 
 ////////////////////////////////////////// Helper Routine section ////////////////////////////////////////////////
@@ -175,7 +170,7 @@ private:
     NamedCounter() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    size_t m_Index;
+    uint64_t m_Index;
 };
 
 template < char... elements >
@@ -199,7 +194,7 @@ private:
     NamedGauge() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    size_t m_Index;
+    uint64_t m_Index;
 };
 
 template < char... elements >
@@ -223,7 +218,7 @@ private:
     NamedHistogram() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    size_t m_Index;
+    uint64_t m_Index;
 };
 
 // decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)
@@ -308,15 +303,5 @@ private:
     __VALIDATE_AND_EXECUTE_IF_ELSE(group, NamedHistogram, histogram_observe, cond, namea, nameb, __VA_ARGS__)
 
 #define HISTOGRAM_VALUE(group, name) ((group).m_impl_ptr->histogram_get(HISTOGRAM_INDEX(name)))
-
-#if 0
-#define COUNTER_INCREMENT(group, name, ...)                                                                            \
-    {                                                                                                                  \
-        const auto& nc{NamedCounter::getInstance(BOOST_PP_STRINGIZE(name))};                                           \
-        std::cout << "Counter accessed for name = " << nc.get_name() << " ptr = " << (void*)&nc                        \
-                  << " index = " << nc.get_index() << "\n";                                                            \
-        group->counterIncrement(nc.get_index(), __VA_ARGS__);                                                          \
-    }
-#endif
 
 } // namespace sisl

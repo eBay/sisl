@@ -40,6 +40,15 @@ A C++23 library of high-performance data structures, utilities, and infrastructu
 - CMake 3.22+
 - C++23-capable compiler: GCC 14+ or Clang 17+
 
+The library targets C++23 throughout. Key language features in use:
+
+| Feature | Where used |
+|---------|-----------|
+| `std::expected<T,E>` | gRPC `Result<T>` / `AsyncResult<T>` return types |
+| `requires` constraints | Range constructors on FDS containers and WISR types |
+| `[[nodiscard]]` | All predicate and factory APIs |
+| `std::to_underlying` | Enum helpers |
+
 ### Build
 
 ```bash
@@ -55,7 +64,7 @@ conan build -s:h build_type=Debug --build missing .
 |--------|---------|-------------|
 | `metrics` | `True` | Metrics, WISR, FDS, Cache, and Settings components |
 | `grpc` | `True` | gRPC transport and Flip fault injection (requires `metrics`) |
-| `http` | `True` | HTTP server component built on Pistache (Linux only) |
+| `http` | `True` | HTTP server component built on cpp-httplib |
 | `malloc_impl` | `libc` | Memory allocator: `libc`, `tcmalloc`, or `jemalloc` |
 | `sanitize` | `False` | Sanitizer to enable in Debug builds: `address` (ASan+UBSan), `thread` (TSan), or `False` |
 | `coverage` | `False` | Enable gcov code coverage (Debug only) |
@@ -189,7 +198,7 @@ sisl::ObjectAllocator< MyObj >::free_object(obj);
 
 #### ConcurrentInsertVector
 
-Lock-free, append-only vector for concurrent producers. Readers take a snapshot.
+Lock-free, append-only vector for concurrent producers. Readers take a snapshot. Range constructors on `ConcurrentInsertVector`, `ThreadVector`, `Bitset`, and WISR containers use C++20 `requires` constraints instead of SFINAE, so template errors are human-readable.
 
 #### io_blob / io_blob_list_t
 
@@ -250,11 +259,13 @@ Async and sync client/server helpers on top of sisl's buffer and metrics infrast
 
 ```cpp
 // Async client — future-based
+// Result<T>      = std::expected<T, grpc::Status>   (C++23)
+// AsyncResult<T> = std::future<Result<T>>
 auto stub = client->make_stub< EchoService >("worker-1");
 AsyncResult< EchoReply > fut =
     stub->call_unary< EchoRequest, EchoReply >(req,
         &EchoService::StubInterface::AsyncEcho, /*deadline_s=*/5);
-auto result = fut.get();   // Result<EchoReply> = std::expected<EchoReply, grpc::Status>
+auto result = fut.get();
 if (!result) { LOGERROR("RPC failed: {}", result.error().error_message()); }
 
 // Async client — callback-based
@@ -291,7 +302,7 @@ if (ref.decrement_testz()) { /* last reference — safe to delete */ }
 if (ref.increment_test_eq(max_outstanding)) { /* trigger backpressure */ }
 ```
 
-`decrement_testz`, `increment_test_ge`, `decrement_test_le`, and their `_with_count` variants are all provided with proper fencing.
+`decrement_testz`, `increment_test_ge`, `decrement_test_le`, and their `_with_count` variants are all provided with proper fencing. All predicate methods are `[[nodiscard]]` — silently discarding a test result is a compile error.
 
 #### enum
 
@@ -382,14 +393,14 @@ watcher.register_listener("/etc/myapp/config.json", "cfg-reload",
 
 ### HTTP Server
 
-A Pistache-based HTTP server with middleware auth, SSL support, and per-route access control (Linux only). Routes are classified as `localhost` (local callers only), `safe` (no auth), or `regular` (subject to token verification).
+An HTTP server with pre-routing auth middleware, SSL support, and per-route access control. Routes are classified as `localhost` (local callers only), `safe` (no auth), or `regular` (subject to token verification).
 
 ```cpp
 sisl::HttpServer server{5000, /*threads=*/4, /*max_request_size=*/4000000, token_verifier};
 
 server.setup_routes({
-    {Pistache::Http::Method::Get,  "/status", handle_status, sisl::url_type::safe},
-    {Pistache::Http::Method::Post, "/config", handle_config, sisl::url_type::regular},
+    {sisl::http_method::Get,  "/status", handle_status, sisl::url_type::safe},
+    {sisl::http_method::Post, "/config", handle_config, sisl::url_type::regular},
 });
 
 // When compiled with metrics=True, wire up /metrics scrape automatically:
@@ -416,10 +427,11 @@ server.restart(new_cert, new_key);
 
 | Platform | Status |
 |----------|--------|
-| Linux x86_64 (GCC) | Fully supported |
-| Linux x86_64 (Clang) | Supported — crash dumps (breakpad) and HTTP server not available |
+| Linux x86_64 (GCC + libstdc++) | Fully supported |
+| Linux x86_64 (Clang + libstdc++) | Fully supported |
+| Linux x86_64 (Clang + libc++) | Supported — crash dumps (breakpad) unavailable (libc++ incompatibility) |
 | Linux ARM64 | Supported |
-| macOS (AppleClang) | Supported — crash dumps (breakpad), HTTP server, and file_watcher not available |
+| macOS (AppleClang) | Supported — crash dumps (breakpad) and file_watcher not available |
 | Windows | Not supported |
 
 ---

@@ -78,10 +78,12 @@ bool FileWatcher::register_listener(const std::string& file_path, const std::str
 
     FileInfo file_info;
     file_info.m_filepath = file_path;
-    if (!get_file_contents(file_path, file_info.m_filecontents)) {
+    const auto initial_contents = get_file_contents(file_path);
+    if (!initial_contents) {
         LOGERROR("could not read contents from the file: [{}]", file_path);
         return false;
     }
+    file_info.m_filecontents = *initial_contents;
     file_info.m_handlers.emplace(listener_id, file_event_handler);
 
     file_info.m_wd = inotify_add_watch(m_inotify_fd, file_path.c_str(), IN_ALL_EVENTS);
@@ -216,19 +218,22 @@ void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
     if (!check_file_size(file_info.m_filepath)) { return; }
 
     const auto cur_buffer = file_info.m_filecontents;
-    if (!get_file_contents(file_info.m_filepath, file_info.m_filecontents)) {
+    const auto new_contents = get_file_contents(file_info.m_filepath);
+    if (!new_contents) {
         LOGWARN("Could not read contents from the file: {}", file_info.m_filepath);
         return;
     }
+    file_info.m_filecontents = *new_contents;
     if (file_info.m_filecontents == cur_buffer) {
         LOGDEBUG("File contents have not changed: {}", file_info.m_filepath);
     } else {
-        LOGDEBUG("File contents have changed: {}, from {} to {}", file_info.m_filepath, cur_buffer, file_info.m_filecontents);
+        LOGDEBUG("File contents have changed: {}, from {} to {}", file_info.m_filepath, cur_buffer,
+                 file_info.m_filecontents);
         // notify file modification event
         for (const auto& [id, handler] : file_info.m_handlers) {
             handler(file_info.m_filepath, false);
         }
-	set_fileinfo_content(wd, file_info.m_filecontents);
+        set_fileinfo_content(wd, file_info.m_filecontents);
     }
 }
 
@@ -248,14 +253,12 @@ bool FileWatcher::check_file_size(const std::string& file_path) {
     return true;
 }
 
-bool FileWatcher::get_file_contents(const std::string& file_name, std::string& contents) {
+std::optional< std::string > FileWatcher::get_file_contents(const std::string& file_name) {
     try {
         std::ifstream f(file_name);
-        std::string buffer(std::istreambuf_iterator< char >{f}, std::istreambuf_iterator< char >{});
-        contents = buffer;
-        return true;
+        return std::string(std::istreambuf_iterator< char >{f}, std::istreambuf_iterator< char >{});
     } catch (...) {}
-    return false;
+    return std::nullopt;
 }
 
 void FileWatcher::get_fileinfo(const int wd, FileInfo& file_info) const {

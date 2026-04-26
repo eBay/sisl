@@ -161,7 +161,7 @@ TEST_F(RangeHashMapTest, SequentialTest) {
     validate_all();
 }
 
-VENUM(op_t, uint8_t, GET = 0, INSERT = 1, ERASE = 2)
+ENUM(op_t, uint8_t, GET = 0, INSERT = 1, ERASE = 2)
 
 TEST_F(RangeHashMapTest, RandomEverythingTest) {
     uint32_t nread_ops{0}, ninsert_ops{0}, nerase_ops{0};

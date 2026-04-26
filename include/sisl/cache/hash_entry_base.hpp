@@ -17,7 +17,7 @@
 #pragma once
 
 #include <boost/intrusive/list.hpp>
-#include <sisl/metrics/metrics.hpp> 
+#include <sisl/metrics/metrics.hpp>
 
 using namespace boost::intrusive;
 
@@ -70,9 +70,9 @@ public:
 };
 #pragma pack()
 
-class CacheMetrics : public sisl::MetricsGroupWrapper {
+class CacheMetrics : public sisl::MetricsGroup {
 public:
-    explicit CacheMetrics() : sisl::MetricsGroupWrapper("Cache") {
+    explicit CacheMetrics() : sisl::MetricsGroup("Cache") {
         REGISTER_COUNTER(cache_object_count, "Total number of cache entries", sisl::_publish_as::publish_as_gauge);
         REGISTER_COUNTER(cache_size, "Total size of cache", sisl::_publish_as::publish_as_gauge);
         REGISTER_COUNTER(cache_num_evictions, "Total number of cache evictions");

@@ -22,7 +22,7 @@
 #include <limits> // std::numeric_limits
 
 namespace sisl {
-typedef std::vector< double > hist_bucket_boundaries_t;
+using hist_bucket_boundaries_t = std::vector< double >;
 
 /* For any new histogram buckets, define a name and its values here */
 #define HIST_BKTS_TYPES                                                                                                \

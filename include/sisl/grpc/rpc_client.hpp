@@ -102,7 +102,7 @@ public:
     friend class GrpcAsyncClient;
 
     ClientRpcDataInternal() = default;
-    virtual ~ClientRpcDataInternal() = default;
+    ~ClientRpcDataInternal() override = default;
 
     // TODO: support time in any time unit -- lhuang8
     void set_deadline(uint32_t seconds) {
@@ -116,7 +116,7 @@ public:
     RespT& reply() { return m_reply; }
     ::grpc::ClientContext& context() { return m_context; }
 
-    virtual void handle_response(bool ok = true) = 0;
+    void handle_response(bool ok = true) override = 0;
 
     void add_metadata(const std::string& meta_key, const std::string& meta_value) {
         m_context.AddMetadata(meta_key, meta_value);
@@ -137,7 +137,7 @@ class ClientRpcDataCallback : public ClientRpcDataInternal< ReqT, RespT > {
 public:
     ClientRpcDataCallback(const unary_callback_t< RespT >& cb) : m_cb{cb} {}
 
-    virtual void handle_response([[maybe_unused]] bool ok = true) override {
+    void handle_response([[maybe_unused]] bool ok = true) override {
         // For unary call, ok is always true, `status_` will indicate error if there are any.
         if (m_cb) { m_cb(this->m_reply, this->m_status); }
     }
@@ -153,7 +153,7 @@ class ClientRpcDataFuture : public ClientRpcDataInternal< ReqT, RespT > {
 public:
     ClientRpcDataFuture(std::promise< Result< RespT > >&& promise) : m_promise{std::move(promise)} {}
 
-    virtual void handle_response([[maybe_unused]] bool ok = true) override {
+    void handle_response([[maybe_unused]] bool ok = true) override {
         // For unary call, ok is always true, `status_` will indicate error if there are any.
         if (this->m_status.ok()) {
             m_promise.set_value(this->m_reply);
@@ -192,7 +192,7 @@ private:
 class GenericRpcDataFutureBlob : public ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer > {
 public:
     GenericRpcDataFutureBlob(std::promise< Result< GenericClientResponse > >&& promise);
-    virtual void handle_response([[maybe_unused]] bool ok = true) override;
+    void handle_response([[maybe_unused]] bool ok = true) override;
 
 private:
     std::promise< Result< GenericClientResponse > > m_promise;
@@ -202,9 +202,9 @@ template < typename ReqT, typename RespT >
 class ClientRpcData : public ClientRpcDataInternal< ReqT, RespT > {
 public:
     ClientRpcData(const rpc_comp_cb_t< ReqT, RespT >& comp_cb) : m_comp_cb{comp_cb} {}
-    virtual ~ClientRpcData() = default;
+    ~ClientRpcData() override = default;
 
-    virtual void handle_response([[maybe_unused]] bool ok = true) override {
+    void handle_response([[maybe_unused]] bool ok = true) override {
         // For unary call, ok is always true, `status_` will indicate error if there are any.
         m_comp_cb(*this);
         // Caller could delete this pointer and thus don't acccess anything after this.
@@ -326,7 +326,7 @@ public:
                     const std::string& ssl_cert = "") :
             GrpcAsyncClient(server_addr, nullptr, target_domain, ssl_cert, 0, 0) {}
 
-    virtual ~GrpcAsyncClient() {}
+    ~GrpcAsyncClient() override = default;
 
     /**
      * AsyncStub is a wrapper of generated service stub.

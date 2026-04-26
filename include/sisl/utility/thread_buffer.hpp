@@ -42,14 +42,14 @@
 
 namespace sisl {
 
-VENUM(thread_life_cycle, uint8_t, THREAD_ATTACHED = 1u, THREAD_DETACHED = 2u)
+ENUM(thread_life_cycle, uint8_t, THREAD_ATTACHED = 1u, THREAD_DETACHED = 2u)
 
-typedef std::function< void(uint32_t, thread_life_cycle) > thread_state_cb_t;
+using thread_state_cb_t = std::function< void(uint32_t, thread_life_cycle) >;
 
 class ThreadRegistry {
     static constexpr size_t INVALID_CURSOR{boost::dynamic_bitset<>::npos};
 
-    typedef std::map< uint64_t, thread_state_cb_t > notifiers_list_t;
+    using notifiers_list_t = std::map< uint64_t, thread_state_cb_t >;
 
 public:
     static constexpr size_t max_tracked_threads() { return 2048U; }
@@ -123,7 +123,7 @@ public:
 
     void slot_inc_ref(const uint32_t thread_num) { m_ref_count[thread_num].increment(); }
 
-    void slot_release(const uint32_t thread_num) { m_ref_count[thread_num].decrement_testz(); }
+    void slot_release(const uint32_t thread_num) { (void)m_ref_count[thread_num].decrement_testz(); }
 
     uint64_t register_for_sc_notification(const thread_state_cb_t& cb) {
         std::vector< uint32_t > tnums;
@@ -287,7 +287,7 @@ public:
             m_thread_slots(ThreadRegistry::max_tracked_threads()) {
         m_buffers.reserve(ThreadRegistry::max_tracked_threads());
         m_notify_idx = thread_registry->register_for_sc_notification(
-            std::bind(&ThreadBuffer::on_thread_state_change, this, std::placeholders::_1, std::placeholders::_2));
+            [this](uint32_t n, thread_life_cycle lc) { this->on_thread_state_change(n, lc); });
     }
     ThreadBuffer(const ThreadBuffer&) = delete;
     ThreadBuffer(ThreadBuffer&&) noexcept = delete;
@@ -361,7 +361,7 @@ public:
     }
 
     uint32_t get_count() const { return m_buffers.size(); }
-    typedef std::pair< uint32_t, T* > thread_buffer_iterator;
+    using thread_buffer_iterator = std::pair< uint32_t, T* >;
 
     thread_buffer_iterator begin_iterator() {
         std::shared_lock l(m_expand_mutex);
@@ -383,7 +383,7 @@ public:
         }
     }
 
-    bool is_valid(const thread_buffer_iterator& it) { return (it.second != nullptr ? true : false); }
+    [[nodiscard]] bool is_valid(const thread_buffer_iterator& it) { return it.second != nullptr; }
     T* get(thread_buffer_iterator& it) { return it.second; }
 
     void access_all_threads(const auto& cb) {

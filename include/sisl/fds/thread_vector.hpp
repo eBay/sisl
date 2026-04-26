@@ -44,9 +44,8 @@ public:
     ThreadVector& operator=(ThreadVector&&) noexcept = delete;
     ~ThreadVector() { clear_old_version(); }
 
-    template < typename InputType,
-               typename = typename std::enable_if<
-                   std::is_convertible< typename std::decay< InputType >::type, T >::value >::type >
+    template < typename InputType >
+        requires(std::is_convertible_v< std::decay_t< InputType >, T >)
     void push_back(InputType&& ele) {
         m_wvec.insertable([&ele](std::vector< T >* const tvec) { tvec->push_back(std::forward< InputType >(ele)); });
     }

@@ -194,7 +194,7 @@ private:
 #endif
 };
 
-VENUM(op_t, uint8_t, READ = 0, WRITE = 1)
+ENUM(op_t, uint8_t, READ = 0, WRITE = 1)
 
 TEST_F(RangeCacheTest, RandomData) {
     const uint32_t last_blk = g_chunk_size / g_blk_size - 1;

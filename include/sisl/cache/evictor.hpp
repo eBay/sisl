@@ -24,11 +24,11 @@
 #include <spdlog/fmt/fmt.h>
 
 namespace sisl {
-typedef ValueEntryBase CacheRecord;
+using CacheRecord = ValueEntryBase;
 
 class Evictor {
 public:
-    typedef std::function< bool(const CacheRecord&) > eviction_cb_t;
+    using eviction_cb_t = std::function< bool(const CacheRecord&) >;
     using can_evict_cb_t = eviction_cb_t;
 
     // struct to hold the eviction callbacks for each record family
@@ -67,22 +67,22 @@ public:
         m_eviction_cbs[record_type_id] = std::make_pair(false, RecordFamily{});
     }
 
-    void add_metrics(CacheMetrics* metrics) {
-        m_metrics = metrics;
-    }
-    CacheMetrics* metrics_ptr() {
-        return m_metrics;
-    }
+    void add_metrics(CacheMetrics* metrics) { m_metrics = metrics; }
+    CacheMetrics* metrics_ptr() { return m_metrics; }
 
     virtual bool add_record(uint64_t hash_code, CacheRecord& record) = 0;
     virtual void remove_record(uint64_t hash_code, CacheRecord& record) = 0;
     virtual void record_accessed(uint64_t hash_code, CacheRecord& record) = 0;
     virtual void record_resized(uint64_t hash_code, const CacheRecord& record, uint32_t old_size) = 0;
 
-    int64_t max_size() const { return m_max_size; }
-    uint32_t num_partitions() const { return m_num_partitions; }
-    const eviction_cb_t& can_evict_cb(const uint32_t record_id) const { return m_eviction_cbs[record_id].second.can_evict_cb; }
-    const eviction_cb_t& post_eviction_cb(const uint32_t record_id) const { return m_eviction_cbs[record_id].second.post_eviction_cb; }
+    [[nodiscard]] int64_t max_size() const { return m_max_size; }
+    [[nodiscard]] uint32_t num_partitions() const { return m_num_partitions; }
+    [[nodiscard]] const eviction_cb_t& can_evict_cb(const uint32_t record_id) const {
+        return m_eviction_cbs[record_id].second.can_evict_cb;
+    }
+    [[nodiscard]] const eviction_cb_t& post_eviction_cb(const uint32_t record_id) const {
+        return m_eviction_cbs[record_id].second.post_eviction_cb;
+    }
 
 private:
     int64_t m_max_size;

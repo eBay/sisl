@@ -2,16 +2,17 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <sisl/logging/logging.h>
 #include <thread>
 
 namespace sisl {
 
-using file_event_cb_t = std::function< void(const std::string, const bool) >;
+using file_event_cb_t = std::function< void(const std::string&, const bool) >;
 
 // structure to hold file contents and closures to be run
 struct FileInfo {
-    FileInfo() {}
+    FileInfo() = default;
     std::string m_filepath;
     // file contents
     std::string m_filecontents;
@@ -37,7 +38,7 @@ private:
     void set_fileinfo_content(const int wd, const std::string&);
     void on_modified_event(const int wd, const bool is_deleted);
     bool remove_watcher(FileInfo& file_info);
-    static bool get_file_contents(const std::string& file_name, std::string& contents);
+    [[nodiscard]] static std::optional< std::string > get_file_contents(const std::string& file_name);
     static bool check_file_size(const std::string& file_path);
 
 private:

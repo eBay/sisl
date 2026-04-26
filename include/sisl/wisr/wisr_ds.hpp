@@ -98,9 +98,8 @@ public:
 
     ~wisr_ds() = default;
 
-    template < typename InputType,
-               typename = typename std::enable_if<
-                   std::is_convertible< typename std::decay< InputType >::type, T >::value >::type >
+    template < typename InputType >
+        requires(std::is_convertible_v< std::decay_t< InputType >, T >)
     void push_back(InputType&& value) {
         m_wfw.insertable([&](DS* const ptr) { ptr->push_back(std::forward< InputType >(value)); });
     }
