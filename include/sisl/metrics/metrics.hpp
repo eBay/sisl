@@ -170,7 +170,7 @@ private:
     NamedCounter() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    size_t m_Index;
+    uint64_t m_Index;
 };
 
 template < char... elements >
@@ -194,7 +194,7 @@ private:
     NamedGauge() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    size_t m_Index;
+    uint64_t m_Index;
 };
 
 template < char... elements >
@@ -218,7 +218,7 @@ private:
     NamedHistogram() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    size_t m_Index;
+    uint64_t m_Index;
 };
 
 // decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)

@@ -23,6 +23,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <sstream>
 
 #include <fmt/format.h>
@@ -245,61 +246,36 @@ public:
         return (actual == expected);
     }
 
-    bool get_next_set_bit(const uint8_t start, uint8_t* const p_set_bit) const {
+    [[nodiscard]] std::optional< uint8_t > get_next_set_bit(const uint8_t start) const {
         assert(start < bits());
-        assert(p_set_bit);
         const word_t e{extract(start, bits())};
-        if (e) {
-            *p_set_bit = get_trailing_zeros(e) + start;
-            return true;
-        } else {
-            return false;
-        }
+        if (e) { return static_cast< uint8_t >(get_trailing_zeros(e) + start); }
+        return std::nullopt;
     }
 
-    bool get_next_reset_bit(const uint8_t start, uint8_t* const p_reset_bit) const {
+    [[nodiscard]] std::optional< uint8_t > get_next_reset_bit(const uint8_t start) const {
         assert(start < bits());
-        assert(p_reset_bit);
         const word_t e{~extract(start, bits())};
-        if (e == static_cast< word_t >(0)) {
-            return false;
-        } else {
-            *p_reset_bit = get_trailing_zeros(e) + start;
-            return (*p_reset_bit < bits());
-        }
+        if (e == static_cast< word_t >(0)) { return std::nullopt; }
+        const uint8_t p_reset_bit = static_cast< uint8_t >(get_trailing_zeros(e) + start);
+        return (p_reset_bit < bits()) ? std::make_optional(p_reset_bit) : std::nullopt;
     }
 
-    bool get_prev_set_bit(uint8_t start, uint8_t* p_set_bit) const {
+    [[nodiscard]] std::optional< uint8_t > get_prev_set_bit(const uint8_t start) const {
         const word_t e{extract(0, start + 1)};
-        if (e) {
-            *p_set_bit = logBase2(e);
-            return true;
-        } else {
-            return false;
-        }
+        if (e) { return logBase2(e); }
+        return std::nullopt;
     }
 
-    uint8_t get_next_reset_bits(const uint8_t start, uint8_t* const pcount) const {
+    // Returns {start_pos, count} of the next run of reset bits, or nullopt if none exist.
+    [[nodiscard]] std::optional< std::pair< uint8_t, uint8_t > > get_next_reset_bits(const uint8_t start) const {
         assert(start < bits());
-        assert(pcount);
-        *pcount = 0;
-        uint8_t first_0bit{0};
         const word_t e{extract(start, bits())};
-        if (e == 0) {
-            // Shortcut for all zeros
-            first_0bit = start;
-            *pcount = bits() - start;
-        } else {
-            // Find the first 0th bit in the word
-            first_0bit = static_cast< uint8_t >(get_trailing_zeros(~e) + start);
-            if (first_0bit >= bits()) {
-                // No more zero's here in our range.
-                first_0bit = bits();
-            } else {
-                *pcount = std::min< uint8_t >(get_trailing_zeros(e >> (first_0bit - start)), bits() - first_0bit);
-            }
-        }
-        return first_0bit;
+        if (e == 0) { return std::make_pair(start, static_cast< uint8_t >(bits() - start)); }
+        const uint8_t first_0bit = static_cast< uint8_t >(get_trailing_zeros(~e) + start);
+        if (first_0bit >= bits()) { return std::nullopt; }
+        const uint8_t count = std::min< uint8_t >(get_trailing_zeros(e >> (first_0bit - start)), bits() - first_0bit);
+        return std::make_pair(first_0bit, count);
     }
 
     // match the number of bits required at the beginning(lsb), middle(mid), end(msb) of the value
@@ -352,14 +328,12 @@ public:
         return result;
     }
 
-    bool set_next_reset_bit(const uint8_t start, const uint8_t maxbits, uint8_t* const p_bit) {
+    [[nodiscard]] std::optional< uint8_t > set_next_reset_bit(const uint8_t start, const uint8_t maxbits) {
         assert(start < bits());
-        assert(p_bit);
-        const bool found{get_next_reset_bit(start, p_bit)};
-        if (!found || (*p_bit >= maxbits)) { return false; }
-
+        const auto p_bit = get_next_reset_bit(start);
+        if (!p_bit || (*p_bit >= maxbits)) { return std::nullopt; }
         set_reset_bit(*p_bit, true);
-        return true;
+        return p_bit;
     }
 
     word_t right_shift(const uint8_t nbits) { return m_bits.right_shift(nbits); }

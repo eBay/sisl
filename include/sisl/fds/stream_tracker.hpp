@@ -168,26 +168,6 @@ public:
         return do_truncate(first_incomplete_bit);
     }
 
-    size_t do_truncate(int64_t upto_bit) {
-        // Move all the bits upto the first incomplete bit
-        m_comp_slot_bits.shrink_head(upto_bit);
-        m_active_slot_bits.shrink_head(upto_bit);
-
-        // Shrink the data as well upto first_incomplete_bit. Instead of memmoving every truncate which could also
-        // be frequent, we simply mark to skip that much data and then when we are really needed we compact them.
-        m_data_skip_count += upto_bit;
-        m_alloced_slots -= upto_bit;
-        if (m_data_skip_count > compaction_threshold) {
-            std::memmove((void*)&m_slot_data[0], (void*)&m_slot_data[m_data_skip_count], (sizeof(T) * m_alloced_slots));
-            m_data_skip_count = 0;
-        }
-
-        m_slot_ref_idx += upto_bit;
-        COUNTER_DECREMENT(m_metrics, stream_tracker_unsweeped_completions, upto_bit);
-
-        return m_slot_ref_idx - 1;
-    }
-
     void foreach_contiguous_completed(int64_t start_idx, const auto& cb) { _foreach_contiguous(start_idx, true, cb); }
     void foreach_contiguous_active(int64_t start_idx, const auto& cb) { _foreach_contiguous(start_idx, false, cb); }
     void foreach_all_completed(int64_t start_idx, const auto& cb) { _foreach_all(start_idx, true, cb); }
@@ -330,6 +310,23 @@ private:
     }
 
     T* get_slot_data(int64_t nbit) const { return &(m_slot_data[nbit + m_data_skip_count]); }
+
+    size_t do_truncate(int64_t upto_bit) {
+        m_comp_slot_bits.shrink_head(upto_bit);
+        m_active_slot_bits.shrink_head(upto_bit);
+
+        m_data_skip_count += upto_bit;
+        m_alloced_slots -= upto_bit;
+        if (m_data_skip_count > compaction_threshold) {
+            std::memmove((void*)&m_slot_data[0], (void*)&m_slot_data[m_data_skip_count], (sizeof(T) * m_alloced_slots));
+            m_data_skip_count = 0;
+        }
+
+        m_slot_ref_idx += upto_bit;
+        COUNTER_DECREMENT(m_metrics, stream_tracker_unsweeped_completions, upto_bit);
+
+        return m_slot_ref_idx - 1;
+    }
 
 private:
     // Mutex to protect the completion of last commit info

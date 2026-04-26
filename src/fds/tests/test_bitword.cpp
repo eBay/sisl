@@ -58,7 +58,7 @@ bool validate(const uint64_t val, const uint8_t offset, bit_filter filter, const
 
 class BitwordTest : public testing::Test {
 public:
-    BitwordTest() : testing::Test(){};
+    BitwordTest() : testing::Test() {};
     BitwordTest(const BitwordTest&) = delete;
     BitwordTest(BitwordTest&&) noexcept = delete;
     BitwordTest& operator=(const BitwordTest&) = delete;
@@ -190,93 +190,68 @@ TEST_F(BitwordTest, IsBitsSetReset) {
 }
 
 TEST_F(BitwordTest, GetNextSetBit) {
-    uint8_t bit_pos;
     const Bitword< unsafe_bits< uint64_t > > word1{0x05};
-    ASSERT_TRUE(word1.get_next_set_bit(0, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(0));
-    ASSERT_TRUE(word1.get_next_set_bit(1, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(2));
+    ASSERT_EQ(word1.get_next_set_bit(0), static_cast< uint8_t >(0));
+    ASSERT_EQ(word1.get_next_set_bit(1), static_cast< uint8_t >(2));
 
     const Bitword< unsafe_bits< uint64_t > > word2{0x8000000000000000};
-    ASSERT_TRUE(word2.get_next_set_bit(0, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(63));
-    ASSERT_TRUE(word2.get_next_set_bit(8, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(63));
+    ASSERT_EQ(word2.get_next_set_bit(0), static_cast< uint8_t >(63));
+    ASSERT_EQ(word2.get_next_set_bit(8), static_cast< uint8_t >(63));
 
     const Bitword< unsafe_bits< uint64_t > > word3{0x0};
-    ASSERT_FALSE(word3.get_next_set_bit(0, &bit_pos));
-    ASSERT_FALSE(word3.get_next_set_bit(8, &bit_pos));
+    ASSERT_FALSE(word3.get_next_set_bit(0).has_value());
+    ASSERT_FALSE(word3.get_next_set_bit(8).has_value());
 }
 
 TEST_F(BitwordTest, GetNextResetBit) {
-    uint8_t bit_pos;
     const Bitword< unsafe_bits< uint64_t > > word1{0x02};
-    ASSERT_TRUE(word1.get_next_reset_bit(0, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(0));
-    ASSERT_TRUE(word1.get_next_reset_bit(1, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(2));
+    ASSERT_EQ(word1.get_next_reset_bit(0), static_cast< uint8_t >(0));
+    ASSERT_EQ(word1.get_next_reset_bit(1), static_cast< uint8_t >(2));
 
     const Bitword< unsafe_bits< uint64_t > > word2{0x7FFFFFFFFFFFFFFF};
-    ASSERT_TRUE(word2.get_next_reset_bit(0, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(63));
-    ASSERT_TRUE(word2.get_next_reset_bit(8, &bit_pos));
-    ASSERT_EQ(bit_pos, static_cast< uint8_t >(63));
+    ASSERT_EQ(word2.get_next_reset_bit(0), static_cast< uint8_t >(63));
+    ASSERT_EQ(word2.get_next_reset_bit(8), static_cast< uint8_t >(63));
 
     const Bitword< unsafe_bits< uint64_t > > word3{0xFFFFFFFFFFFFFFFF};
-    ASSERT_FALSE(word3.get_next_reset_bit(0, &bit_pos));
-    ASSERT_FALSE(word3.get_next_reset_bit(8, &bit_pos));
+    ASSERT_FALSE(word3.get_next_reset_bit(0).has_value());
+    ASSERT_FALSE(word3.get_next_reset_bit(8).has_value());
 }
 
 TEST_F(BitwordTest, GetNextResetBits) {
-    uint8_t pcount;
     const Bitword< unsafe_bits< uint64_t > > word1{0x00};
-    ASSERT_EQ(word1.get_next_reset_bits(0, &pcount), static_cast< uint8_t >(0));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(64));
-    ASSERT_EQ(word1.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(8));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(56));
+    ASSERT_EQ(word1.get_next_reset_bits(0), (std::pair< uint8_t, uint8_t >{0, 64}));
+    ASSERT_EQ(word1.get_next_reset_bits(8), (std::pair< uint8_t, uint8_t >{8, 56}));
 
     const Bitword< unsafe_bits< uint64_t > > word2{0xFFFFFFFFFFFFFF00};
-    ASSERT_EQ(word2.get_next_reset_bits(0, &pcount), static_cast< uint8_t >(0));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(8));
-    ASSERT_EQ(word2.get_next_reset_bits(4, &pcount), static_cast< uint8_t >(4));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(4));
-    ASSERT_EQ(word2.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(64));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(0));
+    ASSERT_EQ(word2.get_next_reset_bits(0), (std::pair< uint8_t, uint8_t >{0, 8}));
+    ASSERT_EQ(word2.get_next_reset_bits(4), (std::pair< uint8_t, uint8_t >{4, 4}));
+    ASSERT_FALSE(word2.get_next_reset_bits(8).has_value());
 
     const Bitword< unsafe_bits< uint64_t > > word3{0x3FFFFFFFFFFFFFFF};
-    ASSERT_EQ(word3.get_next_reset_bits(0, &pcount), static_cast< uint8_t >(62));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(2));
-    ASSERT_EQ(word3.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(62));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(2));
-    ASSERT_EQ(word3.get_next_reset_bits(63, &pcount), static_cast< uint8_t >(63));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(1));
+    ASSERT_EQ(word3.get_next_reset_bits(0), (std::pair< uint8_t, uint8_t >{62, 2}));
+    ASSERT_EQ(word3.get_next_reset_bits(8), (std::pair< uint8_t, uint8_t >{62, 2}));
+    ASSERT_EQ(word3.get_next_reset_bits(63), (std::pair< uint8_t, uint8_t >{63, 1}));
 
     const Bitword< unsafe_bits< uint64_t > > word4{0xFFFFFFFFFFFFFFFF};
-    ASSERT_EQ(word4.get_next_reset_bits(0, &pcount), static_cast< uint8_t >(64));
-    ASSERT_EQ(word4.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(64));
+    ASSERT_FALSE(word4.get_next_reset_bits(0).has_value());
+    ASSERT_FALSE(word4.get_next_reset_bits(8).has_value());
 
     const Bitword< unsafe_bits< uint64_t > > word5{0x3FFFFFFFFFFFFFF0};
-    ASSERT_EQ(word5.get_next_reset_bits(0, &pcount), static_cast< uint8_t >(0));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(4));
-    ASSERT_EQ(word5.get_next_reset_bits(8, &pcount), static_cast< uint8_t >(62));
-    ASSERT_EQ(pcount, static_cast< uint8_t >(2));
+    ASSERT_EQ(word5.get_next_reset_bits(0), (std::pair< uint8_t, uint8_t >{0, 4}));
+    ASSERT_EQ(word5.get_next_reset_bits(8), (std::pair< uint8_t, uint8_t >{62, 2}));
 }
 
 TEST_F(BitwordTest, SetNextResetBit) {
-    uint8_t pBit;
     Bitword< unsafe_bits< uint64_t > > word1{0x00};
-    ASSERT_TRUE(word1.set_next_reset_bit(0, 64, &pBit));
-    ASSERT_EQ(pBit, static_cast< uint8_t >(0));
-    ASSERT_TRUE(word1.set_next_reset_bit(1, 64, &pBit));
-    ASSERT_EQ(pBit, static_cast< uint8_t >(1));
+    ASSERT_EQ(word1.set_next_reset_bit(0, 64), static_cast< uint8_t >(0));
+    ASSERT_EQ(word1.set_next_reset_bit(1, 64), static_cast< uint8_t >(1));
 
     Bitword< unsafe_bits< uint64_t > > word2{0x7FFFFFFFFFFFFFFF};
-    ASSERT_TRUE(word2.set_next_reset_bit(0, 64, &pBit));
-    ASSERT_EQ(pBit, static_cast< uint8_t >(63));
-    ASSERT_FALSE(word2.set_next_reset_bit(1, 64, &pBit));
+    ASSERT_EQ(word2.set_next_reset_bit(0, 64), static_cast< uint8_t >(63));
+    ASSERT_FALSE(word2.set_next_reset_bit(1, 64).has_value());
 
     Bitword< unsafe_bits< uint64_t > > word3{0x0FF};
-    ASSERT_FALSE(word3.set_next_reset_bit(0, 8, &pBit));
+    ASSERT_FALSE(word3.set_next_reset_bit(0, 8).has_value());
 }
 
 TEST_F(BitwordTest, RightShift) {

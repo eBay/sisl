@@ -93,8 +93,7 @@ public:
             bitword_type const* word_ptr = &s_->words[word_idx];
             if (!word_ptr) { return inval_bit; }
 
-            uint8_t nbit{0};
-            if (word_ptr->get_prev_set_bit(offset, &nbit)) { return start_bit - (offset - nbit); }
+            if (const auto nbit = word_ptr->get_prev_set_bit(offset)) { return start_bit - (offset - *nbit); }
 
             start_bit -= offset;
             offset = bitword_type::bits();
@@ -118,10 +117,11 @@ public:
         bitword_type const* word_ptr = get_word_const(start_bit);
         if (!word_ptr) { return ret; }
 
-        uint8_t nbit{0};
-        bool found = search_for_set_bit ? word_ptr->get_next_set_bit(offset, &nbit)
-                                        : word_ptr->get_next_reset_bit(offset, &nbit);
-        if (found) { ret = start_bit + nbit - offset; }
+        {
+            const auto nbit =
+                search_for_set_bit ? word_ptr->get_next_set_bit(offset) : word_ptr->get_next_reset_bit(offset);
+            if (nbit) { ret = start_bit + *nbit - offset; }
+        }
 
         if (ret == inval_bit) {
             // test rest of whole words
@@ -129,10 +129,9 @@ public:
             bit_count_t bits_remaining = (current_bit > size()) ? 0 : size() - current_bit;
             while (bits_remaining > 0) {
                 ++word_ptr;
-                found =
-                    search_for_set_bit ? word_ptr->get_next_set_bit(0, &nbit) : word_ptr->get_next_reset_bit(0, &nbit);
-                if (found) {
-                    ret = current_bit + nbit;
+                const auto nbit = search_for_set_bit ? word_ptr->get_next_set_bit(0) : word_ptr->get_next_reset_bit(0);
+                if (nbit) {
+                    ret = current_bit + *nbit;
                     break;
                 }
                 current_bit += bitword_type::bits();

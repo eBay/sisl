@@ -718,16 +718,15 @@ public:
         const uint8_t offset{get_word_offset(start_bit)};
         const bitword_type* word_ptr{get_word_const(start_bit)};
         if (!word_ptr) { return ret; }
-        uint8_t nbit{};
-        if (word_ptr->get_next_set_bit(offset, &nbit)) { ret = start_bit + nbit - offset; }
+        if (const auto nbit = word_ptr->get_next_set_bit(offset)) { ret = start_bit + *nbit - offset; }
 
         if (ret == npos) {
             // test rest of whole words
             uint64_t current_bit{start_bit + (word_size() - offset)};
             uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
             while (bits_remaining > 0) {
-                if ((++word_ptr)->get_next_set_bit(0, &nbit)) {
-                    ret = current_bit + nbit;
+                if (const auto nbit = (++word_ptr)->get_next_set_bit(0)) {
+                    ret = current_bit + *nbit;
                     break;
                 }
                 current_bit += word_size();
@@ -875,16 +874,15 @@ public:
         const bitword_type* word_ptr{get_word_const(start_bit)};
         if (!word_ptr) { return ret; }
         const uint8_t offset{get_word_offset(start_bit)};
-        uint8_t nbit{};
-        if (word_ptr->get_next_reset_bit(offset, &nbit)) { ret = start_bit + nbit - offset; }
+        if (const auto nbit = word_ptr->get_next_reset_bit(offset)) { ret = start_bit + *nbit - offset; }
 
         if (ret == npos) {
             // test rest of whole words
             uint64_t current_bit{start_bit + (word_size() - offset)};
             uint64_t bits_remaining{current_bit > total_bits() ? 0 : total_bits() - current_bit};
             while (bits_remaining > 0) {
-                if ((++word_ptr)->get_next_reset_bit(0, &nbit)) {
-                    ret = current_bit + nbit;
+                if (const auto nbit = (++word_ptr)->get_next_reset_bit(0)) {
+                    ret = current_bit + *nbit;
                     break;
                 }
                 current_bit += word_size();

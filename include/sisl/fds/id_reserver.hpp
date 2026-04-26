@@ -16,10 +16,12 @@
  *********************************************************************************/
 #pragma once
 
-#include <cstdint>
 #include <cassert>
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <shared_mutex>
 
 #include "bitset.hpp"
 #include "utils.hpp"
@@ -58,30 +60,31 @@ public:
         m_reserved_bits.reset_bit(id);
     }
 
-    bool is_reserved(uint32_t id) {
-        std::unique_lock lg(m_mutex);
+    bool is_reserved(uint32_t id) const {
+        std::shared_lock lg(m_mutex);
         return m_reserved_bits.get_bitval(id);
     }
 
-    sisl::byte_array serialize() {
-        std::unique_lock lg(m_mutex);
+    sisl::byte_array serialize() const {
+        std::shared_lock lg(m_mutex);
         return m_reserved_bits.serialize();
     }
 
-    bool first_reserved_id(uint32_t& found_id) { return find_next_reserved_id(true, found_id); }
-    bool next_reserved_id(uint32_t& last_found_id) { return find_next_reserved_id(false, last_found_id); }
-
-private:
-    bool find_next_reserved_id(bool first, uint32_t& last_found_id) {
-        std::unique_lock lg(m_mutex);
-        size_t nbit = m_reserved_bits.get_next_set_bit(first ? 0 : last_found_id + 1);
-        if (nbit == Bitset::npos) return false;
-        last_found_id = (uint32_t)nbit;
-        return true;
+    [[nodiscard]] std::optional< uint32_t > first_reserved_id() const { return find_next_reserved_id(true, 0); }
+    [[nodiscard]] std::optional< uint32_t > next_reserved_id(uint32_t last_found_id) const {
+        return find_next_reserved_id(false, last_found_id);
     }
 
 private:
-    std::mutex m_mutex;
+    [[nodiscard]] std::optional< uint32_t > find_next_reserved_id(bool first, uint32_t last_found_id) const {
+        std::shared_lock lg(m_mutex);
+        const size_t nbit = m_reserved_bits.get_next_set_bit(first ? 0 : last_found_id + 1);
+        if (nbit == Bitset::npos) { return std::nullopt; }
+        return static_cast< uint32_t >(nbit);
+    }
+
+private:
+    mutable std::shared_mutex m_mutex;
     sisl::Bitset m_reserved_bits;
 };
 } // namespace sisl
