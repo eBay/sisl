@@ -427,8 +427,9 @@ server.restart(new_cert, new_key);
 
 | Platform | Status |
 |----------|--------|
-| Linux x86_64 (GCC) | Fully supported |
-| Linux x86_64 (Clang) | Supported — crash dumps (breakpad) |
+| Linux x86_64 (GCC + libstdc++) | Fully supported |
+| Linux x86_64 (Clang + libstdc++) | Fully supported |
+| Linux x86_64 (Clang + libc++) | Supported — crash dumps (breakpad) unavailable (libc++ incompatibility) |
 | Linux ARM64 | Supported |
 | macOS (AppleClang) | Supported — crash dumps (breakpad) and file_watcher not available |
 | Windows | Not supported |

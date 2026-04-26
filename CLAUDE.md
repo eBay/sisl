@@ -82,7 +82,7 @@ The library is organized as separately-linkable Conan components. Dependencies f
 
 ```
 sisl_options  (boost, cxxopts)
-  └─ sisl_logging  (spdlog, nlohmann_json, breakpad/Linux; links -rdynamic)
+  └─ sisl_logging  (spdlog, nlohmann_json, breakpad/Linux+libstdc++; links -rdynamic)
        ├─ sisl_sobject
        ├─ sisl_file_watcher
        ├─ sisl_version  (zmarok-semver)
@@ -128,6 +128,8 @@ Four named jobs run on `ubuntu-24.04` for PRs and merges to `dev/v14.x`. All use
 | GccThreadSanitize | GCC | Debug | libc | thread |
 | GccAddressSanitize | GCC | Debug | libc | address |
 | GccCoverage | GCC | Debug | libc | none (coverage=True) |
-| ClangRelease | Clang | Release | tcmalloc | none |
+| ClangRelease | Clang + libstdc++ | Release | tcmalloc | none |
+
+Breakpad is excluded when `compiler.libcxx == libc++` (libc++ enforces complete-type deletion in `unique_ptr`, which breakpad violates). Clang + libstdc++ builds fine.
 
 ChainBuild (iomanager / nuraft_mesg) is commented out pending their migration to `dev/v14.x`.
