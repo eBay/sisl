@@ -42,7 +42,7 @@
 
 namespace sisl {
 
-VENUM(thread_life_cycle, uint8_t, THREAD_ATTACHED = 1u, THREAD_DETACHED = 2u)
+ENUM(thread_life_cycle, uint8_t, THREAD_ATTACHED = 1u, THREAD_DETACHED = 2u)
 
 typedef std::function< void(uint32_t, thread_life_cycle) > thread_state_cb_t;
 

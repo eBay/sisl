@@ -58,9 +58,9 @@ class MallocMetrics;
 static void get_parse_jemalloc_stats(nlohmann::json* const j, MallocMetrics* const metrics, const bool refresh);
 #endif
 
-class MallocMetrics : public MetricsGroupWrapper {
+class MallocMetrics : public MetricsGroup {
 public:
-    explicit MallocMetrics() : sisl::MetricsGroupWrapper{"MallocMetrics", "Singelton"} {
+    explicit MallocMetrics() : sisl::MetricsGroup{"MallocMetrics", "Singelton"} {
         REGISTER_COUNTER(num_times_exceed_soft_threshold, "Number of times mem usage exceeded soft threshold");
         REGISTER_COUNTER(num_times_exceed_aggressive_threshold,
                          "Number of times mem usage exceeded aggressive threshold");
@@ -600,7 +600,8 @@ static std::atomic< bool > s_is_aggressive_decommit{false};
 }
 
 [[maybe_unused]] static bool
-reset_aggressive_decommit_mem_if_needed([[maybe_unused]] const size_t mem_usage, [[maybe_unused]] const size_t aggressive_threshold) {
+reset_aggressive_decommit_mem_if_needed([[maybe_unused]] const size_t mem_usage,
+                                        [[maybe_unused]] const size_t aggressive_threshold) {
 #if defined(USING_TCMALLOC)
     if (tcmalloc_helper::s_is_aggressive_decommit.load(std::memory_order_acquire)) {
         LOGINFO("Total memory alloced={} is restored back to less than aggressive threshold limit {}, "
@@ -628,7 +629,8 @@ reset_aggressive_decommit_mem_if_needed([[maybe_unused]] const size_t mem_usage,
     return true;
 }
 
-[[maybe_unused]] static bool release_mem_if_needed([[maybe_unused]] const size_t soft_threshold, [[maybe_unused]] const size_t aggressive_threshold_in) {
+[[maybe_unused]] static bool release_mem_if_needed([[maybe_unused]] const size_t soft_threshold,
+                                                   [[maybe_unused]] const size_t aggressive_threshold_in) {
     bool ret{false};
 #if defined(USING_TCMALLOC) || defined(USING_JEMALLOC) || defined(USE_JEMALLOC)
     size_t mem_usage{0};

@@ -141,7 +141,7 @@ protected:
     }
 };
 
-VENUM(op_t, uint8_t, READ = 0, WRITE = 1, REMOVE = 2)
+ENUM(op_t, uint8_t, READ = 0, WRITE = 1, REMOVE = 2)
 
 TEST_F(SimpleCacheTest, RandomData) {
     static std::uniform_int_distribution< uint8_t > op_generator{0, 2};
@@ -203,7 +203,9 @@ TEST_F(SimpleCacheTest, MultiThreaded) {
             }
         });
     }
-    for (auto& t : threads) { t.join(); }
+    for (auto& t : threads) {
+        t.join();
+    }
 }
 
 TEST(SimpleCacheSize, TriggerEvict) {
@@ -212,24 +214,22 @@ TEST(SimpleCacheSize, TriggerEvict) {
     uint32_t cache_size = g_val_size * num_partitions * max_nodes_per_partition;
     std::shared_ptr< Evictor > evictor = std::make_unique< LRUEvictor >(cache_size, num_partitions);
     auto simple_cache = std::make_unique< SimpleCache< uint32_t, std::shared_ptr< Entry > > >(
-        evictor,                                                             // Evictor to evict used entries
-            10000,                                                     // Total number of buckets
-            g_val_size,                                                            // Value size
-            [](const std::shared_ptr< Entry >& e) -> uint32_t { return e->m_id; }, // Method to extract key
-            nullptr                                                                // Method to prevent eviction
-        );
-        auto* evictor_ptr = dynamic_cast<LRUEvictor*>(evictor.get());
+        evictor,                                                               // Evictor to evict used entries
+        10000,                                                                 // Total number of buckets
+        g_val_size,                                                            // Value size
+        [](const std::shared_ptr< Entry >& e) -> uint32_t { return e->m_id; }, // Method to extract key
+        nullptr                                                                // Method to prevent eviction
+    );
+    auto* evictor_ptr = dynamic_cast< LRUEvictor* >(evictor.get());
     uint32_t num_iters = num_partitions * max_nodes_per_partition * 1000;
-    for(uint32_t i = 0; i < num_iters; i++) {
+    for (uint32_t i = 0; i < num_iters; i++) {
         ASSERT_TRUE(simple_cache->insert(std::make_shared< Entry >(i, fmt::format("test{}", i))));
         ASSERT_LE(evictor_ptr->filled_size(), cache_size);
     }
     [[maybe_unused]] uint32_t cache_hits{0};
-    for(uint32_t i = 0; i < num_iters; i++) {
+    for (uint32_t i = 0; i < num_iters; i++) {
         std::shared_ptr< Entry > e = std::make_shared< Entry >(0);
-        if(simple_cache->get(i, e)) {
-            ++cache_hits;
-        }
+        if (simple_cache->get(i, e)) { ++cache_hits; }
     }
 }
 
@@ -239,13 +239,13 @@ TEST(SimpleCacheSize, MultithreadedEviction) {
     uint32_t cache_size = g_val_size * num_partitions * max_nodes_per_partition;
     std::shared_ptr< Evictor > evictor = std::make_unique< LRUEvictor >(cache_size, num_partitions);
     auto simple_cache = std::make_unique< SimpleCache< uint32_t, std::shared_ptr< Entry > > >(
-            evictor,                                                             // Evictor to evict used entries
-            10000,                                                     // Total number of buckets
-            g_val_size,                                                            // Value size
-            [](const std::shared_ptr< Entry >& e) -> uint32_t { return e->m_id; }, // Method to extract key
-            nullptr                                                                // Method to prevent eviction
-        );
-    auto* evictor_ptr = dynamic_cast<LRUEvictor*>(evictor.get());
+        evictor,                                                               // Evictor to evict used entries
+        10000,                                                                 // Total number of buckets
+        g_val_size,                                                            // Value size
+        [](const std::shared_ptr< Entry >& e) -> uint32_t { return e->m_id; }, // Method to extract key
+        nullptr                                                                // Method to prevent eviction
+    );
+    auto* evictor_ptr = dynamic_cast< LRUEvictor* >(evictor.get());
     uint32_t num_iters = num_partitions * max_nodes_per_partition * 1000;
     std::vector< std::thread > threads;
     const auto num_writers = 10;
@@ -266,7 +266,9 @@ TEST(SimpleCacheSize, MultithreadedEviction) {
             }
         });
     }
-    for (auto& t : threads) { t.join(); }
+    for (auto& t : threads) {
+        t.join();
+    }
 }
 
 SISL_OPTIONS_ENABLE(logging, test_simplecache)

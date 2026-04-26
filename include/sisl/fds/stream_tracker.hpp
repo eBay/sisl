@@ -23,9 +23,9 @@
 #include "bitset.hpp"
 
 namespace sisl {
-class StreamTrackerMetrics : public MetricsGroupWrapper {
+class StreamTrackerMetrics : public MetricsGroup {
 public:
-    explicit StreamTrackerMetrics(const char* inst_name) : MetricsGroupWrapper("StreamTracker", inst_name) {
+    explicit StreamTrackerMetrics(const char* inst_name) : MetricsGroup("StreamTracker", inst_name) {
         REGISTER_COUNTER(stream_tracker_unsweeped_completions, "How many completions are unsweeped yet", "", {"", ""},
                          _publish_as::publish_as_gauge);
 
@@ -39,8 +39,6 @@ public:
 
 template < typename T, bool AutoTruncate = false >
 class StreamTracker {
-    // using data_processing_t = std::function< bool(T&) >;
-
 public:
     static constexpr size_t alloc_blk_size = 10000;
     static constexpr size_t compaction_threshold = alloc_blk_size / 2;
@@ -184,12 +182,8 @@ public:
             m_data_skip_count = 0;
         }
 
-        // auto prev_ref_idx = m_slot_ref_idx;
         m_slot_ref_idx += upto_bit;
         COUNTER_DECREMENT(m_metrics, stream_tracker_unsweeped_completions, upto_bit);
-
-        // TODO: Do a callback on how much has been moved forward to
-        // m_on_sweep_cb(m_slot_ref_idx - prev_ref_idx);
 
         return m_slot_ref_idx - 1;
     }

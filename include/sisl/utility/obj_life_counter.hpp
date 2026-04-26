@@ -32,7 +32,8 @@
 namespace sisl {
 
 class ObjCounterMetrics;
-// inst() and ~ObjCounterRegistry() are defined after ObjCounterMetrics (unique_ptr requires complete type at both sites)
+// inst() and ~ObjCounterRegistry() are defined after ObjCounterMetrics (unique_ptr requires complete type at both
+// sites)
 class ObjCounterRegistry {
 public:
     using pair_of_atomic_ptrs = std::pair< std::atomic< int64_t >*, std::atomic< int64_t >* >;
@@ -134,7 +135,7 @@ struct ObjTypeWrapper {
             ObjCounterRegistry::register_obj(typeid(T).name(), std::make_pair(pc, pa));
         }
     }
-    int m_dummy; // Dummy value initialized to trigger the registratrion
+    int m_dummy{0}; // Forces ODR-use of s_type to trigger registration
 };
 
 template < typename T >

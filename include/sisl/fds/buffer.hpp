@@ -128,23 +128,21 @@ struct sg_iterator {
     size_t m_cur_index{0};
 };
 
-// typedef size_t buftag_t;
-
 // TODO: Ideally we want this to be registration, but this tag needs to be used as template
 // parameter and needs to be known in compile-time. For now declaring all of the tags here
 // In future will turn this into a constexpr array of sorts
-VENUM(buftag, uint8_t,   // Tags
-      common = 0,        // Default tag if nothing supplied
-      bitset = 1,        // Default tag for bitset
-      superblk = 2,      // Superblk
-      metablk = 3,       // MetaBlk
-      logread = 4,       // logbuf read from journal
-      logwrite = 5,      // logbuf written by group commit
-      compression = 6,   // Compression entries
-      data_journal = 7,  // All indx_mgr data journal
-      btree_journal = 8, // Journal entries for btree
-      btree_node = 9,    // Data entries for btree
-      sentinel = 10      // This is expected to be the last. Anything below is not registered
+ENUM(buftag, uint8_t,   // Tags
+     common = 0,        // Default tag if nothing supplied
+     bitset = 1,        // Default tag for bitset
+     superblk = 2,      // Superblk
+     metablk = 3,       // MetaBlk
+     logread = 4,       // logbuf read from journal
+     logwrite = 5,      // logbuf written by group commit
+     compression = 6,   // Compression entries
+     data_journal = 7,  // All indx_mgr data journal
+     btree_journal = 8, // Journal entries for btree
+     btree_node = 9,    // Data entries for btree
+     sentinel = 10      // This is expected to be the last. Anything below is not registered
 )
 
 class AlignedAllocatorMetrics : public MetricsGroup {

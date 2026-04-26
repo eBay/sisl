@@ -76,7 +76,6 @@ public:
                 if (m_value_to_tokens.size() != 0) ++last_value;
                 current_pos = ((delim != std::string::npos) ? delim + 1 : delim);
             }
-            // std::cout << token << ' ' << last_value << std::endl;
             m_value_to_tokens[last_value] = token;
             m_token_to_value[token] = last_value;
         }
@@ -110,7 +109,6 @@ private:
     std::unordered_map< std::string, underlying_type > m_token_to_value;
 };
 
-#define VENUM(EnumName, Underlying, ...) ENUM(EnumName, Underlying, __VA_ARGS__)
 #define ENUM(EnumName, Underlying, ...) BASE_ENUM(EnumName, EnumName, Underlying, __VA_ARGS__)
 #define SCOPED_ENUM_DEF(Scope, EnumName, Underlying, ...) BASE_ENUM(Scope::EnumName, EnumName, Underlying, __VA_ARGS__)
 #define SCOPED_ENUM_DECL(EnumName, Underlying)                                                                         \

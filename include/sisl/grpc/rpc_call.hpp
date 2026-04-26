@@ -216,15 +216,7 @@ public:
     }
 
     ::grpc::string get_peer_info() { return m_ctx.peer(); }
-    std::string get_client_req_context() {
-        /*if (m_client_req_context.empty()) {
-            std::string* client_id_str = google::protobuf::Arena::Create< std::string >(
-                &m_arena_req, m_ctx.peer() + "_" + std::to_string(request_id()));
-            m_client_req_context = grpc::string_ref(*client_id_str);
-        }
-        return m_client_req_context; */
-        return fmt::format("{}_{}", m_ctx.peer(), request_id());
-    }
+    std::string get_client_req_context() { return fmt::format("{}_{}", m_ctx.peer(), request_id()); }
     size_t get_rpc_idx() const override { return m_rpc_info->m_rpc_idx; }
 
     RpcData(rpc_call_static_info_t* rpc_info, size_t queue_idx) :

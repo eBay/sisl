@@ -362,10 +362,6 @@ public:
         return true;
     }
 
-    bool set_next_reset_bit(const uint8_t start, uint8_t* const* p_bit) {
-        return set_next_reset_bit(start, bits(), p_bit);
-    }
-
     word_t right_shift(const uint8_t nbits) { return m_bits.right_shift(nbits); }
 
     uint8_t get_max_contiguous_reset_bits(const uint8_t start, uint8_t* const pmax_count) const {

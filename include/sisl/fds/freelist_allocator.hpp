@@ -42,8 +42,8 @@ struct free_list_header {
 };
 
 #if defined(FREELIST_METRICS) || !defined(NDEBUG)
-struct FreeListAllocatorMetrics : public sisl::MetricsGroupWrapper {
-    FreeListAllocatorMetrics() : sisl::MetricsGroupWrapper("FreeListAllocator", "Singleton") {
+struct FreeListAllocatorMetrics : public sisl::MetricsGroup {
+    FreeListAllocatorMetrics() : sisl::MetricsGroup("FreeListAllocator", "Singleton") {
         REGISTER_COUNTER(freelist_alloc_hit, "freelist: Number of allocs from cache");
         REGISTER_COUNTER(freelist_alloc_miss, "freelist: Number of allocs from system");
         REGISTER_COUNTER(freelist_dealloc_passthru, "freelist: Number of dealloc not cached because of size mismatch");

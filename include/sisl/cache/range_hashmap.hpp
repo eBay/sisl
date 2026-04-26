@@ -41,8 +41,6 @@ static constexpr big_count_t max_n_per_node = (s_cast< uint64_t >(1) << (sizeof(
 static constexpr small_offset_t max_offset_in_node = std::numeric_limits< small_offset_t >::max();
 static constexpr size_t s_start_seed = 0; // TODO: Pickup a better seed
 
-// static uint32_t range_count(const small_range_t& range) { return range.second - range.first + 1; }
-
 template < typename K >
 struct RangeKey {
     K m_base_key;
@@ -421,10 +419,6 @@ private:
         return RangeKey< K >{m_base_key, m_base_nth + range.first, uint32_cast(range.second) - range.first + 1};
     }
 
-    std::pair< big_offset_t, big_offset_t > to_big_range(const small_range_t range) const {
-        return std::make_pair<>(m_base_nth + range.first, m_base_nth + range.second);
-    }
-
     std::pair< RangeKey< K >, sisl::byte_view > extract_matched_kv(const ValueEntryRange& ventry,
                                                                    const small_range_t& input_range) const {
         small_range_t key_range{std::max(ventry.m_range.first, input_range.first),
@@ -434,14 +428,6 @@ private:
         const small_count_t val_count = ventry.offset_within(key_range.second) - val_start + 1;
         return std::make_pair<>(to_big_key(key_range),
                                 RangeHashMap< K >::extract_value(ventry.m_val, val_start, val_count));
-    }
-
-    sisl::byte_view extract_matched_value(const ValueEntryRange& ventry, const small_range_t& input_range) const {
-        small_range_t key_range{std::max(ventry.m_range.first, input_range.first),
-                                std::min(ventry.m_range.second, input_range.second)};
-        auto val_start = ventry.offset_within(key_range.first);
-        auto val_count = ventry.offset_within(key_range.second) - val_start + 1;
-        return RangeHashMap< K >::extract_value(ventry.m_val, val_start, val_count);
     }
 };
 
@@ -618,7 +604,6 @@ std::vector< std::pair< RangeKey< K >, sisl::byte_view > > RangeHashMap< K >::ge
 
     std::vector< std::pair< RangeKey< K >, sisl::byte_view > > out_vals;
     auto cur_key_nth = input_key.m_nth;
-    auto cur_val_nth = 0;
     auto max_this_node = max_n_per_node - (input_key.m_nth - input_key.rounded_nth());
     RangeKey< K > node_key = input_key; // TODO: Can optimize this by avoiding base_key copy by doing some sort of view
 
@@ -631,7 +616,6 @@ std::vector< std::pair< RangeKey< K >, sisl::byte_view > > RangeHashMap< K >::ge
         hb.get(node_key, out_vals);
 
         cur_key_nth += count;
-        cur_val_nth += count;
         max_this_node = max_n_per_node;
     }
     return out_vals;
