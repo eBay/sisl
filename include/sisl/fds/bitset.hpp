@@ -469,7 +469,7 @@ public:
     }
 
     void set_id(const uint64_t id) {
-        ReadLockGuard lock{this};
+        WriteLockGuard lock{this};
         assert(m_s);
         m_s->m_id = id;
     }
