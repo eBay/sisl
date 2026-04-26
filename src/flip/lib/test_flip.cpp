@@ -247,7 +247,7 @@ void test_basic_callback_flip() {
     freq.set_count(2); // Only allow 2 triggers
     freq.set_percent(100);
 
-    fclient.inject_callback_flip< void, int, int >("test_callback", {cond_match, cond_trigger}, freq,
+    fclient.inject_callback_flip< void, int, int >("test_callback", std::vector{cond_match, cond_trigger}, freq,
                                                    std::function< void(int, int) >([&](int /* match */, int trigger) {
                                                        callback_count++;
                                                        received_trigger = trigger;
@@ -289,7 +289,7 @@ void test_callback_flip_reference_param() {
     freq.set_count(1);
     freq.set_percent(100);
 
-    fclient.inject_callback_flip< void, int, int& >("test_reference", {cond1, cond2}, freq,
+    fclient.inject_callback_flip< void, int, int& >("test_reference", std::vector{cond1, cond2}, freq,
                                                     std::function< void(int, int&) >([&captured_value](int, int& data) {
                                                         captured_value = data; // Capture the original value
                                                         data = 999;            // Modify the original
@@ -313,7 +313,7 @@ void test_callback_retval_flip() {
     freq.set_count(1);
     freq.set_percent(100);
 
-    fclient.inject_callback_retval_flip< int, int >("test_retval_callback", {cond}, freq,
+    fclient.inject_callback_retval_flip< int, int >("test_retval_callback", std::vector{cond}, freq,
                                                     std::function< int(int) >([](int input) -> int {
                                                         return input * 2; // Return double the input
                                                     }));
@@ -342,7 +342,7 @@ void test_callback_exception_handling() {
     freq.set_count(2);
     freq.set_percent(100);
 
-    fclient.inject_callback_flip< void, int >("test_exception", {cond}, freq,
+    fclient.inject_callback_flip< void, int >("test_exception", std::vector{cond}, freq,
                                               std::function< void(int) >([&callback_count](int) {
                                                   callback_count++;
                                                   throw std::runtime_error("Test exception in callback");
@@ -377,7 +377,7 @@ void test_callback_thread_safety() {
     freq.set_count(num_threads * triggers_per_thread); // Allow all triggers
     freq.set_percent(100);
 
-    fclient.inject_callback_flip< void, int >("test_concurrent", {cond}, freq,
+    fclient.inject_callback_flip< void, int >("test_concurrent", std::vector{cond}, freq,
                                               std::function< void(int) >([&callback_count](int) { callback_count++; }));
 
     std::vector< std::thread > threads;
@@ -432,7 +432,7 @@ void test_callback_coordination() {
 
     // Callback A: Signal checkpoint and pass data
     fclient.inject_callback_flip< void, std::string& >(
-        "checkpoint_a", {cond}, freq, std::function< void(std::string&) >([&](std::string& data) {
+        "checkpoint_a", std::vector{cond}, freq, std::function< void(std::string&) >([&](std::string& data) {
             // Simulate some processing
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -447,7 +447,7 @@ void test_callback_coordination() {
 
     // Callback B: Wait for checkpoint A before proceeding
     fclient.inject_callback_flip< void, std::string& >(
-        "checkpoint_b", {cond}, freq, std::function< void(std::string&) >([&](std::string& data) {
+        "checkpoint_b", std::vector{cond}, freq, std::function< void(std::string&) >([&](std::string& data) {
             checkpoint_b_started.store(true);
             LOGINFO("Checkpoint B started, waiting for A...");
 

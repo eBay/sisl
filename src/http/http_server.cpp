@@ -160,7 +160,7 @@ void HttpServer::setup_route(http_route const& route, bool restart) {
     setup_route(route.method, route.resource, route.handler, route.type);
 }
 
-void HttpServer::setup_routes(std::vector< http_route > const& routes) {
+void HttpServer::setup_routes(std::span< const http_route > routes) {
     for (auto& route : routes) {
         setup_route(route, false);
     }

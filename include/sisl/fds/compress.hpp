@@ -15,6 +15,7 @@
  *
  *********************************************************************************/
 #pragma once
+#include <span>
 #include <snappy-c.h>
 
 namespace sisl {
@@ -23,22 +24,16 @@ class Compress {
 public:
     static size_t max_compress_len(size_t size) { return snappy_max_compressed_length(size); }
 
-    static int compress(const char* src, char* dst, size_t src_size, size_t* dst_capacity) {
-        auto ret = snappy_compress(src, src_size, dst, dst_capacity);
-        if (ret == SNAPPY_OK) {
-            return 0;
-        } else {
-            return ret;
-        }
+    static int compress(std::span< const char > src, std::span< char > dst, size_t& bytes_written) {
+        bytes_written = dst.size();
+        auto ret = snappy_compress(src.data(), src.size(), dst.data(), &bytes_written);
+        return (ret == SNAPPY_OK) ? 0 : ret;
     }
 
-    static int decompress(const char* src, char* dst, size_t compressed_size, size_t* dst_capacity) {
-        auto ret = snappy_uncompress(src, compressed_size, dst, dst_capacity);
-        if (ret == SNAPPY_OK) {
-            return 0;
-        } else {
-            return ret;
-        }
+    static int decompress(std::span< const char > src, std::span< char > dst, size_t& bytes_written) {
+        bytes_written = dst.size();
+        auto ret = snappy_uncompress(src.data(), src.size(), dst.data(), &bytes_written);
+        return (ret == SNAPPY_OK) ? 0 : ret;
     }
 };
 

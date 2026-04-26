@@ -88,10 +88,16 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #define LINEOUTPUTFORMAT "[{}:{}:{}] "
 #define LINEOUTPUTARGS file_name(__FILE__), __LINE__, __FUNCTION__
 
+#ifndef NDEBUG
 #define LOGTRACEMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::trace)) {                                   \
         _l->trace(LINEOUTPUTFORMAT msg, LINEOUTPUTARGS __VA_OPT__(, ) __VA_ARGS__);                                    \
     }
+#else
+#define LOGTRACEMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
+    do {                                                                                                               \
+    } while (0)
+#endif
 
 #define LOGDEBUGMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
     if (auto& _l{logger}; _l && LEVELCHECK(mod, spdlog::level::level_enum::debug)) {                                   \
@@ -152,8 +158,14 @@ const T& unmove(T&& x) {
     }
 
 // With custom formatter and custom logger
+#ifndef NDEBUG
 #define LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
     _LOG_WITH_CUSTOM_FORMATTER(trace, trace, mod, logger, false, formatter, msg __VA_OPT__(, ) __VA_ARGS__)
+#else
+#define LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
+    do {                                                                                                               \
+    } while (0)
+#endif
 
 #define LOGDEBUGMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
     _LOG_WITH_CUSTOM_FORMATTER(debug, debug, mod, logger, false, formatter, msg __VA_OPT__(, ) __VA_ARGS__)

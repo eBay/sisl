@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
     fclient.create_condition("cmd_type", flip::Operator::EQUAL, (int)1, &cond1);
     freq.set_count(2);
     freq.set_percent(100);
-    fclient.inject_noreturn_flip("noret_flip", {cond1}, freq);
+    fclient.inject_noreturn_flip("noret_flip", std::vector{cond1}, freq);
 
     /* Inject a invalid return action flip */
     FlipCondition cond2, cond6;
@@ -169,7 +169,7 @@ int main(int argc, char* argv[]) {
     fclient.create_condition< std::string >("dev_name", flip::Operator::REG_EX, "\\/dev\\/", &cond6);
     freq.set_count(2);
     freq.set_percent(100);
-    fclient.inject_retval_flip< std::string >("simval_flip", {cond2, cond6}, freq, "Simulated error value");
+    fclient.inject_retval_flip< std::string >("simval_flip", std::vector{cond2, cond6}, freq, "Simulated error value");
 
     /* Inject a delay of 100ms action flip */
     FlipCondition cond3, cond4;
@@ -177,14 +177,14 @@ int main(int argc, char* argv[]) {
     fclient.create_condition("size_bytes", flip::Operator::LESS_THAN_OR_EQUAL, (long)2048, &cond4);
     freq.set_count(2);
     freq.set_percent(100);
-    fclient.inject_delay_flip("delay_flip", {cond3, cond4}, freq, 100000);
+    fclient.inject_delay_flip("delay_flip", std::vector{cond3, cond4}, freq, 100000);
 
     /* Inject a delay of 1second and return a value action flip */
     FlipCondition cond5;
     fclient.create_condition("double_val", flip::Operator::NOT_EQUAL, (double)1.85, &cond5);
     freq.set_count(2);
     freq.set_percent(100);
-    fclient.inject_delay_and_retval_flip< std::string >("delay_simval_flip", {cond5}, freq, 1000000,
+    fclient.inject_delay_and_retval_flip< std::string >("delay_simval_flip", std::vector{cond5}, freq, 1000000,
                                                         "Simulated delayed errval");
 
     /* Now execute the flip and validate that they are correct */

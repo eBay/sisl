@@ -74,7 +74,7 @@ Apply to every `.cpp`, `.hpp`, `.h`, `.ipp` file you modify, immediately after e
 
 **Error handling:**
 - Use `std::expected<T, E>` (C++23) for fallible operations
-- `Result<T>` = `std::expected<T, grpc::Status>` in the gRPC layer
+- `GrpcResult<T>` = `std::expected<T, grpc::Status>` in the gRPC layer (see `sisl/grpc/rpc_client.hpp`)
 - Assert macros: `RELEASE_ASSERT`, `DEBUG_ASSERT`, `LOGMSG_ASSERT`
 
 **Logging macros** (from `sisl/logging/logging.h`):
@@ -136,8 +136,8 @@ cmake/                 # CMake helpers (settings_gen.cmake)
 - `sisl::io_blob` — byte buffer with alignment awareness
 - `io_blob_list_t` — `boost::container::small_vector<io_blob, 4>`
 - `sg_list` / `sg_iovs_t` — scatter-gather I/O list
-- `Result<T>` — `std::expected<T, grpc::Status>` (gRPC layer)
-- `AsyncResult<T>` — `std::future<Result<T>>` (gRPC async calls)
+- `GrpcResult<T>` — `std::expected<T, grpc::Status>` (gRPC layer)
+- `GrpcAsyncResult<T>` — `std::future<GrpcResult<T>>` (gRPC async calls)
 
 ## Dependencies
 

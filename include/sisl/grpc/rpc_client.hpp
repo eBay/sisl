@@ -30,6 +30,7 @@
 
 #include <expected>
 #include <future>
+#include <span>
 
 #include <sisl/logging/logging.h>
 #include <sisl/utility/obj_life_counter.hpp>
@@ -73,10 +74,10 @@ template < typename ReqT, typename RespT >
 class ClientRpcDataFuture;
 
 template < typename T >
-using Result = std::expected< T, ::grpc::Status >;
+using GrpcResult = std::expected< T, ::grpc::Status >;
 
 template < typename T >
-using AsyncResult = std::future< Result< T > >;
+using GrpcAsyncResult = std::future< GrpcResult< T > >;
 
 using GenericClientRpcData = ClientRpcData< grpc::ByteBuffer, grpc::ByteBuffer >;
 using generic_rpc_comp_cb_t = rpc_comp_cb_t< grpc::ByteBuffer, grpc::ByteBuffer >;
@@ -151,7 +152,7 @@ public:
 template < typename ReqT, typename RespT >
 class ClientRpcDataFuture : public ClientRpcDataInternal< ReqT, RespT > {
 public:
-    ClientRpcDataFuture(std::promise< Result< RespT > >&& promise) : m_promise{std::move(promise)} {}
+    ClientRpcDataFuture(std::promise< GrpcResult< RespT > >&& promise) : m_promise{std::move(promise)} {}
 
     void handle_response([[maybe_unused]] bool ok = true) override {
         // For unary call, ok is always true, `status_` will indicate error if there are any.
@@ -162,7 +163,7 @@ public:
         }
     }
 
-    std::promise< Result< RespT > > m_promise;
+    std::promise< GrpcResult< RespT > > m_promise;
 };
 
 class GenericClientResponse : public ObjLifeCounter< GenericClientResponse > {
@@ -191,11 +192,11 @@ private:
  */
 class GenericRpcDataFutureBlob : public ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer > {
 public:
-    GenericRpcDataFutureBlob(std::promise< Result< GenericClientResponse > >&& promise);
+    GenericRpcDataFutureBlob(std::promise< GrpcResult< GenericClientResponse > >&& promise);
     void handle_response([[maybe_unused]] bool ok = true) override;
 
 private:
-    std::promise< Result< GenericClientResponse > > m_promise;
+    std::promise< GrpcResult< GenericClientResponse > > m_promise;
 };
 
 template < typename ReqT, typename RespT >
@@ -309,7 +310,7 @@ private:
 };
 
 // common request id header
-static std::string const request_id_header{"request_id"};
+inline constexpr std::string_view request_id_header{"request_id"};
 
 class GrpcAsyncClient : public GrpcBaseClient {
 public:
@@ -359,7 +360,7 @@ public:
         template < typename ReqT, typename RespT >
         void prepare_and_send_unary(ClientRpcDataInternal< ReqT, RespT >* data, const ReqT& request,
                                     const unary_call_t< ReqT, RespT >& method, uint32_t deadline,
-                                    const std::vector< std::pair< std::string, std::string > >& metadata) {
+                                    std::span< const std::pair< std::string, std::string > > metadata) {
             data->set_deadline(deadline);
             for (auto const& [key, value] : metadata) {
                 data->add_metadata(key, value);
@@ -399,7 +400,7 @@ public:
         template < typename ReqT, typename RespT >
         void call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
                         const unary_callback_t< RespT >& callback, uint32_t deadline,
-                        const std::vector< std::pair< std::string, std::string > >& metadata) {
+                        std::span< const std::pair< std::string, std::string > > metadata) {
             auto data = new ClientRpcDataCallback< ReqT, RespT >(callback);
             prepare_and_send_unary(data, request, method, deadline, metadata);
         }
@@ -420,10 +421,10 @@ public:
 
         // Futures version of call_unary
         template < typename ReqT, typename RespT >
-        AsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
-                                        uint32_t deadline,
-                                        const std::vector< std::pair< std::string, std::string > >& metadata) {
-            std::promise< Result< RespT > > p;
+        GrpcAsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
+                                            uint32_t deadline,
+                                            std::span< const std::pair< std::string, std::string > > metadata) {
+            std::promise< GrpcResult< RespT > > p;
             auto sf = p.get_future();
             auto data = new ClientRpcDataFuture< ReqT, RespT >(std::move(p));
             prepare_and_send_unary(data, request, method, deadline, metadata);
@@ -431,8 +432,8 @@ public:
         }
 
         template < typename ReqT, typename RespT >
-        AsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
-                                        uint32_t deadline) {
+        GrpcAsyncResult< RespT > call_unary(const ReqT& request, const unary_call_t< ReqT, RespT >& method,
+                                            uint32_t deadline) {
             return call_unary(request, method, deadline, {});
         }
 
@@ -469,11 +470,11 @@ public:
                       const generic_rpc_comp_cb_t& done_cb, uint32_t deadline);
 
         // futures version of call_unary
-        AsyncResult< grpc::ByteBuffer > call_unary(const grpc::ByteBuffer& request, const std::string& method,
-                                                   uint32_t deadline);
+        GrpcAsyncResult< grpc::ByteBuffer > call_unary(const grpc::ByteBuffer& request, const std::string& method,
+                                                       uint32_t deadline);
 
-        AsyncResult< GenericClientResponse > call_unary(const io_blob_list_t& request, const std::string& method,
-                                                        uint32_t deadline);
+        GrpcAsyncResult< GenericClientResponse > call_unary(const io_blob_list_t& request, const std::string& method,
+                                                            uint32_t deadline);
 
         std::unique_ptr< grpc::GenericStub > m_generic_stub;
         GrpcAsyncClientWorker* m_worker;

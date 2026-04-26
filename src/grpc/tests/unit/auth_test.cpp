@@ -38,7 +38,7 @@ static const std::string g_test_token{"dummy_token"};
 static const std::string GENERIC_METHOD{"generic_method"};
 
 static const std::vector< std::pair< std::string, std::string > > grpc_metadata{
-    {sisl::request_id_header, "req_id1"}, {"key1", "val1"}, {"key2", "val2"}};
+    {std::string{sisl::request_id_header}, "req_id1"}, {"key1", "val1"}, {"key2", "val2"}};
 
 class EchoServiceImpl final {
 public:

@@ -44,7 +44,7 @@ The library targets C++23 throughout. Key language features in use:
 
 | Feature | Where used |
 |---------|-----------|
-| `std::expected<T,E>` | gRPC `Result<T>` / `AsyncResult<T>` return types |
+| `std::expected<T,E>` | gRPC `GrpcResult<T>` / `GrpcAsyncResult<T>` return types |
 | `requires` constraints | Range constructors on FDS containers and WISR types |
 | `[[nodiscard]]` | All predicate and factory APIs |
 | `std::to_underlying` | Enum helpers |
@@ -259,10 +259,10 @@ Async and sync client/server helpers on top of sisl's buffer and metrics infrast
 
 ```cpp
 // Async client — future-based
-// Result<T>      = std::expected<T, grpc::Status>   (C++23)
-// AsyncResult<T> = std::future<Result<T>>
+// GrpcResult<T>      = std::expected<T, grpc::Status>   (C++23)
+// GrpcAsyncResult<T> = std::future<GrpcResult<T>>
 auto stub = client->make_stub< EchoService >("worker-1");
-AsyncResult< EchoReply > fut =
+GrpcAsyncResult< EchoReply > fut =
     stub->call_unary< EchoRequest, EchoReply >(req,
         &EchoService::StubInterface::AsyncEcho, /*deadline_s=*/5);
 auto result = fut.get();

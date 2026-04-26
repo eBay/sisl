@@ -21,15 +21,13 @@
 #include <shared_mutex>
 
 #include <sisl/fds/utils.hpp>
-#include <sisl/utility/enum.hpp>
+#include <sisl/cache/cache_common.hpp>
 #include <sisl/cache/hash_entry_base.hpp>
 
 namespace sisl {
 
 template < typename K, typename V >
 class SimpleHashBucket;
-
-ENUM(hash_op_t, uint8_t, CREATE, ACCESS, DELETE, RESIZE)
 
 template < typename K >
 using key_access_cb_t = std::function< void(const ValueEntryBase&, const K&, const hash_op_t) >;
