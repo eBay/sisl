@@ -64,7 +64,7 @@ conan build -s:h build_type=Debug --build missing .
 |--------|---------|-------------|
 | `metrics` | `True` | Metrics, WISR, FDS, Cache, and Settings components |
 | `grpc` | `True` | gRPC transport and Flip fault injection (requires `metrics`) |
-| `http` | `True` | HTTP server component built on Pistache (Linux only) |
+| `http` | `True` | HTTP server component built on cpp-httplib |
 | `malloc_impl` | `libc` | Memory allocator: `libc`, `tcmalloc`, or `jemalloc` |
 | `sanitize` | `False` | Sanitizer to enable in Debug builds: `address` (ASan+UBSan), `thread` (TSan), or `False` |
 | `coverage` | `False` | Enable gcov code coverage (Debug only) |
@@ -393,14 +393,14 @@ watcher.register_listener("/etc/myapp/config.json", "cfg-reload",
 
 ### HTTP Server
 
-A Pistache-based HTTP server with middleware auth, SSL support, and per-route access control (Linux only). Routes are classified as `localhost` (local callers only), `safe` (no auth), or `regular` (subject to token verification).
+An HTTP server with pre-routing auth middleware, SSL support, and per-route access control. Routes are classified as `localhost` (local callers only), `safe` (no auth), or `regular` (subject to token verification).
 
 ```cpp
 sisl::HttpServer server{5000, /*threads=*/4, /*max_request_size=*/4000000, token_verifier};
 
 server.setup_routes({
-    {Pistache::Http::Method::Get,  "/status", handle_status, sisl::url_type::safe},
-    {Pistache::Http::Method::Post, "/config", handle_config, sisl::url_type::regular},
+    {sisl::http_method::Get,  "/status", handle_status, sisl::url_type::safe},
+    {sisl::http_method::Post, "/config", handle_config, sisl::url_type::regular},
 });
 
 // When compiled with metrics=True, wire up /metrics scrape automatically:
@@ -428,9 +428,9 @@ server.restart(new_cert, new_key);
 | Platform | Status |
 |----------|--------|
 | Linux x86_64 (GCC) | Fully supported |
-| Linux x86_64 (Clang) | Supported — crash dumps (breakpad) and HTTP server not available |
+| Linux x86_64 (Clang) | Supported — crash dumps (breakpad) |
 | Linux ARM64 | Supported |
-| macOS (AppleClang) | Supported — crash dumps (breakpad), HTTP server, and file_watcher not available |
+| macOS (AppleClang) | Supported — crash dumps (breakpad) and file_watcher not available |
 | Windows | Not supported |
 
 ---

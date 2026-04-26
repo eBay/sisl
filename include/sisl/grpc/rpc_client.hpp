@@ -116,7 +116,7 @@ public:
     RespT& reply() { return m_reply; }
     ::grpc::ClientContext& context() { return m_context; }
 
-    virtual void handle_response(bool ok = true) = 0;
+    void handle_response(bool ok = true) override = 0;
 
     void add_metadata(const std::string& meta_key, const std::string& meta_value) {
         m_context.AddMetadata(meta_key, meta_value);

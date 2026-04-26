@@ -16,18 +16,18 @@ SISL_LOGGING_DECL(http)
 
 namespace sisl {
 
-static Pistache::Http::Code to_pistache_code(sisl::token_state_ptr const status) {
+static int to_http_status(sisl::token_state_ptr const& status) {
     switch (status->code) {
     case sisl::VerifyCode::OK:
-        return Pistache::Http::Code::Ok;
+        return 200;
     case sisl::VerifyCode::UNAUTH:
-        return Pistache::Http::Code::Unauthorized;
+        return 401;
     case sisl::VerifyCode::FORBIDDEN:
-        return Pistache::Http::Code::Forbidden;
+        return 403;
     default:
         break;
     }
-    return Pistache::Http::Code::Precondition_Failed;
+    return 412;
 }
 
 HttpServer::HttpServer(uint16_t port, uint32_t num_threads, uint64_t max_request_size,
@@ -57,62 +57,104 @@ HttpServer::HttpServer(std::string const& ssl_cert, std::string const& ssl_key, 
     get_local_ips();
 }
 
+HttpServer::~HttpServer() {
+    if (m_server_running) { stop(); }
+}
+
 void HttpServer::init() {
-    m_http_endpoint.reset();
-    Pistache::Address addr(Pistache::Ipv4::any(), Pistache::Port(m_port));
-    m_http_endpoint = std::make_unique< Pistache::Http::Endpoint >(addr);
-    auto flags = Pistache::Tcp::Options::ReuseAddr;
-    auto opts = Pistache::Http::Endpoint::options()
-                    .threadsName("http_server")
-                    .maxRequestSize(m_max_request_size)
-                    .threads(m_num_threads)
-                    .flags(flags);
-    m_http_endpoint->init(opts);
-    setup_ssl(m_ssl_cert, m_ssl_key);
+    if (m_secure_zone) {
+        namespace fs = std::filesystem;
+        auto wait_for_file = [](std::string const& path) {
+            while (true) {
+                if (fs::exists(path) && fs::file_size(fs::path{path}) > 0) { return; }
+                LOGINFO("File {} not available, will try in 5 seconds", path);
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+            }
+        };
+        wait_for_file(m_ssl_cert);
+        wait_for_file(m_ssl_key);
+#ifdef CPPHTTPLIB_OPENSSL_SUPPORT
+        m_server = std::make_unique< httplib::SSLServer >(m_ssl_cert.c_str(), m_ssl_key.c_str());
+#else
+        LOGWARN("SSL requested but cpp-httplib was built without OpenSSL support; ignoring certs");
+        m_server = std::make_unique< httplib::Server >();
+#endif
+    } else {
+        m_server = std::make_unique< httplib::Server >();
+    }
+    m_server->new_task_queue = [n = m_num_threads] { return new httplib::ThreadPool(n); };
+    m_server->set_payload_max_length(m_max_request_size);
 }
 
 void HttpServer::start() {
-    m_router.addMiddleware(Pistache::Rest::Routes::middleware(&HttpServer::do_auth, this));
-    m_http_endpoint->setHandler(m_router.handler());
-    m_http_endpoint->serveThreaded();
+    m_server->set_pre_routing_handler([this](httplib::Request const& req, httplib::Response& res) {
+        return do_auth(req, res) ? httplib::Server::HandlerResponse::Unhandled
+                                 : httplib::Server::HandlerResponse::Handled;
+    });
+    if (!m_server->bind_to_port("0.0.0.0", m_port)) {
+        LOGERROR("Failed to bind HTTP server to port {}", m_port);
+        return;
+    }
+    m_server_thread = std::thread([this] { m_server->listen_after_bind(); });
     m_server_running = true;
 }
 
 void HttpServer::stop() {
-    m_http_endpoint->shutdown();
+    m_server->stop();
+    if (m_server_thread.joinable()) { m_server_thread.join(); }
     m_server_running = false;
 }
 
 void HttpServer::restart(std::string const& ssl_cert, std::string const& ssl_key) {
     std::unique_lock< std::mutex > lock(m_mutex);
-    m_server_running = false;
+    stop();
     m_ssl_cert = ssl_cert;
     m_ssl_key = ssl_key;
     m_secure_zone = !ssl_cert.empty() && !ssl_key.empty();
-    init();
     m_localhost_list.clear();
     m_safelist.clear();
-    m_router = Pistache::Rest::Router();
+    init();
     for (auto& route : m_http_routes) {
         setup_route(route, true);
     }
     start();
 }
 
-void HttpServer::setup_route(Pistache::Http::Method method, std::string resource,
-                             Pistache::Rest::Route::Handler handler, url_type const& type) {
+void HttpServer::setup_route(http_method method, std::string resource, http_handler handler, url_type const& type) {
     DEBUG_ASSERT(!m_server_running, "Initiated route setup after server started");
     if (m_server_running) {
         LOGWARN("Could not setup route {}, server is in running state.", resource)
         return;
     }
 
-    m_router.addRoute(std::move(method), resource, std::move(handler));
+    switch (method) {
+    case http_method::Get:
+        m_server->Get(resource, handler);
+        break;
+    case http_method::Post:
+        m_server->Post(resource, handler);
+        break;
+    case http_method::Put:
+        m_server->Put(resource, handler);
+        break;
+    case http_method::Delete:
+        m_server->Delete(resource, handler);
+        break;
+    case http_method::Patch:
+        m_server->Patch(resource, handler);
+        break;
+    case http_method::Head:
+        m_server->Head(resource, handler);
+        break;
+    case http_method::Options:
+        m_server->Options(resource, handler);
+        break;
+    }
 
     if (type == url_type::localhost) {
-        m_localhost_list.emplace(std::move(resource));
+        m_localhost_list.emplace(resource);
     } else if (type == url_type::safe) {
-        m_safelist.emplace(std::move(resource));
+        m_safelist.emplace(resource);
     }
 }
 
@@ -127,49 +169,35 @@ void HttpServer::setup_routes(std::vector< http_route > const& routes) {
     }
 }
 
-void HttpServer::setup_ssl(std::string const& ssl_cert, std::string const& ssl_key) {
-    if (m_secure_zone) {
-        namespace fs = std::filesystem;
-        auto wait_for_file = [](std::string const& path) {
-            while (true) {
-                if (fs::exists(path) && fs::file_size(fs::path{path}) > 0) { return; }
-                LOGINFO("File {} not available, will try in 5 seconds", path);
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-            }
-        };
-        wait_for_file(ssl_cert);
-        wait_for_file(ssl_key);
-#ifdef PISTACHE_USE_SSL
-        m_http_endpoint->useSSL(ssl_cert, ssl_key);
-#else
-        LOGWARN("SSL requested but Pistache was built without SSL support; ignoring certs");
-#endif
+bool HttpServer::do_auth(httplib::Request const& req, httplib::Response& res) {
+    if (is_safe_url(req.path)) { return true; }
+    if (is_localaddr_url(req.path)) {
+        if (is_local_addr(req.remote_addr)) { return true; }
+        res.status = 403;
+        res.set_content("access restricted to localhost", "text/plain");
+        return false;
     }
-}
-
-bool HttpServer::do_auth(Pistache::Http::Request& request, Pistache::Http::ResponseWriter& response) {
-    if (is_safe_url(request.resource())) { return true; }
-    if (is_localaddr_url(request.resource())) { return is_local_addr(request.address().host()); }
-    if (m_token_verifier) { return auth_verify(request, response); }
+    if (m_token_verifier) { return auth_verify(req, res); }
     return true;
 }
 
-bool HttpServer::auth_verify(Pistache::Http::Request& request, Pistache::Http::ResponseWriter& response) const {
-    auto opt_token = request.headers().tryGet< Pistache::Http::Header::Authorization >();
-    if (!opt_token) {
-        response.send(Pistache::Http::Code::Unauthorized, "missing auth token in request header");
+bool HttpServer::auth_verify(httplib::Request const& req, httplib::Response& res) const {
+    static constexpr std::string_view bearer_prefix{"Bearer "};
+    auto const auth = req.get_header_value("Authorization");
+    if (auth.empty()) {
+        res.status = 401;
+        res.set_content("missing auth token in request header", "text/plain");
         return false;
     }
-
-    if (!opt_token->hasMethod< Pistache::Http::Header::Authorization::Method::Bearer >()) {
-        response.send(Pistache::Http::Code::Unauthorized, "require bearer token in request header");
+    if (!auth.starts_with(bearer_prefix)) {
+        res.status = 401;
+        res.set_content("require bearer token in request header", "text/plain");
         return false;
     }
-
-    auto const prefix_len = std::string{"Bearer "}.length();
-    auto ret_state = m_token_verifier->verify(opt_token->value().substr(prefix_len));
+    auto ret_state = m_token_verifier->verify(auth.substr(bearer_prefix.size()));
     if (ret_state->code == sisl::VerifyCode::OK) { return true; }
-    response.send(to_pistache_code(ret_state), ret_state->msg);
+    res.status = to_http_status(ret_state);
+    res.set_content(ret_state->msg, "text/plain");
     return false;
 }
 
@@ -193,11 +221,9 @@ bool HttpServer::is_local_addr(std::string const& addr) const { return m_local_i
 #ifdef PROMETHEUS_METRICS_REPORTER
 void HttpServer::register_metrics_endpoint() {
     setup_route(
-        Pistache::Http::Method::Get, "/metrics",
-        [](Pistache::Rest::Request const&, Pistache::Http::ResponseWriter response) {
-            response.send(Pistache::Http::Code::Ok,
-                          sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat));
-            return Pistache::Rest::Route::Result::Ok;
+        http_method::Get, "/metrics",
+        [](httplib::Request const&, httplib::Response& res) {
+            res.set_content(sisl::MetricsFarm::getInstance().report(sisl::ReportFormat::kTextFormat), "text/plain");
         },
         url_type::safe);
 }

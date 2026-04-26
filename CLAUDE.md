@@ -62,7 +62,7 @@ ctest --test-dir build/Debug --output-on-failure -R MetricsFarm
 | `malloc_impl` | `libc` | `libc`, `tcmalloc`, `jemalloc`; jemalloc disables sanitizers |
 | `metrics` | `True` | Enables metrics, WISR, FDS, cache, settings subsystems |
 | `grpc` | `True` | Requires `metrics=True` |
-| `http` | `True` | HTTP server (Linux only; auto-disabled under Clang) |
+| `http` | `True` | HTTP server (cpp-httplib; cross-platform, Clang-compatible) |
 | `coverage` | `False` | Debug only; incompatible with `sanitize` |
 
 **Code formatting:**
@@ -94,8 +94,8 @@ sisl_options  (boost, cxxopts)
             └─ [grpc=True]
                  flip       (gRPC, protobuf — proto codegen)
                  sisl_grpc  (sisl_buffer + gRPC)
-       └─ [http=True, Linux only]
-            sisl_http  (Pistache)
+       └─ [http=True]
+            sisl_http  (cpp-httplib)
 ```
 
 The source lives in `src/<component>/` and the public headers in `include/sisl/`. The root CMakeLists adds `include/` globally so `#include <sisl/...>` works everywhere.

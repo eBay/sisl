@@ -52,10 +52,6 @@ class SISLConan(ConanFile):
     def _min_cppstd(self):
         return 23
 
-    def config_options(self):
-        if self.settings.compiler == "clang":
-            self.options.http = False
-
     def validate(self):
         if self.settings.compiler.get_safe("cppstd"):
             check_min_cppstd(self, self._min_cppstd())
@@ -64,9 +60,6 @@ class SISLConan(ConanFile):
         if not self.options.metrics and self.options.grpc:
             raise ConanInvalidConfiguration("gRPC support requires metrics option!")
 
-        if self.options.http:
-            if self.settings.os not in ["Linux"]:
-                raise ConanInvalidConfiguration("http option requires Linux (Pistache constraint)")
         if self.options.shared:
             self.options.rm_safe("fPIC")
         if self.settings.build_type == "Debug":
@@ -106,7 +99,7 @@ class SISLConan(ConanFile):
             self.requires("grpc/1.69.0", transitive_headers=True)
 
         if self.options.http:
-            self.requires("pistache/0.4.25", transitive_headers=True)
+            self.requires("cpp-httplib/0.39.0", transitive_headers=True)
 
         # Memory allocation
         if self.options.malloc_impl == "tcmalloc":
@@ -299,8 +292,9 @@ class SISLConan(ConanFile):
         if self.options.http:
             self.cpp_info.components["http"].requires.extend([
                     "logging",
-                    "pistache::pistache",
+                    "cpp-httplib::cpp-httplib",
                     ])
+            self.cpp_info.components["http"].defines.append("CPPHTTPLIB_OPENSSL_SUPPORT")
             if self.options.metrics:
                 self.cpp_info.components["http"].requires.append("metrics")
                 self.cpp_info.components["http"].defines.append("PROMETHEUS_METRICS_REPORTER")
