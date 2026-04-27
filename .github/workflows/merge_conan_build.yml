@@ -1,11 +1,10 @@
-name: Sisl Merge Build
+name: Sisl v8 Merge Build
 
 on:
   workflow_dispatch:
   push:
     branches:
       - stable/v8.x
-      - master
 
 jobs:
   Build:

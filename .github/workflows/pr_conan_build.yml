@@ -1,10 +1,9 @@
-name: Sisl PR Build
+name: Sisl v8 PR Build
 
 on:
   pull_request:
     branches:
       - stable/v8.x
-      - master
 
 jobs:
   Build:
