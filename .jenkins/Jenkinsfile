@@ -66,10 +66,10 @@ pipeline {
 
     post {
         failure {
-            slackSend color: '#E43237', channel: '#sds-ci', message: "💀 *${PROJECT}* `${VER}` (`${BRANCH_NAME}`) build #${BUILD_NUMBER} didn't make it\nHeld on for _${currentBuild.durationString}_ before calling it quits\n<${BUILD_URL}|Post-mortem>"
+            slackSend color: '#E43237', channel: '#sds-ci', message: "💀 *${PROJECT}* `${VER}` (`${BRANCH_NAME}`) build #${BUILD_NUMBER} didn't make it\nHeld on for _${currentBuild.durationString}_ before calling it quits\n<${BUILD_URL}|Post-mortem>\n🪦"
         }
         success {
-            slackSend color: '#85B717', channel: '#sds-ci', message: "✅ *${PROJECT}* `${VER}` (`${BRANCH_NAME}`) build #${BUILD_NUMBER} — it actually worked\nDebug + RelWithDebInfo both green in _${currentBuild.durationString}_\n<${BUILD_URL}|Full report>"
+            slackSend color: '#85B717', channel: '#sds-ci', message: "✅ *${PROJECT}* `${VER}` (`${BRANCH_NAME}`) build #${BUILD_NUMBER} — it actually worked\nDebug + RelWithDebInfo both green in _${currentBuild.durationString}_\n<${BUILD_URL}|Full report>\n👨‍🚀 Everyone survived!"
         }
     }
 }
