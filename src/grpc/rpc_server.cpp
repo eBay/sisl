@@ -128,7 +128,17 @@ void GrpcServer::handle_rpcs(uint32_t thread_num, const rpc_thread_start_cb_t& t
         [[likely]] if (tag != nullptr) {
             // Process the rpc and refill the cq with a new rpc call
             auto new_rpc_call = static_cast< RpcTag* >(tag)->process(ok);
-            if (new_rpc_call != nullptr) { new_rpc_call->enqueue_call_request(*m_cqs[new_rpc_call->m_queue_idx]); }
+            if (new_rpc_call != nullptr) {
+                if (RPCHelper::has_server_shutdown(this)) {
+                    // grpc_server_request_call() silently drops tags after Shutdown() —
+                    // the tag would never fire, stranding the pre-listener at ref=1.
+                    // ref count is 0 here (enqueue_call_request was not called), so
+                    // delete directly to run the destructor and free all members.
+                    delete new_rpc_call;
+                } else {
+                    new_rpc_call->enqueue_call_request(*m_cqs[new_rpc_call->m_queue_idx]);
+                }
+            }
         }
     }
 }
