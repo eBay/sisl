@@ -95,7 +95,7 @@ RpcDataAbstract* GenericRpcData::on_request_received(bool ok) {
         }
     }
 
-    return in_shutdown ? nullptr : create_new();
+    return (in_shutdown || !ok) ? nullptr : create_new();
 }
 
 RpcDataAbstract* GenericRpcData::on_buf_read(bool) {
