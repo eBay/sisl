@@ -40,7 +40,7 @@ pipeline {
             }
             steps {
                 sh "conan remote login -p ${ARTIFACTORY_PASS} ebay-local _service_sds"
-                sh "conan upload "*:*" -r ebay-local --confirm"
+                sh "conan upload '*:*' -r ebay-local --confirm"
             }
         }
     }
