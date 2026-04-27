@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [14.0.1] - 2026-04-26
+- Suppress warnings on Release builds due to missing `;`
+
+## [14.0.1] - 2026-04-26
 - During shutdown, cq->Shutdown() drains all pending events with ok=false. There's a race window where ok=false fires before RPCHelper::has_server_shutdown() returns true. In that window,
   create_new() is called, the new RpcData is handed to enqueue_call_request() on an already-shut-down CQ, and that object never gets a completion fired — its refcount never drops to zero,
   leaking it.
