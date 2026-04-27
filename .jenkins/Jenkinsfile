@@ -3,11 +3,6 @@ pipeline {
 
     environment {
         ARTIFACTORY_PASS = credentials('ARTIFACTORY_PASS')
-        CONAN_USER = 'oss'
-        TARGET_BRANCH = 'master'
-        STABLE_BRANCH = 'stable/v*'
-        BUILD_MISSING = "--build missing"
-        CPP_STD="gnu23"
     }
 
     stages {
@@ -15,52 +10,47 @@ pipeline {
             steps {
                 script {
                     PROJECT = sh(script: "grep -m 1 'name =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
+                    CONAN_FLAGS = "--name ${PROJECT} -s:h compiler.cppstd=23 --build missing --build ${PROJECT}"
                     VER = sh(script: "grep -m 1 ' version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
-                    CONAN_CHANNEL = sh(script: "echo ${BRANCH_NAME} | sed -E 's,(\\w+-?\\d*)/.*,\\1,' | sed -E 's,-,_,' | tr -d '\n'", returnStdout: true)
-                    TAG = "${VER}@${CONAN_USER}/${CONAN_CHANNEL}"
-                    CONAN_FLAGS="--name ${PROJECT} --user ${CONAN_USER} --channel ${CONAN_CHANNEL} -s:h compiler.cppstd=${CPP_STD}"
-                    slackSend color: '#0063D1', channel: '#sds-ci', message: "*${PROJECT}/${TAG}* is building."
+                    slackSend color: '#0063D1', channel: '#sds-ci', message: "*${PROJECT}:${VER} (${BRANCH_NAME})* is building : ${BUILD_URL}"
                 }
             }
         }
 
-        stage('Tag Stable Build') {
-            when { branch "${STABLE_BRANCH}" }
+        stage('Tag with Channel') {
+            when { not { branch "stable/v*" } }
             steps {
                 script {
-                    TAG = "${VER}@"
-                    CONAN_FLAGS = "--name ${PROJECT}"
+                    CONAN_CHANNEL = sh(script: "echo ${BRANCH_NAME} | sed -E 's,(\\w+-?\\d*)/.*,\\1,' | sed -E 's,-,_,' | tr -d '\n'", returnStdout: true)
+                    CONAN_FLAGS = "${CONAN_FLAGS} --user oss --channel ${CONAN_CHANNEL}"
                 }
             }
         }
 
-        stage("Compile") {
+        stage("Build") {
             steps {
-                sh "conan build ${BUILD_MISSING} -s:h build_type=Debug -o ${PROJECT}/*:sanitize=address ${CONAN_FLAGS} . ; \
-                    conan create ${BUILD_MISSING} -s:h build_type=Debug ${CONAN_FLAGS} . ; \
-                    conan create ${BUILD_MISSING} -s:h build_type=RelWithDebInfo -o ${PROJECT}/*:malloc_impl=tcmalloc ${CONAN_FLAGS} . ; \
-                    "
+                sh "conan create -s:h build_type=Debug ${CONAN_FLAGS} ."
+                sh "conan create -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
             }
         }
 
-        stage("Deploy") {
+        stage("Deploy to Artifactory") {
             when {
                 expression { !(env.BRANCH_NAME =~ /PR-/) }
             }
             steps {
                 sh "conan remote login -p ${ARTIFACTORY_PASS} ebay-local _service_sds"
-                sh "conan graph info ./ | grep 'ref: ' | awk '{print \$2}'  | sort | uniq | grep -v ${PROJECT} | grep -v '#' | while read pkg; do conan upload -r ebay-local -c \"\${pkg}\"; done"
-                sh "conan upload ${PROJECT}/${TAG} -c -r ebay-local"
+                sh "conan upload "*:*" -r ebay-local --confirm"
             }
         }
     }
 
     post {
         failure {
-            slackSend color: '#E43237', channel: '#sds-ci', message: "*${PROJECT}/${TAG}* has had a failure : ${BUILD_URL}"
+            slackSend color: '#E43237', channel: '#sds-ci', message: "*${PROJECT}:${VER} (${BRANCH_NAME})* has had a failure : ${BUILD_URL}"
         }
         success {
-            slackSend color: '#85B717', channel: '#sds-ci', message: "*${PROJECT}/${TAG}* has completed."
+            slackSend color: '#85B717', channel: '#sds-ci', message: "*${PROJECT}:${VER} (${BRANCH_NAME})* has completed."
         }
     }
 }
