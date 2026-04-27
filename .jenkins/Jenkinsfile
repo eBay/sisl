@@ -6,7 +6,7 @@ pipeline {
     }
 
     stages {
-        stage('Get Version') {
+        stage('Mission Briefing') {
             steps {
                 script {
                     PROJECT = sh(script: "grep -m 1 'name =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
@@ -17,7 +17,7 @@ pipeline {
             }
         }
 
-        stage('Tag with Channel') {
+        stage('Test Flight') {
             when { not { branch "stable/v*" } }
             steps {
                 script {
@@ -30,14 +30,14 @@ pipeline {
         stage("Pre-flight") {
             steps {
                 script {
-                    slackSend color: '#9B59B6', channel: '#sds-ci', message: "⛽ *${PROJECT}* `${VER}` build #${BUILD_NUMBER} — fueling up before we attempt to light the engines\nSerializing cache writes. Assuming this doesn't immediately explode."
                     sh "conan install -s:h build_type=Debug ${CONAN_FLAGS} ."
                     sh "conan install -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
+                    slackSend color: '#9B59B6', channel: '#sds-ci', message: "⛽ *${PROJECT}* `${VER}` build #${BUILD_NUMBER} — fueling stage complete, mission set\nLet's light this 🕯️... 3... 2... 1...!"
                 }
             }
         }
 
-        stage("Build") {
+        stage("Ignition") {
             steps {
                 script {
                     parallel(
@@ -52,7 +52,7 @@ pipeline {
             }
         }
 
-        stage("Deploy to Artifactory") {
+        stage("Touchdown") {
             when {
                 expression { !(env.BRANCH_NAME =~ /PR-/) }
             }
