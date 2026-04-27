@@ -1,0 +1,28 @@
+diff -Naur a/src/server/listener.cc b/src/server/listener.cc
+--- a/src/server/listener.cc	2022-09-02 13:59:00.000000000 -0700
++++ b/src/server/listener.cc	2024-10-10 11:00:05.512069049 -0700
+@@ -105,6 +105,24 @@
+                     throw std::runtime_error(err);
+                 }
+             }
++            if (!SSL_CTX_set_options(GetSSLContext(ctx), SSL_OP_NO_SSLv3))
++            {
++                std::string err = "SSL error - cannot disable SSLv3: "
++                    + ssl_print_errors_to_string();
++                throw std::runtime_error(err);
++            }
++            if (!SSL_CTX_set_options(GetSSLContext(ctx), SSL_OP_NO_TLSv1))
++            {
++                std::string err = "SSL error - cannot disable TLSv1.0: "
++                    + ssl_print_errors_to_string();
++                throw std::runtime_error(err);
++            }
++            if (!SSL_CTX_set_options(GetSSLContext(ctx), SSL_OP_NO_TLSv1_1))
++            {
++                std::string err = "SSL error - cannot disable TLSv1.1: "
++                    + ssl_print_errors_to_string();
++                throw std::runtime_error(err);
++            }
+ 
+             if (cb != NULL)
+             {

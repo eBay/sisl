@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.9.5"
+    version = "8.9.6"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -54,7 +54,7 @@ class SISLConan(ConanFile):
             self.requires("folly/2022.01.31.00")
         self.requires("grpc/1.54.3")
         self.requires("jwt-cpp/0.4.0")
-        self.requires("nlohmann_json/3.12.0")
+        self.requires("nlohmann_json/[^3.11]")
         self.requires("prometheus-cpp/1.0.1")
         self.requires("spdlog/1.11.0")
         if self.settings.os in ["Linux"]:
