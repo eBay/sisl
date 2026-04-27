@@ -299,7 +299,7 @@ private:
             }
         }
 
-        return in_shutdown ? nullptr : create_new();
+        return (in_shutdown || !ok) ? nullptr : create_new();
     }
 
     // This method will be called in response to one of `m_responder.Finish*` flavours

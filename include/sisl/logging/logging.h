@@ -96,7 +96,7 @@ constexpr const char* file_name(const char* const str) { return str_slant(str) ?
 #else
 #define LOGTRACEMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
     do {                                                                                                               \
-    } while (0)
+    } while (0);
 #endif
 
 #define LOGDEBUGMOD_USING_LOGGER(mod, logger, msg, ...)                                                                \
@@ -164,7 +164,7 @@ const T& unmove(T&& x) {
 #else
 #define LOGTRACEMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \
     do {                                                                                                               \
-    } while (0)
+    } while (0);
 #endif
 
 #define LOGDEBUGMOD_FMT_USING_LOGGER(mod, formatter, logger, msg, ...)                                                 \

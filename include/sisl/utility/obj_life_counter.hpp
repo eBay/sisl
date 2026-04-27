@@ -95,7 +95,7 @@ struct ObjLifeCounter {
     ObjLifeCounter() {
         s_created.fetch_add(1, std::memory_order_relaxed);
         s_alive.fetch_add(1, std::memory_order_relaxed);
-        s_type.m_dummy = 0; // To keep s_type initialized during compile time
+        [[maybe_unused]] auto& _ = s_type; // ODR-use to force registration without a data-racing write
     }
 
     virtual ~ObjLifeCounter() {
