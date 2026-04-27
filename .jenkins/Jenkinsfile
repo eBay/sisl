@@ -32,23 +32,15 @@ pipeline {
                 script {
                     sh "conan install -s:h build_type=Debug ${CONAN_FLAGS} ."
                     sh "conan install -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
-                    slackSend color: '#9B59B6', channel: '#sds-ci', message: "⛽ *${PROJECT}* `${VER}` build #${BUILD_NUMBER} — fueling stage complete, mission set\nLet's light this 🕯️... 3... 2... 1...!"
+                    slackSend color: '#9B59B6', channel: '#sds-ci', message: "⛽ *${PROJECT}* `${VER}` build #${BUILD_NUMBER} \n Fueling stage complete...*very* explosive fuel...\nLet's light this 🕯️... 3... 2... 1...!"
                 }
             }
         }
 
         stage("Ignition") {
             steps {
-                script {
-                    parallel(
-                        Debug: {
-                            sh "conan create -s:h build_type=Debug ${CONAN_FLAGS} ."
-                        },
-                        RelWithDebInfo: {
-                            sh "conan create -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
-                        }
-                    )
-                }
+                sh "conan create -s:h build_type=Debug ${CONAN_FLAGS} ."
+                sh "conan create -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
             }
         }
 
