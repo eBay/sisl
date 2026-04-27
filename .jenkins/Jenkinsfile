@@ -10,9 +10,9 @@ pipeline {
             steps {
                 script {
                     PROJECT = sh(script: "grep -m 1 'name =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
-                    CONAN_FLAGS = "-s:h compiler.cppstd=23 --build missing --build '${PROJECT}*'"
+                    CONAN_FLAGS = "-s:h compiler.cppstd=23 -c tools.build:skip_test=True --build missing --build '${PROJECT}*'"
                     VER = sh(script: "grep -m 1 ' version =' conanfile.py | awk '{print \$3}' | tr -d '\n' | tr -d '\"'", returnStdout: true)
-                    slackSend color: '#0063D1', channel: '#sds-ci', message: "*${PROJECT}:${VER} (${BRANCH_NAME})* is building : ${BUILD_URL}"
+                    slackSend color: '#0063D1', channel: '#sds-ci', message: "📋 *${PROJECT}* `${VER}` on `${BRANCH_NAME}` — build #${BUILD_NUMBER} has entered the launchpad\nCountdown initiated. Manage your expectations.\n<${BUILD_URL}|Watch nervously>"
                 }
             }
         }
@@ -27,10 +27,28 @@ pipeline {
             }
         }
 
+        stage("Pre-flight") {
+            steps {
+                script {
+                    slackSend color: '#9B59B6', channel: '#sds-ci', message: "⛽ *${PROJECT}* `${VER}` build #${BUILD_NUMBER} — fueling up before we attempt to light the engines\nSerializing cache writes. Assuming this doesn't immediately explode."
+                    sh "conan install -s:h build_type=Debug ${CONAN_FLAGS} ."
+                    sh "conan install -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
+                }
+            }
+        }
+
         stage("Build") {
             steps {
-                sh "conan create -s:h build_type=Debug ${CONAN_FLAGS} ."
-                sh "conan create -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
+                script {
+                    parallel(
+                        Debug: {
+                            sh "conan create -s:h build_type=Debug ${CONAN_FLAGS} ."
+                        },
+                        RelWithDebInfo: {
+                            sh "conan create -s:h build_type=RelWithDebInfo -o sisl/*:malloc_impl=tcmalloc ${CONAN_FLAGS} ."
+                        }
+                    )
+                }
             }
         }
 
@@ -41,16 +59,17 @@ pipeline {
             steps {
                 sh "conan remote login -p ${ARTIFACTORY_PASS} ebay-local _service_sds"
                 sh "conan upload '*:*' -r ebay-local --confirm"
+                slackSend color: '#8A6BBF', channel: '#sds-ci', message: "📦 *${PROJECT}* `${VER}` (`${BRANCH_NAME}`) — packages survived long enough to land in Artifactory\nBuild #${BUILD_NUMBER} is live and ready to pull downstream"
             }
         }
     }
 
     post {
         failure {
-            slackSend color: '#E43237', channel: '#sds-ci', message: "*${PROJECT}:${VER} (${BRANCH_NAME})* has had a failure : ${BUILD_URL}"
+            slackSend color: '#E43237', channel: '#sds-ci', message: "💀 *${PROJECT}* `${VER}` (`${BRANCH_NAME}`) build #${BUILD_NUMBER} didn't make it\nHeld on for _${currentBuild.durationString}_ before calling it quits\n<${BUILD_URL}|Post-mortem>"
         }
         success {
-            slackSend color: '#85B717', channel: '#sds-ci', message: "*${PROJECT}:${VER} (${BRANCH_NAME})* has completed."
+            slackSend color: '#85B717', channel: '#sds-ci', message: "✅ *${PROJECT}* `${VER}` (`${BRANCH_NAME}`) build #${BUILD_NUMBER} — it actually worked\nDebug + RelWithDebInfo both green in _${currentBuild.durationString}_\n<${BUILD_URL}|Full report>"
         }
     }
 }
