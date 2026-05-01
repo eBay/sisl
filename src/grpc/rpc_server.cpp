@@ -87,6 +87,9 @@ void GrpcServer::run(const rpc_thread_start_cb_t& thread_start_cb) {
     LOGMSG_ASSERT_EQ(m_state.load(std::memory_order_relaxed), ServerState::INITED, "Grpcserver duplicate run?");
 
     m_server = m_builder.BuildAndStart();
+    if (!m_server) {
+        throw std::runtime_error("BuildAndStart failed — TLS config is invalid (partial or mismatched cert/key)");
+    }
 
     for (uint32_t i = 0; i < m_num_threads; ++i) {
         auto t = std::make_shared< std::thread >(&GrpcServer::handle_rpcs, this, i, thread_start_cb);

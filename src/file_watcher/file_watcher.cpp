@@ -219,6 +219,11 @@ void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
         LOGDEBUG("File contents have not changed: {}", file_info.m_filepath);
     } else {
         LOGDEBUG("File contents have changed: {}", file_info.m_filepath);
+        {
+            auto lk = std::unique_lock< std::mutex >(m_files_lock);
+            auto it = m_files.find(file_info.m_filepath);
+            if (it != m_files.end()) { it->second.m_filecontents = file_info.m_filecontents; }
+        }
         // notify file modification event
         for (const auto& [id, handler] : file_info.m_handlers) {
             handler(file_info.m_filepath, false);
