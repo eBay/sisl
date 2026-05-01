@@ -13,6 +13,8 @@
  *
  *********************************************************************************/
 #include <memory>
+#include <filesystem>
+#include <fstream>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <mutex>
@@ -449,6 +451,30 @@ TEST(GenericServiceDeathTest, basic_test) {
             validate_generic_reply(method, status);
         },
         1);
+}
+
+// Regression: GrpcServer::run() did not null-check the return value of BuildAndStart().
+// Passing invalid TLS credentials causes BuildAndStart() to return nullptr silently;
+// the null was stored in m_server with state set to RUNNING, deferring a crash to the
+// next shutdown() call. Verify that run() now throws instead.
+TEST(GrpcServerRunTest, throws_on_invalid_tls) {
+    namespace fs = std::filesystem;
+    const auto tmp_key = fs::temp_directory_path() / "test_invalid_grpc.key";
+    const auto tmp_cert = fs::temp_directory_path() / "test_invalid_grpc.cert";
+    {
+        std::ofstream k{tmp_key};
+        k << "not a valid PEM key\n";
+        std::ofstream c{tmp_cert};
+        c << "not a valid PEM cert\n";
+    }
+
+    auto* raw = sisl::GrpcServer::make("0.0.0.0:0", nullptr, 1, tmp_key.string(), tmp_cert.string());
+    ASSERT_NE(raw, nullptr);
+    auto server = std::unique_ptr< sisl::GrpcServer >(raw);
+    EXPECT_THROW(server->run(), std::runtime_error);
+
+    fs::remove(tmp_key);
+    fs::remove(tmp_cert);
 }
 
 } // namespace sisl::grpc::testing

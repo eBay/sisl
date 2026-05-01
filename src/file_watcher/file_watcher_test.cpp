@@ -6,6 +6,8 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <fcntl.h>
+#include <unistd.h>
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
@@ -103,6 +105,61 @@ TEST_F(FileWatcherTest, basic_watcher) {
         EXPECT_FALSE(m_file_change_params.is_deleted);
     }
     */
+}
+
+// Regression: FileWatcher used to store file contents only in a local copy and never
+// write it back to m_files, causing every subsequent IN_MODIFY to look like a content
+// change and re-fire all callbacks. Verify that an IN_MODIFY that carries the same
+// content as the last observed change does not trigger the callback again.
+//
+// Both writes use POSIX open(O_WRONLY) without O_TRUNC so that exactly one IN_MODIFY
+// fires per write with the full content already in place. std::ofstream would truncate
+// first, generating a spurious empty-content IN_MODIFY that contaminates the test.
+// "initial_content" and "updated_content" are the same length (15 bytes) so the
+// in-place write leaves no stale bytes.
+TEST_F(FileWatcherTest, no_refire_on_repeated_write) {
+    const auto file_path = fs::current_path() / "refire_test.txt";
+    fs::remove(file_path);
+    m_file_change_params.file_str = file_path.string();
+    m_file_change_params.is_deleted = false;
+    m_file_change_params.cb_call_count = 1;
+
+    // Create file with initial content BEFORE registering so the create/open
+    // does not generate an observed IN_MODIFY.
+    {
+        std::ofstream f{m_file_change_params.file_str};
+        f << "initial_content";
+        f.flush();
+    }
+
+    monitor_file_changes(m_file_change_params, "refire_listener");
+
+    // In-place write (no truncation) — exactly one IN_MODIFY with the full new content.
+    const std::string new_content{"updated_content"};
+    auto write_inplace = [&]() {
+        auto fd = open(m_file_change_params.file_str.c_str(), O_WRONLY);
+        ::write(fd, new_content.data(), new_content.size());
+        ::close(fd);
+    };
+
+    write_inplace();
+    {
+        auto lk = std::unique_lock< std::mutex >(m_file_change_params.file_change_lock);
+        EXPECT_TRUE(m_file_change_params.file_change_cv.wait_for(
+            lk, std::chrono::milliseconds(1500),
+            [this]() { return m_file_change_params.cb_call_count == 0; }));
+        EXPECT_FALSE(m_file_change_params.is_deleted);
+    }
+
+    // Write the same bytes again — callback must NOT fire.
+    m_file_change_params.cb_call_count = 1;
+    write_inplace();
+    {
+        auto lk = std::unique_lock< std::mutex >(m_file_change_params.file_change_lock);
+        EXPECT_FALSE(m_file_change_params.file_change_cv.wait_for(
+            lk, std::chrono::milliseconds(500),
+            [this]() { return m_file_change_params.cb_call_count == 0; }));
+    }
 }
 
 TEST_F(FileWatcherTest, multiple_watchers) {

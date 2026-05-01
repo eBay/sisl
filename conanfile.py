@@ -121,7 +121,7 @@ class SISLConan(ConanFile):
         cmake.configure()
         cmake.build()
         if not self.conf.get("tools.build:skip_test", default=False):
-            cmake.test()
+            self.run(f"ctest --test-dir '{self.build_folder}' --output-on-failure")
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")
