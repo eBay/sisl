@@ -138,7 +138,8 @@ TEST_F(FileWatcherTest, no_refire_on_repeated_write) {
     const std::string new_content{"updated_content"};
     auto write_inplace = [&]() {
         auto fd = open(m_file_change_params.file_str.c_str(), O_WRONLY);
-        ::write(fd, new_content.data(), new_content.size());
+        const auto n = ::write(fd, new_content.data(), new_content.size());
+        EXPECT_EQ(n, static_cast< ssize_t >(new_content.size()));
         ::close(fd);
     };
 
