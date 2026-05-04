@@ -1,6 +1,7 @@
 // This implementation of file watcher only works on Linux machines.
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <sisl/logging/logging.h>
 #include <thread>
@@ -18,13 +19,15 @@ struct FileInfo {
     // closures to be called when file modification is detected, one per listener
     std::map< std::string, file_event_cb_t > m_handlers;
     int m_wd;
+    bool m_pending_modify{false};
+    std::chrono::steady_clock::time_point m_last_modify_time;
 };
 
 class FileWatcher {
 public:
     FileWatcher() = default;
 
-    bool start();
+    bool start(uint32_t debounce_ms = 200);
     bool register_listener(const std::string& file_path, const std::string& listener_id,
                            const file_event_cb_t& file_event_handler);
     bool unregister_listener(const std::string& file_path, const std::string& listener_id);
@@ -35,6 +38,8 @@ private:
     void handle_events();
     void get_fileinfo(const int wd, FileInfo& file_info) const;
     void on_modified_event(const int wd, const bool is_deleted);
+    void check_pending_modifies();
+    int next_pending_ms() const;
     bool remove_watcher(FileInfo& file_info);
     static bool get_file_contents(const std::string& file_name, std::string& contents);
     static bool check_file_size(const std::string& file_path);
@@ -46,6 +51,7 @@ private:
     std::unique_ptr< std::thread > m_fw_thread;
     // This is used to notify poll loop to exit
     int m_pipefd[2] = {-1, -1};
+    uint32_t m_debounce_ms{200};
 };
 
 } // namespace sisl

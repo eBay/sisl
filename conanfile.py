@@ -9,7 +9,7 @@ required_conan_version = ">=1.60.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "8.9.6"
+    version = "8.9.7"
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
     topics = ("ebay", "components", "core", "efficiency")
@@ -121,7 +121,7 @@ class SISLConan(ConanFile):
         cmake.configure()
         cmake.build()
         if not self.conf.get("tools.build:skip_test", default=False):
-            cmake.test()
+            self.run(f"ctest --test-dir '{self.build_folder}' --output-on-failure")
 
     def package(self):
         lib_dir = join(self.package_folder, "lib")

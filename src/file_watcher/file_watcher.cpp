@@ -12,7 +12,8 @@
 namespace sisl {
 namespace fs = std::filesystem;
 
-bool FileWatcher::start() {
+bool FileWatcher::start(uint32_t debounce_ms) {
+    m_debounce_ms = debounce_ms;
     m_inotify_fd = inotify_init1(IN_NONBLOCK);
     // create an fd for accessing inotify
     if (m_inotify_fd == -1) {
@@ -42,7 +43,7 @@ void FileWatcher::run() {
     int poll_num;
     // start the poll loop. This will block the thread
     while (true) {
-        poll_num = poll(fds, nfds, -1);
+        poll_num = poll(fds, nfds, next_pending_ms());
         if (poll_num == -1) {
             if (errno == EINTR) { continue; }
             LOGERROR("file watcher poll command failed!, errno: {}", errno);
@@ -56,6 +57,8 @@ void FileWatcher::run() {
             }
             if (fds[1].revents & POLLIN) { handle_events(); }
         }
+
+        check_pending_modifies();
     }
 
     close(m_inotify_fd);
@@ -182,7 +185,18 @@ void FileWatcher::handle_events() {
             if ((event->mask & IN_MOVE_SELF) || (event->mask & IN_MODIFY) || (event->mask & IN_DELETE_SELF) ||
                 (event->mask & IN_UNMOUNT) || ((event->mask & IN_ATTRIB))) {
                 bool is_deleted = !(event->mask & IN_MODIFY);
-                on_modified_event(event->wd, is_deleted);
+                if (is_deleted) {
+                    on_modified_event(event->wd, true);
+                } else {
+                    auto lk = std::unique_lock< std::mutex >(m_files_lock);
+                    for (auto& [path, fi] : m_files) {
+                        if (fi.m_wd == event->wd) {
+                            fi.m_pending_modify = true;
+                            fi.m_last_modify_time = std::chrono::steady_clock::now();
+                            break;
+                        }
+                    }
+                }
             }
 
             // if the watch is removed due to file deletion or fs unmount (mask IN_IGNORED),
@@ -195,34 +209,14 @@ void FileWatcher::handle_events() {
 void FileWatcher::on_modified_event(const int wd, const bool is_deleted) {
     FileInfo file_info;
     get_fileinfo(wd, file_info);
-    if (is_deleted) {
-        // There is a corner case (very unlikely) where a new listener
-        // regestered for this filepath  after the current delete event was triggered.
-        {
-            auto lk = std::unique_lock< std::mutex >(m_files_lock);
-            remove_watcher(file_info);
-        }
-        for (const auto& [id, handler] : file_info.m_handlers) {
-            handler(file_info.m_filepath, true);
-        }
-        return;
+    // There is a corner case (very unlikely) where a new listener
+    // registered for this filepath after the current delete event was triggered.
+    {
+        auto lk = std::unique_lock< std::mutex >(m_files_lock);
+        remove_watcher(file_info);
     }
-
-    if (!check_file_size(file_info.m_filepath)) { return; }
-
-    const auto cur_buffer = file_info.m_filecontents;
-    if (!get_file_contents(file_info.m_filepath, file_info.m_filecontents)) {
-        LOGWARN("Could not read contents from the file: {}", file_info.m_filepath);
-        return;
-    }
-    if (file_info.m_filecontents == cur_buffer) {
-        LOGDEBUG("File contents have not changed: {}", file_info.m_filepath);
-    } else {
-        LOGDEBUG("File contents have changed: {}", file_info.m_filepath);
-        // notify file modification event
-        for (const auto& [id, handler] : file_info.m_handlers) {
-            handler(file_info.m_filepath, false);
-        }
+    for (const auto& [id, handler] : file_info.m_handlers) {
+        handler(file_info.m_filepath, is_deleted);
     }
 }
 
@@ -261,6 +255,65 @@ void FileWatcher::get_fileinfo(const int wd, FileInfo& file_info) const {
         }
     }
     LOGWARN("wd {} not found!", wd);
+}
+
+int FileWatcher::next_pending_ms() const {
+    auto lk = std::unique_lock< std::mutex >(m_files_lock);
+    int min_remaining = -1;
+    auto now = std::chrono::steady_clock::now();
+    for (const auto& [path, fi] : m_files) {
+        if (!fi.m_pending_modify) continue;
+        auto elapsed = std::chrono::duration_cast< std::chrono::milliseconds >(now - fi.m_last_modify_time).count();
+        int remaining = std::max(1LL, static_cast< long long >(m_debounce_ms) - elapsed);
+        if (min_remaining == -1 || remaining < min_remaining) { min_remaining = remaining; }
+    }
+    return min_remaining;
+}
+
+void FileWatcher::check_pending_modifies() {
+    auto now = std::chrono::steady_clock::now();
+
+    // Collect paths whose quiet period has elapsed; clear pending flag under lock.
+    std::vector< std::string > ready_paths;
+    {
+        auto lk = std::unique_lock< std::mutex >(m_files_lock);
+        for (auto& [path, fi] : m_files) {
+            if (!fi.m_pending_modify) continue;
+            auto elapsed =
+                std::chrono::duration_cast< std::chrono::milliseconds >(now - fi.m_last_modify_time).count();
+            if (static_cast< uint32_t >(elapsed) < m_debounce_ms) continue;
+            fi.m_pending_modify = false;
+            ready_paths.push_back(path);
+        }
+    }
+
+    // Read file and fire callbacks outside the lock to avoid holding it during I/O.
+    for (const auto& path : ready_paths) {
+        if (!check_file_size(path)) continue;
+        std::string new_contents;
+        if (!get_file_contents(path, new_contents)) {
+            LOGWARN("Could not read contents from the file: {}", path);
+            continue;
+        }
+
+        std::map< std::string, file_event_cb_t > handlers;
+        {
+            auto lk = std::unique_lock< std::mutex >(m_files_lock);
+            auto it = m_files.find(path);
+            if (it == m_files.end()) continue;
+            if (new_contents == it->second.m_filecontents) {
+                LOGDEBUG("File contents have not changed after debounce: {}", path);
+                continue;
+            }
+            it->second.m_filecontents = new_contents;
+            handlers = it->second.m_handlers;
+        }
+
+        LOGDEBUG("File contents have changed: {}", path);
+        for (const auto& [id, handler] : handlers) {
+            handler(path, false);
+        }
+    }
 }
 
 } // namespace sisl
