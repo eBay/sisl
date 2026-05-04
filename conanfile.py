@@ -265,6 +265,7 @@ class SISLConan(ConanFile):
             self.cpp_info.components["metrics"].requires.extend([
                     "logging",
                     "prometheus-cpp::prometheus-cpp",
+                    "userspace-rcu::userspace-rcu",
                     ])
             self.cpp_info.components["buffer"].requires.extend([
                     "metrics",
