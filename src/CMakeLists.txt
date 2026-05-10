@@ -17,6 +17,7 @@ find_package(spdlog REQUIRED)
 find_package(zmarok-semver REQUIRED)
 find_package(breakpad)
 
+add_subdirectory(async)
 add_subdirectory(logging)
 add_subdirectory(options)
 add_subdirectory(sobject)
