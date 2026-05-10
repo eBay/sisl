@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [14.1.0] - 2026-05-10
+- Add header-only async building blocks for sender-driven storage code. cqe_state bridges io_uring CQEs to callback-owned operation state; io_uring_scheduler
+  exposes single-threaded schedule_at() and async_submit() senders on a caller-owned ring, batches submission in poll_once(), and flushes pending SQEs when the
+  ring is full.
+- Add manual_scheduler for deterministic virtual-time tests, wire the async test target behind an existing stdexec target, and cover timer ordering/past-
+  deadline behavior. stdexec stays consumer-provided, so the module can remain header-only until sisl owns that dependency.
+
+
 ## [14.0.1] - 2026-04-26
 - Suppress warnings on Release builds due to missing `;`
 
