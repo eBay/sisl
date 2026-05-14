@@ -1,6 +1,8 @@
 #pragma once
 
+#include <coroutine>
 #include <cstdint>
+#include <utility>
 
 namespace sisl::async {
 
@@ -22,17 +24,13 @@ constexpr uint64_t k_managed_bit = 1ULL << 63;
 // CQE belongs to a sisl::async-aware submitter. False means the CQE should
 // be delegated to whoever else shares the io_uring (ublksrv command path,
 // raw consumers, etc.).
-inline bool is_managed_user_data(uint64_t ud) noexcept {
-    return 0 != (ud & k_managed_bit);
-}
+inline bool is_managed_user_data(uint64_t ud) noexcept { return 0 != (ud & k_managed_bit); }
 
 // Encodes a pointer into a user_data value with the managed bit set.
 // Type-erased on purpose for custom dispatch loops: they may recover whatever
 // pointer type they own. io_uring_scheduler specifically encodes
 // sisl::async::cqe_state* and decodes managed non-null values as that type.
-inline uint64_t encode_managed_user_data(void* p) noexcept {
-    return reinterpret_cast< uint64_t >(p) | k_managed_bit;
-}
+inline uint64_t encode_managed_user_data(void* p) noexcept { return reinterpret_cast< uint64_t >(p) | k_managed_bit; }
 
 // Strips the managed bit and returns the encoded pointer. Pre-condition:
 // is_managed_user_data(ud) is true. The result MAY be nullptr -- some
@@ -41,9 +39,7 @@ inline uint64_t encode_managed_user_data(void* p) noexcept {
 // is_managed_user_data check is for. If you only have a typed cqe_state
 // path and don't care about sentinels, treat managed-null and not-managed
 // as the same skip case.
-inline void* decode_managed_user_data(uint64_t ud) noexcept {
-    return reinterpret_cast< void* >(ud & ~k_managed_bit);
-}
+inline void* decode_managed_user_data(uint64_t ud) noexcept { return reinterpret_cast< void* >(ud & ~k_managed_bit); }
 
 // Per-SQE bridge between an io_uring CQE and the consumer that submitted it.
 // Polymorphic via a function-pointer + opaque context: the dispatch loop
@@ -70,9 +66,9 @@ struct cqe_state {
     using completion_fn = void (*)(void* ctx, int res) noexcept;
 
     completion_fn _on_complete{nullptr};
-    void*         _on_complete_ctx{nullptr};
-    int           _result{0};
-    bool          _result_ready{false};
+    void* _on_complete_ctx{nullptr};
+    int _result{0};
+    bool _result_ready{false};
 };
 
 // Standard "I reaped a CQE for this state, deliver it" sequence. Used by
@@ -80,9 +76,38 @@ struct cqe_state {
 // dispatch loop sharing the same io_uring (e.g. ublkpp's queue loop) so
 // the writes-then-callback ordering is identical across consumers.
 inline void complete_cqe_state(cqe_state& s, int res) noexcept {
-    s._result       = res;
+    s._result = res;
     s._result_ready = true;
     if (nullptr != s._on_complete) { s._on_complete(s._on_complete_ctx, res); }
 }
+
+// C++20 coroutine awaitable adapter built on cqe_state. Derives from
+// cqe_state and wires _on_complete/_on_complete_ctx to resume a stored
+// coroutine_handle<> when complete_cqe_state() fires.
+//
+// Exception discipline: completion_fn is noexcept, so any exception that
+// propagates through h.resume() calls std::terminate. Consumers that need
+// to survive coroutine-body exceptions must handle them inside the coroutine
+// frame (e.g., catch inside the body, or use a promise::unhandled_exception
+// that calls std::terminate rather than rethrowing).
+//
+// Lifetime: same as cqe_state -- the cqe_awaitable must remain alive until
+// the dispatch loop calls complete_cqe_state. Embed it in the coroutine
+// frame or a pre-reserved pool.
+struct cqe_awaitable : cqe_state {
+    std::coroutine_handle<> _waiter{};
+
+    bool await_ready() const noexcept { return _result_ready; }
+    int await_resume() const noexcept { return _result; }
+
+    void await_suspend(std::coroutine_handle<> h) noexcept {
+        _waiter = h;
+        _on_complete_ctx = this;
+        _on_complete = +[](void* ctx, int /*res*/) noexcept {
+            auto* self = static_cast< cqe_awaitable* >(ctx);
+            if (auto h = std::exchange(self->_waiter, {})) h.resume();
+        };
+    }
+};
 
 } // namespace sisl::async
