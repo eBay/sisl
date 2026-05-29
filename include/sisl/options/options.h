@@ -21,11 +21,11 @@
 #include <type_traits>
 
 #include <boost/preprocessor/cat.hpp>
+#include <boost/preprocessor/tuple/rem.hpp>  // must precede seq/for_each.hpp → tuple/elem.hpp
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
 #include <boost/preprocessor/tuple/push_front.hpp>
-#include <boost/preprocessor/tuple/rem.hpp>
 #include <boost/preprocessor/tuple/remove.hpp>
 #include <boost/preprocessor/tuple/to_seq.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
