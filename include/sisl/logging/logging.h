@@ -36,6 +36,7 @@
 
 #include <boost/preprocessor/cat.hpp>
 #include <boost/preprocessor/control/if.hpp>
+#include <boost/preprocessor/tuple/rem.hpp>  // must precede seq/for_each.hpp → tuple/elem.hpp
 #include <boost/preprocessor/seq/for_each.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/preprocessor/variadic/to_seq.hpp>
