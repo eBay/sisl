@@ -6,6 +6,7 @@
 // No io_uring or stdexec required -- completion is driven manually.
 
 #include <coroutine>
+#include <exception>
 
 #include <gtest/gtest.h>
 
