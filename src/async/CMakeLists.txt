@@ -5,6 +5,12 @@ cmake_minimum_required(VERSION 3.11)
 # feature branch today, a Conan recipe later); this CMakeLists is
 # inert if stdexec hasn't been declared as a target yet.
 #
+# disk_task tests have no stdexec dependency — compile unconditionally.
+add_executable(test_disk_task)
+target_sources(test_disk_task PRIVATE tests/test_disk_task.cpp)
+target_link_libraries(test_disk_task PRIVATE GTest::gtest GTest::gtest_main)
+add_test(NAME DiskTask COMMAND test_disk_task)
+
 if (TARGET stdexec)
     add_executable(test_cqe_awaitable)
     target_sources(test_cqe_awaitable PRIVATE
