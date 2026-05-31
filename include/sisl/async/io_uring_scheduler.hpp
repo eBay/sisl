@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <exception>
+#include <optional>
 #include <system_error>
 #include <utility>
 
@@ -187,16 +188,41 @@ private:
 
     template < typename PrepFn, typename Receiver >
     struct submit_op {
-        ::io_uring* _ring;
-        PrepFn      _prep;
-        Receiver    _receiver;
-        cqe_state   _state{};
+        using stop_token_t = stdexec::stop_token_of_t< stdexec::env_of_t< Receiver > >;
+
+        // When the receiver's stop token is signalled (on the scheduler's own thread -- consistent
+        // with the single-thread contract), submit an async-cancel for the in-flight op. The cancel
+        // MUST be keyed on the ENCODED user_data (the same value set on the original SQE); keying on
+        // the raw &_state returns -ENOENT. The cancel's own CQE is left unmanaged (user_data 0) so
+        // poll_once skips it; the original op then completes with -ECANCELED and we deliver set_stopped.
+        struct on_stop {
+            submit_op* _self;
+            void operator()() noexcept {
+                ::io_uring_sqe* const sqe = acquire_sqe(_self->_ring);
+                if (nullptr != sqe) {
+                    ::io_uring_prep_cancel64(sqe, encode_managed_user_data(&_self->_state), 0);
+                    ::io_uring_sqe_set_data64(sqe, 0);
+                }
+            }
+        };
+        using stop_callback_t = typename stop_token_t::template callback_type< on_stop >;
+
+        ::io_uring*                      _ring;
+        PrepFn                           _prep;
+        Receiver                         _receiver;
+        cqe_state                        _state{};
+        std::optional< stop_callback_t > _on_stop{};
 
         void start() noexcept {
             _state._on_complete_ctx = this;
             _state._on_complete     = +[](void* ctx, int res) noexcept {
                 auto* const self = static_cast< submit_op* >(ctx);
-                stdexec::set_value(std::move(self->_receiver), res);
+                self->_on_stop.reset(); // de-register before completing (dtor joins any in-flight callback)
+                if (-ECANCELED == res) {
+                    stdexec::set_stopped(std::move(self->_receiver));
+                } else {
+                    stdexec::set_value(std::move(self->_receiver), res);
+                }
             };
 
             ::io_uring_sqe* const sqe = acquire_sqe(_ring);
@@ -214,6 +240,12 @@ private:
             }
             _prep(sqe);
             ::io_uring_sqe_set_data64(sqe, encode_managed_user_data(&_state));
+
+            // Arm cancellation. Skipped entirely (no member overhead beyond the empty optional) for
+            // unstoppable tokens, so non-cancelling callers pay nothing.
+            if constexpr (!stdexec::unstoppable_token< stop_token_t >) {
+                _on_stop.emplace(stdexec::get_stop_token(stdexec::get_env(_receiver)), on_stop{this});
+            }
         }
     };
 
@@ -221,18 +253,19 @@ private:
     struct submit_sender {
         using sender_concept = stdexec::sender_t;
         using completion_signatures =
-            stdexec::completion_signatures< stdexec::set_value_t(int), stdexec::set_error_t(std::exception_ptr) >;
+            stdexec::completion_signatures< stdexec::set_value_t(int), stdexec::set_error_t(std::exception_ptr),
+                                            stdexec::set_stopped_t() >;
 
         ::io_uring* _ring;
         PrepFn      _prep;
 
         template < typename Receiver >
         submit_op< PrepFn, std::decay_t< Receiver > > connect(Receiver&& r) && noexcept {
-            return {_ring, std::move(_prep), std::forward< Receiver >(r), {}};
+            return {_ring, std::move(_prep), std::forward< Receiver >(r)};
         }
         template < typename Receiver >
         submit_op< PrepFn, std::decay_t< Receiver > > connect(Receiver&& r) const& noexcept {
-            return {_ring, _prep, std::forward< Receiver >(r), {}};
+            return {_ring, _prep, std::forward< Receiver >(r)};
         }
     };
 
