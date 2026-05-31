@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <coroutine>
 #include <cstdint>
 #include <utility>
@@ -82,31 +83,74 @@ inline void complete_cqe_state(cqe_state& s, int res) noexcept {
 }
 
 // C++20 coroutine awaitable adapter built on cqe_state. Derives from
-// cqe_state and wires _on_complete/_on_complete_ctx to resume a stored
-// coroutine_handle<> when complete_cqe_state() fires.
+// cqe_state and resumes a stored coroutine_handle<> when complete_cqe_state()
+// fires.
+//
+// THREAD SAFETY: the consumer that co_awaits (await_suspend) and the dispatch
+// loop that delivers the CQE (complete_cqe_state -> on_complete_thunk) may run
+// on DIFFERENT threads. The canonical example is iomgr's off-reactor drive
+// path: an application thread submits via run_on_forget(worker) and then
+// co_awaits this awaitable, while the completion is reaped and delivered on a
+// worker reactor thread. The two sides coordinate through a single lock-free
+// atomic state word with a "whoever runs second performs the one resume"
+// (a.k.a. single-slot future) protocol, restoring the cross-thread
+// happens-before that folly::Future's atomic core used to provide before the
+// coroutine migration. _result is published by complete_cqe_state before the
+// thunk's release-exchange and consumed after the matching acquire on the
+// other side, so the value handoff is race-free.
+//
+// Causal requirement: the completion must be delivered AFTER the consumer has
+// suspended -- i.e. complete_cqe_state must not run concurrently with the
+// coroutine still executing its suspend bookkeeping. Every real submitter
+// satisfies this naturally: the CQE that drives complete_cqe_state can only be
+// reaped after the SQE is submitted and the kernel finishes the I/O, which is
+// causally long after the awaiting coroutine suspended. The atomic exchange
+// publishes the awaiter state across the thread boundary; the realistic
+// submit -> suspend -> kernel -> reap -> complete ordering keeps the resume of
+// the suspended frame race-free.
+//
+// The completion callback is installed at construction (not lazily in
+// await_suspend) so a completion that races ahead of await_suspend is recorded
+// (flips the state to k_done) instead of being dropped because _on_complete was
+// still null. Because the installed _on_complete_ctx points at *this, the
+// awaitable is non-copyable/non-movable; embed it in a stable location (e.g.
+// the heap iocb / coroutine frame) and keep it alive until completion fires.
 //
 // Exception discipline: completion_fn is noexcept, so any exception that
-// propagates through h.resume() calls std::terminate. Consumers that need
+// propagates through _waiter.resume() calls std::terminate. Consumers that need
 // to survive coroutine-body exceptions must handle them inside the coroutine
-// frame (e.g., catch inside the body, or use a promise::unhandled_exception
-// that calls std::terminate rather than rethrowing).
-//
-// Lifetime: same as cqe_state -- the cqe_awaitable must remain alive until
-// the dispatch loop calls complete_cqe_state. Embed it in the coroutine
-// frame or a pre-reserved pool.
+// frame.
 struct cqe_awaitable : cqe_state {
-    std::coroutine_handle<> _waiter{};
+    enum : uint8_t { k_init = 0, k_waiting = 1, k_done = 2 };
 
-    bool await_ready() const noexcept { return _result_ready; }
+    std::coroutine_handle<> _waiter{};
+    std::atomic< uint8_t > _state{k_init};
+
+    cqe_awaitable() noexcept {
+        _on_complete_ctx = this;
+        _on_complete = &on_complete_thunk;
+    }
+    cqe_awaitable(const cqe_awaitable&) = delete;
+    cqe_awaitable& operator=(const cqe_awaitable&) = delete;
+
+    // Fast path: if the completion already arrived (state observed as k_done with
+    // acquire ordering, which also makes _result visible) skip suspension.
+    bool await_ready() const noexcept { return _state.load(std::memory_order_acquire) == k_done; }
     int await_resume() const noexcept { return _result; }
 
-    void await_suspend(std::coroutine_handle<> h) noexcept {
+    // Returns true to stay suspended (the completer will resume us later); false to
+    // resume immediately because the completion landed between await_ready and here.
+    // No recursive resume() is performed.
+    bool await_suspend(std::coroutine_handle<> h) noexcept {
         _waiter = h;
-        _on_complete_ctx = this;
-        _on_complete = +[](void* ctx, int /*res*/) noexcept {
-            auto* self = static_cast< cqe_awaitable* >(ctx);
-            if (auto h = std::exchange(self->_waiter, {})) h.resume();
-        };
+        return _state.exchange(k_waiting, std::memory_order_acq_rel) != k_done;
+    }
+
+    static void on_complete_thunk(void* ctx, int /*res*/) noexcept {
+        auto* const self = static_cast< cqe_awaitable* >(ctx);
+        // complete_cqe_state has already written _result / _result_ready; the
+        // acq_rel exchange publishes them to a consumer that observes k_done.
+        if (self->_state.exchange(k_done, std::memory_order_acq_rel) == k_waiting) { self->_waiter.resume(); }
     }
 };
 
