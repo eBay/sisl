@@ -9,7 +9,7 @@ required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "14.4.0"
+    version = "14.4.1"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -83,6 +83,9 @@ class SISLConan(ConanFile):
         self.requires("nlohmann_json/3.12.0", transitive_headers=True)
         self.requires("spdlog/1.17.0", transitive_headers=True)
         self.requires("zmarok-semver/1.1.0", transitive_headers=True)
+        # Public sisl/async coroutine headers (task.hpp/when_all.hpp) include <exec/...>; ship stdexec
+        # transitively so package consumers resolve it without their own FetchContent.
+        self.requires("stdexec/25.09", transitive_headers=True)
         self.requires("lz4/1.10.0", override=True)
         if self.settings.os in ["Linux"] and self.settings.compiler.get_safe("libcxx") != "libc++":
             self.requires("breakpad/cci.20210521")
@@ -251,7 +254,9 @@ class SISLConan(ConanFile):
                 "logging",
                 "zmarok-semver::zmarok-semver",
                 ])
-        sisl_requires = ["sobject", "version"]
+        # sisl/async coroutine headers (task.hpp/when_all.hpp) include <exec/...>; the umbrella component
+        # carries the dependency so consumers of sisl::sisl resolve stdexec.
+        sisl_requires = ["sobject", "version", "stdexec::stdexec"]
         if self.settings.os in ["Linux"]:
             sisl_requires.append("file_watcher")
         self.cpp_info.components["sisl"].requires.extend(sisl_requires)

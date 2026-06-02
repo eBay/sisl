@@ -1,0 +1,7 @@
+sources:
+  # NVIDIA stdexec, commit ea0d8788 (release nvhpc-25.09) -- the exact revision the in-tree
+  # FetchContent blocks (iomgr/nuraft_mesg/homestore) pin, so the conan-provided headers and the
+  # in-tree headers are byte-identical.
+  "25.09":
+    url: "https://github.com/NVIDIA/stdexec/archive/ea0d8788da51a1671daa00b88bf238725f0844a8.tar.gz"
+    sha256: "aa68f58be9854305fa09e7310ca3f4d79efb948c3df93b8904d3645be9a34751"

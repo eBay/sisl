@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.11)
 
-# sisl_async is header-only; the tests below need stdexec available in
-# the sisl build. The wiring is up to the consumer (FetchContent in a
-# feature branch today, a Conan recipe later); this CMakeLists is
-# inert if stdexec hasn't been declared as a target yet.
+# sisl_async is header-only; the tests below need stdexec, now provided by the conan package
+# (sisl requires stdexec/25.09 -> the stdexec::stdexec target; see 3rd_party/stdexec). find_package
+# is QUIET + gated so a non-conan build without stdexec just skips these tests rather than failing.
 #
 # disk_task tests have no stdexec dependency — compile unconditionally.
 add_executable(test_disk_task)
@@ -18,13 +17,14 @@ target_sources(test_value_awaitable PRIVATE tests/test_value_awaitable.cpp)
 target_link_libraries(test_value_awaitable PRIVATE GTest::gtest GTest::gtest_main)
 add_test(NAME ValueAwaitable COMMAND test_value_awaitable)
 
-if (TARGET stdexec)
+find_package(stdexec QUIET)
+if (TARGET stdexec::stdexec)
     add_executable(test_cqe_awaitable)
     target_sources(test_cqe_awaitable PRIVATE
         tests/test_cqe_awaitable.cpp
     )
     target_link_libraries(test_cqe_awaitable PRIVATE
-        stdexec
+        stdexec::stdexec
         GTest::gtest
         GTest::gtest_main
     )
@@ -35,7 +35,7 @@ if (TARGET stdexec)
         tests/test_manual_scheduler.cpp
     )
     target_link_libraries(test_manual_scheduler PRIVATE
-        stdexec
+        stdexec::stdexec
         GTest::gtest
         GTest::gtest_main
     )
