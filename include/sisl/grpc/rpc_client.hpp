@@ -37,6 +37,7 @@
 #include <sisl/utility/enum.hpp>
 #include <sisl/auth_manager/token_client.hpp>
 #include <sisl/fds/buffer.hpp>
+#include <sisl/async/value_awaitable.hpp>
 
 #include <fmt/format.h>
 
@@ -197,6 +198,47 @@ public:
 
 private:
     std::promise< GrpcResult< GenericClientResponse > > m_promise;
+};
+
+// ---- coroutine variant of the generic-unary future blob -------------------------
+//
+// Bridges a gRPC generic-unary completion to a co_await-able result WITHOUT a
+// std::future. The completion (delivered on a GrpcAsyncClientWorker thread) resolves
+// a sisl::async::value_awaitable; a consuming coroutine co_awaits it. The await state
+// lives in a refcounted shared block (like std::future's shared state) so the gRPC
+// data object can be deleted by client_loop while a still-pending or just-resumed
+// consumer keeps the result alive. Produced by GenericAsyncStub::call_unary_co().
+//
+// Intentionally only an awaitable, NOT a stdexec sender: the when_all fan-outs live a
+// layer up (over nuraft_mesg's exec::task results), so this leaf needs no stdexec and
+// keeps it out of this widely-included header. A consuming exec::task can co_await it.
+struct GenericRpcCoroState {
+    sisl::async::value_awaitable< GrpcResult< GenericClientResponse > > result;
+};
+using GenericRpcCoroStatePtr = std::shared_ptr< GenericRpcCoroState >;
+
+class GenericRpcDataCoroBlob : public ClientRpcDataInternal< grpc::ByteBuffer, grpc::ByteBuffer > {
+public:
+    explicit GenericRpcDataCoroBlob(GenericRpcCoroStatePtr state);
+    void handle_response([[maybe_unused]] bool ok = true) override;
+
+private:
+    GenericRpcCoroStatePtr m_state;
+};
+
+// Movable, co_await-able handle returned by GenericAsyncStub::call_unary_co().
+// co_await yields GrpcResult< GenericClientResponse >. Holds a ref to the shared await
+// state, so it stays valid across the gRPC data object's destruction.
+class GenericUnaryReply {
+public:
+    explicit GenericUnaryReply(GenericRpcCoroStatePtr state) noexcept : m_state{std::move(state)} {}
+
+    bool await_ready() const noexcept { return m_state->result.await_ready(); }
+    bool await_suspend(std::coroutine_handle<> h) noexcept { return m_state->result.await_suspend(h); }
+    GrpcResult< GenericClientResponse > await_resume() noexcept { return m_state->result.await_resume(); }
+
+private:
+    GenericRpcCoroStatePtr m_state;
 };
 
 template < typename ReqT, typename RespT >
@@ -475,6 +517,10 @@ public:
 
         GrpcAsyncResult< GenericClientResponse > call_unary(const io_blob_list_t& request, const std::string& method,
                                                             uint32_t deadline);
+
+        // Coroutine variant of the io_blob_list_t call_unary: returns a co_await-able reply instead of a
+        // std::future. Retained alongside the future overload during the coroutine migration.
+        GenericUnaryReply call_unary_co(const io_blob_list_t& request, const std::string& method, uint32_t deadline);
 
         std::unique_ptr< grpc::GenericStub > m_generic_stub;
         GrpcAsyncClientWorker* m_worker;

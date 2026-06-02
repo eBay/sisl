@@ -11,6 +11,13 @@ target_sources(test_disk_task PRIVATE tests/test_disk_task.cpp)
 target_link_libraries(test_disk_task PRIVATE GTest::gtest GTest::gtest_main)
 add_test(NAME DiskTask COMMAND test_disk_task)
 
+# value_awaitable is header-only and stdexec-free (the cross-thread bridge primitive
+# behind sisl/grpc's coroutine reply); compile its tests unconditionally too.
+add_executable(test_value_awaitable)
+target_sources(test_value_awaitable PRIVATE tests/test_value_awaitable.cpp)
+target_link_libraries(test_value_awaitable PRIVATE GTest::gtest GTest::gtest_main)
+add_test(NAME ValueAwaitable COMMAND test_value_awaitable)
+
 if (TARGET stdexec)
     add_executable(test_cqe_awaitable)
     target_sources(test_cqe_awaitable PRIVATE

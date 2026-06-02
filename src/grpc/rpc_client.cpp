@@ -189,6 +189,20 @@ GrpcAsyncResult< GenericClientResponse > GrpcAsyncClient::GenericAsyncStub::call
     return sf;
 }
 
+GenericUnaryReply GrpcAsyncClient::GenericAsyncStub::call_unary_co(const io_blob_list_t& request,
+                                                                   const std::string& method, uint32_t deadline) {
+    // Refcounted shared await state: held by both the gRPC data object (released when
+    // client_loop deletes it after handle_response) and the returned reply handle, so
+    // the result survives the data object's destruction -- the coroutine analog of the
+    // future overload's promise/future shared state.
+    auto state = std::make_shared< GenericRpcCoroState >();
+    auto data = new GenericRpcDataCoroBlob(state);
+    grpc::ByteBuffer cli_byte_buf;
+    serialize_to_byte_buffer(request, cli_byte_buf);
+    prepare_and_send_unary_generic(data, cli_byte_buf, method, deadline);
+    return GenericUnaryReply{std::move(state)};
+}
+
 std::unique_ptr< GrpcAsyncClient::GenericAsyncStub > GrpcAsyncClient::make_generic_stub(const std::string& worker) {
     auto w = GrpcAsyncClientWorker::get_worker(worker);
     if (w == nullptr) { throw std::runtime_error("worker thread not available"); }
@@ -241,6 +255,19 @@ void GenericRpcDataFutureBlob::handle_response([[maybe_unused]] bool ok) {
         m_promise.set_value(std::move(future_resp));
     } else {
         m_promise.set_value(std::unexpected(this->m_status));
+    }
+}
+
+GenericRpcDataCoroBlob::GenericRpcDataCoroBlob(GenericRpcCoroStatePtr state) : m_state{std::move(state)} {}
+
+void GenericRpcDataCoroBlob::handle_response([[maybe_unused]] bool ok) {
+    // For unary call, ok is always true, `status_` will indicate error if there are any.
+    // Resolve the shared await state; this resumes a suspended consumer coroutine (possibly on
+    // this gRPC worker thread). The state outlives `delete this` in client_loop via its shared_ptr.
+    if (this->m_status.ok()) {
+        m_state->result.complete(GenericClientResponse(this->m_reply));
+    } else {
+        m_state->result.complete(std::unexpected(this->m_status));
     }
 }
 
