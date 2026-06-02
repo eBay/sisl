@@ -75,9 +75,8 @@ task< std::vector< T > > when_all(std::vector< task< T > > tasks) {
 
     auto latch = std::make_shared< detail::fan_latch >(n);
     for (std::size_t i = 0; i < n; ++i) {
-        stdexec::start_detached(stdexec::write_env(
-            detail::fan_run_one< T >(std::move(tasks[i]), results, i, latch),
-            stdexec::prop{stdexec::get_scheduler, exec::inline_scheduler{}}));
+        stdexec::start_detached(stdexec::write_env(detail::fan_run_one< T >(std::move(tasks[i]), results, i, latch),
+                                                   stdexec::prop{stdexec::get_scheduler, exec::inline_scheduler{}}));
     }
     co_await latch->_done;
     co_return std::move(*results);
