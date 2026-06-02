@@ -43,6 +43,10 @@ class StdexecConan(ConanFile):
         # force the serial backend so consumers don't have to link TBB. Mirrors the in-tree
         # stdexec_iface targets in iomgr/nuraft_mesg/homestore.
         self.cpp_info.defines = ["_PSTL_PAR_BACKEND_SERIAL"]
-        if str(self.settings.compiler) in ("gcc", "clang"):
-            # stdexec internals legitimately trip these; suppress so -Werror consumers still build.
+        # stdexec internals trip a couple of warnings; suppress so -Werror consumers still build.
+        # -Wsubobject-linkage is gcc-only -- clang rejects it as an unknown warning option.
+        compiler = str(self.settings.compiler)
+        if compiler == "gcc":
             self.cpp_info.cxxflags = ["-Wno-empty-body", "-Wno-subobject-linkage"]
+        elif compiler == "clang":
+            self.cpp_info.cxxflags = ["-Wno-empty-body"]
