@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [14.5.0] - 2026-06-03
+- Shared awaitable
+
 ## [14.1.0] - 2026-05-10
 - Add header-only async building blocks for sender-driven storage code. cqe_state bridges io_uring CQEs to callback-owned operation state; io_uring_scheduler
   exposes single-threaded schedule_at() and async_submit() senders on a caller-owned ring, batches submission in poll_once(), and flushes pending SQEs when the

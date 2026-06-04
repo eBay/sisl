@@ -17,6 +17,13 @@ target_sources(test_value_awaitable PRIVATE tests/test_value_awaitable.cpp)
 target_link_libraries(test_value_awaitable PRIVATE GTest::gtest GTest::gtest_main)
 add_test(NAME ValueAwaitable COMMAND test_value_awaitable)
 
+# shared_awaitable is the multi-consumer (broadcast) sibling of value_awaitable (the folly::SharedPromise
+# replacement); also header-only and stdexec-free.
+add_executable(test_shared_awaitable)
+target_sources(test_shared_awaitable PRIVATE tests/test_shared_awaitable.cpp)
+target_link_libraries(test_shared_awaitable PRIVATE GTest::gtest GTest::gtest_main)
+add_test(NAME SharedAwaitable COMMAND test_shared_awaitable)
+
 find_package(stdexec QUIET)
 if (TARGET stdexec::stdexec)
     add_executable(test_cqe_awaitable)
