@@ -227,6 +227,14 @@ bool GrpcServer::register_generic_rpc(const std::string& name, const generic_rpc
     return true;
 }
 
+bool GrpcServer::deregister_generic_rpc(const std::string& name) {
+    // Drop the handler from the dispatch registry; subsequent run_generic_handler_cb lookups for `name` miss and
+    // return UNIMPLEMENTED. The per-cq GenericRpcData accept slots are generic (not per-method), so they are left
+    // in place to keep serving the remaining registered methods.
+    std::unique_lock< std::shared_mutex > lock(m_generic_rpc_registry_mtx);
+    return m_generic_rpc_registry.erase(name) > 0;
+}
+
 // RPCHelper static methods
 
 bool RPCHelper::has_server_shutdown(const GrpcServer* server) {

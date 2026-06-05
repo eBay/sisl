@@ -129,6 +129,11 @@ public:
     void run_generic_completion_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data);
     bool register_async_generic_service();
     bool register_generic_rpc(const std::string& name, const generic_rpc_handler_cb_t& rpc_handler);
+    // Remove a previously registered generic RPC handler so the server stops dispatching it (returns true if an
+    // entry was removed). New calls for `name` get UNIMPLEMENTED via run_generic_handler_cb; this does NOT drain a
+    // handler already executing (run_generic_handler_cb releases the registry lock before invoking the cb), so the
+    // caller must ensure no in-flight handler outlives any state the cb captures.
+    bool deregister_generic_rpc(const std::string& name);
 
 private:
     void handle_rpcs(uint32_t thread_num, const rpc_thread_start_cb_t& thread_start_cb);
