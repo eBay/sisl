@@ -98,6 +98,7 @@ class SISLConan(ConanFile):
         # transitively so package consumers resolve it without their own FetchContent.
         self.requires("stdexec/25.09", transitive_headers=True)
         self.requires("lz4/1.10.0", override=True)
+        self.requires("libcurl/[>=8.20.0]", override=True)
         if self._use_breakpad():
             self.requires("breakpad/cci.20210521")
 
