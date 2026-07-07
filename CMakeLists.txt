@@ -8,8 +8,14 @@ include (cmake/Flags.cmake)
 
 set(CMAKE_CXX_STANDARD 23)
 
-enable_testing()
-find_package(GTest QUIET REQUIRED)
+# BUILD_TESTING is the standard CMake test-tree toggle; Conan flips it to OFF automatically
+# when `-c tools.build:skip_test=True` is set, so the guarded targets below are neither built
+# nor run in that configuration.
+option(BUILD_TESTING "Build the testing tree" ON)
+if(BUILD_TESTING)
+    enable_testing()
+    find_package(GTest QUIET REQUIRED)
+endif()
 
 if (DEFINED BUILD_COVERAGE)
   if (${BUILD_COVERAGE})

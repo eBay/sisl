@@ -17,9 +17,11 @@ if(TARGET sisl_metrics)
   target_compile_definitions(sisl_http PUBLIC PROMETHEUS_METRICS_REPORTER)
 endif()
 
-add_executable(test_http_server)
-target_sources(test_http_server PRIVATE
-  tests/test_http_server.cpp
-  )
-target_link_libraries(test_http_server sisl_http sisl_options GTest::gtest)
-add_test(NAME HttpServer COMMAND test_http_server -v warn)
+if(BUILD_TESTING)
+    add_executable(test_http_server)
+    target_sources(test_http_server PRIVATE
+      tests/test_http_server.cpp
+      )
+    target_link_libraries(test_http_server sisl_http sisl_options GTest::gtest)
+    add_test(NAME HttpServer COMMAND test_http_server -v warn)
+endif()

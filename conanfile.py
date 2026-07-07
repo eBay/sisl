@@ -82,9 +82,10 @@ class SISLConan(ConanFile):
                     raise ConanInvalidConfiguration("Coverage/Sanitizer requires Testing!")
 
     def build_requirements(self):
-        self.test_requires("gtest/1.17.0")
-        if self.options.metrics:
-            self.test_requires("benchmark/1.9.5")
+        if not self.conf.get("tools.build:skip_test", default=False):
+            self.test_requires("gtest/1.17.0")
+            if self.options.metrics:
+                self.test_requires("benchmark/1.9.5")
 
     def requirements(self):
         # Required
