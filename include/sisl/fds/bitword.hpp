@@ -486,19 +486,30 @@ public:
     safe_bits& operator=(safe_bits&&) noexcept = delete;
     ~safe_bits() = default;
 
-    void set(const word_t& bits) { m_Value.store(bits, std::memory_order_relaxed); }
+    // These bits are a PUBLICATION mechanism: a set bit routinely means "the data this bit indexes is now
+    // valid" -- StreamTracker's slot payload, an allocated blk. Relaxed ops give a reader that observes a
+    // set bit no acquire edge to that data, so its read of the payload is a data race. Publish with
+    // release, observe with acquire.
+    //
+    // On x86-64 this is free: fetch_or is already a locked RMW, and an acquire load and a release store
+    // are plain movs (identical codegen to relaxed). On weakly ordered targets it is the difference
+    // between correct and merely lucky. Standalone atomic_thread_fence would also be correct, but
+    // ThreadSanitizer does not model fences (compiler-rt's AtomicFence is a no-op for happens-before, and
+    // GCC warns -Wtsan), so fence-based publication reports a false race on every scan -- which gets
+    // suppressed, which then hides the real ones. Keep the ordering on the ops. Do not weaken to relaxed.
+    void set(const word_t& bits) { m_Value.store(bits, std::memory_order_release); }
     void set_if(const word_t& old_value, const word_t& new_value) {
         word_t expected_value{old_value};
-        return m_Value.compare_exchange_strong(expected_value, new_value, std::memory_order_relaxed);
+        return m_Value.compare_exchange_strong(expected_value, new_value, std::memory_order_acq_rel);
     }
 
     word_t or_with(const word_t value) {
-        const word_t old_value{m_Value.fetch_or(value, std::memory_order_relaxed)};
+        const word_t old_value{m_Value.fetch_or(value, std::memory_order_acq_rel)};
         return (old_value | value);
     }
 
     word_t and_with(const word_t value) {
-        const word_t old_value{m_Value.fetch_and(value, std::memory_order_relaxed)};
+        const word_t old_value{m_Value.fetch_and(value, std::memory_order_acq_rel)};
         return (old_value & value);
     }
 
@@ -512,7 +523,7 @@ public:
 
         return new_value;
     }
-    word_t get() const { return m_Value.load(std::memory_order_relaxed); }
+    word_t get() const { return m_Value.load(std::memory_order_acquire); }
 
     bool operator==(const safe_bits& rhs) const { return get() == rhs.get(); }
 

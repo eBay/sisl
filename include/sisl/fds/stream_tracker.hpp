@@ -110,6 +110,8 @@ public:
 
         size_t nbit = idx - m_slot_ref_idx;
         if (!m_active_slot_bits.get_bitval(nbit)) { throw std::out_of_range("Slot idx is not in range"); }
+        // The acquiring read of the active bit (AtomicBitset publishes with release) is what makes this
+        // slot's payload visible to us. See the ordering note in do_update().
         return *get_slot_data(nbit);
     }
 
@@ -231,6 +233,11 @@ private:
         if (replace || !m_active_slot_bits.get_bitval(nbit)) {
             // First time being updated, so use placement new to use the slot to build data
             data = new ((void*)get_slot_data(nbit)) T(std::forward< Args >(args)...);
+            // ORDERING: the slot bit publishes the payload. Two shared_lock holders establish no ordering
+            // between them, so a concurrent scanner (e.g. LogDev::prepare_flush walking
+            // foreach_contiguous_active while appenders run) sees this slot only via its bit. AtomicBitset
+            // sets bits with release and reads them with acquire, so the placement-new above happens-before
+            // any scanner's read of the payload. Do not reorder these two statements.
             m_active_slot_bits.set_bit(nbit);
         } else {
             data = get_slot_data(nbit);
@@ -238,7 +245,8 @@ private:
 
         // Check with processor to update any fields and return if they are completed
         if (processor(*data)) {
-            // All actions on this idx is completed, truncate if needbe
+            // All actions on this idx is completed, truncate if needbe. The completion bit publishes the
+            // processor's field updates, for the same reason as the active bit above.
             m_comp_slot_bits.set_bit(nbit);
             if (AutoTruncate) {
                 if (m_cmpltd_count_since_last_truncate.fetch_add(1, std::memory_order_acq_rel) >= m_truncate_on_count) {
