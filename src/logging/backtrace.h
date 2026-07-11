@@ -52,7 +52,7 @@
 #include <execinfo.h>
 #endif
 
-#if defined(__linux__) 
+#if defined(__linux__)
 #include <linux/limits.h>
 #endif
 
@@ -67,7 +67,6 @@ constexpr size_t symbol_name_length{1024};
 constexpr size_t address_length{16};
 constexpr uint64_t pipe_timeout_ms{15000}; // 15 seconds.  Addr2line can be extremely slow the first time
 } // namespace backtrace_detail
-
 
 [[maybe_unused]] static size_t stack_backtrace_impl(void** const stack_ptr, const size_t stack_ptr_capacity) {
     return ::backtrace(stack_ptr, static_cast< int >(stack_ptr_capacity));
@@ -94,11 +93,9 @@ constexpr uint64_t pipe_timeout_ms{15000}; // 15 seconds.  Addr2line can be extr
                                                const bool trim_internal) {
 #if defined(__linux__)
     std::unique_ptr< FILE, std::function< void(FILE* const) > > stack_file{std::tmpfile(), [](FILE* const fp) {
-                                                                               if (fp)
-                                                                                   std::fclose(fp);
+                                                                               if (fp) std::fclose(fp);
                                                                            }};
-    if (!stack_file)
-        return 0;
+    if (!stack_file) return 0;
 
     ::backtrace_symbols_fd(stack_ptr, static_cast< int >(stack_size), ::fileno(stack_file.get()));
 
@@ -106,8 +103,9 @@ constexpr uint64_t pipe_timeout_ms{15000}; // 15 seconds.  Addr2line can be extr
         stack_interpret_linux_file(stack_ptr, stack_file.get(), stack_size, output_buf, output_buflen, trim_internal)};
 #else
     const std::unique_ptr< char*, std::function< void(char** const) > > stack_msg{
-        ::backtrace_symbols(stack_ptr, static_cast< int >(stack_size)),
-        [](char** const ptr) { if (ptr) std::free(static_cast< void* >(ptr)); }};
+        ::backtrace_symbols(stack_ptr, static_cast< int >(stack_size)), [](char** const ptr) {
+            if (ptr) std::free(static_cast< void* >(ptr));
+        }};
 #if defined(__APPLE__)
     const size_t len{
         stack_interpret_apple(stack_ptr, stack_msg.get(), stack_size, output_buf, output_buflen, trim_internal)};

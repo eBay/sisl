@@ -47,7 +47,7 @@ void monitor_file_changes(FileWatcherTest::FileChangeParams& file_change_params,
         file_change_params.file_str, listener,
         [&file_change_params, listener](const std::string filepath, const bool deleted) {
             EXPECT_EQ(file_change_params.file_str, filepath);
-	    LOGWARN("CB called with deleted = {}", deleted);
+            LOGWARN("CB called with deleted = {}", deleted);
             {
                 std::lock_guard< std::mutex > lg(file_change_params.file_change_lock);
                 file_change_params.is_deleted = deleted;

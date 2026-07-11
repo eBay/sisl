@@ -34,7 +34,7 @@ std::mutex glob_deque_mutex;
 
 std::unique_ptr< sisl::wisr_deque< uint64_t > > glob_wisr_deque;
 
-//#define ITERATIONS 100000
+// #define ITERATIONS 100000
 static constexpr size_t ITERATIONS{100};
 static constexpr size_t THREADS{8};
 static constexpr size_t NENTRIES_PER_THREAD{20000};

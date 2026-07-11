@@ -154,11 +154,11 @@ int64_t ThreadBufferMetricsGroup::counter_get(const uint64_t index) {
     // Gather the specific counter value from all threads
     flush_core_cache();
     CounterValue result_counter;
-    m_metrics_buf->access_all_threads([&](PerThreadMetrics* tmetrics, [[maybe_unused]] bool is_thread_running,
-                                          [[maybe_unused]] bool is_last_thread) {
-        result_counter.merge(tmetrics->get_counter(index));
-        return true;
-    });
+    m_metrics_buf->access_all_threads(
+        [&](PerThreadMetrics* tmetrics, [[maybe_unused]] bool is_thread_running, [[maybe_unused]] bool is_last_thread) {
+            result_counter.merge(tmetrics->get_counter(index));
+            return true;
+        });
     return result_counter.get();
 }
 
@@ -180,11 +180,11 @@ HistogramStatistics ThreadBufferMetricsGroup::histogram_get(const uint64_t index
     HistogramValue result_histogram;
     const auto& boundaries = hist_static_info(index).get_boundaries();
 
-    m_metrics_buf->access_all_threads([&](PerThreadMetrics* tmetrics, [[maybe_unused]] bool is_thread_running,
-                                          [[maybe_unused]] bool is_last_thread) {
-        result_histogram.merge(tmetrics->get_histogram(index), boundaries);
-        return true;
-    });
+    m_metrics_buf->access_all_threads(
+        [&](PerThreadMetrics* tmetrics, [[maybe_unused]] bool is_thread_running, [[maybe_unused]] bool is_last_thread) {
+            result_histogram.merge(tmetrics->get_histogram(index), boundaries);
+            return true;
+        });
 
     HistogramStatistics stats;
     stats.count = hist_dynamic_info(index).count(result_histogram);

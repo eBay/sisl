@@ -74,7 +74,6 @@ TEST_F(SobjectTest, BasicTest) {
 
     auto c_child_child_vec = create_nodes(c_sub_vec[0], "C_sub_sub", "C_sub_sub", 2);
 
-
     {
         // Get all objects.
         status_request req;
@@ -97,7 +96,9 @@ TEST_F(SobjectTest, BasicTest) {
         req.do_recurse = false;
         resp = mgr.get_status(req);
         LOGINFO("{}", resp.json.dump());
-        ASSERT_EQ(resp.json.dump(), R"({"children":{"A":["A_1","A_2"],"C":["C_1","C_2"]},"module_1_metric":1,"name":"module_1","type":"module"})");
+        ASSERT_EQ(
+            resp.json.dump(),
+            R"({"children":{"A":["A_1","A_2"],"C":["C_1","C_2"]},"module_1_metric":1,"name":"module_1","type":"module"})");
     }
 
     {

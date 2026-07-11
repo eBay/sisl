@@ -26,7 +26,7 @@
 THREAD_BUFFER_INIT
 RCU_REGISTER_INIT
 
-//#define ITERATIONS 100000
+// #define ITERATIONS 100000
 static constexpr size_t ITERATIONS{100};
 static constexpr size_t THREADS{8};
 

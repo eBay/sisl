@@ -35,8 +35,8 @@ GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const s
 GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, const std::string& ssl_key,
                        const std::string& ssl_cert, const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr) :
         GrpcServer::GrpcServer(listen_addr, threads, 0, 0, ssl_key, ssl_cert, auth_mgr) {}
-GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, int max_receive_msg_size, int max_send_msg_size,
-                       const std::string& ssl_key, const std::string& ssl_cert,
+GrpcServer::GrpcServer(const std::string& listen_addr, uint32_t threads, int max_receive_msg_size,
+                       int max_send_msg_size, const std::string& ssl_key, const std::string& ssl_cert,
                        const std::shared_ptr< sisl::GrpcTokenVerifier >& auth_mgr) :
         m_num_threads{threads}, m_auth_mgr{auth_mgr} {
     if (listen_addr.empty() || threads == 0) { throw std::invalid_argument("Invalid parameter to start grpc server"); }
@@ -164,7 +164,9 @@ void GrpcServer::shutdown() {
 
 bool GrpcServer::is_auth_enabled() const { return m_auth_mgr != nullptr; }
 
-grpc::Status GrpcServer::auth_verify(grpc::ServerContext const* srv_ctx) const { return m_auth_mgr->verify_ctx(srv_ctx); }
+grpc::Status GrpcServer::auth_verify(grpc::ServerContext const* srv_ctx) const {
+    return m_auth_mgr->verify_ctx(srv_ctx);
+}
 
 bool GrpcServer::run_generic_handler_cb(const std::string& rpc_name, boost::intrusive_ptr< GenericRpcData >& rpc_data) {
     generic_rpc_handler_cb_t cb;

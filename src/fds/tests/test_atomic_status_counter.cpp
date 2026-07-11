@@ -29,7 +29,7 @@ SISL_OPTIONS_ENABLE(logging)
 namespace {
 class AtomicStatusCounterTest : public testing::Test {
 public:
-    AtomicStatusCounterTest() : testing::Test(){};
+    AtomicStatusCounterTest() : testing::Test() {};
     AtomicStatusCounterTest(const AtomicStatusCounterTest&) = delete;
     AtomicStatusCounterTest(AtomicStatusCounterTest&&) noexcept = delete;
     AtomicStatusCounterTest& operator=(const AtomicStatusCounterTest&) = delete;

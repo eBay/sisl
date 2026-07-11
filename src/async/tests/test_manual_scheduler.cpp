@@ -17,8 +17,8 @@ namespace {
 
 TEST(manual_scheduler, step_below_deadline_does_not_fire) {
     sisl::async::manual_scheduler sched;
-    bool                          fired  = false;
-    auto                          runner = [&]() -> exec::task< void > {
+    bool fired = false;
+    auto runner = [&]() -> exec::task< void > {
         co_await sched.schedule_at(50'000'000);
         fired = true;
     };
@@ -34,8 +34,8 @@ TEST(manual_scheduler, step_below_deadline_does_not_fire) {
 
 TEST(manual_scheduler, step_past_deadline_fires_in_one_drain) {
     sisl::async::manual_scheduler sched;
-    bool                          fired  = false;
-    auto                          runner = [&]() -> exec::task< void > {
+    bool fired = false;
+    auto runner = [&]() -> exec::task< void > {
         co_await sched.schedule_at(50'000'000);
         fired = true;
     };
@@ -50,7 +50,7 @@ TEST(manual_scheduler, step_past_deadline_fires_in_one_drain) {
 
 TEST(manual_scheduler, multiple_timers_fire_in_deadline_order) {
     sisl::async::manual_scheduler sched;
-    std::vector< int >            order;
+    std::vector< int > order;
 
     auto schedule_one = [&](int label, uint64_t wall_ns) -> exec::task< void > {
         co_await sched.schedule_at(wall_ns);
@@ -82,7 +82,7 @@ TEST(manual_scheduler, deadline_already_past_fires_immediately) {
     sisl::async::manual_scheduler sched;
     sched.step(std::chrono::milliseconds{100}); // now=100ms
 
-    bool fired  = false;
+    bool fired = false;
     auto runner = [&]() -> exec::task< void > {
         // Schedule a deadline that is already in the past.
         co_await sched.schedule_at(50'000'000);

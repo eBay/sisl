@@ -34,7 +34,7 @@ std::mutex glob_vector_mutex;
 
 std::unique_ptr< sisl::wisr_vector< uint64_t > > glob_wisr_vector;
 
-//#define ITERATIONS 100000
+// #define ITERATIONS 100000
 static constexpr size_t ITERATIONS{100};
 static constexpr size_t THREADS{8};
 static constexpr size_t NENTRIES_PER_THREAD{200};
