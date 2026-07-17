@@ -33,6 +33,13 @@ if(BUILD_TESTING)
     target_link_libraries(metrics_wrapper_test sisl_metrics GTest::gtest)
     add_test(NAME MetricsWrapper COMMAND metrics_wrapper_test)
 
+    add_executable(metrics_registration_race_test)
+    target_sources(metrics_registration_race_test PRIVATE
+        tests/registration_race_test.cpp
+      )
+    target_link_libraries(metrics_registration_race_test sisl_metrics GTest::gtest)
+    add_test(NAME MetricsRegistrationRace COMMAND metrics_registration_race_test)
+
     add_executable(metrics_benchmark)
     target_sources(metrics_benchmark PRIVATE
         tests/metrics_benchmark.cpp

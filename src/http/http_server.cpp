@@ -198,15 +198,23 @@ bool HttpServer::auth_verify(httplib::Request const& req, httplib::Response& res
     return false;
 }
 
+// Split out of get_local_ips() so tests can feed a synthetic interface list: whether a host actually has
+// an address-less interface is not something a test can arrange.
+void collect_local_ipv4_addrs(struct ifaddrs* interfaces, std::unordered_set< std::string >& out) {
+    for (auto* addr = interfaces; addr != nullptr; addr = addr->ifa_next) {
+        // getifaddrs(3) leaves ifa_addr null for interfaces with no assigned address (tunnels, ppp).
+        if (addr->ifa_addr == nullptr) { continue; }
+        if (addr->ifa_addr->sa_family == AF_INET) {
+            out.emplace(inet_ntoa(((struct sockaddr_in*)addr->ifa_addr)->sin_addr));
+        }
+    }
+}
+
 void HttpServer::get_local_ips() {
     struct ifaddrs* interfaces = nullptr;
     auto error = getifaddrs(&interfaces);
     if (error != 0) { LOGWARN("getifaddrs returned non zero code: {}", error); }
-    for (auto* addr = interfaces; addr != nullptr; addr = addr->ifa_next) {
-        if (addr->ifa_addr->sa_family == AF_INET) {
-            m_local_ips.emplace(inet_ntoa(((struct sockaddr_in*)addr->ifa_addr)->sin_addr));
-        }
-    }
+    collect_local_ipv4_addrs(interfaces, m_local_ips);
     freeifaddrs(interfaces);
 }
 

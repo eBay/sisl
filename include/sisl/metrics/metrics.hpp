@@ -162,15 +162,20 @@ public:
         return instance;
     }
 
-    void set_index(const uint64_t index) { m_Index = index; }
-    [[nodiscard]] uint64_t get_index() const { return m_Index; }
+    void set_index(const uint64_t index) { m_Index.store(index, std::memory_order_relaxed); }
+    [[nodiscard]] uint64_t get_index() const { return m_Index.load(std::memory_order_relaxed); }
     [[nodiscard]] constexpr const char* get_name() const { return m_Name; }
 
 private:
     NamedCounter() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    uint64_t m_Index;
+
+    // Every instance of a group re-registers into this global singleton, so set_index races with the
+    // get_index() on the metric update path. Each registration writes the same index, and the index only
+    // ever selects a slot in the caller's own already-constructed group instance, so nothing is published
+    // through it -- relaxed is sufficient, and costs nothing over a plain load/store.
+    std::atomic< uint64_t > m_Index;
 };
 
 template < char... elements >
@@ -186,15 +191,17 @@ public:
         return instance;
     }
 
-    void set_index(const uint64_t index) { m_Index = index; }
-    [[nodiscard]] uint64_t get_index() const { return m_Index; }
+    void set_index(const uint64_t index) { m_Index.store(index, std::memory_order_relaxed); }
+    [[nodiscard]] uint64_t get_index() const { return m_Index.load(std::memory_order_relaxed); }
     [[nodiscard]] constexpr const char* get_name() const { return m_Name; }
 
 private:
     NamedGauge() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    uint64_t m_Index;
+
+    // See the ordering note in NamedCounter::m_Index.
+    std::atomic< uint64_t > m_Index;
 };
 
 template < char... elements >
@@ -210,15 +217,17 @@ public:
         return instance;
     }
 
-    void set_index(const uint64_t index) { m_Index = index; }
-    [[nodiscard]] uint64_t get_index() const { return m_Index; }
+    void set_index(const uint64_t index) { m_Index.store(index, std::memory_order_relaxed); }
+    [[nodiscard]] uint64_t get_index() const { return m_Index.load(std::memory_order_relaxed); }
     [[nodiscard]] constexpr const char* get_name() const { return m_Name; }
 
 private:
     NamedHistogram() : m_Index{std::numeric_limits< uint64_t >::max()} {}
 
     static constexpr char m_Name[sizeof...(elements) + 1] = {elements..., '\0'};
-    uint64_t m_Index;
+
+    // See the ordering note in NamedCounter::m_Index.
+    std::atomic< uint64_t > m_Index;
 };
 
 // decltype(BOOST_PP_CAT(BOOST_PP_STRINGIZE(name), _tstr)

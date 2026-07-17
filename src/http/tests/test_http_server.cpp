@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <ifaddrs.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -8,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <unordered_set>
 
 #include <gtest/gtest.h>
 
@@ -93,6 +95,55 @@ public:
 void ok_handler(httplib::Request const&, httplib::Response& res) { res.set_content("ok", "text/plain"); }
 
 } // namespace
+
+// ---- Local IP discovery ----
+
+namespace sisl {
+// Defined in http_server.cpp; declared here rather than in the public header so <ifaddrs.h> stays out of
+// sisl/http/http_server.hpp.
+void collect_local_ipv4_addrs(struct ifaddrs* interfaces, std::unordered_set< std::string >& out);
+} // namespace sisl
+
+// getifaddrs(3) returns a null ifa_addr for interfaces with no assigned address -- a VPN or tunnel, say.
+// Dereferencing it unconditionally segfaulted every HttpServer constructor on such a host, which no CI
+// runner reproduces because lo/eth0 always carry an address. Hence the synthetic list.
+TEST(HttpServer, LocalIpsSkipNullIfaddr) {
+    struct sockaddr_in v4{};
+    v4.sin_family = AF_INET;
+    ASSERT_EQ(::inet_pton(AF_INET, "10.1.2.3", &v4.sin_addr), 1);
+
+    struct sockaddr_in6 v6{};
+    v6.sin6_family = AF_INET6;
+
+    char tun_name[]{"tun0"}, eth_name[]{"eth0"}, v6_name[]{"eth1"};
+
+    struct ifaddrs v6_if{};
+    v6_if.ifa_name = v6_name;
+    v6_if.ifa_addr = reinterpret_cast< struct sockaddr* >(&v6);
+    v6_if.ifa_next = nullptr;
+
+    struct ifaddrs v4_if{};
+    v4_if.ifa_name = eth_name;
+    v4_if.ifa_addr = reinterpret_cast< struct sockaddr* >(&v4);
+    v4_if.ifa_next = &v6_if;
+
+    struct ifaddrs tun_if{}; // address-less interface: the one that used to crash
+    tun_if.ifa_name = tun_name;
+    tun_if.ifa_addr = nullptr;
+    tun_if.ifa_next = &v4_if;
+
+    std::unordered_set< std::string > ips;
+    sisl::collect_local_ipv4_addrs(&tun_if, ips);
+
+    EXPECT_EQ(ips.size(), 1u);
+    EXPECT_EQ(ips.count("10.1.2.3"), 1u);
+}
+
+TEST(HttpServer, LocalIpsEmptyList) {
+    std::unordered_set< std::string > ips;
+    sisl::collect_local_ipv4_addrs(nullptr, ips);
+    EXPECT_TRUE(ips.empty());
+}
 
 // ---- URL classification (no server start needed) ----
 
