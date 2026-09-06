@@ -348,6 +348,9 @@ HistogramStaticInfo::HistogramStaticInfo(const std::string& name, const std::str
                                          const std::string& report_name, const metric_label& label_pair,
                                          const hist_bucket_boundaries_t& bkt_boundaries) :
         m_name(report_name.empty() ? name : report_name), m_desc(desc), m_bkt_boundaries(bkt_boundaries) {
+    RELEASE_ASSERT_LE(HistogramBuckets::num_buckets(bkt_boundaries), HistogramBuckets::max_hist_bkts,
+                      "Histogram '{}' supports at most {} boundaries, but {} were provided", name,
+                      HistogramBuckets::max_hist_bkts - 1, bkt_boundaries.size());
     if (!label_pair.first.empty() && !label_pair.second.empty()) { m_label_pair = label_pair; }
 }
 

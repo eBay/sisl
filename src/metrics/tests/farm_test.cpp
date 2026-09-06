@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <thread>
 
 #include <gtest/gtest.h>
@@ -174,6 +175,30 @@ public:
 // Parameterized test fixture for DirectAccess tests
 class DirectAccessTest : public ::testing::TestWithParam< group_impl_type_t > {};
 
+class HistogramOverflowMetrics : public MetricsGroup {
+public:
+    HistogramOverflowMetrics(const char* inst_name, const group_impl_type_t type)
+        : MetricsGroup("HistogramOverflowGroup", inst_name, type) {
+        REGISTER_HISTOGRAM(overflow_histogram, "Overflow histogram", HistogramBucketsType(SteppedUpto32Buckets));
+        register_me_to_farm();
+    }
+    ~HistogramOverflowMetrics() { deregister_me_from_farm(); }
+};
+
+bool has_prometheus_sample(const std::string& output, const std::string& metric_name, const std::string& instance_name,
+                           const std::string& extra_label, const std::string& expected_value) {
+    std::istringstream lines{output};
+    std::string line;
+    while (std::getline(lines, line)) {
+        if (line.rfind(metric_name, 0) == 0 && line.find("entity=\"" + instance_name + "\"") != std::string::npos &&
+            (extra_label.empty() || line.find(extra_label) != std::string::npos) &&
+            line.ends_with(" " + expected_value)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Test direct access to counter, gauge, and histogram values
 TEST_P(DirectAccessTest, allMetricTypes) {
     group_impl_type_t impl_type = GetParam();
@@ -205,6 +230,27 @@ TEST_P(DirectAccessTest, allMetricTypes) {
     EXPECT_GT(stats.p50, 0.0);
     EXPECT_GT(stats.p95, 0.0);
     EXPECT_GT(stats.p99, 0.0);
+}
+
+TEST_P(DirectAccessTest, histogramOverflowBucket) {
+    const auto impl_type = GetParam();
+    HistogramOverflowMetrics metrics("histogram_overflow_test", impl_type);
+
+    constexpr int64_t highest_boundary{32};
+    HISTOGRAM_OBSERVE(metrics, overflow_histogram, highest_boundary - 1);
+    HISTOGRAM_OBSERVE(metrics, overflow_histogram, highest_boundary);
+    HISTOGRAM_OBSERVE(metrics, overflow_histogram, highest_boundary + 1);
+
+    const auto stats = HISTOGRAM_VALUE(metrics, overflow_histogram);
+    EXPECT_EQ(stats.count, 3);
+    EXPECT_DOUBLE_EQ(stats.average, 32.0);
+
+    const auto output = MetricsFarm::getInstance().report(ReportFormat::kTextFormat);
+    const auto& instance_name = metrics.instance_name();
+    EXPECT_TRUE(has_prometheus_sample(output, "overflow_histogram_bucket", instance_name, "le=\"32\"", "2"));
+    EXPECT_TRUE(has_prometheus_sample(output, "overflow_histogram_bucket", instance_name, "le=\"+Inf\"", "3"));
+    EXPECT_TRUE(has_prometheus_sample(output, "overflow_histogram_count", instance_name, "", "3"));
+    EXPECT_TRUE(has_prometheus_sample(output, "overflow_histogram_sum", instance_name, "", "96"));
 }
 
 INSTANTIATE_TEST_SUITE_P(AllImplementations, DirectAccessTest,

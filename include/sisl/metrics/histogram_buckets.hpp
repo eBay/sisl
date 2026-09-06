@@ -79,6 +79,8 @@ public:
     HistogramBuckets(const HistogramBuckets&) = delete;
     void operator=(const HistogramBuckets&) = delete;
 
+    static size_t num_buckets(const hist_bucket_boundaries_t& boundaries) { return boundaries.size() + 1; }
+
 #define X(name, ...) _hist_bkt_count(__VA_ARGS__),
     static const constexpr size_t max_hist_bkts =
         _get_max_hist_bkts(HIST_BKTS_TYPES 0UL) + 1; // +1 for upper bound bucket
