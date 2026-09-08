@@ -299,6 +299,11 @@ public:
     std::unique_ptr< typename ServiceT::StubInterface > MakeStub() {
         return ServiceT::NewStub(m_channel);
     }
+
+protected:
+    void inject_auth_metadata(::grpc::ClientContext& ctx) const {
+        if (m_token_client) { ctx.AddMetadata(m_token_client->get_auth_header_key(), m_token_client->get_token()); }
+    }
 };
 
 ENUM(ClientState, uint8_t, VOID, INIT, RUNNING, SHUTTING_DOWN, TERMINATED)
