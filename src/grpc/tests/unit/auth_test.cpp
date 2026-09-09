@@ -357,7 +357,7 @@ TEST_F(AuthEnableTest, sync_client_injects_auth_header) {
     EchoReply reply;
     req.set_message("sync_inject_auth");
     ::grpc::Status status = sync_client.call_echo(req, reply);
-    ASSERT_TRUE(status.ok()) << status.error_message();
+    EXPECT_TRUE(status.ok());
     EXPECT_EQ(req.message(), reply.message());
 }
 
