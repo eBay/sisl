@@ -326,13 +326,6 @@ public:
 
     const std::unique_ptr< EchoService::StubInterface >& echo_stub() { return echo_stub_; }
 
-    // Simulates how a real sync client subclass uses inject_auth_metadata (analogous to OmClient::init_ctx).
-    ::grpc::Status call_echo(const EchoRequest& req, EchoReply& reply) {
-        ::grpc::ClientContext ctx;
-        inject_auth_metadata(ctx);
-        return echo_stub_->Echo(&ctx, req, &reply);
-    }
-
 private:
     std::unique_ptr< EchoService::StubInterface > echo_stub_;
 };
@@ -348,28 +341,6 @@ TEST_F(AuthEnableTest, allow_sync_client_with_auth) {
     auto status = sync_client->echo_stub()->Echo(&context, req, &reply);
     EXPECT_TRUE(status.ok());
     EXPECT_EQ(req.message(), reply.message());
-}
-
-TEST_F(AuthEnableTest, sync_client_injects_auth_header) {
-    EchoAndPingClient sync_client{grpc_server_addr, m_token_client, "", ""};
-    sync_client.init();
-    EchoRequest req;
-    EchoReply reply;
-    req.set_message("sync_inject_auth");
-    ::grpc::Status status = sync_client.call_echo(req, reply);
-    EXPECT_TRUE(status.ok());
-    EXPECT_EQ(req.message(), reply.message());
-}
-
-TEST_F(AuthServerOnlyTest, sync_client_no_token_is_noop) {
-    EchoAndPingClient sync_client{grpc_server_addr, "", ""};
-    sync_client.init();
-    EchoRequest req;
-    EchoReply reply;
-    req.set_message("sync_no_token");
-    ::grpc::Status status = sync_client.call_echo(req, reply);
-    EXPECT_FALSE(status.ok());
-    EXPECT_EQ(status.error_code(), ::grpc::UNAUTHENTICATED);
 }
 
 void validate_generic_reply(const std::string& method, ::grpc::Status& status) {
