@@ -10,14 +10,17 @@
 //
 // Requires stdexec on the include path (same opt-in as <sisl/async/task.hpp>).
 
+#include <chrono>
 #include <exception>
+#include <future>
 #include <tuple>
 #include <utility>
 
-#include <exec/inline_scheduler.hpp>
 #include <stdexec/execution.hpp>
 
+#include <sisl/async/shared_awaitable.hpp>
 #include <sisl/async/task.hpp>
+#include <sisl/async/value_awaitable.hpp>
 #include <sisl/logging/logging.h>
 
 namespace sisl::async {
@@ -48,8 +51,8 @@ inline task< T > await_value_ref(value_awaitable< T >& aw) {
 // when_all.
 template < typename Task >
 inline void start_coro(Task&& t) {
-    stdexec::start_detached(
-        stdexec::write_env(std::forward< Task >(t), stdexec::prop{stdexec::get_scheduler, exec::inline_scheduler{}}));
+    stdexec::start_detached(stdexec::write_env(std::forward< Task >(t),
+                                               stdexec::prop{stdexec::get_scheduler, stdexec::inline_scheduler{}}));
 }
 
 // Block the calling thread until the task completes and return its value. For the infrequent control-plane and
@@ -72,15 +75,15 @@ inline auto sync_get(Task&& task) {
 // ref into its frame); we simply stop waiting and leave it to complete (or leak) later. Used by the data-receive
 // timeout path, which then inspects per-item readiness and remediates the stragglers.
 template < typename Task >
-inline bool sync_wait_for(Task&& task, std::chrono::milliseconds timeout) {
+inline bool sync_wait_for(Task&& t, std::chrono::milliseconds timeout) {
     auto done = std::make_shared< std::promise< void > >();
     auto fut = done->get_future();
-    start_coro([](std::decay_t< Task > t, std::shared_ptr< std::promise< void > > d) -> task< void > {
+    start_coro([](std::decay_t< Task > inner, std::shared_ptr< std::promise< void > > d) -> task< void > {
         try {
-            co_await std::move(t);
+            co_await std::move(inner);
         } catch (...) {}
         d->set_value();
-    }(std::forward< Task >(task), std::move(done)));
+    }(std::forward< Task >(t), std::move(done)));
     return fut.wait_for(timeout) == std::future_status::ready;
 }
 
@@ -98,15 +101,16 @@ inline task< void > detach_wrapper(task< T > t) {
 
 // Fire-and-forget a task whose result is not needed (e.g. a non-forced CP trigger). Starts it detached.
 template < typename T >
-inline void detach(task< T > task) {
-    start_coro(detach_wrapper< T >(std::move(task)));
+inline void detach(task< T > t) {
+    start_coro(detach_wrapper< T >(std::move(t)));
 }
 
 // Fire-and-forget a task but invoke fn(result) when it completes (the non-blocking ".thenValue(cb)" shape).
 // fn runs on whatever thread completes the task. Both task and fn are copied into the self-owning frame.
 template < typename T, typename Fn >
-inline void detach_then(task< T > task, Fn fn) {
-    start_coro([](task< T > t, Fn f) -> task< void > { f(co_await std::move(t)); }(std::move(task), std::move(fn)));
+inline void detach_then(task< T > t, Fn fn) {
+    start_coro(
+        [](task< T > inner, Fn f) -> task< void > { f(co_await std::move(inner)); }(std::move(t), std::move(fn)));
 }
 
 } // namespace sisl::async
