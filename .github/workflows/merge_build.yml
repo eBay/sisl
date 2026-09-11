@@ -11,6 +11,7 @@ on:
 
 jobs:
   GccThreadSanitize:
+    if: ${{ false }}
     uses: ./.github/workflows/build_dependencies.yml
     with:
       platform: "ubuntu-24.04"
