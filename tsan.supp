@@ -50,3 +50,9 @@ race:default_free
 race:sisl::wisr_framework
 race:sisl::urcu_scoped_ptr
 
+# test_bounded_mpmc_queue: boost::lockfree::queue's freelist/tagged-pointer CAS reclamation is
+# itself lock-free and provides a happens-before that TSAN cannot model, same class as the URCU
+# suppressions above. Every reported race is internal to do_push/pop, not to sisl::BoundedMPMCQueue
+# (its own m_size counter is a plain fetch_add/fetch_sub, already correctly ordered).
+race:boost::lockfree
+

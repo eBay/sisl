@@ -55,5 +55,18 @@ if(BUILD_TESTING)
             GTest::gtest_main
         )
         add_test(NAME ManualScheduler COMMAND test_manual_scheduler)
+
+        # coro.hpp is not included anywhere else in this repo; this test's only job -- besides covering
+        # its documented behavior -- is to force the compiler to actually parse and instantiate it.
+        add_executable(test_coro)
+        target_sources(test_coro PRIVATE
+            tests/test_coro.cpp
+        )
+        target_link_libraries(test_coro PRIVATE
+            stdexec::stdexec
+            sisl_logging
+            GTest::gtest
+        )
+        add_test(NAME Coro COMMAND test_coro)
     endif()
 endif()

@@ -88,6 +88,28 @@ if(BUILD_TESTING)
     target_link_libraries(test_idreserver sisl_buffer GTest::gtest)
     add_test(NAME IdReserver COMMAND test_idreserver)
 
+    add_executable(test_bounded_mpmc_queue)
+    target_sources(test_bounded_mpmc_queue PRIVATE
+      tests/test_bounded_mpmc_queue.cpp
+      )
+    target_link_libraries(test_bounded_mpmc_queue sisl_buffer GTest::gtest)
+    add_test(NAME BoundedMPMCQueue COMMAND test_bounded_mpmc_queue)
+    set_tests_properties(BoundedMPMCQueue PROPERTIES
+        ENVIRONMENT "TSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tsan.supp")
+
+    add_executable(test_lru_map)
+    target_sources(test_lru_map PRIVATE
+      tests/test_lru_map.cpp
+      )
+    target_link_libraries(test_lru_map sisl_buffer GTest::gtest)
+    add_test(NAME LruMap COMMAND test_lru_map)
+
+    add_executable(test_mcmp_priority_queue)
+    target_sources(test_mcmp_priority_queue PRIVATE
+      tests/test_mcmp_priority_queue.cpp
+      )
+    target_link_libraries(test_mcmp_priority_queue sisl_buffer GTest::gtest)
+    add_test(NAME MPMCPriorityQueue COMMAND test_mcmp_priority_queue)
 
     if (DEFINED MALLOC_IMPL)
       if (${MALLOC_IMPL} STREQUAL "jemalloc")
