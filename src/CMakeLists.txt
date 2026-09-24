@@ -22,6 +22,7 @@ add_subdirectory(options)
 add_subdirectory(sobject)
 add_subdirectory(file_watcher)
 add_subdirectory(version)
+add_subdirectory(watchdog)
 
 find_package(folly QUIET)
 if (${folly_FOUND})
