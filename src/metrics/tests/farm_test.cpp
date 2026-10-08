@@ -178,8 +178,8 @@ class DirectAccessTest : public ::testing::TestWithParam< group_impl_type_t > {}
 
 class HistogramOverflowMetrics : public MetricsGroup {
 public:
-    HistogramOverflowMetrics(const char* inst_name, const group_impl_type_t type)
-        : MetricsGroup("HistogramOverflowGroup", inst_name, type) {
+    HistogramOverflowMetrics(const char* inst_name, const group_impl_type_t type) :
+            MetricsGroup("HistogramOverflowGroup", inst_name, type) {
         REGISTER_HISTOGRAM(overflow_histogram, "Overflow histogram", HistogramBucketsType(SteppedUpto32Buckets));
         register_me_to_farm();
     }
@@ -246,7 +246,7 @@ TEST_P(DirectAccessTest, histogramOverflowBucket) {
     EXPECT_EQ(stats.count, 3);
     EXPECT_DOUBLE_EQ(stats.average, 32.0);
 
-    const auto output = MetricsFarm::getInstance().report(ReportFormat::kTextFormat);
+    const auto output = MetricsFarm::getInstance().report(ReportFormat::TEXT_FORMAT);
     const auto& instance_name = metrics.instance_name();
     EXPECT_TRUE(has_prometheus_sample(output, "overflow_histogram_bucket", instance_name, "le=\"32\"", "2"));
     EXPECT_TRUE(has_prometheus_sample(output, "overflow_histogram_bucket", instance_name, "le=\"+Inf\"", "3"));

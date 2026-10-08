@@ -13,8 +13,8 @@ Watchdog::~Watchdog() {
 
 // DeadlineWatchdog
 
-DeadlineWatchdog::DeadlineWatchdog(std::string name, std::chrono::milliseconds limit)
-    : name_(std::move(name)), limit_(limit) {
+DeadlineWatchdog::DeadlineWatchdog(std::string name, std::chrono::milliseconds limit) :
+        name_(std::move(name)), limit_(limit) {
     anchor.store(std::chrono::steady_clock::now());
 }
 
@@ -34,8 +34,8 @@ void LeaseWatchdog::kick() { anchor.store(std::chrono::steady_clock::now()); }
 
 // BarkWatchdog
 
-BarkWatchdog::BarkWatchdog(std::string name, std::string details)
-    : name_(std::move(name)), details_(std::move(details)) {}
+BarkWatchdog::BarkWatchdog(std::string name, std::string details) :
+        name_(std::move(name)), details_(std::move(details)) {}
 
 std::optional< WatchdogFailure > BarkWatchdog::check(std::chrono::steady_clock::time_point) const {
     return WatchdogFailure{name_, details_, WatchdogSeverity::critical};
@@ -63,8 +63,7 @@ std::unique_ptr< DeadlineWatchdog > WatchdogRegistry::add_deadline(std::string n
     return dog;
 }
 
-std::unique_ptr< LeaseWatchdog > WatchdogRegistry::add_lease(std::string name,
-                                                             std::chrono::milliseconds limit) {
+std::unique_ptr< LeaseWatchdog > WatchdogRegistry::add_lease(std::string name, std::chrono::milliseconds limit) {
     auto dog = std::make_unique< LeaseWatchdog >(std::move(name), limit);
     add(dog.get());
     return dog;
