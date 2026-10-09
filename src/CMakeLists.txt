@@ -25,6 +25,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_subdirectory(file_watcher)
 endif()
 add_subdirectory(version)
+add_subdirectory(watchdog)
 
 find_package(flatbuffers QUIET)
 if (${flatbuffers_FOUND})

@@ -222,7 +222,7 @@ public:
     }
 
     void merge(const HistogramValue& other, const hist_bucket_boundaries_t& boundaries) {
-        for (size_t i{0}; i < boundaries.size(); ++i) {
+        for (size_t i{0}; i < HistogramBuckets::num_buckets(boundaries); ++i) {
             this->m_freqs[i] += other.m_freqs[i];
         }
         this->m_sum += other.m_sum;

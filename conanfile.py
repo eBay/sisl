@@ -10,7 +10,7 @@ required_conan_version = ">=2.0"
 
 class SISLConan(ConanFile):
     name = "sisl"
-    version = "14.9.0"
+    version = "14.9.2"
 
     homepage = "https://github.com/eBay/sisl"
     description = "Library for fast data structures, utilities"
@@ -98,6 +98,7 @@ class SISLConan(ConanFile):
         # transitively so package consumers resolve it without their own FetchContent.
         self.requires("stdexec/25.09", transitive_headers=True)
         self.requires("lz4/1.10.0", override=True)
+        self.requires("libcurl/[>=8.20.0]", override=True)
         if self._use_breakpad():
             self.requires("breakpad/cci.20210521")
 
@@ -145,6 +146,8 @@ class SISLConan(ConanFile):
             self.cpp.package.components["file_watcher"].libs = ["sisl_file_watcher"]
         self.cpp.build.components["version"].libdirs = ["src/version"]
         self.cpp.package.components["version"].libs = ["sisl_version"]
+        self.cpp.build.components["watchdog"].libdirs = ["src/watchdog"]
+        self.cpp.package.components["watchdog"].libs = ["sisl_watchdog"]
         self.cpp.package.components["sisl"].libs = [""]
 
         if self.options.metrics:
