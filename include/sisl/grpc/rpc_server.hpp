@@ -140,6 +140,13 @@ private:
 
 private:
     std::atomic< ServerState > m_state{ServerState::VOID};
+    // Serializes the state-check + grpc re-registration sequence in handle_rpcs() against the
+    // state flip to SHUTTING_DOWN in shutdown(), so a call can never be registered via
+    // grpc_server_request_call() after Shutdown() has been issued (such calls are silently
+    // dropped by grpc, stranding the RpcData at ref=1 forever). shutdown() releases this mutex
+    // before calling the blocking Server::Shutdown(), to avoid deadlocking against a handle_rpcs
+    // thread that needs to keep draining its completion queue for Shutdown() to return.
+    std::mutex m_shutdown_mtx;
     uint32_t m_num_threads{0};
     ::grpc::ServerBuilder m_builder;
 

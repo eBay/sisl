@@ -27,3 +27,21 @@ target_link_libraries(client_test
     ${COMMON_DEPS}
   )
   add_test(NAME Client_Test COMMAND client_test)
+
+add_executable(shutdown_race_test
+      shutdown_race_test.cpp
+      $<TARGET_OBJECTS:test_proto>
+  )
+target_link_libraries(shutdown_race_test
+    sisl_grpc
+    GTest::gmock
+  )
+add_test(NAME ShutdownRace_Test COMMAND shutdown_race_test)
+if (DEFINED ADDRESS_SANITIZER_ON AND ADDRESS_SANITIZER_ON)
+    set_tests_properties(ShutdownRace_Test PROPERTIES
+        ENVIRONMENT "ASAN_OPTIONS=detect_stack_use_after_scope=0:detect_container_overflow=0:allow_user_poisoning=0")
+elseif (DEFINED THREAD_SANITIZER_ON AND THREAD_SANITIZER_ON)
+    # Skipped under TSAN for the same reason as Auth_Test: gRPC internals (PickFirst LB,
+    # DNS resolver, transport ops) produce false-positive races invisible to TSAN.
+    set_tests_properties(ShutdownRace_Test PROPERTIES DISABLED TRUE)
+endif()
