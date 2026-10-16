@@ -129,11 +129,15 @@ void GrpcServer::handle_rpcs(uint32_t thread_num, const rpc_thread_start_cb_t& t
             // Process the rpc and refill the cq with a new rpc call
             auto new_rpc_call = static_cast< RpcTag* >(tag)->process(ok);
             if (new_rpc_call != nullptr) {
+                // Hold m_shutdown_mtx across the check-and-act below so it can't interleave with
+                // shutdown()'s state flip (see m_shutdown_mtx / shutdown() comments). Without
+                // this, shutdown() could flip the state in the gap between the check and
+                // enqueue_call_request(), and grpc_server_request_call() silently drops tags
+                // after Shutdown() — the tag would never fire, stranding the pre-listener at
+                // ref=1. ref count is 0 here (enqueue_call_request was not called), so
+                // delete directly to run the destructor and free all members.
+                std::lock_guard< std::mutex > lock{m_shutdown_mtx};
                 if (RPCHelper::has_server_shutdown(this)) {
-                    // grpc_server_request_call() silently drops tags after Shutdown() —
-                    // the tag would never fire, stranding the pre-listener at ref=1.
-                    // ref count is 0 here (enqueue_call_request was not called), so
-                    // delete directly to run the destructor and free all members.
                     delete new_rpc_call;
                 } else {
                     new_rpc_call->enqueue_call_request(*m_cqs[new_rpc_call->m_queue_idx]);
@@ -145,8 +149,18 @@ void GrpcServer::handle_rpcs(uint32_t thread_num, const rpc_thread_start_cb_t& t
 
 void GrpcServer::shutdown() {
     if (m_state.load() == ServerState::RUNNING) {
-        m_state.store(ServerState::SHUTTING_DOWN);
-
+        {
+            // Pairs with the lock in handle_rpcs(): any enqueue_call_request() that observes
+            // RUNNING either fully completes before this flip (registered while still RUNNING,
+            // safe) or this flip happens first and handle_rpcs sees SHUTTING_DOWN and skips
+            // enqueue_call_request() entirely (also safe) — the mutex rules out any interleaving
+            // between the two. We deliberately release the lock before calling the blocking
+            // Server::Shutdown() below: Shutdown() waits for handle_rpcs threads to keep draining
+            // their completion queues to retire in-flight calls, so holding m_shutdown_mtx across
+            // it would deadlock against a handle_rpcs thread blocked on the same mutex.
+            std::lock_guard< std::mutex > lock{m_shutdown_mtx};
+            m_state.store(ServerState::SHUTTING_DOWN);
+        }
         m_server->Shutdown();
         for (auto& cq : m_cqs) {
             cq->Shutdown(); // Always *after* the associated server's Shutdown()!
